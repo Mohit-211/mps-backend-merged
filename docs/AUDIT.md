@@ -476,7 +476,7 @@ Plus 1 SerpAPI place lookup per target (the client plus each competitor). That t
 | Duplicate country lists: `constants/serpCountryCode.ts` and `configs/google-countries.ts` | — | Planned P9 |
 | Duplicate timezone lists: `utils/timezone.ts` (not imported) and `constantTypes.timezones` | — | Open |
 | Duplicate OAuth client factories: `configs/oAuth2Client.ts` (function) and `configs/gbpOauthClinet.ts` (singleton, S20) | — | Planned P3/P6 |
-| `@paypal/checkout-server-sdk` client created in `configs/paypal.ts`; only `BASE_URL` is used | — | Open |
+| `@paypal/checkout-server-sdk` client created in `configs/paypal.ts`; only `BASE_URL` is used | — | Removed (Phase 1.5) |
 | Large commented-out blocks: `subscription.service.ts` (hundreds of lines), `citation.service.ts` (SerpAPI sample payloads), `reputationManagerReport.service.ts` (sample reviews containing real Google reviewer profile URLs) | — | Won't fix (out of scope), but the sample review data should not live in the repo |
 
 ---
@@ -493,7 +493,7 @@ Plus 1 SerpAPI place lookup per target (the client plus each competitor). That t
 | `http-status-codes` | no import | Removed (Phase 1.5 step 5) |
 | `fs-extra` | no import | Removed (Phase 1.5 step 5) |
 | `razorpay` | only a commented-out import in `configs/razorpay.ts` | Removed (Phase 1.5 step 5); the file is untouched |
-| `@paypal/checkout-server-sdk` | imported by `configs/paypal.ts`; the client it builds is unused, and only `BASE_URL` is used by `paypal.service.ts` | **On hold: awaiting Mohit's decision on `configs/paypal.ts`** |
+| `@paypal/checkout-server-sdk` | imported by `configs/paypal.ts`; the client it builds is unused, and only `BASE_URL` is used by `paypal.service.ts` | Removed (Phase 1.5, approved); `configs/paypal.ts` now exports only `BASE_URL` |
 | `serpapi` | becomes unused after P9 | Planned P9 |
 
 **Undeclared (phantom) dependencies:**
