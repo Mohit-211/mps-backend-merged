@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import config from './configs/config';
 import logger from './configs/logger';
 import { getAgenda, startAgenda, stopAgenda } from './configs/agenda';
-import { defineAllJobs } from './jobs';
+import { defineAllJobs, scheduleRecurringJobs } from './jobs';
 import http from 'http';
 import https from 'https';
 import fs from 'fs';
@@ -33,7 +33,9 @@ server.listen(config.essentials.port, '0.0.0.0',() => {
 // Job processing starts only in the server process (seed scripts never process jobs).
 const agenda = getAgenda();
 defineAllJobs(agenda);
-startAgenda(agenda).catch((error: Error) => logger.error(`Agenda failed to start: ${error.message}`));
+startAgenda(agenda)
+  .then(() => scheduleRecurringJobs(agenda))
+  .catch((error: Error) => logger.error(`Agenda failed to start: ${error.message}`));
 
 // Server exit operations
 const exitHandler = async () => {

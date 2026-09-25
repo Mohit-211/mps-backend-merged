@@ -77,10 +77,20 @@ describe('agenda (own connection, C25)', () => {
 		await job.remove();
 	}, 30000);
 
-	it('registers post-to-gbp through the job registry', async () => {
+	it('registers post-to-gbp, rank-run and rank-scheduler through the job registry', async () => {
 		const { defineAllJobs } = await import('../../src/jobs');
 		const names = defineAllJobs(agenda);
-		expect(names).toContain('post-to-gbp');
+		expect(names).toEqual(expect.arrayContaining(['post-to-gbp', 'rank-run', 'rank-scheduler']));
+	});
+
+	it('schedules rank-scheduler every 15 minutes as a single recurring job', async () => {
+		const { scheduleRecurringJobs } = await import('../../src/jobs');
+		await scheduleRecurringJobs(agenda);
+		await scheduleRecurringJobs(agenda); // idempotent
+		const jobs = await agenda.jobs({ name: 'rank-scheduler' });
+		expect(jobs).toHaveLength(1);
+		expect(jobs[0].attrs.repeatInterval).toBe('15 minutes');
+		await agenda.cancel({ name: 'rank-scheduler' });
 	});
 });
 
