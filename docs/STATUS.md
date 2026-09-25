@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-26, end of Phase 4._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-26, end of Phase 5 (milestone M2)._
 
 ## Product goal
 
@@ -16,9 +16,9 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 1.5 Repo hygiene | Done | `claude/phase-1.5-hygiene` | yes (`e4a7419`) | yes, before M1 |
 | 1.6 Build green | Done | `claude/phase-1.6-build-green` | yes, via `53986e0` | M1 |
 | 3 Foundations | Done | `claude/phase-3-foundations` | yes (`53986e0`) | M1 (2026-09-26) |
-| **4 Ranking engine** | **Done, awaiting approval** | `claude/phase-4-ranking-engine` | not yet | M2 |
-| 5 Ranking reports | Next | — | — | M2 |
-| 6 GBP connection | Not started | — | — | M3 |
+| 4 Ranking engine | Done | `claude/phase-4-ranking-engine` | yes (`3da12ed`) | M2 (pending) |
+| **5 Ranking reports** | **Done, awaiting approval** | `claude/phase-5-ranking-reports` | not yet | **M2 (pending)** |
+| 6 GBP connection | Next | — | — | M3 |
 | 7 GBP sync + report | Not started | — | — | M3 |
 | 8 GBP posting | Not started | — | — | M4 |
 | 9 Cleanup | Not started | — | — | M4 |
@@ -28,56 +28,58 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 
 ## Done so far
 
-- **Phase 1 audit:** 29 security findings (S1–S29) and 25 correctness findings (C1–C25) recorded with status in AUDIT.md, and all 155 routes listed in ROUTES.md.
-- **Repo hygiene and build green:** LF everywhere, a tracked lockfile, `.env.example`, dead code and unused dependencies removed, 0 TypeScript errors, `.env` loaded from `ENV_FILE` or `./.env`.
-- **Separate local database** `mps_rebuild` (Homebrew MongoDB 7.0). `MONGODB_AUTH_SOURCE` is required.
-- **Background jobs (C25 fixed):** agenda has its own connection and starts from `src/server.ts`. The registry is `src/jobs/index.ts`, and new jobs use `defineJob` (IDs-only data).
-- **Places API (New) client** `src/clients/placesClient.ts`: IDs-only search with a field-mask guard, up to 3 pages, `stopWhenFound`, `movedPlaceId`, a names search, Place Details, timeout and one retry, and call counts.
-- **Ranking engine** `src/ranking/` (Phase 4):
-  - tracker and grid points (the legacy grid math, ported)
-  - rank cells and buckets
-  - metrics and change labels, exactly as in CLAUDE.md §4
-  - an engine with a run cache (center searched once per keyword), at most 4 searches at once with 100–300 ms jitter, and competitors ranked from the same lists
-  - `estimateCalls()`, `regionFromCountry()` and the dev keyword cap
-- **Tests:** 175 pass with no API key and no network.
-- **Smoke scripts:** `smoke:agenda` (verified) and `smoke:places` (written, not run; needs the key).
+- **Audit and hygiene:** 29 security and 25 correctness findings with status (AUDIT.md), all routes listed (ROUTES.md), LF everywhere, 0 TypeScript errors, `.env` loaded from `ENV_FILE` or `./.env`.
+- **Local setup:** a separate local database, `mps_rebuild` (Homebrew MongoDB 7.0). Background jobs work (C25): agenda has its own connection, the registry is `src/jobs/index.ts`, and new jobs use `defineJob` (IDs-only data).
+- **Places API (New) client:** IDs-only search with a field-mask guard, `stopWhenFound`, `movedPlaceId`, a names search, Place Details, timeout and retry, and call counts.
+- **Ranking engine** (`src/ranking`): sample points, rank cells, metrics and change rules (CLAUDE.md §4), a run cache, a 4-slot pool, and `estimateCalls()`.
+- **Ranking reports (Phase 5):**
+  - `Location.tracking` (versioned keywords, competitors, grid, frequency) and the `RankRun` model with history
+  - the `rank-run` job: center resolution, tracker, grid, map list, change against the previous run, `api_calls`
+  - the `rank-scheduler` job every 15 minutes, with the stuck-run guard
+  - one active run per location, dev limits, and a 422 when a run would exceed `RANK_MAX_CALLS_PER_RUN`
+  - **8 endpoints** (tracking, runs, rank-tracker, grid, map-ranking), all with auth and an ownership check
+- **Demo data:** `npm run seed:rank-demo` gives the frontend real endpoints with no key. The data covers improved and declined ranks, `entered_top_60` / `dropped_out_of_top_60`, 60+ cells and an error cell.
+- **Docs:** [API.md](API.md) (every ranking endpoint with real example responses) and [LIVE_TEST.md](LIVE_TEST.md) (the first real run, step by step).
+- **Tests:** 239 pass with no API key and no network.
 
 ## Key decisions
 
 | Date | Decision |
 |---|---|
 | 2026-09-25 | Functionality first; security deferred to Phase 10 (gated). Phase 6 still builds the signed OAuth state and encrypted tokens. |
-| 2026-09-25 | LF line endings everywhere. Local development uses its own `mps_rebuild` database; the server gets a fresh database after the rebuild. |
-| 2026-09-26 | Ranking uses **Places API (New) Text Search, IDs-only** (free Essentials SKU). Names (Pro SKU) are used only for the Map Ranking list, 1 page at the center. |
-| 2026-09-26 | Maximum depth is 60; a place not found is shown as **"60+"**. Averages count `not_found` as **61**; `error` cells are **excluded**. |
-| 2026-09-26 | One **fixed keyword set per location** (max 20), versioned; changes are only compared within the same `keywords_version`. |
-| 2026-09-26 | Keyword-level change labels: `entered_top_60` / `dropped_out_of_top_60` come from `foundRate` going 0 → >0 or >0 → 0; otherwise the change is the `avgRank` delta. Cell-level change follows §4. |
-| 2026-09-26 | **Push only at milestones** M1–M4. Each phase ends with a local merge that Mohit approves. |
-| 2026-09-26 | **No real Google API calls until Mohit says so.** All tests use mocks and fixtures. |
+| 2026-09-25 | LF line endings. Local development uses its own `mps_rebuild` database; the server gets a fresh database after the rebuild. |
+| 2026-09-26 | Ranking uses **Places API (New) Text Search, IDs-only** (free SKU). Names (Pro SKU) are used only for the Map Ranking list, 1 call per keyword. |
+| 2026-09-26 | Maximum depth is 60 (**"60+"**). Averages count `not_found` as **61** and **exclude errors**. |
+| 2026-09-26 | One **fixed keyword set per location** (max 20), versioned; no change is shown across keyword versions. Keyword-level entered/dropped labels come from `foundRate` 0 ↔ >0 (CLAUDE.md §4). |
+| 2026-09-26 | One active run per location. In development: 2 keywords and 3×3. Runs above `RANK_MAX_CALLS_PER_RUN` (3200 IDs-only calls) are rejected. |
+| 2026-09-26 | **Push only at milestones** M1–M4. **No real Google API calls until Mohit says so.** |
 
 ## Open items (owner: Mohit)
 
-1. **Approve Phase 4 and merge it** (the command is in PROGRESS.md).
-2. **Add `GOOGLE_PLACE_API_KEY`** (Places API New, restricted to that API, with a budget cap) before the live test. Then run `npm run smoke:places` yourself.
-3. **Rotate the DataForSEO credential** (it is in git history on GitHub, AUDIT S13).
-4. **GBP API access approval** (quota > 0) before Phase 6.
-5. **ToS decision on storing place names** (`STORE_PLACE_NAMES`, Phase 5) and on competitor Place Details (Phase 7).
-6. **Security Phase 10:** deferred; needs explicit approval and an item list.
+1. **Approve Phase 5, merge, and push M2.** The commands are in PROGRESS.md.
+2. **Add `GOOGLE_PLACE_API_KEY`** (Places API New, restricted, with a budget cap), then follow [LIVE_TEST.md](LIVE_TEST.md): step 1 is `smoke:places` (1 call); step 2 is 1 location × 2 keywords × 3×3 (26–78 IDs-only, 2 Pro, 0–1 Details calls).
+3. **ToS decision on business names:** `STORE_PLACE_NAMES` (store them, the current default, or resolve them live with `?resolveNames=true`). The same question applies to competitor Place Details in Phase 7.
+4. **Rotate the DataForSEO credential** (it is in git history on GitHub, AUDIT S13).
+5. **GBP API access approval** (quota > 0) before Phase 6.
+6. **Security Phase 10:** deferred. The new ranking endpoints already check ownership; the legacy ones do not (S15).
 
 ## Next up
 
-**Phase 5, ranking reports** (CLAUDE.md §9). It starts in plan mode.
-- **Location** gets `tracking` settings: keywords (versioned), competitors, grid size and spacing, frequency, and next/last run.
-- **`RankRun` model** (`rank_runs`), with history kept.
-- **`rank-run` job:** resolves the center, builds targets, runs tracker and grid points through the engine, builds the map list (names search, 1 page), computes metrics and change against the previous comparable run, and records `api_calls`.
-- **`rank-scheduler` job**, every 15 minutes.
-- **Endpoints:** `PUT/GET tracking`, `POST/GET rank-runs`, `GET rank-tracker`, `GET grid`, `GET map-ranking`. All require user auth and ownership.
-- **M2 deliverables:** `docs/API.md` (example responses built from fixtures) and a live-test checklist (the smoke script first, then 1 location × 2 keywords × a 3×3 grid, which is 26–78 IDs-only calls plus 2 Pro). Then the push.
+**Phase 6, GBP connection** (CLAUDE.md §10). It starts in plan mode and needs GBP API access approval first.
+- Signed, one-time OAuth `state` in an `OAuthState` model; the `business.manage` scope only.
+- `tokenCrypto` (AES-256-GCM) and encrypted token storage, moved here from Phase 3.
+- `gbpClient` on `src/clients/http.ts`, with token refresh.
+- Account and location discovery across **all** accounts, with pagination.
+- Binding to our Location, including `place_id` from `metadata.placeId`.
+- C12: a real unbind.
+
+**Frontend (can start now):** build the three ranking pages against `docs/API.md`, using `npm run seed:rank-demo`.
 
 ## How to run
 
 See [OPERATIONS.md](OPERATIONS.md) for:
-- setup and `.env`
-- local MongoDB (`mps_rebuild`)
+- setup and local MongoDB (`mps_rebuild`)
 - `npm run dev`, `npm test` and `npm run build`
+- `npm run seed:rank-demo` (demo data, no key)
+- the ranking jobs
 - the smoke scripts: `smoke:agenda` (free), and `smoke:places` (1 Places call; Mohit only)

@@ -97,6 +97,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
 - Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` (`defineAllJobs`) and agenda is started from `src/server.ts` after `listen`. New jobs use `src/jobs/defineJob.ts` (`defineJob` / `scheduleJob`, IDs-only data). The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
+- Ranking API (Phase 5): `/api/v1/locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}` (see `docs/API.md`). Jobs `rank-run` and `rank-scheduler`. Model `RankRun` (`rank_runs`) and `Location.tracking`.
 - Clients: `src/clients/http.ts` (transport, 15 s timeout, 1 retry, safe errors) and `src/clients/placesClient.ts` (Places API New; `createPlacesClient()` for tests, `placesClient` default instance). `gbpClient` comes in Phase 6.
 - Tests: `tests/` mirrors `src/`; fixtures in `tests/fixtures/`; helpers `tests/helpers/fakeTransport.ts` and `memoryMongo.ts`.
 - Production runs via pm2 with `instances: "max"` (cluster mode). Anything using in-memory state (node-cache, rate-limit memory store, node-cron) runs once **per instance**. Jobs must use agenda (Mongo-locked), never node-cron.
@@ -324,6 +325,27 @@ Unit tests: points geometry (distances within 1%), metrics edge cases (all not_f
 
 ## 9. PHASE 5 — Ranking reports (three pages, one run)
 
+**Built** on `claude/phase-5-ranking-reports` (milestone M2). As built, where it differs from or adds to the spec below:
+- **Code map:**
+  - `src/services/ranking/`: `trackingSettings`, `runPlan`, `tracking.service`, `rankRun.service` (enqueue), `rankRunExecutor` (the job body), `scheduler.service`, `rankReports.service`, `resolveNames`
+  - `src/jobs/rankRun.job.ts`, `rankScheduler.job.ts`
+  - `src/routes/v1/common/ranking.route.ts` (mounted at `/locations`)
+  - `src/middlewares/ranking`, `src/controllers/ranking`
+- **RankRun:**
+  - The §9.2 field `errors` is named **`run_errors`**, because `errors` is reserved on Mongoose documents.
+  - Added fields: `trigger`, `active` (a unique partial index enforces one queued or running run per location), `started_at`, `finished_at`, `duration_ms`, `failure_reason`, `center_source`, a `config` snapshot, `estimate`, `dev_capped`.
+- **Enqueue:**
+  - 400 without `place_id`, keywords, or a US/CA country.
+  - In development: `RANK_DEV_MAX_KEYWORDS` and a forced 3×3 grid.
+  - **422** when `estimateCalls().idsOnly.max` exceeds `RANK_MAX_CALLS_PER_RUN` (default 3200).
+  - An active run is returned with `existing: true`.
+- **Stuck guard** (in `rank-scheduler`): runs `running` for more than 30 minutes, or `queued` for more than 30 minutes, are marked `failed`. Scheduler claims are a compare-and-set on `next_run_at`.
+- **Extra endpoint:** `GET /api/v1/locations/:locationId/rank-runs` (paginated history). The page endpoints accept `?runId=`, return 404 before the first completed run and 409 for an unfinished run. Ownership is checked on every route; another user's location gives 404.
+- **Names:** `STORE_PLACE_NAMES` (default true). When false, names are null, and `GET map-ranking?resolveNames=true` resolves them live with Place Details (see §15). This is **pending Mohit's ToS decision**.
+- **Demo data:** `npm run seed:rank-demo` (development + `mps_rebuild` only, offline client). Endpoint reference: `docs/API.md`; first live run: `docs/LIVE_TEST.md`.
+
+Original spec:
+
 ### 5.1 Location model additions
 ```ts
 tracking: {
@@ -534,7 +556,7 @@ Log `api_calls` on every run/report so real costs can be measured.
 - Touch out-of-scope modules (except Phase 10 items if approved, and minimal shared-file edits called out explicitly).
 - Call paid APIs in unit tests, or run full-size grids during development.
 - Add any field to the IDs-only Text Search field mask.
-- Fetch third-party data on a GET page view (all heavy work happens in jobs).
+- Fetch third-party data on a GET page view (all heavy work happens in jobs). The only exception is `GET map-ranking?resolveNames=true`, which works only when `STORE_PLACE_NAMES=false` and the caller explicitly asks for it (pending a ToS decision).
 - Store secrets in code, logs, fixtures, or docs.
 - Implement Q&A, organic ranking, DataForSEO, Moz, or SerpAPI.
 - Start the next phase without approval.

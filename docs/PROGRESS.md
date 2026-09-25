@@ -12,8 +12,8 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 1.5: Repo hygiene | `claude/phase-1.5-hygiene` | Done. Merged (`e4a7419`) and pushed. |
 | 1.6: Build green | `claude/phase-1.6-build-green` | Done. Merged into `claude/rebuild` through the Phase 3 merge `53986e0` (no separate merge commit). Pushed at M1. |
 | 3: Foundations | `claude/phase-3-foundations` | Done. Merged `53986e0`. **Pushed at M1 on 2026-09-26.** |
-| 4: Ranking engine | `claude/phase-4-ranking-engine` | Done. Awaiting approval and local merge. Pushes at M2. |
-| 5: Ranking reports | — | Not started |
+| 4: Ranking engine | `claude/phase-4-ranking-engine` | Done. Merged `3da12ed`. Pushes at M2. |
+| 5: Ranking reports | `claude/phase-5-ranking-reports` | Done. **Milestone M2**: awaiting approval, merge and push. |
 | 6: GBP connection fixes | — | Not started (includes signed OAuth state, encrypted tokens, `gbpClient`, token crypto deferred from Phase 3, and C12) |
 | 7: GBP data sync and report | — | Not started |
 | 8: GBP posting | — | Not started |
@@ -314,3 +314,66 @@ git merge --no-ff claude/phase-4-ranking-engine -m "Phase 4 — ranking engine"
 ```
 
 No push: the next push is **M2**, after Phase 5.
+
+### Closed
+Approved by Mohit and merged into `claude/rebuild` as `3da12ed` (not pushed; it pushes with M2).
+
+---
+
+## Phase 5: Ranking reports (milestone M2)
+
+Branch `claude/phase-5-ranking-reports`, from `claude/rebuild` @ `3da12ed`. Built per CLAUDE.md §9 plus Mohit's 8 points. There is no API key, so **every test and the demo use offline clients: 0 Google API calls.**
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `da2605e` | CLAUDE.md §4: per-cell, per-keyword (accepted interpretation) and overall change rules. |
+| `8e5303c` | Models: `Location.tracking` (with a scheduler index) and `RankRun` (status flow, the `active` flag with a unique partial index giving one active run per location, timings, config snapshot, estimate, tracker, grid, mapList, overall, `api_calls`, `run_errors`). Config: `RANK_MAX_CALLS_PER_RUN` (3200), `STORE_PLACE_NAMES` (true). |
+| `5b09218` | Tracking rules (keyword normalise and dedupe, an order-insensitive set compare so the version bumps only on a real change, competitor rules, next-run maths), `runPlan` (dev limits, estimate, cap), and the tracking service. 19 tests. |
+| `6454928` | Enqueue: preconditions, an active run returned instead of a duplicate (race-safe), 422 over the cap, job data `{ run_id }`. The `rank-run` executor: atomic claim, center from lat/lng or 1 Place Details (`location`), one engine over tracker ∪ grid, the map list (names search), summaries, change against the previous run with the same `keywords_version`, and done / partial / failed. Engine `getErrors()`. `scriptedPlaces` (the offline client). 20 tests. |
+| `7014f51` | The `rank-run` job and the `rank-scheduler` job (stuck guard at 30 minutes, due weekly and monthly locations, compare-and-set claims, no catch-up bursts, recurring every 15 minutes). 18 tests. |
+| `db11385` | API: 8 endpoints with auth, ownership (404) and Joi validation; report views; `resolveNames` (opt-in only). supertest route tests (18). |
+| `19195b1` | `npm run seed:rank-demo` and the demo scenario (offline). |
+| this commit | `docs/API.md`, `docs/LIVE_TEST.md`, ROUTES (163 routes), OPERATIONS (demo, jobs), AUDIT (9 legacy findings superseded; C7 fixed for ranking; C21 and C23 partial), CLAUDE.md §9 "as built", §15, §3, STATUS rewrite, this entry. |
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm ci`, `npm run build` | Pass. **0 TypeScript errors.** |
+| `npm run lint` | 98 errors (unchanged). **No new errors.** All new and changed files lint-clean (checked directly, because the project glob does not reach `src/services/ranking` and similar folders). No `any` in the new code. |
+| `npm test` (no key) | **239/239 pass** in 16 suites, repeated runs, no worker warnings. |
+| Required tests | Full run of 2 keywords × 3×3 (26 IDs-only + 2 Pro, center shared); change across two runs, including `entered_top_60` and `dropped_out_of_top_60`; keyword edit gives a new version and no change; partial and failed runs on injected errors; one-active-run guard (3 concurrent requests create 1 run); scheduler picks, advances and claims atomically, plus the stuck guard; ownership (another user's location gives 404 on all 8 routes); 422 cost-cap rejection. |
+| `npm run dev` | "Agenda jobs defined: post-to-gbp, rank-run, rank-scheduler"; "Recurring job scheduled: rank-scheduler every 15 minutes"; the first scheduler tick finished cleanly. |
+| `seed:rank-demo` | Refuses when `NODE_ENV` is not `development` and when the database is not `mps_rebuild` (both tested). Creates 3 runs (done, done, partial). Every endpoint was called live with the demo token (200s, and 400, 401 and 202-existing where expected). |
+
+**API calls consumed:** 0. A development "run now" made while capturing examples failed immediately with "GOOGLE_PLACE_API_KEY not set", before any network call, as designed. The demo data was re-seeded afterwards.
+
+### Decisions
+- **`run_errors`** instead of `errors` on RankRun (a reserved Mongoose name).
+- **One active run per location** is enforced by a unique partial index, so two "run now" requests cannot both create a run.
+- **Map Ranking names:** stored by default (`STORE_PLACE_NAMES=true`). When false, `GET map-ranking?resolveNames=true` resolves them live, which is the only exception to "no third-party calls on a page view". **The ToS decision is pending (Mohit).**
+- **Demo seed:** uses production limits (3 keywords, 5×5) because its client is offline. Real development runs stay at 2 keywords and 3×3.
+- **Ownership middleware:** puts the location on `res.locals`, not `req.body`, because the body is client-controlled.
+- **Shared or out-of-scope files touched:** `models/location.model.ts` (the `tracking` addition only), `models/index.ts` (export), `routes/v1/common/index.ts` (one mount), `server.ts` (the recurring-jobs line).
+- **Security hygiene:** my local MongoDB password was replaced with `<local-db-password>` in OPERATIONS.md and LIVE_TEST.md. It had been in OPERATIONS.md since Phase 1.6, and it is local-only. During development, one seed run printed the local demo user's password and token to my session; that demo user was deleted and recreated, so those credentials no longer work.
+
+### M2: merge and push (run by Mohit)
+
+```sh
+git switch claude/rebuild
+git merge --no-ff claude/phase-5-ranking-reports -m "Phase 5 — ranking reports (M2)"
+git push -u origin claude/rebuild claude/phase-4-ranking-engine claude/phase-5-ranking-reports
+```
+
+### Developer summary (M2)
+
+> **MyPageSEO backend rebuild — milestone M2 (ranking reports)**
+> Branch `claude/rebuild`. `main` is untouched.
+>
+> - **What's new:** the backend for the three ranking pages. The endpoints are `/api/v1/locations/:locationId/{tracking, rank-runs, rank-tracker, grid, map-ranking}`. Every endpoint needs a user token and only works on your own locations. Full reference with real responses: `docs/API.md`.
+> - **How it works:** "Run now" (`POST …/rank-runs`) queues a background job. It runs Google Places searches around the business, then stores one `RankRun` that feeds all three pages. A scheduler job reruns weekly and monthly locations. Runs are capped by an API-call estimate.
+> - **Frontend work without an API key:** set up `.env` and local MongoDB (`docs/OPERATIONS.md`), then run `npm run seed:rank-demo`. It creates a demo user, a location and 3 weekly runs, and prints a login, an access token and `curl` examples. Run `npm run dev`, then call the endpoints with `Authorization: Bearer <token>`. The data includes improving and declining ranks, "entered / dropped out of top 60", "60+" cells and one error cell. Re-run the seed any time for fresh data.
+> - **Checks:** `npm test` (239 tests, no key or network needed), `npm run build` (0 TypeScript errors).
+> - **Not yet:** no real Google searches have run. The first live test follows `docs/LIVE_TEST.md` once the API key is added. Legacy `/rank-tracker`, `/local-search-grid` and `/local-map-ranking` stay until the frontend switches (Phase 9).

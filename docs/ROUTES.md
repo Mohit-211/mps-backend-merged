@@ -1,7 +1,8 @@
 # Route inventory
 
-- **Baseline:** commit `62240ac`.
-- **Totals:** 155 live routes. 95 unauthenticated, 56 user token, 2 refresh token, 2 admin token.
+- **Baseline:** commit `62240ac`, plus the Phase 5 ranking routes (marked **new**).
+- **Totals:** 163 live routes. 95 unauthenticated, 64 user token, 2 refresh token, 2 admin token.
+- **Details:** request and response shapes for the new ranking routes are in [API.md](API.md).
 - **Findings column:** IDs point to [AUDIT.md](AUDIT.md) (S = security, C = correctness).
 - **Middleware order, services and models:** see AUDIT.md §1.
 
@@ -85,7 +86,22 @@ Keep this file in sync when routes are added or removed. New Phase 5+ endpoints 
 | GET | `/api/v1/locations/google-locations/:name` | **none** | Get Google Locations | S18 |
 | GET | `/api/v1/locations/google-locations/details/:placeId` | **none** | Get Google Location Details | S18 |
 
-### Ranking (in scope)
+### Ranking reports: new (Phase 5)
+
+Every route also checks **location ownership**: another user's location returns 404.
+
+| Method | Path | Auth | Purpose | Findings |
+|---|---|---|---|---|
+| GET | `/api/v1/locations/:locationId/tracking` | user + owner | Ranking settings (keywords, competitors, grid, frequency) and the cost estimate | |
+| PUT | `/api/v1/locations/:locationId/tracking` | user + owner | Update ranking settings (bumps `keywords_version` when the keyword set changes) | |
+| POST | `/api/v1/locations/:locationId/rank-runs` | user + owner | "Run now": queue a rank run (one active run per location; 422 over the call cap) | |
+| GET | `/api/v1/locations/:locationId/rank-runs` | user + owner | Run history (paginated) | |
+| GET | `/api/v1/locations/:locationId/rank-runs/:runId` | user + owner | Run status, API calls, errors | |
+| GET | `/api/v1/locations/:locationId/rank-tracker` | user + owner | Rank Tracker page (`?runId=`) | |
+| GET | `/api/v1/locations/:locationId/grid` | user + owner | Local Search Grid page (`?keyword=&runId=`) | |
+| GET | `/api/v1/locations/:locationId/map-ranking` | user + owner | Local Map Ranking page (`?keyword=&runId=&resolveNames=`) | |
+
+### Ranking (legacy; replaced by the routes above, deleted in Phase 9)
 
 | Method | Path | Auth | Purpose | Findings |
 |---|---|---|---|---|

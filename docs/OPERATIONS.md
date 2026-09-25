@@ -43,7 +43,7 @@ brew trust --formula mongodb/brew/mongodb-community@7.0 mongodb/brew/mongodb-dat
 brew install mongodb-community@7.0
 brew services start mongodb/brew/mongodb-community@7.0
 mongosh mps_rebuild --quiet --eval \
-  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_rebuild"}]})'
+  'db.createUser({user:"mps_local",pwd:"<local-db-password>",roles:[{role:"readWrite",db:"mps_rebuild"}]})'
 ```
 
 `.env`:
@@ -51,7 +51,7 @@ mongosh mps_rebuild --quiet --eval \
 ```
 MONGODB_URL=mongodb://127.0.0.1:27017/mps_rebuild
 MONGODB_USER=mps_local
-MONGODB_PASSWORD=mps_local_pw
+MONGODB_PASSWORD=<local-db-password>
 MONGODB_AUTH_SOURCE=mps_rebuild
 ```
 
@@ -60,7 +60,7 @@ MONGODB_AUTH_SOURCE=mps_rebuild
 ```sh
 docker run -d --name mps-mongo -p 127.0.0.1:27017:27017 mongo:7
 docker exec mps-mongo mongosh mps_rebuild --quiet --eval \
-  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_rebuild"}]})'
+  'db.createUser({user:"mps_local",pwd:"<local-db-password>",roles:[{role:"readWrite",db:"mps_rebuild"}]})'
 ```
 
 Use the same `.env` values.
@@ -92,6 +92,37 @@ TEST_LOGS=1 npm test   # show winston output while testing
 
 - Tests never need a Places API key or network access. They load the committed `.env.example` (placeholders), unset `GOOGLE_PLACE_API_KEY`, and replay hand-written fixtures from `tests/fixtures/`.
 - Integration tests use an in-memory MongoDB (`mongodb-memory-server`, pinned to 7.0.14 in `package.json`). The binary (about 65 MB) downloads on the first run. Set `MONGOMS_SYSTEM_BINARY=/opt/homebrew/bin/mongod` to use the local server's binary instead.
+
+## Demo ranking data (frontend work, no API key)
+
+```sh
+npm run seed:rank-demo
+```
+
+- **Creates:** a demo user (`rank-demo@mypageseo.test`), a Toronto plumber location (3 keywords, 2 competitors, 5×5 grid, weekly) and **3 weekly RankRuns** in `mps_rebuild`.
+- **How:** it runs the real enqueue and rank-run code against an **offline** Places client (`src/ranking/demo/demoPlaces.ts`), so it makes **0 Google calls**.
+- **Output:** a login, an access token (valid 7 days), the location id, and `curl` examples.
+- **What the data covers:**
+  - ranks improving and declining
+  - `entered_top_60` and `dropped_out_of_top_60`
+  - "60+" grid corners
+  - one error cell, so the latest run is `partial`
+- **Guards:** it **refuses to run** unless `NODE_ENV=development` **and** the connected database is `mps_rebuild`.
+- **Re-running:** deletes and recreates only the demo user's data, with a new password and token.
+- Endpoint reference: [API.md](API.md). First real run with a key: [LIVE_TEST.md](LIVE_TEST.md).
+
+## Ranking jobs
+
+| Job | When | What |
+|---|---|---|
+| `rank-run` | Queued by "run now" (`POST /locations/:id/rank-runs`) or by the scheduler. Job data is `{ run_id }` only. Concurrency 2 per process, 35-minute lock. | Runs one RankRun: center, then tracker and grid searches, then the map list, metrics, change, and save. Logs `rank-run <id>: <status> ids_only=… pro=… details=…`. |
+| `rank-scheduler` | Every 15 minutes (`agenda.every`), one process at a time | Fails runs that have been `running` for more than 30 minutes, or `queued` for more than 30 minutes. Enqueues due `weekly` / `monthly` locations that have at least one keyword, and advances their `next_run_at`. `manual` locations are never scheduled. |
+
+**Limits**
+- One queued or running run per location, enforced by a unique index.
+- A run is rejected (422) when its estimated maximum IDs-only calls exceed `RANK_MAX_CALLS_PER_RUN` (default 3200).
+- In development, runs use at most `RANK_DEV_MAX_KEYWORDS` (2) keywords and a 3×3 grid.
+- `STORE_PLACE_NAMES` (default `true`) controls whether Map Ranking business names are stored.
 
 ## Smoke scripts
 
