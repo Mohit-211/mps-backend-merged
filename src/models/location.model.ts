@@ -7,6 +7,21 @@ import {
 import httpStatus from "http-status";
 import { ApiError } from "../utils";
 
+export type TrackingFrequency = 'weekly' | 'monthly' | 'manual';
+
+/** Ranking settings for one location (CLAUDE.md §9.1). One fixed keyword set, versioned. */
+export interface ILocationTracking {
+  keywords: { text: string; normalized: string }[];
+  keywords_version: number;
+  keywords_updated_at: Date | null;
+  competitors: string[];
+  grid: { size: number; spacing_km: number };
+  frequency: TrackingFrequency;
+  next_run_at: Date | null;
+  last_run_at: Date | null;
+  last_error: string | null;
+}
+
 export interface ILocation extends Document {
   name: string;
   address: string;
@@ -28,11 +43,33 @@ export interface ILocation extends Document {
   updated_by?: Schema.Types.ObjectId;
   deleted_at?: Date;
   deleted_by?: Schema.Types.ObjectId;
+  tracking?: ILocationTracking;
 }
 
 interface IModelLocation extends Model<ILocation> {
   toggleIsActiveById(locationId: string): Promise<string>;
 }
+
+const trackingSchema = new Schema<ILocationTracking>(
+  {
+    keywords: {
+      type: [{ _id: false, text: { type: String, required: true }, normalized: { type: String, required: true } }],
+      default: [],
+    },
+    keywords_version: { type: Number, default: 1 },
+    keywords_updated_at: { type: Date, default: null },
+    competitors: { type: [String], default: [] },
+    grid: {
+      size: { type: Number, enum: [3, 5, 7], default: 5 },
+      spacing_km: { type: Number, min: 0.25, max: 5, default: 1 },
+    },
+    frequency: { type: String, enum: ['weekly', 'monthly', 'manual'], default: 'manual' },
+    next_run_at: { type: Date, default: null },
+    last_run_at: { type: Date, default: null },
+    last_error: { type: String, default: null },
+  },
+  { _id: false }
+);
 
 const locationSchema = new Schema<ILocation>(
   {
@@ -128,11 +165,18 @@ const locationSchema = new Schema<ILocation>(
       type: Schema.Types.ObjectId,
       default: null,
     },
+    tracking: {
+      type: trackingSchema,
+      default: undefined,
+    },
   },
   {
     collection: "locations",
   }
 );
+
+// Rank scheduler: due weekly/monthly locations.
+locationSchema.index({ "tracking.frequency": 1, "tracking.next_run_at": 1 });
 
 locationSchema.plugin(globalQueryFilters);
 locationSchema.plugin(toJSON);

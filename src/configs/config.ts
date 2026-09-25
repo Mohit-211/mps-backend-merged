@@ -61,6 +61,8 @@ const envVarsSchema = Joi.object({
 	RANK_MAX_KEYWORDS: Joi.number().integer().min(1).max(50).default(20),
 	RANK_TRACKER_OFFSET_KM: Joi.number().min(0.1).max(20).default(1.5),
 	RANK_DEV_MAX_KEYWORDS: Joi.number().integer().min(1).max(20).default(2),
+	RANK_MAX_CALLS_PER_RUN: Joi.number().integer().min(1).default(3200),
+	STORE_PLACE_NAMES: Joi.boolean().default(true),
 
 	SERP_API_KEY: Joi.string(),
 	SERP_API_TIMEOUT: Joi.number(),
@@ -210,6 +212,8 @@ interface Config {
 		maxKeywords: number;
 		trackerOffsetKm: number;
 		devMaxKeywords: number;
+		maxCallsPerRun: number;
+		storePlaceNames: boolean;
 	};
 
 	company: {
@@ -323,6 +327,8 @@ const config: Config = {
 		maxKeywords: envVars.RANK_MAX_KEYWORDS,
 		trackerOffsetKm: envVars.RANK_TRACKER_OFFSET_KM,
 		devMaxKeywords: envVars.RANK_DEV_MAX_KEYWORDS,
+		maxCallsPerRun: envVars.RANK_MAX_CALLS_PER_RUN,
+		storePlaceNames: envVars.STORE_PLACE_NAMES,
 	},
 
 	dataForSeo: {
