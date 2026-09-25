@@ -487,14 +487,14 @@ Plus 1 SerpAPI place lookup per target (the client plus each competitor). That t
 
 **Unused dependencies:**
 
-| Package | Evidence |
-|---|---|
-| `http-proxy-middleware` | no import |
-| `http-status-codes` | no import |
-| `fs-extra` | no import |
-| `razorpay` | only a commented-out import |
-| `@paypal/checkout-server-sdk` | imported only by `configs/paypal.ts`, and the client it builds is unused |
-| `serpapi` | becomes unused after P9 |
+| Package | Evidence | Status |
+|---|---|---|
+| `http-proxy-middleware` | no import | Removed (Phase 1.5 step 5) |
+| `http-status-codes` | no import | Removed (Phase 1.5 step 5) |
+| `fs-extra` | no import | Removed (Phase 1.5 step 5) |
+| `razorpay` | only a commented-out import in `configs/razorpay.ts` | Removed (Phase 1.5 step 5); the file is untouched |
+| `@paypal/checkout-server-sdk` | imported by `configs/paypal.ts`; the client it builds is unused, and only `BASE_URL` is used by `paypal.service.ts` | **On hold: awaiting Mohit's decision on `configs/paypal.ts`** |
+| `serpapi` | becomes unused after P9 | Planned P9 |
 
 **Undeclared (phantom) dependencies:**
 - `moment-timezone` is imported by `userAuth.service.ts` and `gbpPostSchedular.service.ts` but is not in `package.json`. It resolves only because another package installs it.
