@@ -27,12 +27,12 @@ All three ranking pages are powered by **one ranking engine** and **one fixed ke
 - GBP: OAuth connection, GBP data sync, GBP audit/report, GBP posting, related jobs.
 - Location model: only the additions defined in this file.
 - Shared infrastructure these features need: config, Google API clients, agenda jobs, logging, tests.
-- Security fixes, **only in Phase 2 and only after explicit approval** (see §6).
+- Security fixes, **only in Phase 10 and only after explicit approval** (see §13a). Exception: Phase 6 builds the signed OAuth state and encrypted token storage as part of GBP.
 
 ### OUT of scope (do not modify, do not refactor, do not reformat)
 - Citations (all `citation*` files and models), blog, blog categories, FAQ, support, contact-us, white-label, countries/states/cities, languages, timezones, roles, business categories.
-- Payments and subscriptions (Square, PayPal, Razorpay, coupons, plans, credits), **except** the security items listed in Phase 2 if approved.
-- Admin panel features, except the Phase 2 security items if approved.
+- Payments and subscriptions (Square, PayPal, Razorpay, coupons, plans, credits), **except** the security items listed in Phase 10 if approved.
+- Admin panel features, except the Phase 10 security items if approved.
 
 If an in-scope change *requires* touching an out-of-scope file (e.g. a shared util or `src/models/index.ts` export), make the smallest possible change and call it out explicitly in the phase summary.
 
@@ -63,6 +63,8 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - External API calls are wrapped in a client module that can be mocked; unit tests never hit the network.
 
 ### Phase gates
+Phase order: 1 → 1.5 → 1.6 → 3 Foundations → 4 Ranking engine → 5 Ranking reports → 6 GBP connection → 7 GBP sync + report → 8 GBP posting → 9 Cleanup → 10 Security (gated). There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+
 At the end of every phase:
 1. Stop.
 2. Write/update `docs/PROGRESS.md` with: what changed, files touched, decisions made, open questions, API calls consumed.
@@ -84,7 +86,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
 - Mongo + agenda: `src/configs/mongoConnection.ts` exports `agenda` (processEvery 1 minute). `src/configs/agenda.ts` is **empty**. The only agenda job today is `post-to-gbp` in `src/jobs/postToGbp.ts`.
 - Production runs via pm2 with `instances: "max"` (cluster mode). Anything using in-memory state (node-cache, rate-limit memory store, node-cron) runs once **per instance**. Jobs must use agenda (Mongo-locked), never node-cron.
-- Config: `src/configs/config.ts` (Joi-validated env). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
+- Config: `src/configs/config.ts` (Joi-validated env, loaded from `ENV_FILE` if set, else `./.env` in the working directory; see `docs/OPERATIONS.md`). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
 - OAuth: `src/configs/oAuth2Client.ts` exports a **function** `oAuth2Client(type)`; GBP and Analytics clients differ. Tokens stored in `UserAuth` model (`access_token`, `refresh_token`, plaintext). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`).
 - Location model (`src/models/location.model.ts`): `name, city, state, country, lat, lng, mobile, place_id, website_URL, created_by, is_active`.
 - Old ranking: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (`generateGrid()` math is correct and reusable), `helpers/localMapRankingReport.ts`, `services/common/{rankTracker,localSearchGrid,localMapRankingReport}.service.ts`, `services/common/serp.ts` (dead), matching middlewares/models/routes.
@@ -200,27 +202,24 @@ Branch `claude/phase-1.5-hygiene`, one commit per step. No behaviour changes. Co
    - `models/citationPayment.model.ts`
 
    `unbindGoogleBusinessProfileWithUser` is kept on purpose: it is a bug, recorded as C12.
-5. **Unused dependencies removed:** `http-proxy-middleware`, `http-status-codes`, `fs-extra`, `razorpay`. `@paypal/checkout-server-sdk` is **on hold**: `configs/paypal.ts` imports it, and Mohit decides whether to remove it.
+5. **Unused dependencies removed:** `http-proxy-middleware`, `http-status-codes`, `fs-extra`, `razorpay`. `@paypal/checkout-server-sdk` was removed after Mohit approved it; `configs/paypal.ts` now exports only `BASE_URL`. `project-tree.txt` was deleted.
 
-The pre-existing build errors (46 TypeScript errors, see AUDIT §0) are not fixed in this phase.
+The pre-existing build errors (46 TypeScript errors, see AUDIT §0) were fixed in Phase 1.6.
+
+## 5b. PHASE 1.6 — Build green (approved)
+
+Branch `claude/phase-1.6-build-green`. Type-level fixes only; nothing that changes behaviour.
+
+- All 46 TypeScript errors fixed. `mongoFunctions` is now generic over the model type, and `getKeywordMovmentData` (never called) uses the `oAuth2Client()` factory.
+- `.env` is loaded from `ENV_FILE`, else `./.env` in the working directory. The build no longer copies `.env`. pm2 must start from the repo root (`docs/OPERATIONS.md`).
+- DataForSEO credentials moved to the optional `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` env vars.
+- Local MongoDB via Docker (`mps-mongo`, `mongo:7`). See `docs/PROGRESS.md` for status.
 
 ---
 
-## 6. PHASE 2 — Security hardening (GATED: only if Mohit explicitly approves)
+## 6. (moved) Security hardening
 
-Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S15). Apply minimal, targeted fixes:
-
-- Auth guards: add `adminAuthMiddleware.validateAdminJWTToken` (router-level `router.use(...)` where a whole router is admin-only; per-route otherwise). Admin creation additionally requires super-admin role.
-- `/api/v1/logs`: admin-only or removed. `/system/*`: admin-only.
-- Rate limiter mounted on `/api/v1/user/auth` and `/api/v1/admin/auth`; `app.set('trust proxy', 1)`.
-- `mongoose.set('sanitizeFilter', true)` before connect.
-- Multer: remove global mount; apply per route after auth; limits `{ fileSize: 10MB, files: 10 }`.
-- Remove wildcard CORS middleware; full `helmet()`; drop polyfill.io; JSON/urlencoded limit `1mb`.
-- PayPal webhook: verify via `POST {BASE_URL}/v1/notifications/verify-webhook-signature` with `PAYPAL_WEBHOOK_ID`.
-- IDOR: fetch middlewares filter by `created_by: user._id`.
-- Delete `utils/fileEncryption.ts`; remove hardcoded credentials.
-
-Each fix = its own commit. Add a regression test per auth fix (request without token → 401). **Gate.**
+Security work is deferred until the rebuild features are done. It is now **Phase 10**, see §13a. Do not start it before Phases 3–9 are done and Mohit explicitly approves it.
 
 ---
 
@@ -361,6 +360,8 @@ Integration tests (mongodb-memory-server + mocked placesClient): full run for 2 
 
 Prerequisite: Mohit confirms GBP API access is approved for the Cloud project (quota > 0). If calls return 429 with quota 0, stop and report; that is an access gate, not a rate limit.
 
+The signed OAuth state and encrypted token storage below stay in this phase even though security work is deferred to Phase 10: they are part of building the GBP connection correctly, not a security project.
+
 - **OAuth state**: generate a random 32-byte token, store `{ token_hash, user_id, expires_at (10 min) }` in a new `OAuthState` model; `state` param = token. Callback validates, consumes (one-time), and resolves `user_id` server-side. Remove the JSON state.
 - **Scopes**: `https://www.googleapis.com/auth/business.manage` only.
 - **Token storage**: encrypted via `tokenCrypto` (Phase 3.3). Refresh handled in `gbpClient`.
@@ -457,6 +458,27 @@ Only after Mohit confirms the frontend has switched to the new endpoints:
 
 ---
 
+## 13a. PHASE 10 — Security hardening (gated)
+
+Runs after Phase 9. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
+
+Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S29, see `docs/AUDIT.md`). Apply minimal, targeted fixes:
+
+- Auth guards: add `adminAuthMiddleware.validateAdminJWTToken` (router-level `router.use(...)` where a whole router is admin-only; per-route otherwise). Admin creation additionally requires super-admin role.
+- `/api/v1/logs`: admin-only or removed. `/system/*`: admin-only.
+- Rate limiter mounted on `/api/v1/user/auth` and `/api/v1/admin/auth`; `app.set('trust proxy', 1)`.
+- `mongoose.set('sanitizeFilter', true)` before connect.
+- Multer: remove global mount; apply per route after auth; limits `{ fileSize: 10MB, files: 10 }`.
+- Remove wildcard CORS middleware; full `helmet()`; drop polyfill.io; JSON/urlencoded limit `1mb`.
+- PayPal webhook: verify via `POST {BASE_URL}/v1/notifications/verify-webhook-signature` with `PAYPAL_WEBHOOK_ID`.
+- IDOR: fetch middlewares filter by `created_by: user._id`.
+- Hardcoded credentials: already done (`utils/fileEncryption.ts` deleted in Phase 1.5; DataForSEO moved to env in Phase 1.6). The old DataForSEO credential must still be rotated.
+- S19 admin JWT key: one key-derivation helper for every sign/verify, a startup assertion on secret format/length, algorithms pinned to HS256.
+
+Each fix = its own commit. Add a regression test per auth fix (request without token → 401). **Gate.**
+
+---
+
 ## 14. Cost & quota reference (for estimates in PROGRESS.md)
 
 - Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Up to 3 calls per point per keyword (usually fewer with `stopWhenFound`).
@@ -471,7 +493,7 @@ Log `api_calls` on every run/report so real costs can be measured.
 
 ## 15. Things you must never do
 
-- Touch out-of-scope modules (except Phase 2 items if approved, and minimal shared-file edits called out explicitly).
+- Touch out-of-scope modules (except Phase 10 items if approved, and minimal shared-file edits called out explicitly).
 - Call paid APIs in unit tests, or run full-size grids during development.
 - Add any field to the IDs-only Text Search field mask.
 - Fetch third-party data on a GET page view (all heavy work happens in jobs).
