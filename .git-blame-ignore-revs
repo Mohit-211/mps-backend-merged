@@ -1,0 +1,5 @@
+# Commits to skip in git blame. Enable once per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# chore: normalize line endings to LF (no code changes)
+770cd7fe02885a6986027bf07c1dbdc1b23213f5
