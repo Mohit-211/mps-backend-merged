@@ -1,0 +1,137 @@
+# Operations
+
+How to configure, build and run the backend. Environment variables are listed, with a comment each, in [`.env.example`](../.env.example).
+
+## Environment file
+
+`src/configs/config.ts` loads environment variables once, at startup:
+
+1. If `ENV_FILE` is set, it loads that file. The path can be absolute, or relative to the working directory.
+2. Otherwise it loads `.env` from the **current working directory** (`process.cwd()`).
+
+Variables already present in the process environment take precedence over the file (standard `dotenv` behaviour). A missing file is not an error. Joi validation then fails at startup if a required variable is absent.
+
+**Always start the app with the repo root as the working directory**, or set `ENV_FILE`. The build no longer copies `.env` into `build/`.
+
+## Local development
+
+```sh
+cp .env.example .env      # then fill in real test values
+npm ci
+npm run dev               # nodemon + ts-node, run from the repo root
+```
+
+`npm run dev` runs from the repo root, so it picks up `./.env`.
+
+Checks:
+- `GET /api/healthcheck` returns `{"response":"ok"}`.
+- `GET /ping` returns 200.
+
+### Local MongoDB
+
+The rebuild uses its **own local database, `mps_rebuild`**, on a MongoDB server running on the developer's machine and bound to localhost only. It never connects to the production database, and the rebuild is free to change collections and indexes in it.
+
+`src/configs/mongoConnection.ts` authenticates with `MONGODB_USER` / `MONGODB_PASSWORD` against `MONGODB_AUTH_SOURCE`, which is **required** (no default), so the app refuses to start without an explicit database. The old `mps_db` database is not used anywhere. Locally it is `mps_rebuild`. The server will get a fresh setup with a new database once the rebuild is done (Mohit, 2026-09-25).
+
+**Default: Homebrew** (MongoDB Community 7.0, a brew service on `127.0.0.1:27017`):
+
+```sh
+brew tap mongodb/brew
+# Homebrew 7 asks you to trust third-party formulae. The install reads these four:
+brew trust --formula mongodb/brew/mongodb-community@7.0 mongodb/brew/mongodb-database-tools \
+                     mongodb/brew/mongodb-enterprise mongodb/brew/mongodb-community
+brew install mongodb-community@7.0
+brew services start mongodb/brew/mongodb-community@7.0
+mongosh mps_rebuild --quiet --eval \
+  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_rebuild"}]})'
+```
+
+`.env`:
+
+```
+MONGODB_URL=mongodb://127.0.0.1:27017/mps_rebuild
+MONGODB_USER=mps_local
+MONGODB_PASSWORD=mps_local_pw
+MONGODB_AUTH_SOURCE=mps_rebuild
+```
+
+**Alternative: Docker**
+
+```sh
+docker run -d --name mps-mongo -p 127.0.0.1:27017:27017 mongo:7
+docker exec mps-mongo mongosh mps_rebuild --quiet --eval \
+  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_rebuild"}]})'
+```
+
+Use the same `.env` values.
+
+Mongoose creates the collections and model indexes on first start. Seed reference data (roles, countries, and so on) with `npm run mongo-migrate`.
+
+On a healthy start the log shows:
+- "Mongo has connected successfully"
+- "Mongoose connection opened successfully"
+
+- "Agenda jobs defined: post-to-gbp"
+- "✅ Agenda connected and ready."
+- "🚀 Agenda has started and is processing jobs."
+
+## Background jobs (agenda)
+
+- `src/configs/agenda.ts` owns the agenda instance. It opens **its own** MongoDB connection (from the same `MONGODB_*` values) and stores jobs in the `agendaJobs` collection. This is deliberate: `agenda@5` must use its bundled MongoDB driver 4 (AUDIT C25).
+- Jobs are registered in `src/jobs/index.ts` (`defineAllJobs`). Agenda is started from `src/server.ts` after the HTTP server listens, so seed scripts never process jobs. SIGTERM and SIGINT stop agenda before exit.
+- New jobs use `defineJob` / `scheduleJob` from `src/jobs/defineJob.ts`: job data must be IDs only, and every job declares its concurrency and lock lifetime.
+- Self-test (no external calls, safe while the server runs): `npm run smoke:agenda` schedules a throwaway job 10 s ahead, waits for it to run, removes it and prints how many are left (expected 0).
+
+## Tests
+
+```sh
+npm test            # type-checks src + tests (tsc -p tests/tsconfig.json), then runs jest
+npm run test:types  # type-check only
+TEST_LOGS=1 npm test   # show winston output while testing
+```
+
+- Tests never need a Places API key or network access. They load the committed `.env.example` (placeholders), unset `GOOGLE_PLACE_API_KEY`, and replay hand-written fixtures from `tests/fixtures/`.
+- Integration tests use an in-memory MongoDB (`mongodb-memory-server`, pinned to 7.0.14 in `package.json`). The binary (about 65 MB) downloads on the first run. Set `MONGOMS_SYSTEM_BINARY=/opt/homebrew/bin/mongod` to use the local server's binary instead.
+
+## Places API smoke test (live, run manually)
+
+```sh
+npm run smoke:places -- "<keyword>" <lat> <lng> [place_id] [--region=us|ca]
+```
+
+Makes **one** IDs-only Text Search call (page 1 only, on the free "Essentials IDs Only" SKU) and prints the result count, whether `place_id` was found and at what rank, and the API call count. It refuses to run without `GOOGLE_PLACE_API_KEY` and never prints the key. Only run it with a test key that has a budget cap.
+
+## Build
+
+```sh
+npm run build
+```
+
+This runs `tsc -p .` into `build/` and copies `package.json` and `package-lock.json` into `build/`. It does **not** copy `.env`.
+
+## Production start (pm2)
+
+`ecosystem.config.json` runs `build/index.js` in cluster mode (`instances: "max"`). pm2 uses the directory `pm2 start` is run from as the working directory, so run it from the repo root:
+
+```sh
+cd /path/to/repo           # repo root, where .env lives
+npm ci
+npm run build
+npm start                  # = pm2 start ecosystem.config.json --no-daemon
+```
+
+To keep `.env` elsewhere, set `ENV_FILE` in the pm2 environment instead, e.g. `ENV_FILE=/etc/mps/backend.env npm start`.
+
+Static files (`public/`) and request logs (`logs/`) are resolved relative to the compiled files (`build/src/...` → repo root), not the working directory. They are unaffected by where the app is started from.
+
+Cluster-mode caveats, since every instance runs these:
+- the node-cron heartbeat
+- the agenda poller (Mongo-locked, so safe)
+- the in-memory rate-limit store
+- `node-cache`
+
+## Optional third-party credentials
+
+| Variable | Used by | If unset |
+|---|---|---|
+| `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` | legacy rank tracker search volume (`helpers/rankTrackerReport.ts`) | `getKeywordSearchVolume` returns `null` and keyword volumes are reported as 0 |

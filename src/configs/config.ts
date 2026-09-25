@@ -2,8 +2,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import Joi from 'joi';
 
-// Load environment variables from .env file
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+// Load environment variables from ENV_FILE if set, else .env in the working directory (repo root)
+dotenv.config({ path: process.env.ENV_FILE || path.resolve(process.cwd(), '.env') });
 
 // Define the environment variables schema
 const envVarsSchema = Joi.object({
@@ -23,6 +23,9 @@ const envVarsSchema = Joi.object({
 	MONGODB_URL: Joi.string().required().description('Mongo DB url'),
 	MONGODB_USER: Joi.string().required(),
 	MONGODB_PASSWORD: Joi.string().required(),
+	MONGODB_AUTH_SOURCE: Joi.string()
+		.required()
+		.description('Database holding the Mongo user (authSource)'),
 
 	SMTP_HOST: Joi.string().description('server that will send the emails'),
 	SMTP_PORT: Joi.number().description('port to connect to the email server'),
@@ -51,11 +54,19 @@ const envVarsSchema = Joi.object({
 	SQUARE_LOCATION_ID: Joi.string(),
 	SQUARE_ENV: Joi.string(),
 
-	GOOGLE_PLACE_API_KEY: Joi.string(),
+	GOOGLE_PLACE_API_KEY: Joi.string().allow('').description('Places API key; optional until live testing'),
 	GOOGLE_PLACE_API_URL: Joi.string(),
+
+	PLACES_SEARCH_RADIUS_M: Joi.number().integer().min(1).max(50000).default(5000),
+	RANK_MAX_KEYWORDS: Joi.number().integer().min(1).max(50).default(20),
+	RANK_TRACKER_OFFSET_KM: Joi.number().min(0.1).max(20).default(1.5),
+	RANK_DEV_MAX_KEYWORDS: Joi.number().integer().min(1).max(20).default(2),
 
 	SERP_API_KEY: Joi.string(),
 	SERP_API_TIMEOUT: Joi.number(),
+
+	DATAFORSEO_LOGIN: Joi.string().allow('').description('DataForSEO API login (optional)'),
+	DATAFORSEO_PASSWORD: Joi.string().allow('').description('DataForSEO API password (optional)'),
 
 	SEO_MOZ_API_USERNAME: Joi.string(),
 	SEO_MOZ_API_PASSWORD: Joi.string(),
@@ -134,6 +145,7 @@ interface Config {
 			url: string;
 			user: string;
 			password: string;
+			authSource: string;
 		};
 	};
 
@@ -170,6 +182,11 @@ interface Config {
 		keySecret?: string;
 	};
 
+	dataForSeo: {
+		login?: string;
+		password?: string;
+	};
+
 	seoMOZApis: {
 		username?: string;
 		password?: string;
@@ -186,6 +203,13 @@ interface Config {
 			url?: string;
 			keySecret?: string;
 		};
+	};
+
+	ranking: {
+		searchRadiusM: number;
+		maxKeywords: number;
+		trackerOffsetKm: number;
+		devMaxKeywords: number;
 	};
 
 	company: {
@@ -249,6 +273,7 @@ const config: Config = {
 			url: envVars.MONGODB_URL,
 			user: envVars.MONGODB_USER,
 			password: envVars.MONGODB_PASSWORD,
+			authSource: envVars.MONGODB_AUTH_SOURCE,
 		},
 	},
 
@@ -291,6 +316,18 @@ const config: Config = {
 			url: envVars.GOOGLE_PLACE_API_URL,
 			keySecret: envVars.GOOGLE_PLACE_API_KEY,
 		},
+	},
+
+	ranking: {
+		searchRadiusM: envVars.PLACES_SEARCH_RADIUS_M,
+		maxKeywords: envVars.RANK_MAX_KEYWORDS,
+		trackerOffsetKm: envVars.RANK_TRACKER_OFFSET_KM,
+		devMaxKeywords: envVars.RANK_DEV_MAX_KEYWORDS,
+	},
+
+	dataForSeo: {
+		login: envVars.DATAFORSEO_LOGIN,
+		password: envVars.DATAFORSEO_PASSWORD,
 	},
 
 	seoMOZApis: {

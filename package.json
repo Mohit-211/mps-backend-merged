@@ -6,14 +6,18 @@
   "scripts": {
     "start": "pm2 start ecosystem.config.json --no-daemon",
     "dev": "cross-env NODE_ENV=development nodemon",
-    "build": "tsc -p . && shx cp package.json ./build/package.json && shx cp package-lock.json ./build/package-lock.json && shx cp .env ./build/.env",
+    "build": "tsc -p . && shx cp package.json ./build/package.json && shx cp package-lock.json ./build/package-lock.json",
     "lint": "eslint src/**/*.ts",
     "lint-fix": "eslint --fix src/**/*.ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "precommit": "npm run lint-fix && npm run format",
     "prepush": "npm run lint",
     "mongo-migrate": "cross-env NODE_ENV=development ts-node --transpile-only ./src/configs/mongoMigrate.ts",
-    "seed-country-city-state": "cross-env NODE_ENV=development ts-node ./src/configs/fetchCountryStateCityDataFromRemoteApi.ts"
+    "seed-country-city-state": "cross-env NODE_ENV=development ts-node ./src/configs/fetchCountryStateCityDataFromRemoteApi.ts",
+    "test": "npm run test:types && jest",
+    "smoke:places": "ts-node --transpile-only src/scripts/smokePlaces.ts",
+    "smoke:agenda": "ts-node --transpile-only src/scripts/smokeAgenda.ts",
+    "test:types": "tsc -p tests/tsconfig.json"
   },
   "keywords": [
     "Node",
@@ -65,6 +69,7 @@
     "@types/cors": "^2.8.19",
     "@types/eslint__js": "^8.42.3",
     "@types/express": "^4.17.25",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.2.0",
@@ -77,11 +82,19 @@
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-jest": "^28.14.0",
     "husky": "^9.1.7",
+    "jest": "^30.5.2",
+    "mongodb-memory-server": "^11.3.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.9.8",
     "shx": "^0.4.0",
+    "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^7.18.0"
+  },
+  "config": {
+    "mongodbMemoryServer": {
+      "version": "7.0.14"
+    }
   }
 }

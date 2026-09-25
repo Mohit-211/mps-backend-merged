@@ -27,12 +27,12 @@ All three ranking pages are powered by **one ranking engine** and **one fixed ke
 - GBP: OAuth connection, GBP data sync, GBP audit/report, GBP posting, related jobs.
 - Location model: only the additions defined in this file.
 - Shared infrastructure these features need: config, Google API clients, agenda jobs, logging, tests.
-- Security fixes, **only in Phase 2 and only after explicit approval** (see §6).
+- Security fixes, **only in Phase 10 and only after explicit approval** (see §13a). Exception: Phase 6 builds the signed OAuth state and encrypted token storage as part of GBP.
 
 ### OUT of scope (do not modify, do not refactor, do not reformat)
 - Citations (all `citation*` files and models), blog, blog categories, FAQ, support, contact-us, white-label, countries/states/cities, languages, timezones, roles, business categories.
-- Payments and subscriptions (Square, PayPal, Razorpay, coupons, plans, credits), **except** the security items listed in Phase 2 if approved.
-- Admin panel features, except the Phase 2 security items if approved.
+- Payments and subscriptions (Square, PayPal, Razorpay, coupons, plans, credits), **except** the security items listed in Phase 10 if approved.
+- Admin panel features, except the Phase 10 security items if approved.
 
 If an in-scope change *requires* touching an out-of-scope file (e.g. a shared util or `src/models/index.ts` export), make the smallest possible change and call it out explicitly in the phase summary.
 
@@ -45,7 +45,15 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 ## 2. Working rules (apply to every phase)
 
 ### Git
-- Never commit to `main`. Base branch for all work: `claude/rebuild`. One sub-branch per phase: `claude/phase-<n>-<slug>`, merged into `claude/rebuild` only after Mohit approves.
+- Base branch for all work: `claude/rebuild`. One sub-branch per phase: `claude/phase-<n>-<slug>`, created from `claude/rebuild`.
+- Commit freely on `claude/phase-*` branches. Never commit to or push `main`.
+- At the end of each phase, ask Mohit to approve the local merge into `claude/rebuild` (`git merge --no-ff`), giving him the exact command. Mohit runs it or grants permission. Do not push.
+- Push only at milestones, and only when Mohit says so:
+  - **M1:** after Phase 3 (Foundations).
+  - **M2:** after Phase 5 (Ranking reports: all three pages working).
+  - **M3:** after Phase 7 (GBP sync + report).
+  - **M4:** after Phase 9 (Cleanup).
+- At a milestone, give Mohit one push command covering `claude/rebuild` and every phase branch since the last milestone, plus a short summary for his developers.
 - Small commits, one concern each. Message format: `<phase>: <area>: <what>` e.g. `p4: ranking: add IDs-only text search client`.
 - Never rewrite history on shared branches. Never force-push `claude/rebuild`.
 - The old code is backed up separately by Mohit. Deleting old in-scope code is allowed **only in the phase that explicitly says so**.
@@ -54,6 +62,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - Work only against a **local MongoDB** and a local `.env`. Never use production credentials, never connect to production DB, never SSH anywhere.
 - Never print, log, or commit secrets. Never hardcode credentials (the old code has a hardcoded DataForSEO login; that pattern is banned).
 - API keys used during development must be **test keys with low quotas/budget caps**. If a required key is missing, stop and ask; do not stub a real-looking key.
+- **No Places API key yet (Phases 3–5).** All unit and integration tests use mocked clients and fixtures and must pass with no key. **No real Google API calls in any phase until Mohit says so.** Smoke scripts may be written but not run.
 - When calling real Google APIs during development: max **2 keywords**, **3×3 grid**, **1 location** per test run. Log how many API calls each test run made.
 
 ### Quality gates (every commit)
@@ -63,6 +72,8 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - External API calls are wrapped in a client module that can be mocked; unit tests never hit the network.
 
 ### Phase gates
+Phase order: 1 → 1.5 → 1.6 → 3 Foundations → 4 Ranking engine → 5 Ranking reports → 6 GBP connection → 7 GBP sync + report → 8 GBP posting → 9 Cleanup → 10 Security (gated). There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+
 At the end of every phase:
 1. Stop.
 2. Write/update `docs/PROGRESS.md` with: what changed, files touched, decisions made, open questions, API calls consumed.
@@ -82,9 +93,9 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 ## 3. Repository map (facts, verified)
 
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
-- Mongo + agenda: `src/configs/mongoConnection.ts` exports `agenda` (processEvery 1 minute). `src/configs/agenda.ts` is **empty**. The only agenda job today is `post-to-gbp` in `src/jobs/postToGbp.ts`.
+- Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` and started from `src/server.ts`. The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
 - Production runs via pm2 with `instances: "max"` (cluster mode). Anything using in-memory state (node-cache, rate-limit memory store, node-cron) runs once **per instance**. Jobs must use agenda (Mongo-locked), never node-cron.
-- Config: `src/configs/config.ts` (Joi-validated env). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
+- Config: `src/configs/config.ts` (Joi-validated env, loaded from `ENV_FILE` if set, else `./.env` in the working directory; see `docs/OPERATIONS.md`). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
 - OAuth: `src/configs/oAuth2Client.ts` exports a **function** `oAuth2Client(type)`; GBP and Analytics clients differ. Tokens stored in `UserAuth` model (`access_token`, `refresh_token`, plaintext). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`).
 - Location model (`src/models/location.model.ts`): `name, city, state, country, lat, lng, mobile, place_id, website_URL, created_by, is_active`.
 - Old ranking: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (`generateGrid()` math is correct and reusable), `helpers/localMapRankingReport.ts`, `services/common/{rankTracker,localSearchGrid,localMapRankingReport}.service.ts`, `services/common/serp.ts` (dead), matching middlewares/models/routes.
@@ -200,27 +211,24 @@ Branch `claude/phase-1.5-hygiene`, one commit per step. No behaviour changes. Co
    - `models/citationPayment.model.ts`
 
    `unbindGoogleBusinessProfileWithUser` is kept on purpose: it is a bug, recorded as C12.
-5. **Unused dependencies removed:** `http-proxy-middleware`, `http-status-codes`, `fs-extra`, `razorpay`. `@paypal/checkout-server-sdk` is **on hold**: `configs/paypal.ts` imports it, and Mohit decides whether to remove it.
+5. **Unused dependencies removed:** `http-proxy-middleware`, `http-status-codes`, `fs-extra`, `razorpay`. `@paypal/checkout-server-sdk` was removed after Mohit approved it; `configs/paypal.ts` now exports only `BASE_URL`. `project-tree.txt` was deleted.
 
-The pre-existing build errors (46 TypeScript errors, see AUDIT §0) are not fixed in this phase.
+The pre-existing build errors (46 TypeScript errors, see AUDIT §0) were fixed in Phase 1.6.
+
+## 5b. PHASE 1.6 — Build green (approved)
+
+Branch `claude/phase-1.6-build-green`. Type-level fixes only; nothing that changes behaviour.
+
+- All 46 TypeScript errors fixed. `mongoFunctions` is now generic over the model type, and `getKeywordMovmentData` (never called) uses the `oAuth2Client()` factory.
+- `.env` is loaded from `ENV_FILE`, else `./.env` in the working directory. The build no longer copies `.env`. pm2 must start from the repo root (`docs/OPERATIONS.md`).
+- DataForSEO credentials moved to the optional `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` env vars.
+- Local MongoDB: Homebrew `mongodb-community@7.0`, separate database `mps_rebuild`; `MONGODB_AUTH_SOURCE` is required and `mps_db` is gone.
 
 ---
 
-## 6. PHASE 2 — Security hardening (GATED: only if Mohit explicitly approves)
+## 6. (moved) Security hardening
 
-Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S15). Apply minimal, targeted fixes:
-
-- Auth guards: add `adminAuthMiddleware.validateAdminJWTToken` (router-level `router.use(...)` where a whole router is admin-only; per-route otherwise). Admin creation additionally requires super-admin role.
-- `/api/v1/logs`: admin-only or removed. `/system/*`: admin-only.
-- Rate limiter mounted on `/api/v1/user/auth` and `/api/v1/admin/auth`; `app.set('trust proxy', 1)`.
-- `mongoose.set('sanitizeFilter', true)` before connect.
-- Multer: remove global mount; apply per route after auth; limits `{ fileSize: 10MB, files: 10 }`.
-- Remove wildcard CORS middleware; full `helmet()`; drop polyfill.io; JSON/urlencoded limit `1mb`.
-- PayPal webhook: verify via `POST {BASE_URL}/v1/notifications/verify-webhook-signature` with `PAYPAL_WEBHOOK_ID`.
-- IDOR: fetch middlewares filter by `created_by: user._id`.
-- Delete `utils/fileEncryption.ts`; remove hardcoded credentials.
-
-Each fix = its own commit. Add a regression test per auth fix (request without token → 401). **Gate.**
+Security work is deferred until the rebuild features are done. It is now **Phase 10**, see §13a. Do not start it before Phases 3–9 are done and Mohit explicitly approves it.
 
 ---
 
@@ -229,15 +237,13 @@ Each fix = its own commit. Add a regression test per auth fix (request without t
 ### 3.1 Config (`src/configs/config.ts`)
 Add (Joi-validated, all optional in dev unless marked required):
 ```
-GOOGLE_PLACE_API_KEY          (existing, required)
+GOOGLE_PLACE_API_KEY          optional until live testing (the client throws "GOOGLE_PLACE_API_KEY not set" if empty)
 PLACES_SEARCH_RADIUS_M        default 5000
 RANK_MAX_KEYWORDS             default 20
 RANK_TRACKER_OFFSET_KM        default 1.5
 RANK_DEV_MAX_KEYWORDS         default 2      (enforced when NODE_ENV=development)
-OAUTH_STATE_SECRET            required       (HMAC for OAuth state)
-TOKEN_ENCRYPTION_KEY          required       (32-byte hex, AES-256-GCM for stored OAuth tokens)
-GBP_SYNC_ENABLED              default true
 ```
+`OAUTH_STATE_SECRET`, `TOKEN_ENCRYPTION_KEY` and `GBP_SYNC_ENABLED` moved to Phase 6 (decision by Mohit, 2026-09-26: ranking first).
 Update `.env.example` (create if missing) with every variable and a comment. Never commit `.env`.
 
 ### 3.2 Google API clients (`src/clients/`)
@@ -251,20 +257,21 @@ Create typed, mockable clients. Each client: axios instance, timeout 15s, 1 retr
     - Paginates up to 3 pages (60 results). Accepts `stopWhenFound: string[]`: stop paging once all given place IDs are found.
   - `searchTextWithNames(params)`: same endpoint, field mask `places.id,places.movedPlaceId,places.displayName,nextPageToken` (Pro SKU). Max 1 page (20 results). Used only for Map Ranking.
   - `getPlaceDetails(placeId, fields[])` → GET `https://places.googleapis.com/v1/places/{placeId}` with `X-Goog-FieldMask` (no `places.` prefix). Used for center resolution and competitor comparison.
-- `src/clients/gbpClient.ts`: all GBP calls, takes a location binding, handles access-token refresh via the stored refresh token (decrypt → refresh → re-encrypt on rotation). Methods are defined in Phase 6/7.
+- `src/clients/gbpClient.ts`: **deferred to Phase 6** (see §10).
 
 ### 3.3 Token security
-- `src/utils/tokenCrypto.ts`: AES-256-GCM `encrypt/decrypt` using `TOKEN_ENCRYPTION_KEY`.
-- Migration script `src/scripts/encryptExistingTokens.ts` (idempotent; detects already-encrypted values). **Do not run it**; document how to run it in `docs/PROGRESS.md`.
+**Deferred to Phase 6** (see §10). Phase 3 is ranking-focused.
 
 ### 3.4 Jobs infrastructure
-- Implement `src/configs/agenda.ts` as the single job registry: `defineAllJobs()` registers jobs from `src/jobs/*`. Keep existing `post-to-gbp` behaviour identical (move its registration here if needed).
+- `src/configs/agenda.ts` owns the agenda instance and its lifecycle (`startAgenda`, `stopAgenda`). The single job registry is `src/jobs/index.ts` (`defineAllJobs(agenda)`); it lives there rather than in `configs/agenda.ts` to avoid a circular import through `gbpPostSchedular.service`. Keep existing `post-to-gbp` behaviour identical.
+- **C25 fix:** agenda gets its own MongoDB connection (`db.address` built from the existing `MONGODB_*` values), because `agenda@5` needs its own driver 4.17 and never becomes ready on Mongoose's driver-6 connection. Agenda is started from `src/server.ts` after `listen`, so seed scripts never process jobs.
 - Job conventions: idempotent, job data contains IDs only, per-job `lockLifetime`, concurrency limits, failures recorded on the related document (`last_error`, `last_run_at`).
 - No node-cron for business logic. (Leave the existing heartbeat cron in `app.ts` untouched; out of scope.)
 
 ### 3.5 Test harness
 - Add dev dependencies `jest`, `ts-jest`, `@types/jest`, `mongodb-memory-server`. Add `npm test`. Tests live in `tests/` mirroring `src/`.
-- Fixtures: `tests/fixtures/places/*.json` and `tests/fixtures/gbp/*.json` (hand-written, realistic, no real personal data).
+- Fixtures: `tests/fixtures/places/*.json` now; `tests/fixtures/gbp/*.json` in Phase 6 (hand-written, realistic, no real personal data).
+- Smoke script `npm run smoke:places -- "<keyword>" <lat> <lng> [place_id]`: one IDs-only call, page 1. Only Mohit runs it, once the key exists.
 
 **Gate.**
 
@@ -360,6 +367,13 @@ Integration tests (mongodb-memory-server + mocked placesClient): full run for 2 
 ## 10. PHASE 6 — GBP connection fixes
 
 Prerequisite: Mohit confirms GBP API access is approved for the Cloud project (quota > 0). If calls return 429 with quota 0, stop and report; that is an access gate, not a rate limit.
+
+Carried over from Phase 3 (deferred 2026-09-26):
+- Config: `OAUTH_STATE_SECRET` (required, HMAC for OAuth state), `TOKEN_ENCRYPTION_KEY` (required, 32-byte hex, AES-256-GCM), `GBP_SYNC_ENABLED` (default true).
+- `src/utils/tokenCrypto.ts`: AES-256-GCM `encrypt/decrypt` using `TOKEN_ENCRYPTION_KEY`. Migration script `src/scripts/encryptExistingTokens.ts` (idempotent; detects already-encrypted values). **Do not run it**; document how to run it in `docs/PROGRESS.md`.
+- `src/clients/gbpClient.ts`: all GBP calls; takes a location binding; handles access-token refresh via the stored refresh token (decrypt → refresh → re-encrypt on rotation). Built on the shared `src/clients/http.ts` helper from Phase 3.
+
+The signed OAuth state and encrypted token storage below stay in this phase even though security work is deferred to Phase 10: they are part of building the GBP connection correctly, not a security project.
 
 - **OAuth state**: generate a random 32-byte token, store `{ token_hash, user_id, expires_at (10 min) }` in a new `OAuthState` model; `state` param = token. Callback validates, consumes (one-time), and resolves `user_id` server-side. Remove the JSON state.
 - **Scopes**: `https://www.googleapis.com/auth/business.manage` only.
@@ -457,6 +471,27 @@ Only after Mohit confirms the frontend has switched to the new endpoints:
 
 ---
 
+## 13a. PHASE 10 — Security hardening (gated)
+
+Runs after Phase 9. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
+
+Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S29, see `docs/AUDIT.md`). Apply minimal, targeted fixes:
+
+- Auth guards: add `adminAuthMiddleware.validateAdminJWTToken` (router-level `router.use(...)` where a whole router is admin-only; per-route otherwise). Admin creation additionally requires super-admin role.
+- `/api/v1/logs`: admin-only or removed. `/system/*`: admin-only.
+- Rate limiter mounted on `/api/v1/user/auth` and `/api/v1/admin/auth`; `app.set('trust proxy', 1)`.
+- `mongoose.set('sanitizeFilter', true)` before connect.
+- Multer: remove global mount; apply per route after auth; limits `{ fileSize: 10MB, files: 10 }`.
+- Remove wildcard CORS middleware; full `helmet()`; drop polyfill.io; JSON/urlencoded limit `1mb`.
+- PayPal webhook: verify via `POST {BASE_URL}/v1/notifications/verify-webhook-signature` with `PAYPAL_WEBHOOK_ID`.
+- IDOR: fetch middlewares filter by `created_by: user._id`.
+- Hardcoded credentials: already done (`utils/fileEncryption.ts` deleted in Phase 1.5; DataForSEO moved to env in Phase 1.6). The old DataForSEO credential must still be rotated.
+- S19 admin JWT key: one key-derivation helper for every sign/verify, a startup assertion on secret format/length, algorithms pinned to HS256.
+
+Each fix = its own commit. Add a regression test per auth fix (request without token → 401). **Gate.**
+
+---
+
 ## 14. Cost & quota reference (for estimates in PROGRESS.md)
 
 - Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Up to 3 calls per point per keyword (usually fewer with `stopWhenFound`).
@@ -471,7 +506,7 @@ Log `api_calls` on every run/report so real costs can be measured.
 
 ## 15. Things you must never do
 
-- Touch out-of-scope modules (except Phase 2 items if approved, and minimal shared-file edits called out explicitly).
+- Touch out-of-scope modules (except Phase 10 items if approved, and minimal shared-file edits called out explicitly).
 - Call paid APIs in unit tests, or run full-size grids during development.
 - Add any field to the IDs-only Text Search field mask.
 - Fetch third-party data on a GET page view (all heavy work happens in jobs).

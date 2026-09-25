@@ -1,0 +1,145 @@
+{
+  "places": [
+    {
+      "id": "ChIJJCGcjKX9PLq3IM-4lZh2ac3",
+      "displayName": {
+        "text": "Leslieville Plumbing",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJeJGOX0WqEOco7ZkIp2ZwgBc",
+      "displayName": {
+        "text": "Maple Leaf Plumbing & Heating",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJPuEP5PxTE9kC_ZYYlCm9gXe",
+      "displayName": {
+        "text": "Liberty Village Drain Services",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJQ4dgL0QttFzXZMXFzNeUG0A",
+      "displayName": {
+        "text": "Riverdale Heating & Cooling",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJlc9sCVzxFhIPBDeU_9lUu1G",
+      "displayName": {
+        "text": "Junction Water Heaters",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJudP_FBlmLGgy4YjeSQVE7aZ",
+      "displayName": {
+        "text": "Danforth Emergency Plumbing",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJ72IaGD3XSxcuyWSD3_Q-r8C",
+      "displayName": {
+        "text": "Yorkville Pipe Repair",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJuOpLFf_JoTSdBvb6a0DWkH2",
+      "displayName": {
+        "text": "Roncesvalles Sewer & Drain",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJPjnsfSOQqD9IJnr_3G6JjSH",
+      "displayName": {
+        "text": "Leaside Plumbing",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJCXx25SWG_oauz3jmgzZbI0q",
+      "displayName": {
+        "text": "Parkdale Plumbers",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJ_UpKxsnplZIrdML6Fm_Xd6U",
+      "displayName": {
+        "text": "Etobicoke Drain Services",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJmKU_0biJo63CVXMjpFA1u_u",
+      "displayName": {
+        "text": "Scarborough Heating & Cooling",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJ565qQFVrfxhU72UIYEOnPEJ",
+      "displayName": {
+        "text": "North York Water Heaters",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJCCTQw4xb_x59g55Qq5B8Yvb",
+      "displayName": {
+        "text": "East York Emergency Plumbing",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJ3Z94mSMvi_jHS93iab207vl",
+      "displayName": {
+        "text": "Midtown Pipe Repair",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJPb5RgO8c82JOXEW5droe58_",
+      "displayName": {
+        "text": "Corktown Sewer & Drain",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJ_32-yZqnl3S2kKBJVxqC8D5",
+      "displayName": {
+        "text": "Distillery Plumbing",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJnplpia4HNxSRm9e_eW3cR0z",
+      "displayName": {
+        "text": "Kensington Plumbers",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJPa2xnRFT9hQ8uzjdjhj3CXh",
+      "displayName": {
+        "text": "Harbourfront Drain Services",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJo_8MouQJhznTH3x9OWw1T2t",
+      "displayName": {
+        "text": "Cabbagetown Heating & Cooling",
+        "languageCode": "en"
+      }
+    }
+  ],
+  "nextPageToken": "AUacShh1-names-page2"
+}
