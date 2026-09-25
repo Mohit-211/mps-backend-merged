@@ -1,0 +1,15 @@
+{
+  "apps": [
+    {
+      "name": "node-typescript-mongodb-boilerplate-setup",
+      "script": "build/index.js",
+      "instances": "max",
+      "autorestart": true,
+      "watch": false,
+      "time": true,
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  ]
+}

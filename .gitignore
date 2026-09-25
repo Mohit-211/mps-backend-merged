@@ -1,0 +1,25 @@
+.idea/
+.vscode/
+node_modules/
+build/
+tmp/
+temp/
+logs
+coverage
+coverage/lcov.info
+coverage/lcov-report
+coverage/coverage-final.json
+coverage/clover.xml
+/.nyc_output/
+logs/
+
+# don't check in  env files
+.env.prod
+.env.staging
+**/.DS_Store
+public/uploads/
+test/
+package-lock.json
+.env
+.env.example
+path

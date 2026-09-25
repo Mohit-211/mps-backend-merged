@@ -1,0 +1,85 @@
+[{
+  "name": "English",
+  "slug": "english",
+  "is_active": true
+},
+{
+  "name": "Spanish",
+  "slug": "spanish",
+  "is_active": true
+},
+{
+  "name": "French",
+  "slug": "french",
+  "is_active": true
+},
+{
+  "name": "German",
+  "slug": "german",
+  "is_active": true
+},
+{
+  "name": "Italian",
+  "slug": "italian",
+  "is_active": true
+},
+{
+  "name": "Russian",
+  "slug": "russian",
+  "is_active": true
+},
+{
+  "name": "Hindi",
+  "slug": "hindi",
+  "is_active": true
+},
+{
+  "name": "Portuguese",
+  "slug": "portuguese",
+  "is_active": true
+},
+{
+  "name": "Mandarin Chinese",
+  "slug": "mandarin-chinese",
+  "is_active": true
+},
+{
+  "name": "Arabic",
+  "slug": "arabic",
+  "is_active": true
+},
+{
+  "name": "Turkish",
+  "slug": "turkish",
+  "is_active": true
+},
+{
+  "name": "Indonesian",
+  "slug": "indonesian",
+  "is_active": true
+},
+{
+  "name": "Finnish",
+  "slug": "finnish",
+  "is_active": true
+},
+{
+  "name": "Hungarian",
+  "slug": "hungarian",
+  "is_active": true
+},
+{
+  "name": "Estonian",
+  "slug": "estonian",
+  "is_active": true
+},
+{
+  "name": "Japanese",
+  "slug": "japanese",
+  "is_active": true
+},
+{
+  "name": "Korean",
+  "slug": "korean",
+  "is_active": true
+}]

@@ -1,0 +1,240 @@
+{
+    "swagger": "2.0",
+    "info": {
+      "description": "My Page Seo",
+      "version": "1.0.0",
+      "title": "My Page Seo"
+    },
+    "host": "",
+    "basePath": "/api/v1",
+    "schemes": [
+      "http",
+      "https"
+    ],
+    "tags": [
+      {
+        "name": "System Overview",
+        "description": "Essential information about the system"
+      },
+      {
+        "name": "User Authentication",
+        "description": "Endpoints for user login, registration, and authorization"
+      },
+      {
+        "name": "User Management",
+        "description": "Operations related to user activities and profile management"
+      },
+      {
+        "name": "Country Data",
+        "description": "Endpoints for managing country information"
+      },
+      {
+        "name": "State Data",
+        "description": "Endpoints for managing state information"
+      },
+      {
+        "name": "City Data",
+        "description": "Endpoints for managing city information"
+      }
+    ],
+    "paths": {
+      "/system/info": {
+        "get": {
+          "tags": [
+            "System Overview"
+          ],
+          "summary": "get system status",
+          "description": "",
+          "responses": {
+            "200": {
+              "description": "successful operation",
+              "schema": {
+                "$ref": "#/definitions/ApiResponse"
+              }
+            }
+          },
+          "security": [
+            {
+              "APIKeyHeader": []
+            }
+          ]
+        }
+      },
+      "/system/time": {
+        "get": {
+          "tags": [
+            "System Overview"
+          ],
+          "summary": "get server time",
+          "description": "",
+          "responses": {
+            "200": {
+              "description": "successful operation",
+              "schema": {
+                "$ref": "#/definitions/ApiResponse"
+              }
+            }
+          },
+          "security": [
+            {
+              "APIKeyHeader": []
+            }
+          ]
+        }
+      },
+      "/system/usage": {
+        "get": {
+          "tags": [
+            "System Overview"
+          ],
+          "summary": "get server usage",
+          "description": "",
+          "responses": {
+            "200": {
+              "description": "successful operation",
+              "schema": {
+                "$ref": "#/definitions/ApiResponse"
+              }
+            }
+          },
+          "security": [
+            {
+              "APIKeyHeader": []
+            }
+          ]
+        }
+      },
+      "/system/process": {
+        "get": {
+          "tags": [
+            "System Overview"
+          ],
+          "summary": "get server process",
+          "description": "",
+          "responses": {
+            "200": {
+              "description": "successful operation",
+              "schema": {
+                "$ref": "#/definitions/ApiResponse"
+              }
+            }
+          },
+          "security": [
+            {
+              "APIKeyHeader": []
+            }
+          ]
+        }
+      },
+      "/countries": {
+        "get": {
+          "tags": [
+            "Country Data"
+          ],
+          "summary": "Retrieve all countries",
+          "description": "Fetch a list of all available countries.",
+          "responses": {
+            "200": {
+              "description": "successful operation",
+              "schema": {
+                "$ref": "#/definitions/ApiResponse"
+              }
+            }
+          },
+          "security": [
+            {
+              "APIKeyHeader": []
+            }
+          ]
+        }
+      },
+      "/countries/states/{countryId}": {
+        "get": {
+          "tags": [
+            "State Data"
+          ],
+          "summary": "Retrieve states by country ID",
+          "description": "Fetch a list of all states belonging to a specific country.",
+          "parameters": [
+            {
+              "name": "countryId",
+              "in": "path",
+              "required": true,
+              "type": "string",
+              "description": "ID of the country to retrieve states for"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "successful operation",
+              "schema": {
+                "$ref": "#/definitions/ApiResponse"
+              }
+            }
+          },
+          "security": [
+            {
+              "APIKeyHeader": []
+            }
+          ]
+        }
+      },
+      "/countries/cities/{stateId}": {
+        "get": {
+          "tags": [
+            "City Data"
+          ],
+          "summary": "Retrieve cities by state ID",
+          "description": "Fetch a list of all cities belonging to a specific state.",
+          "parameters": [
+            {
+              "name": "stateId",
+              "in": "path",
+              "required": true,
+              "type": "string",
+              "description": "ID of the state to retrieve cities for"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "successful operation",
+              "schema": {
+                "$ref": "#/definitions/ApiResponse"
+              }
+            }
+          },
+          "security": [
+            {
+              "APIKeyHeader": []
+            }
+          ]
+        }
+      }
+    },
+    "definitions": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "securityDefinitions": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-access-token"
+      }
+    }
+}

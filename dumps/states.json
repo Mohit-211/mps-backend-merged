@@ -1,0 +1,5305 @@
+[{
+  "name": "East Flanders",
+  "country_code": "BEL",
+  "state_code": "VOV"
+},
+{
+  "name": "Flanders",
+  "country_code": "BEL",
+  "state_code": "VLG"
+},
+{
+  "name": "Brussels-Capital Region",
+  "country_code": "BEL",
+  "state_code": "BRU"
+},
+{
+  "name": "Flemish Brabant",
+  "country_code": "BEL",
+  "state_code": "VBR"
+},
+{
+  "name": "Antwerp",
+  "country_code": "BEL",
+  "state_code": "VAN"
+},
+{
+  "name": "Hainaut",
+  "country_code": "BEL",
+  "state_code": "WHT"
+},
+{
+  "name": "Liège",
+  "country_code": "BEL",
+  "state_code": "WLG"
+},
+{
+  "name": "Limburg",
+  "country_code": "BEL",
+  "state_code": "VLI"
+},
+{
+  "name": "Luxembourg",
+  "country_code": "BEL",
+  "state_code": "WLX"
+},
+{
+  "name": "Namur",
+  "country_code": "BEL",
+  "state_code": "WNA"
+},
+{
+  "name": "Bagerhat District",
+  "country_code": "BGD",
+  "state_code": "05"
+},
+{
+  "name": "Bahadia",
+  "country_code": "BGD",
+  "state_code": "33"
+},
+{
+  "name": "Bandarban District",
+  "country_code": "BGD",
+  "state_code": "01"
+},
+{
+  "name": "Barguna District",
+  "country_code": "BGD",
+  "state_code": "02"
+},
+{
+  "name": "Barisal District",
+  "country_code": "BGD",
+  "state_code": "06"
+},
+{
+  "name": "Barisal Division",
+  "country_code": "BGD",
+  "state_code": "A"
+},
+{
+  "name": "Bhola District",
+  "country_code": "BGD",
+  "state_code": "07"
+},
+{
+  "name": "Bogra District",
+  "country_code": "BGD",
+  "state_code": "03"
+},
+{
+  "name": "Brahmanbaria District",
+  "country_code": "BGD",
+  "state_code": "04"
+},
+{
+  "name": "Chandpur District",
+  "country_code": "BGD",
+  "state_code": "09"
+},
+{
+  "name": "Chapai Nawabganj District",
+  "country_code": "BGD",
+  "state_code": "45"
+},
+{
+  "name": "Chittagong District",
+  "country_code": "BGD",
+  "state_code": "10"
+},
+{
+  "name": "Chittagong Division",
+  "country_code": "BGD",
+  "state_code": "B"
+},
+{
+  "name": "Chuadanga District",
+  "country_code": "BGD",
+  "state_code": "12"
+},
+{
+  "name": "Comilla District",
+  "country_code": "BGD",
+  "state_code": "08"
+},
+{
+  "name": "Cox's Bazar District",
+  "country_code": "BGD",
+  "state_code": "11"
+},
+{
+  "name": "Dhaka District",
+  "country_code": "BGD",
+  "state_code": "13"
+},
+{
+  "name": "Dhaka Division",
+  "country_code": "BGD",
+  "state_code": "C"
+},
+{
+  "name": "Dinajpur District",
+  "country_code": "BGD",
+  "state_code": "14"
+},
+{
+  "name": "Faridpur District",
+  "country_code": "BGD",
+  "state_code": "15"
+},
+{
+  "name": "Walloon Brabant",
+  "country_code": "BEL",
+  "state_code": "WBR"
+},
+{
+  "name": "West Flanders",
+  "country_code": "BEL",
+  "state_code": "VWV"
+},
+{
+  "name": "Wallonia",
+  "country_code": "BEL",
+  "state_code": "WAL"
+},
+{
+  "name": "Gaibandha District",
+  "country_code": "BGD",
+  "state_code": "19"
+},
+{
+  "name": "Feni District",
+  "country_code": "BGD",
+  "state_code": "16"
+},
+{
+  "name": "Gazipur District",
+  "country_code": "BGD",
+  "state_code": "18"
+},
+{
+  "name": "Gopalganj District",
+  "country_code": "BGD",
+  "state_code": "17"
+},
+{
+  "name": "Habiganj District",
+  "country_code": "BGD",
+  "state_code": "20"
+},
+{
+  "name": "Jamalpur District",
+  "country_code": "BGD",
+  "state_code": "21"
+},
+{
+  "name": "Jhalokati District",
+  "country_code": "BGD",
+  "state_code": "25"
+},
+{
+  "name": "Jessore District",
+  "country_code": "BGD",
+  "state_code": "22"
+},
+{
+  "name": "Joypurhat District",
+  "country_code": "BGD",
+  "state_code": "24"
+},
+{
+  "name": "Jhenaidah District",
+  "country_code": "BGD",
+  "state_code": "23"
+},
+{
+  "name": "Khagrachari District",
+  "country_code": "BGD",
+  "state_code": "29"
+},
+{
+  "name": "Khulna District",
+  "country_code": "BGD",
+  "state_code": "27"
+},
+{
+  "name": "Khulna Division",
+  "country_code": "BGD",
+  "state_code": "D"
+},
+{
+  "name": "Kishoreganj District",
+  "country_code": "BGD",
+  "state_code": "26"
+},
+{
+  "name": "Kurigram District",
+  "country_code": "BGD",
+  "state_code": "28"
+},
+{
+  "name": "Kushtia District",
+  "country_code": "BGD",
+  "state_code": "30"
+},
+{
+  "name": "Lakshmipur District",
+  "country_code": "BGD",
+  "state_code": "31"
+},
+{
+  "name": "Lalmonirhat District",
+  "country_code": "BGD",
+  "state_code": "32"
+},
+{
+  "name": "Madaripur District",
+  "country_code": "BGD",
+  "state_code": "36"
+},
+{
+  "name": "Meherpur District",
+  "country_code": "BGD",
+  "state_code": "39"
+},
+{
+  "name": "Moulvibazar District",
+  "country_code": "BGD",
+  "state_code": "38"
+},
+{
+  "name": "Munshiganj District",
+  "country_code": "BGD",
+  "state_code": "35"
+},
+{
+  "name": "Mymensingh District",
+  "country_code": "BGD",
+  "state_code": "34"
+},
+{
+  "name": "Mymensingh Division",
+  "country_code": "BGD",
+  "state_code": "H"
+},
+{
+  "name": "Naogaon District",
+  "country_code": "BGD",
+  "state_code": "48"
+},
+{
+  "name": "Narail District",
+  "country_code": "BGD",
+  "state_code": "43"
+},
+{
+  "name": "Narayanganj District",
+  "country_code": "BGD",
+  "state_code": "40"
+},
+{
+  "name": "Natore District",
+  "country_code": "BGD",
+  "state_code": "44"
+},
+{
+  "name": "Netrokona District",
+  "country_code": "BGD",
+  "state_code": "41"
+},
+{
+  "name": "Nilphamari District",
+  "country_code": "BGD",
+  "state_code": "46"
+},
+{
+  "name": "Panchagarh District",
+  "country_code": "BGD",
+  "state_code": "52"
+},
+{
+  "name": "Noakhali District",
+  "country_code": "BGD",
+  "state_code": "47"
+},
+{
+  "name": "Patuakhali District",
+  "country_code": "BGD",
+  "state_code": "51"
+},
+{
+  "name": "Pabna District",
+  "country_code": "BGD",
+  "state_code": "49"
+},
+{
+  "name": "Pirojpur District",
+  "country_code": "BGD",
+  "state_code": "50"
+},
+{
+  "name": "Rajbari District",
+  "country_code": "BGD",
+  "state_code": "53"
+},
+{
+  "name": "Rajshahi District",
+  "country_code": "BGD",
+  "state_code": "54"
+},
+{
+  "name": "Rajshahi Division",
+  "country_code": "BGD",
+  "state_code": "E"
+},
+{
+  "name": "Rangamati Hill District",
+  "country_code": "BGD",
+  "state_code": "56"
+},
+{
+  "name": "Rangpur District",
+  "country_code": "BGD",
+  "state_code": "55"
+},
+{
+  "name": "Rangpur Division",
+  "country_code": "BGD",
+  "state_code": "F"
+},
+{
+  "name": "Satkhira District",
+  "country_code": "BGD",
+  "state_code": "58"
+},
+{
+  "name": "Shariatpur District",
+  "country_code": "BGD",
+  "state_code": "62"
+},
+{
+  "name": "Sherpur District",
+  "country_code": "BGD",
+  "state_code": "57"
+},
+{
+  "name": "Sirajganj District",
+  "country_code": "BGD",
+  "state_code": "59"
+},
+{
+  "name": "Sunamganj District",
+  "country_code": "BGD",
+  "state_code": "61"
+},
+{
+  "name": "Sylhet District",
+  "country_code": "BGD",
+  "state_code": "60"
+},
+{
+  "name": "Sylhet Division",
+  "country_code": "BGD",
+  "state_code": "G"
+},
+{
+  "name": "Tangail District",
+  "country_code": "BGD",
+  "state_code": "63"
+},
+{
+  "name": "Thakurgaon District",
+  "country_code": "BGD",
+  "state_code": "64"
+},
+{
+  "name": "Alagoas",
+  "country_code": "BRA",
+  "state_code": "AL"
+},
+{
+  "name": "Acre",
+  "country_code": "BRA",
+  "state_code": "AC"
+},
+{
+  "name": "Amazonas",
+  "country_code": "BRA",
+  "state_code": "AM"
+},
+{
+  "name": "Amapá",
+  "country_code": "BRA",
+  "state_code": "AP"
+},
+{
+  "name": "Bahia",
+  "country_code": "BRA",
+  "state_code": "BA"
+},
+{
+  "name": "Ceará",
+  "country_code": "BRA",
+  "state_code": "CE"
+},
+{
+  "name": "Espírito Santo",
+  "country_code": "BRA",
+  "state_code": "ES"
+},
+{
+  "name": "Federal District",
+  "country_code": "BRA",
+  "state_code": "DF"
+},
+{
+  "name": "Maranhão",
+  "country_code": "BRA",
+  "state_code": "MA"
+},
+{
+  "name": "Goiás",
+  "country_code": "BRA",
+  "state_code": "GO"
+},
+{
+  "name": "Altai Krai",
+  "country_code": "RUS",
+  "state_code": "ALT"
+},
+{
+  "name": "Altai Republic",
+  "country_code": "RUS",
+  "state_code": "AL"
+},
+{
+  "name": "Amur Oblast",
+  "country_code": "RUS",
+  "state_code": "AMU"
+},
+{
+  "name": "Astrakhan Oblast",
+  "country_code": "RUS",
+  "state_code": "AST"
+},
+{
+  "name": "Arkhangelsk",
+  "country_code": "RUS",
+  "state_code": "ARK"
+},
+{
+  "name": "Belgorod Oblast",
+  "country_code": "RUS",
+  "state_code": "BEL"
+},
+{
+  "name": "Bryansk Oblast",
+  "country_code": "RUS",
+  "state_code": "BRY"
+},
+{
+  "name": "Chechen Republic",
+  "country_code": "RUS",
+  "state_code": "CE"
+},
+{
+  "name": "Chelyabinsk Oblast",
+  "country_code": "RUS",
+  "state_code": "CHE"
+},
+{
+  "name": "Chukotka Autonomous Okrug",
+  "country_code": "RUS",
+  "state_code": "CHU"
+},
+{
+  "name": "Chuvash Republic",
+  "country_code": "RUS",
+  "state_code": "CU"
+},
+{
+  "name": "Irkutsk",
+  "country_code": "RUS",
+  "state_code": "IRK"
+},
+{
+  "name": "Ivanovo Oblast",
+  "country_code": "RUS",
+  "state_code": "IVA"
+},
+{
+  "name": "Jewish Autonomous Oblast",
+  "country_code": "RUS",
+  "state_code": "YEV"
+},
+{
+  "name": "Kabardino-Balkar Republic",
+  "country_code": "RUS",
+  "state_code": "KB"
+},
+{
+  "name": "Kaliningrad",
+  "country_code": "RUS",
+  "state_code": "KGD"
+},
+{
+  "name": "Kaluga Oblast",
+  "country_code": "RUS",
+  "state_code": "KLU"
+},
+{
+  "name": "Kamchatka Krai",
+  "country_code": "RUS",
+  "state_code": "KAM"
+},
+{
+  "name": "Karachay-Cherkess Republic",
+  "country_code": "RUS",
+  "state_code": "KC"
+},
+{
+  "name": "Kemerovo Oblast",
+  "country_code": "RUS",
+  "state_code": "KEM"
+},
+{
+  "name": "Mato Grosso do Sul",
+  "country_code": "BRA",
+  "state_code": "MS"
+},
+{
+  "name": "Mato Grosso",
+  "country_code": "BRA",
+  "state_code": "MT"
+},
+{
+  "name": "Minas Gerais",
+  "country_code": "BRA",
+  "state_code": "MG"
+},
+{
+  "name": "Pará",
+  "country_code": "BRA",
+  "state_code": "PA"
+},
+{
+  "name": "Paraíba",
+  "country_code": "BRA",
+  "state_code": "PB"
+},
+{
+  "name": "Paraná",
+  "country_code": "BRA",
+  "state_code": "PR"
+},
+{
+  "name": "Piauí",
+  "country_code": "BRA",
+  "state_code": "PI"
+},
+{
+  "name": "Pernambuco",
+  "country_code": "BRA",
+  "state_code": "PE"
+},
+{
+  "name": "Rio Grande do Norte",
+  "country_code": "BRA",
+  "state_code": "RN"
+},
+{
+  "name": "Rio de Janeiro",
+  "country_code": "BRA",
+  "state_code": "RJ"
+},
+{
+  "name": "Khabarovsk Krai",
+  "country_code": "RUS",
+  "state_code": "KHA"
+},
+{
+  "name": "Kirov Oblast",
+  "country_code": "RUS",
+  "state_code": "KIR"
+},
+{
+  "name": "Khanty-Mansi Autonomous Okrug",
+  "country_code": "RUS",
+  "state_code": "KHM"
+},
+{
+  "name": "Komi Republic",
+  "country_code": "RUS",
+  "state_code": "KO"
+},
+{
+  "name": "Kostroma Oblast",
+  "country_code": "RUS",
+  "state_code": "KOS"
+},
+{
+  "name": "Krasnodar Krai",
+  "country_code": "RUS",
+  "state_code": "KDA"
+},
+{
+  "name": "Krasnoyarsk Krai",
+  "country_code": "RUS",
+  "state_code": "KYA"
+},
+{
+  "name": "Kurgan Oblast",
+  "country_code": "RUS",
+  "state_code": "KGN"
+},
+{
+  "name": "Kursk Oblast",
+  "country_code": "RUS",
+  "state_code": "KRS"
+},
+{
+  "name": "Leningrad Oblast",
+  "country_code": "RUS",
+  "state_code": "LEN"
+},
+{
+  "name": "Rondônia",
+  "country_code": "BRA",
+  "state_code": "RO"
+},
+{
+  "name": "Rio Grande do Sul",
+  "country_code": "BRA",
+  "state_code": "RS"
+},
+{
+  "name": "Roraima",
+  "country_code": "BRA",
+  "state_code": "RR"
+},
+{
+  "name": "Santa Catarina",
+  "country_code": "BRA",
+  "state_code": "SC"
+},
+{
+  "name": "São Paulo",
+  "country_code": "BRA",
+  "state_code": "SP"
+},
+{
+  "name": "Sergipe",
+  "country_code": "BRA",
+  "state_code": "SE"
+},
+{
+  "name": "Tocantins",
+  "country_code": "BRA",
+  "state_code": "TO"
+},
+{
+  "name": "Magadan Oblast",
+  "country_code": "RUS",
+  "state_code": "MAG"
+},
+{
+  "name": "Lipetsk Oblast",
+  "country_code": "RUS",
+  "state_code": "LIP"
+},
+{
+  "name": "Mari El Republic",
+  "country_code": "RUS",
+  "state_code": "ME"
+},
+{
+  "name": "Moscow",
+  "country_code": "RUS",
+  "state_code": "MOW"
+},
+{
+  "name": "Moscow Oblast",
+  "country_code": "RUS",
+  "state_code": "MOS"
+},
+{
+  "name": "Murmansk Oblast",
+  "country_code": "RUS",
+  "state_code": "MUR"
+},
+{
+  "name": "Nenets Autonomous Okrug",
+  "country_code": "RUS",
+  "state_code": "NEN"
+},
+{
+  "name": "Nizhny Novgorod Oblast",
+  "country_code": "RUS",
+  "state_code": "NIZ"
+},
+{
+  "name": "Novgorod Oblast",
+  "country_code": "RUS",
+  "state_code": "NGR"
+},
+{
+  "name": "Novosibirsk",
+  "country_code": "RUS",
+  "state_code": "NVS"
+},
+{
+  "name": "Orenburg Oblast",
+  "country_code": "RUS",
+  "state_code": "ORE"
+},
+{
+  "name": "Oryol Oblast",
+  "country_code": "RUS",
+  "state_code": "ORL"
+},
+{
+  "name": "Omsk Oblast",
+  "country_code": "RUS",
+  "state_code": "OMS"
+},
+{
+  "name": "Penza Oblast",
+  "country_code": "RUS",
+  "state_code": "PNZ"
+},
+{
+  "name": "Perm Krai",
+  "country_code": "RUS",
+  "state_code": "PER"
+},
+{
+  "name": "Primorsky Krai",
+  "country_code": "RUS",
+  "state_code": "PRI"
+},
+{
+  "name": "Pskov Oblast",
+  "country_code": "RUS",
+  "state_code": "PSK"
+},
+{
+  "name": "Republic of Adygea",
+  "country_code": "RUS",
+  "state_code": "AD"
+},
+{
+  "name": "Republic of Bashkortostan",
+  "country_code": "RUS",
+  "state_code": "BA"
+},
+{
+  "name": "Republic of Buryatia",
+  "country_code": "RUS",
+  "state_code": "BU"
+},
+{
+  "name": "Republic of Dagestan",
+  "country_code": "RUS",
+  "state_code": "DA"
+},
+{
+  "name": "Republic of Ingushetia",
+  "country_code": "RUS",
+  "state_code": "IN"
+},
+{
+  "name": "Republic of Kalmykia",
+  "country_code": "RUS",
+  "state_code": "KL"
+},
+{
+  "name": "Republic of Karelia",
+  "country_code": "RUS",
+  "state_code": "KR"
+},
+{
+  "name": "Republic of Khakassia",
+  "country_code": "RUS",
+  "state_code": "KK"
+},
+{
+  "name": "Republic of Mordovia",
+  "country_code": "RUS",
+  "state_code": "MO"
+},
+{
+  "name": "Republic of North Ossetia-Alania",
+  "country_code": "RUS",
+  "state_code": "SE"
+},
+{
+  "name": "Republic of Tatarstan",
+  "country_code": "RUS",
+  "state_code": "TA"
+},
+{
+  "name": "Rostov Oblast",
+  "country_code": "RUS",
+  "state_code": "ROS"
+},
+{
+  "name": "Ryazan Oblast",
+  "country_code": "RUS",
+  "state_code": "RYA"
+},
+{
+  "name": "Saint Petersburg",
+  "country_code": "RUS",
+  "state_code": "SPE"
+},
+{
+  "name": "Sakha Republic",
+  "country_code": "RUS",
+  "state_code": "SA"
+},
+{
+  "name": "Sakhalin",
+  "country_code": "RUS",
+  "state_code": "SAK"
+},
+{
+  "name": "Samara Oblast",
+  "country_code": "RUS",
+  "state_code": "SAM"
+},
+{
+  "name": "Saratov Oblast",
+  "country_code": "RUS",
+  "state_code": "SAR"
+},
+{
+  "name": "Sevastopol",
+  "country_code": "RUS",
+  "state_code": "UA-40"
+},
+{
+  "name": "Smolensk Oblast",
+  "country_code": "RUS",
+  "state_code": "SMO"
+},
+{
+  "name": "Stavropol Krai",
+  "country_code": "RUS",
+  "state_code": "STA"
+},
+{
+  "name": "Sverdlovsk",
+  "country_code": "RUS",
+  "state_code": "SVE"
+},
+{
+  "name": "Tambov Oblast",
+  "country_code": "RUS",
+  "state_code": "TAM"
+},
+{
+  "name": "Tomsk Oblast",
+  "country_code": "RUS",
+  "state_code": "TOM"
+},
+{
+  "name": "Tula Oblast",
+  "country_code": "RUS",
+  "state_code": "TUL"
+},
+{
+  "name": "Tuva Republic",
+  "country_code": "RUS",
+  "state_code": "TY"
+},
+{
+  "name": "Tver Oblast",
+  "country_code": "RUS",
+  "state_code": "TVE"
+},
+{
+  "name": "Tyumen Oblast",
+  "country_code": "RUS",
+  "state_code": "TYU"
+},
+{
+  "name": "Udmurt Republic",
+  "country_code": "RUS",
+  "state_code": "UD"
+},
+{
+  "name": "Ulyanovsk Oblast",
+  "country_code": "RUS",
+  "state_code": "ULY"
+},
+{
+  "name": "Vladimir Oblast",
+  "country_code": "RUS",
+  "state_code": "VLA"
+},
+{
+  "name": "Vologda Oblast",
+  "country_code": "RUS",
+  "state_code": "VLG"
+},
+{
+  "name": "Voronezh Oblast",
+  "country_code": "RUS",
+  "state_code": "VOR"
+},
+{
+  "name": "Zabaykalsky Krai",
+  "country_code": "RUS",
+  "state_code": "ZAB"
+},
+{
+  "name": "Yamalo-Nenets Autonomous Okrug",
+  "country_code": "RUS",
+  "state_code": "YAN"
+},
+{
+  "name": "Yaroslavl Oblast",
+  "country_code": "RUS",
+  "state_code": "YAR"
+},
+{
+  "name": "Aichi Prefecture",
+  "country_code": "JPN",
+  "state_code": "23"
+},
+{
+  "name": "Akita Prefecture",
+  "country_code": "JPN",
+  "state_code": "05"
+},
+{
+  "name": "Aomori Prefecture",
+  "country_code": "JPN",
+  "state_code": "02"
+},
+{
+  "name": "Ehime Prefecture",
+  "country_code": "JPN",
+  "state_code": "38"
+},
+{
+  "name": "Chiba Prefecture",
+  "country_code": "JPN",
+  "state_code": "12"
+},
+{
+  "name": "Fukui Prefecture",
+  "country_code": "JPN",
+  "state_code": "18"
+},
+{
+  "name": "Fukushima Prefecture",
+  "country_code": "JPN",
+  "state_code": "07"
+},
+{
+  "name": "Fukuoka Prefecture",
+  "country_code": "JPN",
+  "state_code": "40"
+},
+{
+  "name": "Gifu Prefecture",
+  "country_code": "JPN",
+  "state_code": "21"
+},
+{
+  "name": "Gunma Prefecture",
+  "country_code": "JPN",
+  "state_code": "10"
+},
+{
+  "name": "Aberdeen",
+  "country_code": "GBR",
+  "state_code": "ABE"
+},
+{
+  "name": "Angus",
+  "country_code": "GBR",
+  "state_code": "ANS"
+},
+{
+  "name": "Aberdeenshire",
+  "country_code": "GBR",
+  "state_code": "ABD"
+},
+{
+  "name": "Antrim",
+  "country_code": "GBR",
+  "state_code": "ANT"
+},
+{
+  "name": "Antrim and Newtownabbey",
+  "country_code": "GBR",
+  "state_code": "ANN"
+},
+{
+  "name": "Ards",
+  "country_code": "GBR",
+  "state_code": "ARD"
+},
+{
+  "name": "Ards and North Down",
+  "country_code": "GBR",
+  "state_code": "AND"
+},
+{
+  "name": "Argyll and Bute",
+  "country_code": "GBR",
+  "state_code": "AGB"
+},
+{
+  "name": "Armagh City and District Council",
+  "country_code": "GBR",
+  "state_code": "ARM"
+},
+{
+  "name": "Armagh, Banbridge and Craigavon",
+  "country_code": "GBR",
+  "state_code": "ABC"
+},
+{
+  "name": "Ballymoney",
+  "country_code": "GBR",
+  "state_code": "BLY"
+},
+{
+  "name": "Ballymena Borough",
+  "country_code": "GBR",
+  "state_code": "BLA"
+},
+{
+  "name": "Ascension Island",
+  "country_code": "GBR",
+  "state_code": "SH-AC"
+},
+{
+  "name": "Banbridge",
+  "country_code": "GBR",
+  "state_code": "BNB"
+},
+{
+  "name": "Barnsley",
+  "country_code": "GBR",
+  "state_code": "BNS"
+},
+{
+  "name": "Bath and North East Somerset",
+  "country_code": "GBR",
+  "state_code": "BAS"
+},
+{
+  "name": "Bedford",
+  "country_code": "GBR",
+  "state_code": "BDF"
+},
+{
+  "name": "Belfast district",
+  "country_code": "GBR",
+  "state_code": "BFS"
+},
+{
+  "name": "Birmingham",
+  "country_code": "GBR",
+  "state_code": "BIR"
+},
+{
+  "name": "Blackburn with Darwen",
+  "country_code": "GBR",
+  "state_code": "BBD"
+},
+{
+  "name": "Hiroshima Prefecture",
+  "country_code": "JPN",
+  "state_code": "34"
+},
+{
+  "name": "Hokkaidō Prefecture",
+  "country_code": "JPN",
+  "state_code": "01"
+},
+{
+  "name": "Ibaraki Prefecture",
+  "country_code": "JPN",
+  "state_code": "08"
+},
+{
+  "name": "Hyōgo Prefecture",
+  "country_code": "JPN",
+  "state_code": "28"
+},
+{
+  "name": "Iwate Prefecture",
+  "country_code": "JPN",
+  "state_code": "03"
+},
+{
+  "name": "Ishikawa Prefecture",
+  "country_code": "JPN",
+  "state_code": "17"
+},
+{
+  "name": "Kagoshima Prefecture",
+  "country_code": "JPN",
+  "state_code": "46"
+},
+{
+  "name": "Kagawa Prefecture",
+  "country_code": "JPN",
+  "state_code": "37"
+},
+{
+  "name": "Kumamoto Prefecture",
+  "country_code": "JPN",
+  "state_code": "43"
+},
+{
+  "name": "Kanagawa Prefecture",
+  "country_code": "JPN",
+  "state_code": "14"
+},
+{
+  "name": "Blaenau Gwent County Borough",
+  "country_code": "GBR",
+  "state_code": "BGW"
+},
+{
+  "name": "Blackpool",
+  "country_code": "GBR",
+  "state_code": "BPL"
+},
+{
+  "name": "Bolton",
+  "country_code": "GBR",
+  "state_code": "BOL"
+},
+{
+  "name": "Bournemouth",
+  "country_code": "GBR",
+  "state_code": "BMH"
+},
+{
+  "name": "Bracknell Forest",
+  "country_code": "GBR",
+  "state_code": "BRC"
+},
+{
+  "name": "Bradford",
+  "country_code": "GBR",
+  "state_code": "BRD"
+},
+{
+  "name": "Bridgend County Borough",
+  "country_code": "GBR",
+  "state_code": "BGE"
+},
+{
+  "name": "Brighton and Hove",
+  "country_code": "GBR",
+  "state_code": "BNH"
+},
+{
+  "name": "Bury",
+  "country_code": "GBR",
+  "state_code": "BUR"
+},
+{
+  "name": "Buckinghamshire",
+  "country_code": "GBR",
+  "state_code": "BKM"
+},
+{
+  "name": "Mie Prefecture",
+  "country_code": "JPN",
+  "state_code": "24"
+},
+{
+  "name": "Kyōto Prefecture",
+  "country_code": "JPN",
+  "state_code": "26"
+},
+{
+  "name": "Miyagi Prefecture",
+  "country_code": "JPN",
+  "state_code": "04"
+},
+{
+  "name": "Miyazaki Prefecture",
+  "country_code": "JPN",
+  "state_code": "45"
+},
+{
+  "name": "Nagano Prefecture",
+  "country_code": "JPN",
+  "state_code": "20"
+},
+{
+  "name": "Nagasaki Prefecture",
+  "country_code": "JPN",
+  "state_code": "42"
+},
+{
+  "name": "Nara Prefecture",
+  "country_code": "JPN",
+  "state_code": "29"
+},
+{
+  "name": "Niigata Prefecture",
+  "country_code": "JPN",
+  "state_code": "15"
+},
+{
+  "name": "Ōita Prefecture",
+  "country_code": "JPN",
+  "state_code": "44"
+},
+{
+  "name": "Okayama Prefecture",
+  "country_code": "JPN",
+  "state_code": "33"
+},
+{
+  "name": "Caerphilly County Borough",
+  "country_code": "GBR",
+  "state_code": "CAY"
+},
+{
+  "name": "Calderdale",
+  "country_code": "GBR",
+  "state_code": "CLD"
+},
+{
+  "name": "Cambridgeshire",
+  "country_code": "GBR",
+  "state_code": "CAM"
+},
+{
+  "name": "Carmarthenshire",
+  "country_code": "GBR",
+  "state_code": "CMN"
+},
+{
+  "name": "Carrickfergus Borough Council",
+  "country_code": "GBR",
+  "state_code": "CKF"
+},
+{
+  "name": "Castlereagh",
+  "country_code": "GBR",
+  "state_code": "CSR"
+},
+{
+  "name": "Causeway Coast and Glens",
+  "country_code": "GBR",
+  "state_code": "CCG"
+},
+{
+  "name": "Central Bedfordshire",
+  "country_code": "GBR",
+  "state_code": "CBF"
+},
+{
+  "name": "Ceredigion",
+  "country_code": "GBR",
+  "state_code": "CGN"
+},
+{
+  "name": "Cheshire East",
+  "country_code": "GBR",
+  "state_code": "CHE"
+},
+{
+  "name": "City and County of Swansea",
+  "country_code": "GBR",
+  "state_code": "SWA"
+},
+{
+  "name": "City and County of Cardiff",
+  "country_code": "GBR",
+  "state_code": "CRF"
+},
+{
+  "name": "Cheshire West and Chester",
+  "country_code": "GBR",
+  "state_code": "CHW"
+},
+{
+  "name": "City of Bristol",
+  "country_code": "GBR",
+  "state_code": "BST"
+},
+{
+  "name": "City of Kingston upon Hull",
+  "country_code": "GBR",
+  "state_code": "KHL"
+},
+{
+  "name": "City of Derby",
+  "country_code": "GBR",
+  "state_code": "DER"
+},
+{
+  "name": "City of Leicester",
+  "country_code": "GBR",
+  "state_code": "LCE"
+},
+{
+  "name": "City of London",
+  "country_code": "GBR",
+  "state_code": "LND"
+},
+{
+  "name": "City of Nottingham",
+  "country_code": "GBR",
+  "state_code": "NGM"
+},
+{
+  "name": "City of Peterborough",
+  "country_code": "GBR",
+  "state_code": "PTE"
+},
+{
+  "name": "City of Portsmouth",
+  "country_code": "GBR",
+  "state_code": "POR"
+},
+{
+  "name": "City of Southampton",
+  "country_code": "GBR",
+  "state_code": "STH"
+},
+{
+  "name": "City of Plymouth",
+  "country_code": "GBR",
+  "state_code": "PLY"
+},
+{
+  "name": "City of Stoke-on-Trent",
+  "country_code": "GBR",
+  "state_code": "STE"
+},
+{
+  "name": "City of Sunderland",
+  "country_code": "GBR",
+  "state_code": "SND"
+},
+{
+  "name": "City of Westminster",
+  "country_code": "GBR",
+  "state_code": "WSM"
+},
+{
+  "name": "City of Wolverhampton",
+  "country_code": "GBR",
+  "state_code": "WLV"
+},
+{
+  "name": "Clackmannanshire",
+  "country_code": "GBR",
+  "state_code": "CLK"
+},
+{
+  "name": "City of York",
+  "country_code": "GBR",
+  "state_code": "YOR"
+},
+{
+  "name": "Coleraine Borough Council",
+  "country_code": "GBR",
+  "state_code": "CLR"
+},
+{
+  "name": "Okinawa Prefecture",
+  "country_code": "JPN",
+  "state_code": "47"
+},
+{
+  "name": "Ōsaka Prefecture",
+  "country_code": "JPN",
+  "state_code": "27"
+},
+{
+  "name": "Saga Prefecture",
+  "country_code": "JPN",
+  "state_code": "41"
+},
+{
+  "name": "Saitama Prefecture",
+  "country_code": "JPN",
+  "state_code": "11"
+},
+{
+  "name": "Shiga Prefecture",
+  "country_code": "JPN",
+  "state_code": "25"
+},
+{
+  "name": "Shimane Prefecture",
+  "country_code": "JPN",
+  "state_code": "32"
+},
+{
+  "name": "Shizuoka Prefecture",
+  "country_code": "JPN",
+  "state_code": "22"
+},
+{
+  "name": "Tochigi Prefecture",
+  "country_code": "JPN",
+  "state_code": "09"
+},
+{
+  "name": "Tokushima Prefecture",
+  "country_code": "JPN",
+  "state_code": "36"
+},
+{
+  "name": "Tokyo",
+  "country_code": "JPN",
+  "state_code": "13"
+},
+{
+  "name": "Conwy County Borough",
+  "country_code": "GBR",
+  "state_code": "CWY"
+},
+{
+  "name": "Cookstown District Council",
+  "country_code": "GBR",
+  "state_code": "CKT"
+},
+{
+  "name": "Cornwall",
+  "country_code": "GBR",
+  "state_code": "CON"
+},
+{
+  "name": "County Durham",
+  "country_code": "GBR",
+  "state_code": "DUR"
+},
+{
+  "name": "Coventry",
+  "country_code": "GBR",
+  "state_code": "COV"
+},
+{
+  "name": "Craigavon Borough Council",
+  "country_code": "GBR",
+  "state_code": "CGV"
+},
+{
+  "name": "Cumbria",
+  "country_code": "GBR",
+  "state_code": "CMA"
+},
+{
+  "name": "Darlington",
+  "country_code": "GBR",
+  "state_code": "DAL"
+},
+{
+  "name": "Denbighshire",
+  "country_code": "GBR",
+  "state_code": "DEN"
+},
+{
+  "name": "Derbyshire",
+  "country_code": "GBR",
+  "state_code": "DBY"
+},
+{
+  "name": "Derry City and Strabane",
+  "country_code": "GBR",
+  "state_code": "DRS"
+},
+{
+  "name": "Derry City Council",
+  "country_code": "GBR",
+  "state_code": "DRY"
+},
+{
+  "name": "Devon",
+  "country_code": "GBR",
+  "state_code": "DEV"
+},
+{
+  "name": "Doncaster",
+  "country_code": "GBR",
+  "state_code": "DNC"
+},
+{
+  "name": "Dorset",
+  "country_code": "GBR",
+  "state_code": "DOR"
+},
+{
+  "name": "Down District Council",
+  "country_code": "GBR",
+  "state_code": "DOW"
+},
+{
+  "name": "Dudley",
+  "country_code": "GBR",
+  "state_code": "DUD"
+},
+{
+  "name": "Dumfries and Galloway",
+  "country_code": "GBR",
+  "state_code": "DGY"
+},
+{
+  "name": "Dundee",
+  "country_code": "GBR",
+  "state_code": "DND"
+},
+{
+  "name": "Dungannon and South Tyrone Borough Council",
+  "country_code": "GBR",
+  "state_code": "DGN"
+},
+{
+  "name": "East Dunbartonshire",
+  "country_code": "GBR",
+  "state_code": "EDU"
+},
+{
+  "name": "East Lothian",
+  "country_code": "GBR",
+  "state_code": "ELN"
+},
+{
+  "name": "East Ayrshire",
+  "country_code": "GBR",
+  "state_code": "EAY"
+},
+{
+  "name": "East Renfrewshire",
+  "country_code": "GBR",
+  "state_code": "ERW"
+},
+{
+  "name": "East Riding of Yorkshire",
+  "country_code": "GBR",
+  "state_code": "ERY"
+},
+{
+  "name": "East Sussex",
+  "country_code": "GBR",
+  "state_code": "ESX"
+},
+{
+  "name": "Edinburgh",
+  "country_code": "GBR",
+  "state_code": "EDH"
+},
+{
+  "name": "England",
+  "country_code": "GBR",
+  "state_code": "ENG"
+},
+{
+  "name": "Essex",
+  "country_code": "GBR",
+  "state_code": "ESS"
+},
+{
+  "name": "Falkirk",
+  "country_code": "GBR",
+  "state_code": "FAL"
+},
+{
+  "name": "Wakayama Prefecture",
+  "country_code": "JPN",
+  "state_code": "30"
+},
+{
+  "name": "Tottori Prefecture",
+  "country_code": "JPN",
+  "state_code": "31"
+},
+{
+  "name": "Toyama Prefecture",
+  "country_code": "JPN",
+  "state_code": "16"
+},
+{
+  "name": "Yamagata Prefecture",
+  "country_code": "JPN",
+  "state_code": "06"
+},
+{
+  "name": "Yamaguchi Prefecture",
+  "country_code": "JPN",
+  "state_code": "35"
+},
+{
+  "name": "Yamanashi Prefecture",
+  "country_code": "JPN",
+  "state_code": "19"
+},
+{
+  "name": "Fermanagh and Omagh",
+  "country_code": "GBR",
+  "state_code": "FMO"
+},
+{
+  "name": "Fife",
+  "country_code": "GBR",
+  "state_code": "FIF"
+},
+{
+  "name": "Fermanagh District Council",
+  "country_code": "GBR",
+  "state_code": "FER"
+},
+{
+  "name": "Flintshire",
+  "country_code": "GBR",
+  "state_code": "FLN"
+},
+{
+  "name": "Glasgow",
+  "country_code": "GBR",
+  "state_code": "GLG"
+},
+{
+  "name": "Gateshead",
+  "country_code": "GBR",
+  "state_code": "GAT"
+},
+{
+  "name": "Gloucestershire",
+  "country_code": "GBR",
+  "state_code": "GLS"
+},
+{
+  "name": "Gwynedd",
+  "country_code": "GBR",
+  "state_code": "GWN"
+},
+{
+  "name": "Halton",
+  "country_code": "GBR",
+  "state_code": "HAL"
+},
+{
+  "name": "Hampshire",
+  "country_code": "GBR",
+  "state_code": "HAM"
+},
+{
+  "name": "Herefordshire",
+  "country_code": "GBR",
+  "state_code": "HEF"
+},
+{
+  "name": "Hertfordshire",
+  "country_code": "GBR",
+  "state_code": "HRT"
+},
+{
+  "name": "Inverclyde",
+  "country_code": "GBR",
+  "state_code": "IVC"
+},
+{
+  "name": "Highland",
+  "country_code": "GBR",
+  "state_code": "HLD"
+},
+{
+  "name": "Isles of Scilly",
+  "country_code": "GBR",
+  "state_code": "IOS"
+},
+{
+  "name": "Isle of Wight",
+  "country_code": "GBR",
+  "state_code": "IOW"
+},
+{
+  "name": "Kent",
+  "country_code": "GBR",
+  "state_code": "KEN"
+},
+{
+  "name": "Kirklees",
+  "country_code": "GBR",
+  "state_code": "KIR"
+},
+{
+  "name": "Hartlepool",
+  "country_code": "GBR",
+  "state_code": "HPL"
+},
+{
+  "name": "Knowsley",
+  "country_code": "GBR",
+  "state_code": "KWL"
+},
+{
+  "name": "Lancashire",
+  "country_code": "GBR",
+  "state_code": "LAN"
+},
+{
+  "name": "Larne Borough Council",
+  "country_code": "GBR",
+  "state_code": "LRN"
+},
+{
+  "name": "Leicestershire",
+  "country_code": "GBR",
+  "state_code": "LEC"
+},
+{
+  "name": "Leeds",
+  "country_code": "GBR",
+  "state_code": "LDS"
+},
+{
+  "name": "Limavady Borough Council",
+  "country_code": "GBR",
+  "state_code": "LMV"
+},
+{
+  "name": "Lincolnshire",
+  "country_code": "GBR",
+  "state_code": "LIN"
+},
+{
+  "name": "Lisburn and Castlereagh",
+  "country_code": "GBR",
+  "state_code": "LBC"
+},
+{
+  "name": "Lisburn City Council",
+  "country_code": "GBR",
+  "state_code": "LSB"
+},
+{
+  "name": "Liverpool",
+  "country_code": "GBR",
+  "state_code": "LIV"
+},
+{
+  "name": "London Borough of Barking and Dagenham",
+  "country_code": "GBR",
+  "state_code": "BDG"
+},
+{
+  "name": "London Borough of Barnet",
+  "country_code": "GBR",
+  "state_code": "BNE"
+},
+{
+  "name": "London Borough of Bexley",
+  "country_code": "GBR",
+  "state_code": "BEX"
+},
+{
+  "name": "London Borough of Brent",
+  "country_code": "GBR",
+  "state_code": "BEN"
+},
+{
+  "name": "London Borough of Bromley",
+  "country_code": "GBR",
+  "state_code": "BRY"
+},
+{
+  "name": "London Borough of Camden",
+  "country_code": "GBR",
+  "state_code": "CMD"
+},
+{
+  "name": "London Borough of Croydon",
+  "country_code": "GBR",
+  "state_code": "CRY"
+},
+{
+  "name": "London Borough of Ealing",
+  "country_code": "GBR",
+  "state_code": "EAL"
+},
+{
+  "name": "London Borough of Enfield",
+  "country_code": "GBR",
+  "state_code": "ENF"
+},
+{
+  "name": "London Borough of Hackney",
+  "country_code": "GBR",
+  "state_code": "HCK"
+},
+{
+  "name": "London Borough of Hammersmith and Fulham",
+  "country_code": "GBR",
+  "state_code": "HMF"
+},
+{
+  "name": "London Borough of Harrow",
+  "country_code": "GBR",
+  "state_code": "HRW"
+},
+{
+  "name": "London Borough of Haringey",
+  "country_code": "GBR",
+  "state_code": "HRY"
+},
+{
+  "name": "London Borough of Havering",
+  "country_code": "GBR",
+  "state_code": "HAV"
+},
+{
+  "name": "London Borough of Islington",
+  "country_code": "GBR",
+  "state_code": "ISL"
+},
+{
+  "name": "London Borough of Lambeth",
+  "country_code": "GBR",
+  "state_code": "LBH"
+},
+{
+  "name": "London Borough of Hounslow",
+  "country_code": "GBR",
+  "state_code": "HNS"
+},
+{
+  "name": "London Borough of Hillingdon",
+  "country_code": "GBR",
+  "state_code": "HIL"
+},
+{
+  "name": "London Borough of Lewisham",
+  "country_code": "GBR",
+  "state_code": "LEW"
+},
+{
+  "name": "London Borough of Merton",
+  "country_code": "GBR",
+  "state_code": "MRT"
+},
+{
+  "name": "London Borough of Newham",
+  "country_code": "GBR",
+  "state_code": "NWM"
+},
+{
+  "name": "London Borough of Redbridge",
+  "country_code": "GBR",
+  "state_code": "RDB"
+},
+{
+  "name": "London Borough of Richmond upon Thames",
+  "country_code": "GBR",
+  "state_code": "RIC"
+},
+{
+  "name": "London Borough of Sutton",
+  "country_code": "GBR",
+  "state_code": "STN"
+},
+{
+  "name": "London Borough of Southwark",
+  "country_code": "GBR",
+  "state_code": "SWK"
+},
+{
+  "name": "London Borough of Tower Hamlets",
+  "country_code": "GBR",
+  "state_code": "TWH"
+},
+{
+  "name": "London Borough of Waltham Forest",
+  "country_code": "GBR",
+  "state_code": "WFT"
+},
+{
+  "name": "London Borough of Wandsworth",
+  "country_code": "GBR",
+  "state_code": "WND"
+},
+{
+  "name": "Magherafelt District Council",
+  "country_code": "GBR",
+  "state_code": "MFT"
+},
+{
+  "name": "Manchester",
+  "country_code": "GBR",
+  "state_code": "MAN"
+},
+{
+  "name": "Medway",
+  "country_code": "GBR",
+  "state_code": "MDW"
+},
+{
+  "name": "Merthyr Tydfil County Borough",
+  "country_code": "GBR",
+  "state_code": "MTY"
+},
+{
+  "name": "Metropolitan Borough of Wigan",
+  "country_code": "GBR",
+  "state_code": "WGN"
+},
+{
+  "name": "Mid and East Antrim",
+  "country_code": "GBR",
+  "state_code": "MEA"
+},
+{
+  "name": "Mid Ulster",
+  "country_code": "GBR",
+  "state_code": "MUL"
+},
+{
+  "name": "Middlesbrough",
+  "country_code": "GBR",
+  "state_code": "MDB"
+},
+{
+  "name": "Midlothian",
+  "country_code": "GBR",
+  "state_code": "MLN"
+},
+{
+  "name": "Milton Keynes",
+  "country_code": "GBR",
+  "state_code": "MIK"
+},
+{
+  "name": "Monmouthshire",
+  "country_code": "GBR",
+  "state_code": "MON"
+},
+{
+  "name": "Moray",
+  "country_code": "GBR",
+  "state_code": "MRY"
+},
+{
+  "name": "Moyle District Council",
+  "country_code": "GBR",
+  "state_code": "MYL"
+},
+{
+  "name": "Neath Port Talbot County Borough",
+  "country_code": "GBR",
+  "state_code": "NTL"
+},
+{
+  "name": "Newcastle upon Tyne",
+  "country_code": "GBR",
+  "state_code": "NET"
+},
+{
+  "name": "Newport",
+  "country_code": "GBR",
+  "state_code": "NWP"
+},
+{
+  "name": "Newry and Mourne District Council",
+  "country_code": "GBR",
+  "state_code": "NYM"
+},
+{
+  "name": "Newry, Mourne and Down",
+  "country_code": "GBR",
+  "state_code": "NMD"
+},
+{
+  "name": "Newtownabbey Borough Council",
+  "country_code": "GBR",
+  "state_code": "NTA"
+},
+{
+  "name": "Norfolk",
+  "country_code": "GBR",
+  "state_code": "NFK"
+},
+{
+  "name": "North Down Borough Council",
+  "country_code": "GBR",
+  "state_code": "NDN"
+},
+{
+  "name": "North Ayrshire",
+  "country_code": "GBR",
+  "state_code": "NAY"
+},
+{
+  "name": "North East Lincolnshire",
+  "country_code": "GBR",
+  "state_code": "NEL"
+},
+{
+  "name": "North Lanarkshire",
+  "country_code": "GBR",
+  "state_code": "NLK"
+},
+{
+  "name": "North Lincolnshire",
+  "country_code": "GBR",
+  "state_code": "NLN"
+},
+{
+  "name": "North Somerset",
+  "country_code": "GBR",
+  "state_code": "NSM"
+},
+{
+  "name": "North Tyneside",
+  "country_code": "GBR",
+  "state_code": "NTY"
+},
+{
+  "name": "North Yorkshire",
+  "country_code": "GBR",
+  "state_code": "NYK"
+},
+{
+  "name": "Northern Ireland",
+  "country_code": "GBR",
+  "state_code": "NIR"
+},
+{
+  "name": "Northumberland",
+  "country_code": "GBR",
+  "state_code": "NBL"
+},
+{
+  "name": "Nottinghamshire",
+  "country_code": "GBR",
+  "state_code": "NTT"
+},
+{
+  "name": "Northamptonshire",
+  "country_code": "GBR",
+  "state_code": "NTH"
+},
+{
+  "name": "Oldham",
+  "country_code": "GBR",
+  "state_code": "OLD"
+},
+{
+  "name": "Omagh District Council",
+  "country_code": "GBR",
+  "state_code": "OMH"
+},
+{
+  "name": "Orkney Islands",
+  "country_code": "GBR",
+  "state_code": "ORK"
+},
+{
+  "name": "Outer Hebrides",
+  "country_code": "GBR",
+  "state_code": "ELS"
+},
+{
+  "name": "Oxfordshire",
+  "country_code": "GBR",
+  "state_code": "OXF"
+},
+{
+  "name": "Perth and Kinross",
+  "country_code": "GBR",
+  "state_code": "PKN"
+},
+{
+  "name": "Pembrokeshire",
+  "country_code": "GBR",
+  "state_code": "PEM"
+},
+{
+  "name": "Powys",
+  "country_code": "GBR",
+  "state_code": "POW"
+},
+{
+  "name": "Poole",
+  "country_code": "GBR",
+  "state_code": "POL"
+},
+{
+  "name": "Redcar and Cleveland",
+  "country_code": "GBR",
+  "state_code": "RCC"
+},
+{
+  "name": "Reading",
+  "country_code": "GBR",
+  "state_code": "RDG"
+},
+{
+  "name": "Renfrewshire",
+  "country_code": "GBR",
+  "state_code": "RFW"
+},
+{
+  "name": "Rochdale",
+  "country_code": "GBR",
+  "state_code": "RCH"
+},
+{
+  "name": "Rhondda Cynon Taf",
+  "country_code": "GBR",
+  "state_code": "RCT"
+},
+{
+  "name": "Rotherham",
+  "country_code": "GBR",
+  "state_code": "ROT"
+},
+{
+  "name": "Royal Borough of Greenwich",
+  "country_code": "GBR",
+  "state_code": "GRE"
+},
+{
+  "name": "Royal Borough of Kensington and Chelsea",
+  "country_code": "GBR",
+  "state_code": "KEC"
+},
+{
+  "name": "Royal Borough of Kingston upon Thames",
+  "country_code": "GBR",
+  "state_code": "KTT"
+},
+{
+  "name": "Rutland",
+  "country_code": "GBR",
+  "state_code": "RUT"
+},
+{
+  "name": "Saint Helena",
+  "country_code": "GBR",
+  "state_code": "SH-HL"
+},
+{
+  "name": "Salford",
+  "country_code": "GBR",
+  "state_code": "SLF"
+},
+{
+  "name": "Sandwell",
+  "country_code": "GBR",
+  "state_code": "SAW"
+},
+{
+  "name": "Scottish Borders",
+  "country_code": "GBR",
+  "state_code": "SCB"
+},
+{
+  "name": "Scotland",
+  "country_code": "GBR",
+  "state_code": "SCT"
+},
+{
+  "name": "Sefton",
+  "country_code": "GBR",
+  "state_code": "SFT"
+},
+{
+  "name": "Sheffield",
+  "country_code": "GBR",
+  "state_code": "SHF"
+},
+{
+  "name": "Shetland Islands",
+  "country_code": "GBR",
+  "state_code": "ZET"
+},
+{
+  "name": "Shropshire",
+  "country_code": "GBR",
+  "state_code": "SHR"
+},
+{
+  "name": "Slough",
+  "country_code": "GBR",
+  "state_code": "SLG"
+},
+{
+  "name": "Solihull",
+  "country_code": "GBR",
+  "state_code": "SOL"
+},
+{
+  "name": "Somerset",
+  "country_code": "GBR",
+  "state_code": "SOM"
+},
+{
+  "name": "South Ayrshire",
+  "country_code": "GBR",
+  "state_code": "SAY"
+},
+{
+  "name": "South Gloucestershire",
+  "country_code": "GBR",
+  "state_code": "SGC"
+},
+{
+  "name": "South Lanarkshire",
+  "country_code": "GBR",
+  "state_code": "SLK"
+},
+{
+  "name": "South Tyneside",
+  "country_code": "GBR",
+  "state_code": "STY"
+},
+{
+  "name": "Southend-on-Sea",
+  "country_code": "GBR",
+  "state_code": "SOS"
+},
+{
+  "name": "St Helens",
+  "country_code": "GBR",
+  "state_code": "SHN"
+},
+{
+  "name": "Staffordshire",
+  "country_code": "GBR",
+  "state_code": "STS"
+},
+{
+  "name": "Stirling",
+  "country_code": "GBR",
+  "state_code": "STG"
+},
+{
+  "name": "Stockport",
+  "country_code": "GBR",
+  "state_code": "SKP"
+},
+{
+  "name": "Stockton-on-Tees",
+  "country_code": "GBR",
+  "state_code": "STT"
+},
+{
+  "name": "Strabane District Council",
+  "country_code": "GBR",
+  "state_code": "STB"
+},
+{
+  "name": "Suffolk",
+  "country_code": "GBR",
+  "state_code": "SFK"
+},
+{
+  "name": "Surrey",
+  "country_code": "GBR",
+  "state_code": "SRY"
+},
+{
+  "name": "Swindon",
+  "country_code": "GBR",
+  "state_code": "SWD"
+},
+{
+  "name": "Tameside",
+  "country_code": "GBR",
+  "state_code": "TAM"
+},
+{
+  "name": "Telford and Wrekin",
+  "country_code": "GBR",
+  "state_code": "TFW"
+},
+{
+  "name": "Thurrock",
+  "country_code": "GBR",
+  "state_code": "THR"
+},
+{
+  "name": "Torbay",
+  "country_code": "GBR",
+  "state_code": "TOB"
+},
+{
+  "name": "Torfaen",
+  "country_code": "GBR",
+  "state_code": "TOF"
+},
+{
+  "name": "Trafford",
+  "country_code": "GBR",
+  "state_code": "TRF"
+},
+{
+  "name": "Vale of Glamorgan",
+  "country_code": "GBR",
+  "state_code": "VGL"
+},
+{
+  "name": "United Kingdom",
+  "country_code": "GBR",
+  "state_code": "UKM"
+},
+{
+  "name": "Wakefield",
+  "country_code": "GBR",
+  "state_code": "WKF"
+},
+{
+  "name": "Wales",
+  "country_code": "GBR",
+  "state_code": "WLS"
+},
+{
+  "name": "Walsall",
+  "country_code": "GBR",
+  "state_code": "WLL"
+},
+{
+  "name": "Warrington",
+  "country_code": "GBR",
+  "state_code": "WRT"
+},
+{
+  "name": "Warwickshire",
+  "country_code": "GBR",
+  "state_code": "WAR"
+},
+{
+  "name": "West Berkshire",
+  "country_code": "GBR",
+  "state_code": "WBK"
+},
+{
+  "name": "West Dunbartonshire",
+  "country_code": "GBR",
+  "state_code": "WDU"
+},
+{
+  "name": "West Lothian",
+  "country_code": "GBR",
+  "state_code": "WLN"
+},
+{
+  "name": "Windsor and Maidenhead",
+  "country_code": "GBR",
+  "state_code": "WNM"
+},
+{
+  "name": "West Sussex",
+  "country_code": "GBR",
+  "state_code": "WSX"
+},
+{
+  "name": "Wiltshire",
+  "country_code": "GBR",
+  "state_code": "WIL"
+},
+{
+  "name": "Wirral",
+  "country_code": "GBR",
+  "state_code": "WRL"
+},
+{
+  "name": "Wokingham",
+  "country_code": "GBR",
+  "state_code": "WOK"
+},
+{
+  "name": "Worcestershire",
+  "country_code": "GBR",
+  "state_code": "WOR"
+},
+{
+  "name": "Wrexham County Borough",
+  "country_code": "GBR",
+  "state_code": "WRX"
+},
+{
+  "name": "Aosta Valley",
+  "country_code": "ITA",
+  "state_code": "23"
+},
+{
+  "name": "Abruzzo",
+  "country_code": "ITA",
+  "state_code": "65"
+},
+{
+  "name": "Apulia",
+  "country_code": "ITA",
+  "state_code": "75"
+},
+{
+  "name": "Basilicata",
+  "country_code": "ITA",
+  "state_code": "77"
+},
+{
+  "name": "Benevento Province",
+  "country_code": "ITA",
+  "state_code": "BN"
+},
+{
+  "name": "Calabria",
+  "country_code": "ITA",
+  "state_code": "78"
+},
+{
+  "name": "Campania",
+  "country_code": "ITA",
+  "state_code": "72"
+},
+{
+  "name": "Emilia-Romagna",
+  "country_code": "ITA",
+  "state_code": "45"
+},
+{
+  "name": "Friuli–Venezia Giulia",
+  "country_code": "ITA",
+  "state_code": "36"
+},
+{
+  "name": "Lazio",
+  "country_code": "ITA",
+  "state_code": "62"
+},
+{
+  "name": "Asyut Governorate",
+  "country_code": "EGY",
+  "state_code": "AST"
+},
+{
+  "name": "Alexandria Governorate",
+  "country_code": "EGY",
+  "state_code": "ALX"
+},
+{
+  "name": "Aswan Governorate",
+  "country_code": "EGY",
+  "state_code": "ASN"
+},
+{
+  "name": "Beheira Governorate",
+  "country_code": "EGY",
+  "state_code": "BH"
+},
+{
+  "name": "Beni Suef Governorate",
+  "country_code": "EGY",
+  "state_code": "BNS"
+},
+{
+  "name": "Cairo Governorate",
+  "country_code": "EGY",
+  "state_code": "C"
+},
+{
+  "name": "Dakahlia Governorate",
+  "country_code": "EGY",
+  "state_code": "DK"
+},
+{
+  "name": "Damietta Governorate",
+  "country_code": "EGY",
+  "state_code": "DT"
+},
+{
+  "name": "Faiyum Governorate",
+  "country_code": "EGY",
+  "state_code": "FYM"
+},
+{
+  "name": "Gharbia Governorate",
+  "country_code": "EGY",
+  "state_code": "GH"
+},
+{
+  "name": "Libero consorzio comunale di Caltanissetta",
+  "country_code": "ITA",
+  "state_code": "CL"
+},
+{
+  "name": "Libero consorzio comunale di Agrigento",
+  "country_code": "ITA",
+  "state_code": "AG"
+},
+{
+  "name": "Libero consorzio comunale di Enna",
+  "country_code": "ITA",
+  "state_code": "EN"
+},
+{
+  "name": "Libero consorzio comunale di Ragusa",
+  "country_code": "ITA",
+  "state_code": "RG"
+},
+{
+  "name": "Libero consorzio comunale di Siracusa",
+  "country_code": "ITA",
+  "state_code": "SR"
+},
+{
+  "name": "Libero consorzio comunale di Trapani",
+  "country_code": "ITA",
+  "state_code": "TP"
+},
+{
+  "name": "Liguria",
+  "country_code": "ITA",
+  "state_code": "42"
+},
+{
+  "name": "Lombardy",
+  "country_code": "ITA",
+  "state_code": "25"
+},
+{
+  "name": "Marche",
+  "country_code": "ITA",
+  "state_code": "57"
+},
+{
+  "name": "Metropolitan City of Bari",
+  "country_code": "ITA",
+  "state_code": "BA"
+},
+{
+  "name": "Kafr el-Sheikh Governorate",
+  "country_code": "EGY",
+  "state_code": "KFS"
+},
+{
+  "name": "Giza Governorate",
+  "country_code": "EGY",
+  "state_code": "GZ"
+},
+{
+  "name": "Luxor Governorate",
+  "country_code": "EGY",
+  "state_code": "LX"
+},
+{
+  "name": "Ismailia Governorate",
+  "country_code": "EGY",
+  "state_code": "IS"
+},
+{
+  "name": "Matrouh Governorate",
+  "country_code": "EGY",
+  "state_code": "MT"
+},
+{
+  "name": "Minya Governorate",
+  "country_code": "EGY",
+  "state_code": "MN"
+},
+{
+  "name": "Monufia Governorate",
+  "country_code": "EGY",
+  "state_code": "MNF"
+},
+{
+  "name": "New Valley Governorate",
+  "country_code": "EGY",
+  "state_code": "WAD"
+},
+{
+  "name": "North Sinai Governorate",
+  "country_code": "EGY",
+  "state_code": "SIN"
+},
+{
+  "name": "Port Said Governorate",
+  "country_code": "EGY",
+  "state_code": "PTS"
+},
+{
+  "name": "Metropolitan City of Bologna",
+  "country_code": "ITA",
+  "state_code": "BO"
+},
+{
+  "name": "Metropolitan City of Cagliari",
+  "country_code": "ITA",
+  "state_code": "CA"
+},
+{
+  "name": "Metropolitan City of Catania",
+  "country_code": "ITA",
+  "state_code": "CT"
+},
+{
+  "name": "Metropolitan City of Florence",
+  "country_code": "ITA",
+  "state_code": "FI"
+},
+{
+  "name": "Metropolitan City of Genoa",
+  "country_code": "ITA",
+  "state_code": "GE"
+},
+{
+  "name": "Metropolitan City of Messina",
+  "country_code": "ITA",
+  "state_code": "ME"
+},
+{
+  "name": "Metropolitan City of Milan",
+  "country_code": "ITA",
+  "state_code": "MI"
+},
+{
+  "name": "Metropolitan City of Naples",
+  "country_code": "ITA",
+  "state_code": "NA"
+},
+{
+  "name": "Metropolitan City of Palermo",
+  "country_code": "ITA",
+  "state_code": "PA"
+},
+{
+  "name": "Metropolitan City of Reggio Calabria",
+  "country_code": "ITA",
+  "state_code": "RC"
+},
+{
+  "name": "Metropolitan City of Rome",
+  "country_code": "ITA",
+  "state_code": "RM"
+},
+{
+  "name": "Metropolitan City of Turin",
+  "country_code": "ITA",
+  "state_code": "TO"
+},
+{
+  "name": "Metropolitan City of Venice",
+  "country_code": "ITA",
+  "state_code": "VE"
+},
+{
+  "name": "Pesaro and Urbino Province",
+  "country_code": "ITA",
+  "state_code": "PU"
+},
+{
+  "name": "Molise",
+  "country_code": "ITA",
+  "state_code": "67"
+},
+{
+  "name": "Piedmont",
+  "country_code": "ITA",
+  "state_code": "21"
+},
+{
+  "name": "Province of Alessandria",
+  "country_code": "ITA",
+  "state_code": "AL"
+},
+{
+  "name": "Province of Ancona",
+  "country_code": "ITA",
+  "state_code": "AN"
+},
+{
+  "name": "Province of Ascoli Piceno",
+  "country_code": "ITA",
+  "state_code": "AP"
+},
+{
+  "name": "Province of Asti",
+  "country_code": "ITA",
+  "state_code": "AT"
+},
+{
+  "name": "Red Sea Governorate",
+  "country_code": "EGY",
+  "state_code": "BA"
+},
+{
+  "name": "Qena Governorate",
+  "country_code": "EGY",
+  "state_code": "KN"
+},
+{
+  "name": "Qalyubia Governorate",
+  "country_code": "EGY",
+  "state_code": "KB"
+},
+{
+  "name": "Sohag Governorate",
+  "country_code": "EGY",
+  "state_code": "SHG"
+},
+{
+  "name": "South Sinai Governorate",
+  "country_code": "EGY",
+  "state_code": "JS"
+},
+{
+  "name": "Suez Governorate",
+  "country_code": "EGY",
+  "state_code": "SUZ"
+},
+{
+  "name": "Province of Avellino",
+  "country_code": "ITA",
+  "state_code": "AV"
+},
+{
+  "name": "Province of Barletta-Andria-Trani",
+  "country_code": "ITA",
+  "state_code": "BT"
+},
+{
+  "name": "Province of Belluno",
+  "country_code": "ITA",
+  "state_code": "BL"
+},
+{
+  "name": "Province of Bergamo",
+  "country_code": "ITA",
+  "state_code": "BG"
+},
+{
+  "name": "Province of Biella",
+  "country_code": "ITA",
+  "state_code": "BI"
+},
+{
+  "name": "Province of Brescia",
+  "country_code": "ITA",
+  "state_code": "BS"
+},
+{
+  "name": "Province of Brindisi",
+  "country_code": "ITA",
+  "state_code": "BR"
+},
+{
+  "name": "Province of Campobasso",
+  "country_code": "ITA",
+  "state_code": "CB"
+},
+{
+  "name": "Province of Carbonia-Iglesias",
+  "country_code": "ITA",
+  "state_code": "CI"
+},
+{
+  "name": "Province of Caserta",
+  "country_code": "ITA",
+  "state_code": "CE"
+},
+{
+  "name": "Province of Chieti",
+  "country_code": "ITA",
+  "state_code": "CH"
+},
+{
+  "name": "Province of Catanzaro",
+  "country_code": "ITA",
+  "state_code": "CZ"
+},
+{
+  "name": "Province of Como",
+  "country_code": "ITA",
+  "state_code": "CO"
+},
+{
+  "name": "Province of Cosenza",
+  "country_code": "ITA",
+  "state_code": "CS"
+},
+{
+  "name": "Province of Cremona",
+  "country_code": "ITA",
+  "state_code": "CR"
+},
+{
+  "name": "Province of Crotone",
+  "country_code": "ITA",
+  "state_code": "KR"
+},
+{
+  "name": "Province of Cuneo",
+  "country_code": "ITA",
+  "state_code": "CN"
+},
+{
+  "name": "Province of Fermo",
+  "country_code": "ITA",
+  "state_code": "FM"
+},
+{
+  "name": "Province of Ferrara",
+  "country_code": "ITA",
+  "state_code": "FE"
+},
+{
+  "name": "Province of Foggia",
+  "country_code": "ITA",
+  "state_code": "FG"
+},
+{
+  "name": "Province of Forlì-Cesena",
+  "country_code": "ITA",
+  "state_code": "FC"
+},
+{
+  "name": "Province of Frosinone",
+  "country_code": "ITA",
+  "state_code": "FR"
+},
+{
+  "name": "Province of Gorizia",
+  "country_code": "ITA",
+  "state_code": "GO"
+},
+{
+  "name": "Province of Grosseto",
+  "country_code": "ITA",
+  "state_code": "GR"
+},
+{
+  "name": "Province of Imperia",
+  "country_code": "ITA",
+  "state_code": "IM"
+},
+{
+  "name": "Province of Isernia",
+  "country_code": "ITA",
+  "state_code": "IS"
+},
+{
+  "name": "Province of L'Aquila",
+  "country_code": "ITA",
+  "state_code": "AQ"
+},
+{
+  "name": "Province of La Spezia",
+  "country_code": "ITA",
+  "state_code": "SP"
+},
+{
+  "name": "Province of Latina",
+  "country_code": "ITA",
+  "state_code": "LT"
+},
+{
+  "name": "Province of Lecce",
+  "country_code": "ITA",
+  "state_code": "LE"
+},
+{
+  "name": "Province of Livorno",
+  "country_code": "ITA",
+  "state_code": "LI"
+},
+{
+  "name": "Province of Lodi",
+  "country_code": "ITA",
+  "state_code": "LO"
+},
+{
+  "name": "Province of Lucca",
+  "country_code": "ITA",
+  "state_code": "LU"
+},
+{
+  "name": "Province of Lecco",
+  "country_code": "ITA",
+  "state_code": "LC"
+},
+{
+  "name": "Province of Macerata",
+  "country_code": "ITA",
+  "state_code": "MC"
+},
+{
+  "name": "Province of Mantua",
+  "country_code": "ITA",
+  "state_code": "MN"
+},
+{
+  "name": "Province of Massa and Carrara",
+  "country_code": "ITA",
+  "state_code": "MS"
+},
+{
+  "name": "Province of Matera",
+  "country_code": "ITA",
+  "state_code": "MT"
+},
+{
+  "name": "Province of Medio Campidano",
+  "country_code": "ITA",
+  "state_code": "VS"
+},
+{
+  "name": "Province of Modena",
+  "country_code": "ITA",
+  "state_code": "MO"
+},
+{
+  "name": "Province of Monza and Brianza",
+  "country_code": "ITA",
+  "state_code": "MB"
+},
+{
+  "name": "Province of Novara",
+  "country_code": "ITA",
+  "state_code": "NO"
+},
+{
+  "name": "Province of Nuoro",
+  "country_code": "ITA",
+  "state_code": "NU"
+},
+{
+  "name": "Province of Ogliastra",
+  "country_code": "ITA",
+  "state_code": "OG"
+},
+{
+  "name": "Province of Olbia-Tempio",
+  "country_code": "ITA",
+  "state_code": "OT"
+},
+{
+  "name": "Province of Oristano",
+  "country_code": "ITA",
+  "state_code": "OR"
+},
+{
+  "name": "Province of Padua",
+  "country_code": "ITA",
+  "state_code": "PD"
+},
+{
+  "name": "Province of Parma",
+  "country_code": "ITA",
+  "state_code": "PR"
+},
+{
+  "name": "Province of Pavia",
+  "country_code": "ITA",
+  "state_code": "PV"
+},
+{
+  "name": "Province of Perugia",
+  "country_code": "ITA",
+  "state_code": "PG"
+},
+{
+  "name": "Province of Pescara",
+  "country_code": "ITA",
+  "state_code": "PE"
+},
+{
+  "name": "Province of Pisa",
+  "country_code": "ITA",
+  "state_code": "PI"
+},
+{
+  "name": "Province of Piacenza",
+  "country_code": "ITA",
+  "state_code": "PC"
+},
+{
+  "name": "Province of Pordenone",
+  "country_code": "ITA",
+  "state_code": "PN"
+},
+{
+  "name": "Province of Pistoia",
+  "country_code": "ITA",
+  "state_code": "PT"
+},
+{
+  "name": "Province of Potenza",
+  "country_code": "ITA",
+  "state_code": "PZ"
+},
+{
+  "name": "Province of Prato",
+  "country_code": "ITA",
+  "state_code": "PO"
+},
+{
+  "name": "Province of Ravenna",
+  "country_code": "ITA",
+  "state_code": "RA"
+},
+{
+  "name": "Province of Reggio Emilia",
+  "country_code": "ITA",
+  "state_code": "RE"
+},
+{
+  "name": "Province of Rieti",
+  "country_code": "ITA",
+  "state_code": "RI"
+},
+{
+  "name": "Province of Rimini",
+  "country_code": "ITA",
+  "state_code": "RN"
+},
+{
+  "name": "Province of Rovigo",
+  "country_code": "ITA",
+  "state_code": "RO"
+},
+{
+  "name": "Province of Salerno",
+  "country_code": "ITA",
+  "state_code": "SA"
+},
+{
+  "name": "Province of Sassari",
+  "country_code": "ITA",
+  "state_code": "SS"
+},
+{
+  "name": "Province of Savona",
+  "country_code": "ITA",
+  "state_code": "SV"
+},
+{
+  "name": "Province of Siena",
+  "country_code": "ITA",
+  "state_code": "SI"
+},
+{
+  "name": "Province of Sondrio",
+  "country_code": "ITA",
+  "state_code": "SO"
+},
+{
+  "name": "Province of Taranto",
+  "country_code": "ITA",
+  "state_code": "TA"
+},
+{
+  "name": "Province of Teramo",
+  "country_code": "ITA",
+  "state_code": "TE"
+},
+{
+  "name": "Province of Terni",
+  "country_code": "ITA",
+  "state_code": "TR"
+},
+{
+  "name": "Province of Treviso",
+  "country_code": "ITA",
+  "state_code": "TV"
+},
+{
+  "name": "Province of Trieste",
+  "country_code": "ITA",
+  "state_code": "TS"
+},
+{
+  "name": "Province of Udine",
+  "country_code": "ITA",
+  "state_code": "UD"
+},
+{
+  "name": "Province of Varese",
+  "country_code": "ITA",
+  "state_code": "VA"
+},
+{
+  "name": "Province of Verbano-Cusio-Ossola",
+  "country_code": "ITA",
+  "state_code": "VB"
+},
+{
+  "name": "Province of Vercelli",
+  "country_code": "ITA",
+  "state_code": "VC"
+},
+{
+  "name": "Province of Verona",
+  "country_code": "ITA",
+  "state_code": "VR"
+},
+{
+  "name": "Province of Vibo Valentia",
+  "country_code": "ITA",
+  "state_code": "VV"
+},
+{
+  "name": "Province of Vicenza",
+  "country_code": "ITA",
+  "state_code": "VI"
+},
+{
+  "name": "Province of Viterbo",
+  "country_code": "ITA",
+  "state_code": "VT"
+},
+{
+  "name": "Sardinia",
+  "country_code": "ITA",
+  "state_code": "88"
+},
+{
+  "name": "Sicily",
+  "country_code": "ITA",
+  "state_code": "82"
+},
+{
+  "name": "South Tyrol",
+  "country_code": "ITA",
+  "state_code": "BZ"
+},
+{
+  "name": "Trentino",
+  "country_code": "ITA",
+  "state_code": "TN"
+},
+{
+  "name": "Trentino-South Tyrol",
+  "country_code": "ITA",
+  "state_code": "32"
+},
+{
+  "name": "Tuscany",
+  "country_code": "ITA",
+  "state_code": "52"
+},
+{
+  "name": "Veneto",
+  "country_code": "ITA",
+  "state_code": "34"
+},
+{
+  "name": "Umbria",
+  "country_code": "ITA",
+  "state_code": "55"
+},
+{
+  "name": "Addis Ababa",
+  "country_code": "ETH",
+  "state_code": "AA"
+},
+{
+  "name": "Amhara Region",
+  "country_code": "ETH",
+  "state_code": "AM"
+},
+{
+  "name": "Afar Region",
+  "country_code": "ETH",
+  "state_code": "AF"
+},
+{
+  "name": "Benishangul-Gumuz Region",
+  "country_code": "ETH",
+  "state_code": "BE"
+},
+{
+  "name": "Dire Dawa",
+  "country_code": "ETH",
+  "state_code": "DD"
+},
+{
+  "name": "Gambela Region",
+  "country_code": "ETH",
+  "state_code": "GA"
+},
+{
+  "name": "Harari Region",
+  "country_code": "ETH",
+  "state_code": "HA"
+},
+{
+  "name": "Oromia Region",
+  "country_code": "ETH",
+  "state_code": "OR"
+},
+{
+  "name": "Somali Region",
+  "country_code": "ETH",
+  "state_code": "SO"
+},
+{
+  "name": "Southern Nations, Nationalities, and Peoples' Region",
+  "country_code": "ETH",
+  "state_code": "SN"
+},
+{
+  "name": "'Asir Region",
+  "country_code": "SAU",
+  "state_code": "14"
+},
+{
+  "name": "Al Madinah Region",
+  "country_code": "SAU",
+  "state_code": "03"
+},
+{
+  "name": "Al Jawf Region",
+  "country_code": "SAU",
+  "state_code": "12"
+},
+{
+  "name": "Al Bahah Region",
+  "country_code": "SAU",
+  "state_code": "11"
+},
+{
+  "name": "Al-Qassim Region",
+  "country_code": "SAU",
+  "state_code": "05"
+},
+{
+  "name": "Eastern Province",
+  "country_code": "SAU",
+  "state_code": "04"
+},
+{
+  "name": "Ha'il Region",
+  "country_code": "SAU",
+  "state_code": "06"
+},
+{
+  "name": "Jizan Region",
+  "country_code": "SAU",
+  "state_code": "09"
+},
+{
+  "name": "Makkah Region",
+  "country_code": "SAU",
+  "state_code": "02"
+},
+{
+  "name": "Najran Region",
+  "country_code": "SAU",
+  "state_code": "10"
+},
+{
+  "name": "Tigray Region",
+  "country_code": "ETH",
+  "state_code": "TI"
+},
+{
+  "name": "Tabuk Region",
+  "country_code": "SAU",
+  "state_code": "07"
+},
+{
+  "name": "Northern Borders Region",
+  "country_code": "SAU",
+  "state_code": "08"
+},
+{
+  "name": "Riyadh Region",
+  "country_code": "SAU",
+  "state_code": "01"
+},
+{
+  "name": "Alo",
+  "country_code": "FRA",
+  "state_code": "WF-AL"
+},
+{
+  "name": "Alsace",
+  "country_code": "FRA",
+  "state_code": "A"
+},
+{
+  "name": "Aquitaine",
+  "country_code": "FRA",
+  "state_code": "B"
+},
+{
+  "name": "Auvergne",
+  "country_code": "FRA",
+  "state_code": "C"
+},
+{
+  "name": "Bourgogne-Franche-Comté",
+  "country_code": "FRA",
+  "state_code": "BFC"
+},
+{
+  "name": "Auvergne-Rhône-Alpes",
+  "country_code": "FRA",
+  "state_code": "ARA"
+},
+{
+  "name": "Brittany",
+  "country_code": "FRA",
+  "state_code": "BRE"
+},
+{
+  "name": "Burgundy",
+  "country_code": "FRA",
+  "state_code": "D"
+},
+{
+  "name": "Centre-Val de Loire",
+  "country_code": "FRA",
+  "state_code": "CVL"
+},
+{
+  "name": "Champagne-Ardenne",
+  "country_code": "FRA",
+  "state_code": "G"
+},
+{
+  "name": "Baja California Sur",
+  "country_code": "MEX",
+  "state_code": "BCS"
+},
+{
+  "name": "Baja California",
+  "country_code": "MEX",
+  "state_code": "BCN"
+},
+{
+  "name": "Aguascalientes",
+  "country_code": "MEX",
+  "state_code": "AGU"
+},
+{
+  "name": "Campeche",
+  "country_code": "MEX",
+  "state_code": "CAM"
+},
+{
+  "name": "Chiapas",
+  "country_code": "MEX",
+  "state_code": "CHP"
+},
+{
+  "name": "Chihuahua",
+  "country_code": "MEX",
+  "state_code": "CHH"
+},
+{
+  "name": "Coahuila",
+  "country_code": "MEX",
+  "state_code": "COA"
+},
+{
+  "name": "Colima",
+  "country_code": "MEX",
+  "state_code": "COL"
+},
+{
+  "name": "Durango",
+  "country_code": "MEX",
+  "state_code": "DUR"
+},
+{
+  "name": "Guanajuato",
+  "country_code": "MEX",
+  "state_code": "GUA"
+},
+{
+  "name": "Hidalgo",
+  "country_code": "MEX",
+  "state_code": "HID"
+},
+{
+  "name": "Jalisco",
+  "country_code": "MEX",
+  "state_code": "JAL"
+},
+{
+  "name": "Guerrero",
+  "country_code": "MEX",
+  "state_code": "GRO"
+},
+{
+  "name": "México",
+  "country_code": "MEX",
+  "state_code": "MEX"
+},
+{
+  "name": "Mexico City",
+  "country_code": "MEX",
+  "state_code": "CMX"
+},
+{
+  "name": "Michoacán",
+  "country_code": "MEX",
+  "state_code": "MIC"
+},
+{
+  "name": "Morelos",
+  "country_code": "MEX",
+  "state_code": "MOR"
+},
+{
+  "name": "Nayarit",
+  "country_code": "MEX",
+  "state_code": "NAY"
+},
+{
+  "name": "Nuevo León",
+  "country_code": "MEX",
+  "state_code": "NLE"
+},
+{
+  "name": "Oaxaca",
+  "country_code": "MEX",
+  "state_code": "OAX"
+},
+{
+  "name": "French Guiana",
+  "country_code": "FRA",
+  "state_code": "GF"
+},
+{
+  "name": "Franche-Comté",
+  "country_code": "FRA",
+  "state_code": "I"
+},
+{
+  "name": "Corsica",
+  "country_code": "FRA",
+  "state_code": "COR"
+},
+{
+  "name": "French Polynesia",
+  "country_code": "FRA",
+  "state_code": "PF"
+},
+{
+  "name": "Grand Est",
+  "country_code": "FRA",
+  "state_code": "GES"
+},
+{
+  "name": "Guadeloupe",
+  "country_code": "FRA",
+  "state_code": "GP"
+},
+{
+  "name": "Hauts-de-France",
+  "country_code": "FRA",
+  "state_code": "HDF"
+},
+{
+  "name": "Île-de-France",
+  "country_code": "FRA",
+  "state_code": "IDF"
+},
+{
+  "name": "Languedoc-Roussillon",
+  "country_code": "FRA",
+  "state_code": "K"
+},
+{
+  "name": "Limousin",
+  "country_code": "FRA",
+  "state_code": "L"
+},
+{
+  "name": "Puebla",
+  "country_code": "MEX",
+  "state_code": "PUE"
+},
+{
+  "name": "Querétaro",
+  "country_code": "MEX",
+  "state_code": "QUE"
+},
+{
+  "name": "Quintana Roo",
+  "country_code": "MEX",
+  "state_code": "ROO"
+},
+{
+  "name": "San Luis Potosí",
+  "country_code": "MEX",
+  "state_code": "SLP"
+},
+{
+  "name": "Sinaloa",
+  "country_code": "MEX",
+  "state_code": "SIN"
+},
+{
+  "name": "Sonora",
+  "country_code": "MEX",
+  "state_code": "SON"
+},
+{
+  "name": "Tabasco",
+  "country_code": "MEX",
+  "state_code": "TAB"
+},
+{
+  "name": "Tamaulipas",
+  "country_code": "MEX",
+  "state_code": "TAM"
+},
+{
+  "name": "Tlaxcala",
+  "country_code": "MEX",
+  "state_code": "TLA"
+},
+{
+  "name": "Veracruz",
+  "country_code": "MEX",
+  "state_code": "VER"
+},
+{
+  "name": "Lorraine",
+  "country_code": "FRA",
+  "state_code": "M"
+},
+{
+  "name": "Martinique",
+  "country_code": "FRA",
+  "state_code": "MQ"
+},
+{
+  "name": "Lower Normandy",
+  "country_code": "FRA",
+  "state_code": "P"
+},
+{
+  "name": "Mayotte",
+  "country_code": "FRA",
+  "state_code": "YT"
+},
+{
+  "name": "Nord-Pas-de-Calais",
+  "country_code": "FRA",
+  "state_code": "O"
+},
+{
+  "name": "Normandy",
+  "country_code": "FRA",
+  "state_code": "NOR"
+},
+{
+  "name": "Nouvelle-Aquitaine",
+  "country_code": "FRA",
+  "state_code": "NAQ"
+},
+{
+  "name": "Occitania",
+  "country_code": "FRA",
+  "state_code": "OCC"
+},
+{
+  "name": "Paris",
+  "country_code": "FRA",
+  "state_code": "75"
+},
+{
+  "name": "Pays de la Loire",
+  "country_code": "FRA",
+  "state_code": "PDL"
+},
+{
+  "name": "Zacatecas",
+  "country_code": "MEX",
+  "state_code": "ZAC"
+},
+{
+  "name": "Yucatán",
+  "country_code": "MEX",
+  "state_code": "YUC"
+},
+{
+  "name": "Picardy",
+  "country_code": "FRA",
+  "state_code": "S"
+},
+{
+  "name": "Poitou-Charentes",
+  "country_code": "FRA",
+  "state_code": "T"
+},
+{
+  "name": "Provence-Alpes-Côte d'Azur",
+  "country_code": "FRA",
+  "state_code": "PAC"
+},
+{
+  "name": "Réunion",
+  "country_code": "FRA",
+  "state_code": "RE"
+},
+{
+  "name": "Rhône-Alpes",
+  "country_code": "FRA",
+  "state_code": "V"
+},
+{
+  "name": "Saint Barthélemy",
+  "country_code": "FRA",
+  "state_code": "BL"
+},
+{
+  "name": "Saint Martin",
+  "country_code": "FRA",
+  "state_code": "MF"
+},
+{
+  "name": "Saint Pierre and Miquelon",
+  "country_code": "FRA",
+  "state_code": "PM"
+},
+{
+  "name": "Sigave",
+  "country_code": "FRA",
+  "state_code": "WF-SG"
+},
+{
+  "name": "Upper Normandy",
+  "country_code": "FRA",
+  "state_code": "Q"
+},
+{
+  "name": "Uvea",
+  "country_code": "FRA",
+  "state_code": "WF-UV"
+},
+{
+  "name": "Wallis and Futuna",
+  "country_code": "FRA",
+  "state_code": "WF"
+},
+{
+  "name": "New Brunswick",
+  "country_code": "CAN",
+  "state_code": "NB"
+},
+{
+  "name": "Alberta",
+  "country_code": "CAN",
+  "state_code": "AB"
+},
+{
+  "name": "British Columbia",
+  "country_code": "CAN",
+  "state_code": "BC"
+},
+{
+  "name": "Manitoba",
+  "country_code": "CAN",
+  "state_code": "MB"
+},
+{
+  "name": "Newfoundland and Labrador",
+  "country_code": "CAN",
+  "state_code": "NL"
+},
+{
+  "name": "Northwest Territories",
+  "country_code": "CAN",
+  "state_code": "NT"
+},
+{
+  "name": "Nova Scotia",
+  "country_code": "CAN",
+  "state_code": "NS"
+},
+{
+  "name": "Nunavut",
+  "country_code": "CAN",
+  "state_code": "NU"
+},
+{
+  "name": "Ontario",
+  "country_code": "CAN",
+  "state_code": "ON"
+},
+{
+  "name": "Prince Edward Island",
+  "country_code": "CAN",
+  "state_code": "PE"
+},
+{
+  "name": "Beijing",
+  "country_code": "CHN",
+  "state_code": "BJ"
+},
+{
+  "name": "Anhui",
+  "country_code": "CHN",
+  "state_code": "AH"
+},
+{
+  "name": "Chongqing",
+  "country_code": "CHN",
+  "state_code": "CQ"
+},
+{
+  "name": "Fujian",
+  "country_code": "CHN",
+  "state_code": "FJ"
+},
+{
+  "name": "Gansu",
+  "country_code": "CHN",
+  "state_code": "GS"
+},
+{
+  "name": "Guangdong",
+  "country_code": "CHN",
+  "state_code": "GD"
+},
+{
+  "name": "Guangxi Zhuang Autonomous Region",
+  "country_code": "CHN",
+  "state_code": "GX"
+},
+{
+  "name": "Guizhou",
+  "country_code": "CHN",
+  "state_code": "GZ"
+},
+{
+  "name": "Hebei",
+  "country_code": "CHN",
+  "state_code": "HE"
+},
+{
+  "name": "Hainan",
+  "country_code": "CHN",
+  "state_code": "HI"
+},
+{
+  "name": "Quebec",
+  "country_code": "CAN",
+  "state_code": "QC"
+},
+{
+  "name": "Saskatchewan",
+  "country_code": "CAN",
+  "state_code": "SK"
+},
+{
+  "name": "Yukon",
+  "country_code": "CAN",
+  "state_code": "YT"
+},
+{
+  "name": "Heilongjiang",
+  "country_code": "CHN",
+  "state_code": "HL"
+},
+{
+  "name": "Henan",
+  "country_code": "CHN",
+  "state_code": "HA"
+},
+{
+  "name": "Hong Kong",
+  "country_code": "CHN",
+  "state_code": "HK"
+},
+{
+  "name": "Hubei",
+  "country_code": "CHN",
+  "state_code": "HB"
+},
+{
+  "name": "Hunan",
+  "country_code": "CHN",
+  "state_code": "HN"
+},
+{
+  "name": "Inner Mongolia",
+  "country_code": "CHN",
+  "state_code": "NM"
+},
+{
+  "name": "Jiangsu",
+  "country_code": "CHN",
+  "state_code": "JS"
+},
+{
+  "name": "Jiangxi",
+  "country_code": "CHN",
+  "state_code": "JX"
+},
+{
+  "name": "Jilin",
+  "country_code": "CHN",
+  "state_code": "JL"
+},
+{
+  "name": "Keelung",
+  "country_code": "CHN",
+  "state_code": "TW-KEE"
+},
+{
+  "name": "Ningxia Hui Autonomous Region",
+  "country_code": "CHN",
+  "state_code": "NX"
+},
+{
+  "name": "Macau",
+  "country_code": "CHN",
+  "state_code": "MO"
+},
+{
+  "name": "Liaoning",
+  "country_code": "CHN",
+  "state_code": "LN"
+},
+{
+  "name": "Qinghai",
+  "country_code": "CHN",
+  "state_code": "QH"
+},
+{
+  "name": "Shaanxi",
+  "country_code": "CHN",
+  "state_code": "SN"
+},
+{
+  "name": "Shandong",
+  "country_code": "CHN",
+  "state_code": "SD"
+},
+{
+  "name": "Shanghai",
+  "country_code": "CHN",
+  "state_code": "SH"
+},
+{
+  "name": "Shanxi",
+  "country_code": "CHN",
+  "state_code": "SX"
+},
+{
+  "name": "Sichuan",
+  "country_code": "CHN",
+  "state_code": "SC"
+},
+{
+  "name": "Taiwan Province, People's Republic of China",
+  "country_code": "CHN",
+  "state_code": "TW"
+},
+{
+  "name": "Tibet Autonomous Region",
+  "country_code": "CHN",
+  "state_code": "XZ"
+},
+{
+  "name": "Xinjiang",
+  "country_code": "CHN",
+  "state_code": "XJ"
+},
+{
+  "name": "Yunnan",
+  "country_code": "CHN",
+  "state_code": "YN"
+},
+{
+  "name": "Zhejiang",
+  "country_code": "CHN",
+  "state_code": "ZJ"
+},
+{
+  "name": "Capital Region of Denmark",
+  "country_code": "DNK",
+  "state_code": "84"
+},
+{
+  "name": "North Denmark Region",
+  "country_code": "DNK",
+  "state_code": "81"
+},
+{
+  "name": "Central Denmark Region",
+  "country_code": "DNK",
+  "state_code": "82"
+},
+{
+  "name": "Region of Southern Denmark",
+  "country_code": "DNK",
+  "state_code": "83"
+},
+{
+  "name": "Region Zealand",
+  "country_code": "DNK",
+  "state_code": "85"
+},
+{
+  "name": "Alabama",
+  "country_code": "USA",
+  "state_code": "AL"
+},
+{
+  "name": "Alaska",
+  "country_code": "USA",
+  "state_code": "AK"
+},
+{
+  "name": "American Samoa",
+  "country_code": "USA",
+  "state_code": "AS"
+},
+{
+  "name": "Arizona",
+  "country_code": "USA",
+  "state_code": "AZ"
+},
+{
+  "name": "Arkansas",
+  "country_code": "USA",
+  "state_code": "AR"
+},
+{
+  "name": "Baker Island",
+  "country_code": "USA",
+  "state_code": "UM-81"
+},
+{
+  "name": "California",
+  "country_code": "USA",
+  "state_code": "CA"
+},
+{
+  "name": "Colorado",
+  "country_code": "USA",
+  "state_code": "CO"
+},
+{
+  "name": "Connecticut",
+  "country_code": "USA",
+  "state_code": "CT"
+},
+{
+  "name": "Delaware",
+  "country_code": "USA",
+  "state_code": "DE"
+},
+{
+  "name": "Baden-Württemberg",
+  "country_code": "DEU",
+  "state_code": "BW"
+},
+{
+  "name": "Berlin",
+  "country_code": "DEU",
+  "state_code": "BE"
+},
+{
+  "name": "Bavaria",
+  "country_code": "DEU",
+  "state_code": "BY"
+},
+{
+  "name": "Brandenburg",
+  "country_code": "DEU",
+  "state_code": "BB"
+},
+{
+  "name": "Bremen",
+  "country_code": "DEU",
+  "state_code": "HB"
+},
+{
+  "name": "Hamburg",
+  "country_code": "DEU",
+  "state_code": "HH"
+},
+{
+  "name": "Hesse",
+  "country_code": "DEU",
+  "state_code": "HE"
+},
+{
+  "name": "Lower Saxony",
+  "country_code": "DEU",
+  "state_code": "NI"
+},
+{
+  "name": "Mecklenburg-Vorpommern",
+  "country_code": "DEU",
+  "state_code": "MV"
+},
+{
+  "name": "North Rhine-Westphalia",
+  "country_code": "DEU",
+  "state_code": "NW"
+},
+{
+  "name": "Adrar Province",
+  "country_code": "DZA",
+  "state_code": "01"
+},
+{
+  "name": "Aïn Defla Province",
+  "country_code": "DZA",
+  "state_code": "44"
+},
+{
+  "name": "Aïn Témouchent Province",
+  "country_code": "DZA",
+  "state_code": "46"
+},
+{
+  "name": "Algiers Province",
+  "country_code": "DZA",
+  "state_code": "16"
+},
+{
+  "name": "Annaba Province",
+  "country_code": "DZA",
+  "state_code": "23"
+},
+{
+  "name": "Batna Province",
+  "country_code": "DZA",
+  "state_code": "05"
+},
+{
+  "name": "Béchar Province",
+  "country_code": "DZA",
+  "state_code": "08"
+},
+{
+  "name": "Béjaïa Province",
+  "country_code": "DZA",
+  "state_code": "06"
+},
+{
+  "name": "Biskra",
+  "country_code": "DZA",
+  "state_code": "07"
+},
+{
+  "name": "Blida Province",
+  "country_code": "DZA",
+  "state_code": "09"
+},
+{
+  "name": "Saarland",
+  "country_code": "DEU",
+  "state_code": "SL"
+},
+{
+  "name": "Rhineland-Palatinate",
+  "country_code": "DEU",
+  "state_code": "RP"
+},
+{
+  "name": "Saxony",
+  "country_code": "DEU",
+  "state_code": "SN"
+},
+{
+  "name": "Schleswig-Holstein",
+  "country_code": "DEU",
+  "state_code": "SH"
+},
+{
+  "name": "Saxony-Anhalt",
+  "country_code": "DEU",
+  "state_code": "ST"
+},
+{
+  "name": "Thuringia",
+  "country_code": "DEU",
+  "state_code": "TH"
+},
+{
+  "name": "Bordj Bou Arréridj Province",
+  "country_code": "DZA",
+  "state_code": "34"
+},
+{
+  "name": "Boumerdès Province",
+  "country_code": "DZA",
+  "state_code": "35"
+},
+{
+  "name": "Bouïra Province",
+  "country_code": "DZA",
+  "state_code": "10"
+},
+{
+  "name": "Chlef Province",
+  "country_code": "DZA",
+  "state_code": "02"
+},
+{
+  "name": "Constantine Province",
+  "country_code": "DZA",
+  "state_code": "25"
+},
+{
+  "name": "Djelfa Province",
+  "country_code": "DZA",
+  "state_code": "17"
+},
+{
+  "name": "El Bayadh Province",
+  "country_code": "DZA",
+  "state_code": "32"
+},
+{
+  "name": "El Oued Province",
+  "country_code": "DZA",
+  "state_code": "39"
+},
+{
+  "name": "El Tarf Province",
+  "country_code": "DZA",
+  "state_code": "36"
+},
+{
+  "name": "Ghardaïa Province",
+  "country_code": "DZA",
+  "state_code": "47"
+},
+{
+  "name": "Guelma Province",
+  "country_code": "DZA",
+  "state_code": "24"
+},
+{
+  "name": "Illizi Province",
+  "country_code": "DZA",
+  "state_code": "33"
+},
+{
+  "name": "Jijel Province",
+  "country_code": "DZA",
+  "state_code": "18"
+},
+{
+  "name": "Khenchela Province",
+  "country_code": "DZA",
+  "state_code": "40"
+},
+{
+  "name": "Laghouat Province",
+  "country_code": "DZA",
+  "state_code": "03"
+},
+{
+  "name": "M'Sila Province",
+  "country_code": "DZA",
+  "state_code": "28"
+},
+{
+  "name": "Mascara Province",
+  "country_code": "DZA",
+  "state_code": "29"
+},
+{
+  "name": "Médéa Province",
+  "country_code": "DZA",
+  "state_code": "26"
+},
+{
+  "name": "Mila Province",
+  "country_code": "DZA",
+  "state_code": "43"
+},
+{
+  "name": "Mostaganem Province",
+  "country_code": "DZA",
+  "state_code": "27"
+},
+{
+  "name": "District of Columbia",
+  "country_code": "USA",
+  "state_code": "DC"
+},
+{
+  "name": "Georgia",
+  "country_code": "USA",
+  "state_code": "GA"
+},
+{
+  "name": "Florida",
+  "country_code": "USA",
+  "state_code": "FL"
+},
+{
+  "name": "Guam",
+  "country_code": "USA",
+  "state_code": "GU"
+},
+{
+  "name": "Hawaii",
+  "country_code": "USA",
+  "state_code": "HI"
+},
+{
+  "name": "Howland Island",
+  "country_code": "USA",
+  "state_code": "UM-84"
+},
+{
+  "name": "Idaho",
+  "country_code": "USA",
+  "state_code": "ID"
+},
+{
+  "name": "Illinois",
+  "country_code": "USA",
+  "state_code": "IL"
+},
+{
+  "name": "Indiana",
+  "country_code": "USA",
+  "state_code": "IN"
+},
+{
+  "name": "Iowa",
+  "country_code": "USA",
+  "state_code": "IA"
+},
+{
+  "name": "Naama Province",
+  "country_code": "DZA",
+  "state_code": "45"
+},
+{
+  "name": "Oran Province",
+  "country_code": "DZA",
+  "state_code": "31"
+},
+{
+  "name": "Ouargla Province",
+  "country_code": "DZA",
+  "state_code": "30"
+},
+{
+  "name": "Oum El Bouaghi Province",
+  "country_code": "DZA",
+  "state_code": "04"
+},
+{
+  "name": "Relizane Province",
+  "country_code": "DZA",
+  "state_code": "48"
+},
+{
+  "name": "Saïda Province",
+  "country_code": "DZA",
+  "state_code": "20"
+},
+{
+  "name": "Sétif Province",
+  "country_code": "DZA",
+  "state_code": "19"
+},
+{
+  "name": "Skikda Province",
+  "country_code": "DZA",
+  "state_code": "21"
+},
+{
+  "name": "Souk Ahras Province",
+  "country_code": "DZA",
+  "state_code": "41"
+},
+{
+  "name": "Tamanghasset Province",
+  "country_code": "DZA",
+  "state_code": "11"
+},
+{
+  "name": "Tiaret Province",
+  "country_code": "DZA",
+  "state_code": "14"
+},
+{
+  "name": "Tébessa Province",
+  "country_code": "DZA",
+  "state_code": "12"
+},
+{
+  "name": "Tindouf Province",
+  "country_code": "DZA",
+  "state_code": "37"
+},
+{
+  "name": "Tipasa Province",
+  "country_code": "DZA",
+  "state_code": "42"
+},
+{
+  "name": "Tissemsilt Province",
+  "country_code": "DZA",
+  "state_code": "38"
+},
+{
+  "name": "Tizi Ouzou Province",
+  "country_code": "DZA",
+  "state_code": "15"
+},
+{
+  "name": "Tlemcen Province",
+  "country_code": "DZA",
+  "state_code": "13"
+},
+{
+  "name": "Jarvis Island",
+  "country_code": "USA",
+  "state_code": "UM-86"
+},
+{
+  "name": "Johnston Atoll",
+  "country_code": "USA",
+  "state_code": "UM-67"
+},
+{
+  "name": "Kentucky",
+  "country_code": "USA",
+  "state_code": "KY"
+},
+{
+  "name": "Kansas",
+  "country_code": "USA",
+  "state_code": "KS"
+},
+{
+  "name": "Kingman Reef",
+  "country_code": "USA",
+  "state_code": "UM-89"
+},
+{
+  "name": "Louisiana",
+  "country_code": "USA",
+  "state_code": "LA"
+},
+{
+  "name": "Maine",
+  "country_code": "USA",
+  "state_code": "ME"
+},
+{
+  "name": "Maryland",
+  "country_code": "USA",
+  "state_code": "MD"
+},
+{
+  "name": "Massachusetts",
+  "country_code": "USA",
+  "state_code": "MA"
+},
+{
+  "name": "Michigan",
+  "country_code": "USA",
+  "state_code": "MI"
+},
+{
+  "name": "Midway Atoll",
+  "country_code": "USA",
+  "state_code": "UM-71"
+},
+{
+  "name": "Minnesota",
+  "country_code": "USA",
+  "state_code": "MN"
+},
+{
+  "name": "Mississippi",
+  "country_code": "USA",
+  "state_code": "MS"
+},
+{
+  "name": "Missouri",
+  "country_code": "USA",
+  "state_code": "MO"
+},
+{
+  "name": "Montana",
+  "country_code": "USA",
+  "state_code": "MT"
+},
+{
+  "name": "Navassa Island",
+  "country_code": "USA",
+  "state_code": "UM-76"
+},
+{
+  "name": "Nebraska",
+  "country_code": "USA",
+  "state_code": "NE"
+},
+{
+  "name": "Nevada",
+  "country_code": "USA",
+  "state_code": "NV"
+},
+{
+  "name": "New Hampshire",
+  "country_code": "USA",
+  "state_code": "NH"
+},
+{
+  "name": "New Jersey",
+  "country_code": "USA",
+  "state_code": "NJ"
+},
+{
+  "name": "New York",
+  "country_code": "USA",
+  "state_code": "NY"
+},
+{
+  "name": "North Carolina",
+  "country_code": "USA",
+  "state_code": "NC"
+},
+{
+  "name": "New Mexico",
+  "country_code": "USA",
+  "state_code": "NM"
+},
+{
+  "name": "North Dakota",
+  "country_code": "USA",
+  "state_code": "ND"
+},
+{
+  "name": "Northern Mariana Islands",
+  "country_code": "USA",
+  "state_code": "MP"
+},
+{
+  "name": "Ohio",
+  "country_code": "USA",
+  "state_code": "OH"
+},
+{
+  "name": "Oklahoma",
+  "country_code": "USA",
+  "state_code": "OK"
+},
+{
+  "name": "Oregon",
+  "country_code": "USA",
+  "state_code": "OR"
+},
+{
+  "name": "Palmyra Atoll",
+  "country_code": "USA",
+  "state_code": "UM-95"
+},
+{
+  "name": "Pennsylvania",
+  "country_code": "USA",
+  "state_code": "PA"
+},
+{
+  "name": "Puerto Rico",
+  "country_code": "USA",
+  "state_code": "PR"
+},
+{
+  "name": "Rhode Island",
+  "country_code": "USA",
+  "state_code": "RI"
+},
+{
+  "name": "South Carolina",
+  "country_code": "USA",
+  "state_code": "SC"
+},
+{
+  "name": "South Dakota",
+  "country_code": "USA",
+  "state_code": "SD"
+},
+{
+  "name": "Tennessee",
+  "country_code": "USA",
+  "state_code": "TN"
+},
+{
+  "name": "Texas",
+  "country_code": "USA",
+  "state_code": "TX"
+},
+{
+  "name": "United States Minor Outlying Islands",
+  "country_code": "USA",
+  "state_code": "UM"
+},
+{
+  "name": "United States Virgin Islands",
+  "country_code": "USA",
+  "state_code": "VI"
+},
+{
+  "name": "Utah",
+  "country_code": "USA",
+  "state_code": "UT"
+},
+{
+  "name": "Vermont",
+  "country_code": "USA",
+  "state_code": "VT"
+},
+{
+  "name": "Washington",
+  "country_code": "USA",
+  "state_code": "WA"
+},
+{
+  "name": "Wake Island",
+  "country_code": "USA",
+  "state_code": "UM-79"
+},
+{
+  "name": "Virginia",
+  "country_code": "USA",
+  "state_code": "VA"
+},
+{
+  "name": "West Virginia",
+  "country_code": "USA",
+  "state_code": "WV"
+},
+{
+  "name": "Wisconsin",
+  "country_code": "USA",
+  "state_code": "WI"
+},
+{
+  "name": "Wyoming",
+  "country_code": "USA",
+  "state_code": "WY"
+},
+{
+  "name": "Alborz Province",
+  "country_code": "IRN",
+  "state_code": "32"
+},
+{
+  "name": "Ardabil Province",
+  "country_code": "IRN",
+  "state_code": "03"
+},
+{
+  "name": "Bushehr Province",
+  "country_code": "IRN",
+  "state_code": "06"
+},
+{
+  "name": "Chaharmahal and Bakhtiari Province",
+  "country_code": "IRN",
+  "state_code": "08"
+},
+{
+  "name": "East Azerbaijan Province",
+  "country_code": "IRN",
+  "state_code": "01"
+},
+{
+  "name": "Fars Province",
+  "country_code": "IRN",
+  "state_code": "14"
+},
+{
+  "name": "Gilan Province",
+  "country_code": "IRN",
+  "state_code": "19"
+},
+{
+  "name": "Golestan Province",
+  "country_code": "IRN",
+  "state_code": "27"
+},
+{
+  "name": "Hormozgan Province",
+  "country_code": "IRN",
+  "state_code": "23"
+},
+{
+  "name": "Ilam Province",
+  "country_code": "IRN",
+  "state_code": "05"
+},
+{
+  "name": "Khuzestan Province",
+  "country_code": "IRN",
+  "state_code": "10"
+},
+{
+  "name": "Kermanshah Province",
+  "country_code": "IRN",
+  "state_code": "17"
+},
+{
+  "name": "Kerman Province",
+  "country_code": "IRN",
+  "state_code": "15"
+},
+{
+  "name": "Isfahan Province",
+  "country_code": "IRN",
+  "state_code": "04"
+},
+{
+  "name": "Kurdistan Province",
+  "country_code": "IRN",
+  "state_code": "16"
+},
+{
+  "name": "Kohgiluyeh and Boyer-Ahmad Province",
+  "country_code": "IRN",
+  "state_code": "18"
+},
+{
+  "name": "Lorestan Province",
+  "country_code": "IRN",
+  "state_code": "20"
+},
+{
+  "name": "Markazi Province",
+  "country_code": "IRN",
+  "state_code": "22"
+},
+{
+  "name": "Mazandaran Province",
+  "country_code": "IRN",
+  "state_code": "21"
+},
+{
+  "name": "North Khorasan Province",
+  "country_code": "IRN",
+  "state_code": "31"
+},
+{
+  "name": "Qom Province",
+  "country_code": "IRN",
+  "state_code": "26"
+},
+{
+  "name": "Qazvin Province",
+  "country_code": "IRN",
+  "state_code": "28"
+},
+{
+  "name": "Razavi Khorasan Province",
+  "country_code": "IRN",
+  "state_code": "30"
+},
+{
+  "name": "Semnan Province",
+  "country_code": "IRN",
+  "state_code": "12"
+},
+{
+  "name": "Sistan and Baluchestan",
+  "country_code": "IRN",
+  "state_code": "13"
+},
+{
+  "name": "South Khorasan Province",
+  "country_code": "IRN",
+  "state_code": "29"
+},
+{
+  "name": "Tehran Province",
+  "country_code": "IRN",
+  "state_code": "07"
+},
+{
+  "name": "West Azarbaijan Province",
+  "country_code": "IRN",
+  "state_code": "02"
+},
+{
+  "name": "Zanjan Province",
+  "country_code": "IRN",
+  "state_code": "11"
+},
+{
+  "name": "Yazd Province",
+  "country_code": "IRN",
+  "state_code": "25"
+},
+{
+  "name": "Australian Capital Territory",
+  "country_code": "AUS",
+  "state_code": "ACT"
+},
+{
+  "name": "New South Wales",
+  "country_code": "AUS",
+  "state_code": "NSW"
+},
+{
+  "name": "Queensland",
+  "country_code": "AUS",
+  "state_code": "QLD"
+},
+{
+  "name": "Northern Territory",
+  "country_code": "AUS",
+  "state_code": "NT"
+},
+{
+  "name": "Tasmania",
+  "country_code": "AUS",
+  "state_code": "TAS"
+},
+{
+  "name": "South Australia",
+  "country_code": "AUS",
+  "state_code": "SA"
+},
+{
+  "name": "Western Australia",
+  "country_code": "AUS",
+  "state_code": "WA"
+},
+{
+  "name": "Victoria",
+  "country_code": "AUS",
+  "state_code": "VIC"
+},
+{
+  "name": "Andhra Pradesh",
+  "country_code": "IND",
+  "state_code": "AP"
+},
+{
+  "name": "Andaman and Nicobar Islands",
+  "country_code": "IND",
+  "state_code": "AN"
+},
+{
+  "name": "Assam",
+  "country_code": "IND",
+  "state_code": "AS"
+},
+{
+  "name": "Arunachal Pradesh",
+  "country_code": "IND",
+  "state_code": "AR"
+},
+{
+  "name": "Bihar",
+  "country_code": "IND",
+  "state_code": "BR"
+},
+{
+  "name": "Chandigarh",
+  "country_code": "IND",
+  "state_code": "CH"
+},
+{
+  "name": "Chhattisgarh",
+  "country_code": "IND",
+  "state_code": "CT"
+},
+{
+  "name": "Dadra and Nagar Haveli",
+  "country_code": "IND",
+  "state_code": "DN"
+},
+{
+  "name": "Daman and Diu",
+  "country_code": "IND",
+  "state_code": "DD"
+},
+{
+  "name": "Delhi",
+  "country_code": "IND",
+  "state_code": "DL"
+},
+{
+  "name": "Aceh",
+  "country_code": "IDN",
+  "state_code": "AC"
+},
+{
+  "name": "Bali",
+  "country_code": "IDN",
+  "state_code": "BA"
+},
+{
+  "name": "Bangka Belitung Islands",
+  "country_code": "IDN",
+  "state_code": "BB"
+},
+{
+  "name": "Banten",
+  "country_code": "IDN",
+  "state_code": "BT"
+},
+{
+  "name": "Bengkulu",
+  "country_code": "IDN",
+  "state_code": "BE"
+},
+{
+  "name": "Central Java",
+  "country_code": "IDN",
+  "state_code": "JT"
+},
+{
+  "name": "Central Kalimantan",
+  "country_code": "IDN",
+  "state_code": "KT"
+},
+{
+  "name": "Central Sulawesi",
+  "country_code": "IDN",
+  "state_code": "ST"
+},
+{
+  "name": "East Java",
+  "country_code": "IDN",
+  "state_code": "JI"
+},
+{
+  "name": "East Kalimantan",
+  "country_code": "IDN",
+  "state_code": "KI"
+},
+{
+  "name": "Connacht",
+  "country_code": "IRL",
+  "state_code": "C"
+},
+{
+  "name": "County Carlow",
+  "country_code": "IRL",
+  "state_code": "CW"
+},
+{
+  "name": "County Cavan",
+  "country_code": "IRL",
+  "state_code": "CN"
+},
+{
+  "name": "County Clare",
+  "country_code": "IRL",
+  "state_code": "CE"
+},
+{
+  "name": "County Cork",
+  "country_code": "IRL",
+  "state_code": "CO"
+},
+{
+  "name": "County Donegal",
+  "country_code": "IRL",
+  "state_code": "DL"
+},
+{
+  "name": "County Dublin",
+  "country_code": "IRL",
+  "state_code": "D"
+},
+{
+  "name": "County Galway",
+  "country_code": "IRL",
+  "state_code": "G"
+},
+{
+  "name": "County Kerry",
+  "country_code": "IRL",
+  "state_code": "KY"
+},
+{
+  "name": "County Kildare",
+  "country_code": "IRL",
+  "state_code": "KE"
+},
+{
+  "name": "Goa",
+  "country_code": "IND",
+  "state_code": "GA"
+},
+{
+  "name": "Gujarat",
+  "country_code": "IND",
+  "state_code": "GJ"
+},
+{
+  "name": "Haryana",
+  "country_code": "IND",
+  "state_code": "HR"
+},
+{
+  "name": "Jammu and Kashmir",
+  "country_code": "IND",
+  "state_code": "JK"
+},
+{
+  "name": "Himachal Pradesh",
+  "country_code": "IND",
+  "state_code": "HP"
+},
+{
+  "name": "Jharkhand",
+  "country_code": "IND",
+  "state_code": "JH"
+},
+{
+  "name": "Karnataka",
+  "country_code": "IND",
+  "state_code": "KA"
+},
+{
+  "name": "Kerala",
+  "country_code": "IND",
+  "state_code": "KL"
+},
+{
+  "name": "Ladakh",
+  "country_code": "IND",
+  "state_code": "LA"
+},
+{
+  "name": "Lakshadweep",
+  "country_code": "IND",
+  "state_code": "LD"
+},
+{
+  "name": "Madhya Pradesh",
+  "country_code": "IND",
+  "state_code": "MP"
+},
+{
+  "name": "Manipur",
+  "country_code": "IND",
+  "state_code": "MN"
+},
+{
+  "name": "Maharashtra",
+  "country_code": "IND",
+  "state_code": "MH"
+},
+{
+  "name": "Meghalaya",
+  "country_code": "IND",
+  "state_code": "ML"
+},
+{
+  "name": "Nagaland",
+  "country_code": "IND",
+  "state_code": "NL"
+},
+{
+  "name": "Mizoram",
+  "country_code": "IND",
+  "state_code": "MZ"
+},
+{
+  "name": "Odisha",
+  "country_code": "IND",
+  "state_code": "OR"
+},
+{
+  "name": "Puducherry",
+  "country_code": "IND",
+  "state_code": "PY"
+},
+{
+  "name": "Punjab",
+  "country_code": "IND",
+  "state_code": "PB"
+},
+{
+  "name": "Rajasthan",
+  "country_code": "IND",
+  "state_code": "RJ"
+},
+{
+  "name": "Tamil Nadu",
+  "country_code": "IND",
+  "state_code": "TN"
+},
+{
+  "name": "Tripura",
+  "country_code": "IND",
+  "state_code": "TR"
+},
+{
+  "name": "Telangana",
+  "country_code": "IND",
+  "state_code": "TG"
+},
+{
+  "name": "Sikkim",
+  "country_code": "IND",
+  "state_code": "SK"
+},
+{
+  "name": "Uttar Pradesh",
+  "country_code": "IND",
+  "state_code": "UP"
+},
+{
+  "name": "Uttarakhand",
+  "country_code": "IND",
+  "state_code": "UT"
+},
+{
+  "name": "West Bengal",
+  "country_code": "IND",
+  "state_code": "WB"
+},
+{
+  "name": "Jambi",
+  "country_code": "IDN",
+  "state_code": "JA"
+},
+{
+  "name": "Gorontalo",
+  "country_code": "IDN",
+  "state_code": "GO"
+},
+{
+  "name": "East Nusa Tenggara",
+  "country_code": "IDN",
+  "state_code": "NT"
+},
+{
+  "name": "Jakarta",
+  "country_code": "IDN",
+  "state_code": "JK"
+},
+{
+  "name": "Kalimantan",
+  "country_code": "IDN",
+  "state_code": "KA"
+},
+{
+  "name": "Lampung",
+  "country_code": "IDN",
+  "state_code": "LA"
+},
+{
+  "name": "Lesser Sunda Islands",
+  "country_code": "IDN",
+  "state_code": "NU"
+},
+{
+  "name": "Maluku",
+  "country_code": "IDN",
+  "state_code": "MA"
+},
+{
+  "name": "Maluku Islands",
+  "country_code": "IDN",
+  "state_code": "ML"
+},
+{
+  "name": "North Kalimantan",
+  "country_code": "IDN",
+  "state_code": "KU"
+},
+{
+  "name": "County Kilkenny",
+  "country_code": "IRL",
+  "state_code": "KK"
+},
+{
+  "name": "County Limerick",
+  "country_code": "IRL",
+  "state_code": "LK"
+},
+{
+  "name": "County Laois",
+  "country_code": "IRL",
+  "state_code": "LS"
+},
+{
+  "name": "County Longford",
+  "country_code": "IRL",
+  "state_code": "LD"
+},
+{
+  "name": "County Louth",
+  "country_code": "IRL",
+  "state_code": "LH"
+},
+{
+  "name": "County Mayo",
+  "country_code": "IRL",
+  "state_code": "MO"
+},
+{
+  "name": "County Meath",
+  "country_code": "IRL",
+  "state_code": "MH"
+},
+{
+  "name": "County Monaghan",
+  "country_code": "IRL",
+  "state_code": "MN"
+},
+{
+  "name": "County Offaly",
+  "country_code": "IRL",
+  "state_code": "OY"
+},
+{
+  "name": "County Roscommon",
+  "country_code": "IRL",
+  "state_code": "RN"
+},
+{
+  "name": "North Sulawesi",
+  "country_code": "IDN",
+  "state_code": "SA"
+},
+{
+  "name": "North Sumatra",
+  "country_code": "IDN",
+  "state_code": "SU"
+},
+{
+  "name": "North Maluku",
+  "country_code": "IDN",
+  "state_code": "MU"
+},
+{
+  "name": "Papua",
+  "country_code": "IDN",
+  "state_code": "PA"
+},
+{
+  "name": "Riau",
+  "country_code": "IDN",
+  "state_code": "RI"
+},
+{
+  "name": "Riau Islands",
+  "country_code": "IDN",
+  "state_code": "KR"
+},
+{
+  "name": "South Kalimantan",
+  "country_code": "IDN",
+  "state_code": "KS"
+},
+{
+  "name": "South Sulawesi",
+  "country_code": "IDN",
+  "state_code": "SN"
+},
+{
+  "name": "South Sumatra",
+  "country_code": "IDN",
+  "state_code": "SS"
+},
+{
+  "name": "Southeast Sulawesi",
+  "country_code": "IDN",
+  "state_code": "SG"
+},
+{
+  "name": "County Sligo",
+  "country_code": "IRL",
+  "state_code": "SO"
+},
+{
+  "name": "County Tipperary",
+  "country_code": "IRL",
+  "state_code": "TA"
+},
+{
+  "name": "County Waterford",
+  "country_code": "IRL",
+  "state_code": "WD"
+},
+{
+  "name": "County Westmeath",
+  "country_code": "IRL",
+  "state_code": "WH"
+},
+{
+  "name": "County Wexford",
+  "country_code": "IRL",
+  "state_code": "WX"
+},
+{
+  "name": "County Wicklow",
+  "country_code": "IRL",
+  "state_code": "WW"
+},
+{
+  "name": "Leinster",
+  "country_code": "IRL",
+  "state_code": "L"
+},
+{
+  "name": "Munster",
+  "country_code": "IRL",
+  "state_code": "M"
+},
+{
+  "name": "Ulster",
+  "country_code": "IRL",
+  "state_code": "U"
+},
+{
+  "name": "Sumatra",
+  "country_code": "IDN",
+  "state_code": "SM"
+},
+{
+  "name": "Sulawesi",
+  "country_code": "IDN",
+  "state_code": "SL"
+},
+{
+  "name": "Special Region of Yogyakarta",
+  "country_code": "IDN",
+  "state_code": "YO"
+},
+{
+  "name": "West Java",
+  "country_code": "IDN",
+  "state_code": "JB"
+},
+{
+  "name": "West Nusa Tenggara",
+  "country_code": "IDN",
+  "state_code": "NB"
+},
+{
+  "name": "West Papua",
+  "country_code": "IDN",
+  "state_code": "PB"
+},
+{
+  "name": "West Sulawesi",
+  "country_code": "IDN",
+  "state_code": "SR"
+},
+{
+  "name": "West Sumatra",
+  "country_code": "IDN",
+  "state_code": "SB"
+}]

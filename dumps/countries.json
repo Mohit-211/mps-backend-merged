@@ -1,0 +1,230 @@
+[{
+  "name": "Belgium",
+  "currency": "EUR",
+  "unicodeFlag": "🇧🇪",
+  "capital": "Brussels",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/6/65/Flag_of_Belgium.svg",
+  "dialCode": "32",
+  "iso2": "BE",
+  "iso3": "BEL"
+},
+{
+  "name": "Bangladesh",
+  "currency": "BDT",
+  "unicodeFlag": "🇧🇩",
+  "capital": "Dhaka",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/f/f9/Flag_of_Bangladesh.svg",
+  "dialCode": "880",
+  "iso2": "BD",
+  "iso3": "BGD"
+},
+{
+  "name": "Brazil",
+  "currency": "BRL",
+  "unicodeFlag": "🇧🇷",
+  "capital": "Brasilia",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/0/05/Flag_of_Brazil.svg",
+  "dialCode": "55",
+  "iso2": "BR",
+  "iso3": "BRA"
+},
+{
+  "name": "Russia",
+  "currency": "RUB",
+  "unicodeFlag": "🇷🇺",
+  "capital": "Moscow",
+  "flag": null,
+  "dialCode": "7",
+  "iso2": "RU",
+  "iso3": "RUS"
+},
+{
+  "name": "Japan",
+  "currency": "JPY",
+  "unicodeFlag": "🇯🇵",
+  "capital": "Tokyo",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/9/9e/Flag_of_Japan.svg",
+  "dialCode": "81",
+  "iso2": "JP",
+  "iso3": "JPN"
+},
+{
+  "name": "United Kingdom",
+  "currency": "GBP",
+  "unicodeFlag": "🇬🇧",
+  "capital": "London",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/a/ae/Flag_of_the_United_Kingdom.svg",
+  "dialCode": "44",
+  "iso2": "GB",
+  "iso3": "GBR"
+},
+{
+  "name": "Italy",
+  "currency": "EUR",
+  "unicodeFlag": "🇮🇹",
+  "capital": "Rome",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/0/03/Flag_of_Italy.svg",
+  "dialCode": "39",
+  "iso2": "IT",
+  "iso3": "ITA"
+},
+{
+  "name": "Egypt",
+  "currency": "EGP",
+  "unicodeFlag": "🇪🇬",
+  "capital": "Cairo",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/f/fe/Flag_of_Egypt.svg",
+  "dialCode": "20",
+  "iso2": "EG",
+  "iso3": "EGY"
+},
+{
+  "name": "Saudi Arabia",
+  "currency": "SAR",
+  "unicodeFlag": "🇸🇦",
+  "capital": "Riyadh",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/0/0d/Flag_of_Saudi_Arabia.svg",
+  "dialCode": "966",
+  "iso2": "SA",
+  "iso3": "SAU"
+},
+{
+  "name": "Ethiopia",
+  "currency": "ETB",
+  "unicodeFlag": "🇪🇹",
+  "capital": "Addis Ababa",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/7/71/Flag_of_Ethiopia.svg",
+  "dialCode": "251",
+  "iso2": "ET",
+  "iso3": "ETH"
+},
+{
+  "name": "Mexico",
+  "currency": "MXN",
+  "unicodeFlag": "🇲🇽",
+  "capital": "Mexico City",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/f/fc/Flag_of_Mexico.svg",
+  "dialCode": "52",
+  "iso2": "MX",
+  "iso3": "MEX"
+},
+{
+  "name": "France",
+  "currency": "EUR",
+  "unicodeFlag": "🇫🇷",
+  "capital": "Paris",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/c/c3/Flag_of_France.svg",
+  "dialCode": "33",
+  "iso2": "FR",
+  "iso3": "FRA"
+},
+{
+  "name": "China",
+  "currency": "CNY",
+  "unicodeFlag": "🇨🇳",
+  "capital": "Beijing",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Flag_of_the_People%27s_Republic_of_China.svg",
+  "dialCode": "86",
+  "iso2": "CN",
+  "iso3": "CHN"
+},
+{
+  "name": "Canada",
+  "currency": "CAD",
+  "unicodeFlag": "🇨🇦",
+  "capital": "Ottawa",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/c/cf/Flag_of_Canada.svg",
+  "dialCode": "1",
+  "iso2": "CA",
+  "iso3": "CAN"
+},
+{
+  "name": "Algeria",
+  "currency": "DZD",
+  "unicodeFlag": "🇩🇿",
+  "capital": "Algiers",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/7/77/Flag_of_Algeria.svg",
+  "dialCode": "213",
+  "iso2": "DZ",
+  "iso3": "DZA"
+},
+{
+  "name": "Germany",
+  "currency": "EUR",
+  "unicodeFlag": "🇩🇪",
+  "capital": "Berlin",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/b/ba/Flag_of_Germany.svg",
+  "dialCode": "49",
+  "iso2": "DE",
+  "iso3": "DEU"
+},
+{
+  "name": "Denmark",
+  "currency": "DKK",
+  "unicodeFlag": "🇩🇰",
+  "capital": "Copenhagen",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Flag_of_Denmark.svg",
+  "dialCode": "45",
+  "iso2": "DK",
+  "iso3": "DNK"
+},
+{
+  "name": "United States",
+  "currency": "USD",
+  "unicodeFlag": "🇺🇸",
+  "capital": "Washington",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg",
+  "dialCode": "1",
+  "iso2": "US",
+  "iso3": "USA"
+},
+{
+  "name": "Iran",
+  "currency": "IRR",
+  "unicodeFlag": "🇮🇷",
+  "capital": "Tehran",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Flag_of_Iran.svg",
+  "dialCode": "98",
+  "iso2": "IR",
+  "iso3": "IRN"
+},
+{
+  "name": "India",
+  "currency": "INR",
+  "unicodeFlag": "🇮🇳",
+  "capital": "New Delhi",
+  "flag": "https://upload.wikimedia.org/wikipedia/en/4/41/Flag_of_India.svg",
+  "dialCode": "91",
+  "iso2": "IN",
+  "iso3": "IND"
+},
+{
+  "name": "Ireland",
+  "currency": "EUR",
+  "unicodeFlag": "🇮🇪",
+  "capital": "Dublin",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/4/45/Flag_of_Ireland.svg",
+  "dialCode": "353",
+  "iso2": "IE",
+  "iso3": "IRL"
+},
+{
+  "name": "Australia",
+  "currency": "AUD",
+  "unicodeFlag": "🇦🇺",
+  "capital": "Canberra",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/8/88/Flag_of_Australia_%28converted%29.svg",
+  "dialCode": "61",
+  "iso2": "AU",
+  "iso3": "AUS"
+},
+{
+  "name": "Indonesia",
+  "currency": "IDR",
+  "unicodeFlag": "🇮🇩",
+  "capital": "Jakarta",
+  "flag": "https://upload.wikimedia.org/wikipedia/commons/9/9f/Flag_of_Indonesia.svg",
+  "dialCode": "62",
+  "iso2": "ID",
+  "iso3": "IDN"
+}]

@@ -1,0 +1,54 @@
+[{
+  "name": "Super Admin",
+  "role_id": 1,
+  "abbreviation": "SUP_ADM",
+  "is_active": true
+},
+{
+  "name": "Admin",
+  "role_id": 2,
+  "abbreviation": "ADM",
+  "is_active": true
+},
+{
+  "name": "Engineer",
+  "role_id": 3,
+  "abbreviation": "ENG",
+  "is_active": true
+},
+{
+  "name": "Editor",
+  "role_id": 4,
+  "abbreviation": "EDTR",
+  "is_active": true
+},
+{
+  "name": "Finance Manager",
+  "role_id": 5,
+  "abbreviation": "FIN",
+  "is_active": true
+},
+{
+  "name": "Marketing Manager",
+  "role_id": 6,
+  "abbreviation": "MRK",
+  "is_active": true
+},
+{
+  "name": "Human Resources",
+  "role_id": 7,
+  "abbreviation": "HR",
+  "is_active": true
+},
+{
+  "name": "Sales Representative",
+  "role_id": 8,
+  "abbreviation": "SALES",
+  "is_active": true
+},
+{
+  "name": "User",
+  "role_id": 9,
+  "abbreviation": "USR",
+  "is_active": true
+}]

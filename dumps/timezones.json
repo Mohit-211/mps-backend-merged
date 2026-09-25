@@ -1,0 +1,2436 @@
+[{
+  "time_zone": "Africa/Abidjan",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Accra",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Addis_Ababa",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Algiers",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Asmara",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Asmera",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Bamako",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Bangui",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Banjul",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Bissau",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Blantyre",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Brazzaville",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Bujumbura",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Cairo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Casablanca",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Ceuta",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Conakry",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Dakar",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Dar_es_Salaam",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Djibouti",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Douala",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/El_Aaiun",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Freetown",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Gaborone",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Harare",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Johannesburg",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Juba",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Kampala",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Khartoum",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Kigali",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Kinshasa",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Lagos",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Libreville",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Lome",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Luanda",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Lubumbashi",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Lusaka",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Malabo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Maputo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Maseru",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Mbabane",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Mogadishu",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Monrovia",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Nairobi",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Ndjamena",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Niamey",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Nouakchott",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Ouagadougou",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Porto-Novo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Sao_Tome",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Timbuktu",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Tripoli",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Tunis",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Africa/Windhoek",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Adak",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Anchorage",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Anguilla",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Antigua",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Araguaina",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Buenos_Aires",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Catamarca",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/ComodRivadavia",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Cordoba",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Jujuy",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/La_Rioja",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Mendoza",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Rio_Gallegos",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Salta",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/San_Juan",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/San_Luis",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Tucuman",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Argentina/Ushuaia",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Aruba",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Asuncion",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "America/Atikokan",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Atka",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Bahia",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Bahia_Banderas",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Barbados",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Belem",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Belize",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Blanc-Sablon",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Boa_Vista",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Bogota",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Boise",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Buenos_Aires",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Cambridge_Bay",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Campo_Grande",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Cancun",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Caracas",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Catamarca",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Cayenne",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Cayman",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Chicago",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "America/Chihuahua",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Coral_Harbour",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Cordoba",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Costa_Rica",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Creston",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Cuiaba",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Curacao",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Danmarkshavn",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Dawson",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Dawson_Creek",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Denver",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Detroit",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Dominica",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Edmonton",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Eirunepe",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/El_Salvador",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Ensenada",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Fort_Nelson",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Fort_Wayne",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Fortaleza",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Glace_Bay",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Godthab",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Goose_Bay",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Grand_Turk",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Grenada",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Guadeloupe",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Guatemala",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Guayaquil",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Guyana",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Halifax",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Havana",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Hermosillo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indiana/Indianapolis",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indiana/Knox",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indiana/Marengo",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indiana/Petersburg",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indiana/Tell_City",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indiana/Vevay",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indiana/Vincennes",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indiana/Winamac",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Indianapolis",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Inuvik",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Iqaluit",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Jamaica",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Jujuy",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Juneau",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Kentucky/Louisville",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Kentucky/Monticello",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Knox_IN",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Kralendijk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/La_Paz",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Lima",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Los_Angeles",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "America/Louisville",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Lower_Princes",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Maceio",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Managua",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Manaus",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Marigot",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Martinique",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Matamoros",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Mazatlan",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Mendoza",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Menominee",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Merida",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Metlakatla",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Mexico_City",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "America/Miquelon",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Moncton",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Monterrey",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Montevideo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Montreal",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Montserrat",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Nassau",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/New_York",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "America/Nipigon",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Nome",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Noronha",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/North_Dakota/Beulah",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/North_Dakota/Center",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/North_Dakota/New_Salem",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Nuuk",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Ojinaga",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Panama",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Pangnirtung",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Paramaribo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Phoenix",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Port_of_Spain",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Port-au-Prince",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Porto_Acre",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Porto_Velho",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Puerto_Rico",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Punta_Arenas",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Rainy_River",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Rankin_Inlet",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Recife",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Regina",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Resolute",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Rio_Branco",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Rosario",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Santa_Isabel",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Santarem",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Santiago",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "America/Santo_Domingo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Sao_Paulo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Scoresbysund",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Shiprock",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Sitka",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/St_Barthelemy",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/St_Johns",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/St_Kitts",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/St_Lucia",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/St_Thomas",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/St_Vincent",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Swift_Current",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Tegucigalpa",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Thule",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Thunder_Bay",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Tijuana",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Toronto",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "America/Tortola",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Vancouver",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Virgin",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Whitehorse",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Winnipeg",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Yakutat",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "America/Yellowknife",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Casey",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Davis",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/DumontDUrville",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Macquarie",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Mawson",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/McMurdo",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Palmer",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Rothera",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/South_Pole",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Syowa",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Troll",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Antarctica/Vostok",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Arctic/Longyearbyen",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Aden",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Almaty",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Amman",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Anadyr",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Aqtau",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Aqtobe",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Ashgabat",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Ashkhabad",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Atyrau",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Baghdad",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Bahrain",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Baku",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Bangkok",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Barnaul",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Beirut",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Bishkek",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Brunei",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Calcutta",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Chita",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Choibalsan",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Chongqing",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Chungking",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Colombo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Dacca",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Damascus",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Dhaka",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Dili",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Dubai",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "Asia/Dushanbe",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Famagusta",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Gaza",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Harbin",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Hebron",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Ho_Chi_Minh",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Hong_Kong",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "Asia/Hovd",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Irkutsk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Istanbul",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Jakarta",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Jayapura",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Jerusalem",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Kabul",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Kamchatka",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Karachi",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Kashgar",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Kathmandu",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Katmandu",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Khandyga",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Kolkata",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "Asia/Krasnoyarsk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Kuala_Lumpur",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Kuching",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Kuwait",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Macao",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Macau",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Magadan",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Makassar",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Manila",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Muscat",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Nicosia",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Novokuznetsk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Novosibirsk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Omsk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Oral",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Phnom_Penh",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Pontianak",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Pyongyang",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Qatar",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Qostanay",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Qyzylorda",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Rangoon",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Riyadh",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Saigon",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Sakhalin",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Samarkand",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Seoul",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Shanghai",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "Asia/Singapore",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "Asia/Srednekolymsk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Taipei",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Tashkent",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Tbilisi",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Tehran",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Tel_Aviv",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Thimbu",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Thimphu",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Tokyo",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": true
+},
+{
+  "time_zone": "Asia/Tomsk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Ujung_Pandang",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Ulaanbaatar",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Ulan_Bator",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Urumqi",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Ust-Nera",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Vientiane",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Vladivostok",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Yakutsk",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Yangon",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Yekaterinburg",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Asia/Yerevan",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Azores",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Bermuda",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Canary",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Cape_Verde",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Faeroe",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Faroe",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Jan_Mayen",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Madeira",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Reykjavik",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/South_Georgia",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/St_Helena",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Atlantic/Stanley",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/ACT",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Adelaide",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Brisbane",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Broken_Hill",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Canberra",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Currie",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Darwin",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Eucla",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Hobart",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/LHI",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Lindeman",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Lord_Howe",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Melbourne",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/North",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/NSW",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Perth",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Queensland",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/South",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Sydney",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": true
+},
+{
+  "time_zone": "Australia/Tasmania",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Victoria",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/West",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Australia/Yancowinna",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Brazil/Acre",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Brazil/DeNoronha",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Brazil/East",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Brazil/West",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Canada/Atlantic",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Canada/Central",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Canada/Eastern",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Canada/Mountain",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Canada/Newfoundland",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Canada/Pacific",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Canada/Saskatchewan",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Canada/Yukon",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "CET",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Chile/Continental",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "Chile/EasterIsland",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "CST6CDT",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Cuba",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "EET",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Egypt",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Eire",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": true,
+  "is_active": false
+},
+{
+  "time_zone": "EST",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "EST5EDT",
+  "has_day_light_saving": true,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-0",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-1",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-10",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-11",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-12",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-13",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-14",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-2",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-3",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-4",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-5",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-6",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-7",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-8",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+},
+{
+  "time_zone": "Etc/GMT-9",
+  "has_day_light_saving": false,
+  "is_day_light_saving_active": false,
+  "is_active": false
+}]
