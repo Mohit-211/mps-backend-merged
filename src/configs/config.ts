@@ -54,8 +54,13 @@ const envVarsSchema = Joi.object({
 	SQUARE_LOCATION_ID: Joi.string(),
 	SQUARE_ENV: Joi.string(),
 
-	GOOGLE_PLACE_API_KEY: Joi.string(),
+	GOOGLE_PLACE_API_KEY: Joi.string().allow('').description('Places API key; optional until live testing'),
 	GOOGLE_PLACE_API_URL: Joi.string(),
+
+	PLACES_SEARCH_RADIUS_M: Joi.number().integer().min(1).max(50000).default(5000),
+	RANK_MAX_KEYWORDS: Joi.number().integer().min(1).max(50).default(20),
+	RANK_TRACKER_OFFSET_KM: Joi.number().min(0.1).max(20).default(1.5),
+	RANK_DEV_MAX_KEYWORDS: Joi.number().integer().min(1).max(20).default(2),
 
 	SERP_API_KEY: Joi.string(),
 	SERP_API_TIMEOUT: Joi.number(),
@@ -200,6 +205,13 @@ interface Config {
 		};
 	};
 
+	ranking: {
+		searchRadiusM: number;
+		maxKeywords: number;
+		trackerOffsetKm: number;
+		devMaxKeywords: number;
+	};
+
 	company: {
 		email: string;
 		name: string;
@@ -304,6 +316,13 @@ const config: Config = {
 			url: envVars.GOOGLE_PLACE_API_URL,
 			keySecret: envVars.GOOGLE_PLACE_API_KEY,
 		},
+	},
+
+	ranking: {
+		searchRadiusM: envVars.PLACES_SEARCH_RADIUS_M,
+		maxKeywords: envVars.RANK_MAX_KEYWORDS,
+		trackerOffsetKm: envVars.RANK_TRACKER_OFFSET_KM,
+		devMaxKeywords: envVars.RANK_DEV_MAX_KEYWORDS,
 	},
 
 	dataForSeo: {
