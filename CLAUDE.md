@@ -62,6 +62,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - Work only against a **local MongoDB** and a local `.env`. Never use production credentials, never connect to production DB, never SSH anywhere.
 - Never print, log, or commit secrets. Never hardcode credentials (the old code has a hardcoded DataForSEO login; that pattern is banned).
 - API keys used during development must be **test keys with low quotas/budget caps**. If a required key is missing, stop and ask; do not stub a real-looking key.
+- **No Places API key yet (Phases 3–5).** All unit and integration tests use mocked clients and fixtures and must pass with no key. **No real Google API calls in any phase until Mohit says so.** Smoke scripts may be written but not run.
 - When calling real Google APIs during development: max **2 keywords**, **3×3 grid**, **1 location** per test run. Log how many API calls each test run made.
 
 ### Quality gates (every commit)
@@ -92,7 +93,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 ## 3. Repository map (facts, verified)
 
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
-- Mongo + agenda: `src/configs/mongoConnection.ts` exports `agenda` (processEvery 1 minute). `src/configs/agenda.ts` is **empty**. The only agenda job today is `post-to-gbp` in `src/jobs/postToGbp.ts`.
+- Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` and started from `src/server.ts`. The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
 - Production runs via pm2 with `instances: "max"` (cluster mode). Anything using in-memory state (node-cache, rate-limit memory store, node-cron) runs once **per instance**. Jobs must use agenda (Mongo-locked), never node-cron.
 - Config: `src/configs/config.ts` (Joi-validated env, loaded from `ENV_FILE` if set, else `./.env` in the working directory; see `docs/OPERATIONS.md`). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
 - OAuth: `src/configs/oAuth2Client.ts` exports a **function** `oAuth2Client(type)`; GBP and Analytics clients differ. Tokens stored in `UserAuth` model (`access_token`, `refresh_token`, plaintext). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`).
@@ -221,7 +222,7 @@ Branch `claude/phase-1.6-build-green`. Type-level fixes only; nothing that chang
 - All 46 TypeScript errors fixed. `mongoFunctions` is now generic over the model type, and `getKeywordMovmentData` (never called) uses the `oAuth2Client()` factory.
 - `.env` is loaded from `ENV_FILE`, else `./.env` in the working directory. The build no longer copies `.env`. pm2 must start from the repo root (`docs/OPERATIONS.md`).
 - DataForSEO credentials moved to the optional `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` env vars.
-- Local MongoDB via Docker (`mps-mongo`, `mongo:7`). See `docs/PROGRESS.md` for status.
+- Local MongoDB: Homebrew `mongodb-community@7.0`, separate database `mps_rebuild`; `MONGODB_AUTH_SOURCE` is required and `mps_db` is gone.
 
 ---
 
@@ -236,15 +237,13 @@ Security work is deferred until the rebuild features are done. It is now **Phase
 ### 3.1 Config (`src/configs/config.ts`)
 Add (Joi-validated, all optional in dev unless marked required):
 ```
-GOOGLE_PLACE_API_KEY          (existing, required)
+GOOGLE_PLACE_API_KEY          optional until live testing (the client throws "GOOGLE_PLACE_API_KEY not set" if empty)
 PLACES_SEARCH_RADIUS_M        default 5000
 RANK_MAX_KEYWORDS             default 20
 RANK_TRACKER_OFFSET_KM        default 1.5
 RANK_DEV_MAX_KEYWORDS         default 2      (enforced when NODE_ENV=development)
-OAUTH_STATE_SECRET            required       (HMAC for OAuth state)
-TOKEN_ENCRYPTION_KEY          required       (32-byte hex, AES-256-GCM for stored OAuth tokens)
-GBP_SYNC_ENABLED              default true
 ```
+`OAUTH_STATE_SECRET`, `TOKEN_ENCRYPTION_KEY` and `GBP_SYNC_ENABLED` moved to Phase 6 (decision by Mohit, 2026-09-26: ranking first).
 Update `.env.example` (create if missing) with every variable and a comment. Never commit `.env`.
 
 ### 3.2 Google API clients (`src/clients/`)
@@ -258,20 +257,21 @@ Create typed, mockable clients. Each client: axios instance, timeout 15s, 1 retr
     - Paginates up to 3 pages (60 results). Accepts `stopWhenFound: string[]`: stop paging once all given place IDs are found.
   - `searchTextWithNames(params)`: same endpoint, field mask `places.id,places.movedPlaceId,places.displayName,nextPageToken` (Pro SKU). Max 1 page (20 results). Used only for Map Ranking.
   - `getPlaceDetails(placeId, fields[])` → GET `https://places.googleapis.com/v1/places/{placeId}` with `X-Goog-FieldMask` (no `places.` prefix). Used for center resolution and competitor comparison.
-- `src/clients/gbpClient.ts`: all GBP calls, takes a location binding, handles access-token refresh via the stored refresh token (decrypt → refresh → re-encrypt on rotation). Methods are defined in Phase 6/7.
+- `src/clients/gbpClient.ts`: **deferred to Phase 6** (see §10).
 
 ### 3.3 Token security
-- `src/utils/tokenCrypto.ts`: AES-256-GCM `encrypt/decrypt` using `TOKEN_ENCRYPTION_KEY`.
-- Migration script `src/scripts/encryptExistingTokens.ts` (idempotent; detects already-encrypted values). **Do not run it**; document how to run it in `docs/PROGRESS.md`.
+**Deferred to Phase 6** (see §10). Phase 3 is ranking-focused.
 
 ### 3.4 Jobs infrastructure
-- Implement `src/configs/agenda.ts` as the single job registry: `defineAllJobs()` registers jobs from `src/jobs/*`. Keep existing `post-to-gbp` behaviour identical (move its registration here if needed).
+- `src/configs/agenda.ts` owns the agenda instance and its lifecycle (`startAgenda`, `stopAgenda`). The single job registry is `src/jobs/index.ts` (`defineAllJobs(agenda)`); it lives there rather than in `configs/agenda.ts` to avoid a circular import through `gbpPostSchedular.service`. Keep existing `post-to-gbp` behaviour identical.
+- **C25 fix:** agenda gets its own MongoDB connection (`db.address` built from the existing `MONGODB_*` values), because `agenda@5` needs its own driver 4.17 and never becomes ready on Mongoose's driver-6 connection. Agenda is started from `src/server.ts` after `listen`, so seed scripts never process jobs.
 - Job conventions: idempotent, job data contains IDs only, per-job `lockLifetime`, concurrency limits, failures recorded on the related document (`last_error`, `last_run_at`).
 - No node-cron for business logic. (Leave the existing heartbeat cron in `app.ts` untouched; out of scope.)
 
 ### 3.5 Test harness
 - Add dev dependencies `jest`, `ts-jest`, `@types/jest`, `mongodb-memory-server`. Add `npm test`. Tests live in `tests/` mirroring `src/`.
-- Fixtures: `tests/fixtures/places/*.json` and `tests/fixtures/gbp/*.json` (hand-written, realistic, no real personal data).
+- Fixtures: `tests/fixtures/places/*.json` now; `tests/fixtures/gbp/*.json` in Phase 6 (hand-written, realistic, no real personal data).
+- Smoke script `npm run smoke:places -- "<keyword>" <lat> <lng> [place_id]`: one IDs-only call, page 1. Only Mohit runs it, once the key exists.
 
 **Gate.**
 
@@ -367,6 +367,11 @@ Integration tests (mongodb-memory-server + mocked placesClient): full run for 2 
 ## 10. PHASE 6 — GBP connection fixes
 
 Prerequisite: Mohit confirms GBP API access is approved for the Cloud project (quota > 0). If calls return 429 with quota 0, stop and report; that is an access gate, not a rate limit.
+
+Carried over from Phase 3 (deferred 2026-09-26):
+- Config: `OAUTH_STATE_SECRET` (required, HMAC for OAuth state), `TOKEN_ENCRYPTION_KEY` (required, 32-byte hex, AES-256-GCM), `GBP_SYNC_ENABLED` (default true).
+- `src/utils/tokenCrypto.ts`: AES-256-GCM `encrypt/decrypt` using `TOKEN_ENCRYPTION_KEY`. Migration script `src/scripts/encryptExistingTokens.ts` (idempotent; detects already-encrypted values). **Do not run it**; document how to run it in `docs/PROGRESS.md`.
+- `src/clients/gbpClient.ts`: all GBP calls; takes a location binding; handles access-token refresh via the stored refresh token (decrypt → refresh → re-encrypt on rotation). Built on the shared `src/clients/http.ts` helper from Phase 3.
 
 The signed OAuth state and encrypted token storage below stay in this phase even though security work is deferred to Phase 10: they are part of building the GBP connection correctly, not a security project.
 
