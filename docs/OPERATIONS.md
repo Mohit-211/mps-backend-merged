@@ -71,7 +71,35 @@ On a healthy start the log shows:
 - "Mongo has connected successfully"
 - "Mongoose connection opened successfully"
 
-It should also show "Agenda has started and is processing jobs." **That line currently never appears; see AUDIT C25.**
+- "Agenda jobs defined: post-to-gbp"
+- "✅ Agenda connected and ready."
+- "🚀 Agenda has started and is processing jobs."
+
+## Background jobs (agenda)
+
+- `src/configs/agenda.ts` owns the agenda instance. It opens **its own** MongoDB connection (from the same `MONGODB_*` values) and stores jobs in the `agendaJobs` collection. This is deliberate: `agenda@5` must use its bundled MongoDB driver 4 (AUDIT C25).
+- Jobs are registered in `src/jobs/index.ts` (`defineAllJobs`). Agenda is started from `src/server.ts` after the HTTP server listens, so seed scripts never process jobs. SIGTERM and SIGINT stop agenda before exit.
+- New jobs use `defineJob` / `scheduleJob` from `src/jobs/defineJob.ts`: job data must be IDs only, and every job declares its concurrency and lock lifetime.
+- Self-test (no external calls, safe while the server runs): `npm run smoke:agenda` schedules a throwaway job 10 s ahead, waits for it to run, removes it and prints how many are left (expected 0).
+
+## Tests
+
+```sh
+npm test            # type-checks src + tests (tsc -p tests/tsconfig.json), then runs jest
+npm run test:types  # type-check only
+TEST_LOGS=1 npm test   # show winston output while testing
+```
+
+- Tests never need a Places API key or network access. They load the committed `.env.example` (placeholders), unset `GOOGLE_PLACE_API_KEY`, and replay hand-written fixtures from `tests/fixtures/`.
+- Integration tests use an in-memory MongoDB (`mongodb-memory-server`, pinned to 7.0.14 in `package.json`). The binary (about 65 MB) downloads on the first run. Set `MONGOMS_SYSTEM_BINARY=/opt/homebrew/bin/mongod` to use the local server's binary instead.
+
+## Places API smoke test (live, run manually)
+
+```sh
+npm run smoke:places -- "<keyword>" <lat> <lng> [place_id] [--region=us|ca]
+```
+
+Makes **one** IDs-only Text Search call (page 1 only, on the free "Essentials IDs Only" SKU) and prints the result count, whether `place_id` was found and at what rank, and the API call count. It refuses to run without `GOOGLE_PLACE_API_KEY` and never prints the key. Only run it with a test key that has a budget cap.
 
 ## Build
 

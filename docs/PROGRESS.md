@@ -10,11 +10,11 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 |---|---|---|
 | 1: Full codebase audit | `claude/phase-1.5-hygiene` (commit `5e8bdf2`) | Done |
 | 1.5: Repo hygiene | `claude/phase-1.5-hygiene` | Done. Merged into `claude/rebuild` locally (`e4a7419`). Not pushed; pushes at milestone M1. |
-| 1.6: Build green | `claude/phase-1.6-build-green` | Done, except "agenda started" (pre-existing bug C25, fix proposed for Phase 3). Awaiting Mohit's approval of the merge. |
-| 3: Foundations | — | Next after 1.6 approval |
+| 1.6: Build green | `claude/phase-1.6-build-green` | Done and approved. **Not yet merged into local `claude/rebuild`** (the command is in the M1 block below). Agenda (C25) was fixed in Phase 3. |
+| 3: Foundations | `claude/phase-3-foundations` | Done (ranking-focused). **Milestone M1**: awaiting approval, merge and push. |
 | 4: Ranking engine | — | Not started |
 | 5: Ranking reports | — | Not started |
-| 6: GBP connection fixes | — | Not started (includes signed OAuth state, encrypted tokens, C12) |
+| 6: GBP connection fixes | — | Not started (includes signed OAuth state, encrypted tokens, `gbpClient`, token crypto deferred from Phase 3, and C12) |
 | 7: GBP data sync and report | — | Not started |
 | 8: GBP posting | — | Not started |
 | 9: Cleanup and docs | — | Not started |
@@ -181,3 +181,84 @@ git merge --no-ff claude/phase-1.6-build-green -m "Phase 1.6 — build green"
 ```
 
 No push until milestone M1 (after Phase 3).
+
+---
+
+## Phase 3: Foundations (ranking-focused) — milestone M1
+
+Scope (Mohit, 2026-09-26): ranking first.
+- **Done:** 3.1 ranking config, 3.2 `placesClient`, 3.4 jobs infrastructure with the C25 fix, 3.5 test harness, and the smoke scripts.
+- **Deferred to Phase 6:** 3.3 token crypto and `gbpClient`, plus `OAUTH_STATE_SECRET`, `TOKEN_ENCRYPTION_KEY` and `GBP_SYNC_ENABLED`.
+- There is no Places API key yet. **No Google API calls were made.**
+
+Branch `claude/phase-3-foundations` was created from `claude/phase-1.6-build-green` @ `e09ff59`, because 1.6 is not yet merged into local `claude/rebuild`. Its content matches what `claude/rebuild` will have after that merge, so both merges apply cleanly in order.
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `98cbe4f` | CLAUDE.md: Phase 3 scoped to ranking; 3.3, `gbpClient` and the GBP config variables moved to Phase 6; registry location and C25 fix recorded; "no key yet, mocked tests only" rule added. |
+| `4db40e2` | Test harness: jest 30, ts-jest 29.4, `@types/jest` 30, mongodb-memory-server 11 (MongoDB 7.0.14 test binary). Tests load `.env.example`, never `.env`. |
+| `26c2064` | Ranking config: `PLACES_SEARCH_RADIUS_M` (5000), `RANK_MAX_KEYWORDS` (20), `RANK_TRACKER_OFFSET_KM` (1.5), `RANK_DEV_MAX_KEYWORDS` (2). `GOOGLE_PLACE_API_KEY` is optional and may be empty. |
+| `9fb9c59` | `src/clients/http.ts`: pluggable transport, 15 s timeout, one retry on 429/5xx/timeout/network with jittered backoff and Retry-After handling, and errors that never keep request headers (C20). |
+| `6771f16` | `src/clients/placesClient.ts`: `searchTextIds` (IDs-only mask with a hard guard, up to 3 pages, `stopWhenFound`, `movedPlaceId`), `searchTextWithNames` (1 page, Pro SKU), `getPlaceDetails`, per-SKU call counts. Fixtures and 30 client tests. |
+| `ccc2ed0` | **C25 fixed:** agenda has its own connection; `defineAllJobs` registry; `defineJob` / `scheduleJob` with IDs-only data (C21); `post-to-gbp` unchanged; agenda starts from `server.ts` and stops on SIGTERM/SIGINT. |
+| `8b430f0` | `npm run smoke:places` (written, **not run**) and `npm run smoke:agenda`. |
+| `476680e` | Tests: type-check once up front (`npm test` = `tsc -p tests/tsconfig.json && jest`) and transpile-only in workers. This fixed the intermittent "worker failed to exit gracefully" warning in parallel runs. |
+| this commit | AUDIT (C25 fixed; C20 and C21 partial), OPERATIONS (tests, smoke scripts, agenda) and this entry. |
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm ci` from an empty `node_modules` | Passes. |
+| `npm run build` | **0 TypeScript errors.** |
+| `npm run lint` | 98 errors (baseline 99). **No new errors.** Every new file in `src/clients`, `src/jobs` and `src/scripts` is lint-clean. |
+| `npm test` with no `GOOGLE_PLACE_API_KEY` | **65/65 pass** across 5 suites, repeated runs, no warnings. |
+| Places fixture scenarios | Page-1 hit (rank 4, 1 call); page-3 hit (rank 47, 3 calls); not found in 60 (60+); multi-target `stopWhenFound` stops at page 2; `movedPlaceId` counts as the target; error then retry success (2 calls); timeout retried; two errors → `PlacesApiError` with `apiCalls: 2` (Phase 4 maps this to status `error`); 400 not retried; missing key throws before any request; IDs-only mask guard; a sentinel key never appears in logs or errors. |
+| `npm run dev` against `mps_rebuild` | "Agenda jobs defined: post-to-gbp", "Mongo has connected successfully", "✅ Agenda connected and ready.", **"🚀 Agenda has started and is processing jobs."**, `/api/healthcheck` 200. |
+| `npm run smoke:agenda` (with dev running) | Job scheduled 10 s ahead, ran after 10.012 s, removed, **0 left**, exit 0. |
+| Secrets | No key-like strings in the Phase 3 diff; `.env` is ignored and not committed. |
+
+**API calls consumed:** 0 (no key exists; `smoke:places` was not run).
+
+### Decisions
+- **C25:** `npm ls mongodb` showed agenda resolving its own driver 4.17.2, so it gets its own connection via `db.address`. No agenda upgrade and no new env vars.
+- **Job registry location:** `src/jobs/index.ts`, not `configs/agenda.ts`, to avoid the circular import `jobs → gbpPostSchedular.service → agenda`. CLAUDE.md is updated.
+- **Where agenda starts:** in `src/server.ts` instead of the Mongoose `open` handler, so seed scripts (which import `mongoConnection`) never process jobs.
+- **`gbpPostSchedular.service.ts` is untouched:** `mongoConnection.ts` still re-exports `agenda`.
+- **C21:** the `post-to-gbp` payload stays as it is until Phase 8. New jobs must use `defineJob` / `scheduleJob`.
+- **Places API docs check:** `places.movedPlaceId` and `nextPageToken` are in the Essentials (IDs Only) SKU, and `displayName` is Pro, so the CLAUDE.md masks are correct. Page-token requests repeat every other parameter, as the API requires.
+- **Local `.env`:** `GOOGLE_PLACE_API_KEY` is now blank (not committed).
+
+### Out-of-scope or shared files touched
+- `src/server.ts` and `src/configs/mongoConnection.ts`: agenda start and stop only.
+- `src/jobs/postToGbp.ts`: signature only (it now receives the agenda instance).
+
+### M1: merge and push (run by Mohit)
+
+Local merges, in order (1.6 is not in `claude/rebuild` yet):
+
+```sh
+git switch claude/rebuild
+git merge --no-ff claude/phase-1.6-build-green -m "Phase 1.6 — build green"
+git merge --no-ff claude/phase-3-foundations -m "Phase 3 — foundations"
+```
+
+One push for the milestone. `origin` already has `claude/rebuild` and `claude/phase-1.5-hygiene` at the 1.5 state; this fast-forwards `claude/rebuild` and adds the 1.6 and 3 branches:
+
+```sh
+git push -u origin claude/rebuild claude/phase-1.6-build-green claude/phase-3-foundations
+```
+
+### Developer summary (M1)
+
+> **MyPageSEO backend rebuild — milestone M1 (foundations)**
+> Branch `claude/rebuild`. Nothing on `main` changed.
+>
+> - **Setup:** copy `.env.example` to `.env`. Local MongoDB is a separate database, `mps_rebuild`: see `docs/OPERATIONS.md` for Homebrew or Docker. `MONGODB_AUTH_SOURCE` is required. Leave `GOOGLE_PLACE_API_KEY` empty for now.
+> - **One-time git config:** `git config blame.ignoreRevsFile .git-blame-ignore-revs` and `git config core.autocrlf input`. The repo is now LF-only.
+> - **Build and tests:** `npm ci`, `npm run build` (0 TypeScript errors), `npm test` (65 tests, no API key or network needed).
+> - **What's new:** a Places API (New) client in `src/clients/` with a free IDs-only search, timeouts and one retry. Background jobs now actually run: agenda was silently never starting before and has its own DB connection now. `src/jobs/defineJob.ts` is the pattern for new jobs (IDs-only data).
+> - **Next:** Phase 4 (ranking engine) and Phase 5 (Rank Tracker, Local Search Grid and Map Ranking endpoints), all tested against fixtures until the API key is added.
+> - **Docs:** `docs/AUDIT.md` (all findings with status), `docs/PROGRESS.md` (every phase and commit), `docs/OPERATIONS.md` (setup and running), `docs/ROUTES.md`.
