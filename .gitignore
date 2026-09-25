@@ -19,7 +19,5 @@ logs/
 **/.DS_Store
 public/uploads/
 test/
-package-lock.json
 .env
-.env.example
 path

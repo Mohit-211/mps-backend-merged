@@ -15,7 +15,7 @@
   "include": [
     "src/**/*.ts",
     "index.ts",   
-    "src/configs/mongoMigrate.ts", "src/utils/fetchCountryStateCityDataFromRemoteApi.ts"  ],
+    "src/configs/mongoMigrate.ts"  ],
   "exclude": [
     "node_modules"
   ]

@@ -3,7 +3,7 @@ import httpStatus from 'http-status';
 
 import { ApiError, mongoFunctions } from '../../utils';
 import { BodyDefinition } from '../../types/RouteDefinition';
-import { fetchNapComparison, fetchNAPDatFromGoogle, fetchNearby, getDomainOverviewFromSEOMOZ, keywordPositionSearch } from '../../helpers';
+import { fetchNapComparison, fetchNAPDatFromGoogle, fetchNearby } from '../../helpers';
 import { GBPAuditReport } from '../../models';
 import { mongoOperationsTypes } from '../../configs/constantTypes';
 
