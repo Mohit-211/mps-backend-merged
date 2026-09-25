@@ -123,3 +123,12 @@ describe('createAxiosTransport', () => {
 		).rejects.toMatchObject({ status: 500, apiStatus: 'INTERNAL', retryable: true });
 	});
 });
+
+describe('withRetry and programming errors', () => {
+	it('rethrows non-transport errors untouched without retrying', async () => {
+		const bug = new TypeError('not a transport failure');
+		const fn = jest.fn().mockRejectedValue(bug);
+		await expect(withRetry(fn, { sleep: noSleep })).rejects.toBe(bug);
+		expect(fn).toHaveBeenCalledTimes(1);
+	});
+});

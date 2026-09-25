@@ -69,6 +69,10 @@ const parseRetryAfter = (value: unknown): number | undefined => {
 	return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, MAX_RETRY_AFTER_MS) : undefined;
 };
 
+/** True for errors produced by a transport (axios or HttpRequestError), as opposed to programming errors. */
+export const isTransportError = (err: unknown): boolean =>
+	err instanceof HttpRequestError || axios.isAxiosError(err);
+
 // Builds a safe error from anything axios (or a transport) throws. Only status, the API's own
 // error status/message and the error code survive; headers, URL and request config are dropped.
 export const toHttpRequestError = (err: unknown): HttpRequestError => {
@@ -126,6 +130,7 @@ export interface RetryResult<T> {
 
 // Runs fn, retrying up to `retries` times (default 1) on retryable errors with jittered
 // exponential backoff (honouring Retry-After up to 5 s). The thrown error carries `attempts`.
+// Errors that did not come from a transport (programming errors) are rethrown untouched, never retried.
 export const withRetry = async <T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<RetryResult<T>> => {
 	const retries = options.retries ?? 1;
 	const baseDelayMs = options.baseDelayMs ?? 500;
@@ -134,6 +139,7 @@ export const withRetry = async <T>(fn: () => Promise<T>, options: RetryOptions =
 		try {
 			return { value: await fn(), attempts: attempt };
 		} catch (err) {
+			if (!isTransportError(err)) throw err;
 			const error = toHttpRequestError(err);
 			error.attempts = attempt;
 			if (!error.retryable || attempt > retries) throw error;

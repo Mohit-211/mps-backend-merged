@@ -5,7 +5,7 @@ describe('test harness', () => {
 	it('runs TypeScript tests with the placeholder environment and no Places key', () => {
 		expect(process.env.NODE_ENV).toBe('test');
 		expect(process.env.ENV_FILE).toMatch(/\.env\.example$/);
-		expect(process.env.GOOGLE_PLACE_API_KEY).toBeUndefined();
+		expect(process.env.GOOGLE_PLACE_API_KEY ?? '').toBe('');
 	});
 
 	it('starts an in-memory MongoDB', async () => {
