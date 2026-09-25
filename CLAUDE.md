@@ -288,6 +288,14 @@ Create typed, mockable clients. Each client: axios instance, timeout 15s, 1 retr
 
 ## 8. PHASE 4 — Ranking engine (pure logic + Places client usage)
 
+**Built** on `claude/phase-4-ranking-engine` (awaiting merge). Public API: `src/ranking/index.ts`. As built:
+- `engine.ts`: `createRankingEngine({ places, region, targets, radiusM?, concurrency ≤ 4, jitterMs, sleep?, random? })`. Create **one engine per run** (the cache and stats are per run). `searchPoint(keyword, point)` → `PlaceIdEntry[] | null`; `rankKeywordAtPoints(keyword, points)` → `{ point, byTarget }[]`; `getStats()` → `{ searches, cacheHits, errors, apiCalls.ids_only }`. A `PlacesApiError` becomes an `error` cell; a `PlacesConfigError` (no key) fails the run.
+- `metrics.ts`: `cellChange(prevCell, currCell)` implements the §4 cell rules. `keywordChange(prevSummary, currSummary)` works at summary level: `entered_top_60` when the previous `foundRate` was 0 and is now > 0, `dropped_out_of_top_60` for the reverse, otherwise the `avgRank` delta. Phase 5 passes `null` when `keywords_version` differs.
+- Also: `estimate.ts` (`estimateCalls(keywords, gridSize, opts)`), `region.ts` (`regionFromCountry`), and `limits.ts` (`applyDevKeywordCap`, `RANK_DEV_MAX_KEYWORDS` in development).
+- The Map Ranking names search (`searchTextWithNames`, 1 page at the center) is called by the Phase 5 `rank-run` job, not by the engine.
+
+Original spec:
+
 Files: `src/ranking/` (new folder).
 
 - `points.ts`
@@ -504,7 +512,8 @@ Each fix = its own commit. Add a regression test per auth fix (request without t
 ## 14. Cost & quota reference (for estimates in PROGRESS.md)
 
 - Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Up to 3 calls per point per keyword (usually fewer with `stopWhenFound`).
-  - Rank tracker: 5 points × K keywords. Grid: size² points × K (center shared). 7×7 × 20 keywords ≈ 980–2,940 calls per run.
+  - Unique points per keyword = tracker (5) ∪ grid (size²), with the center shared: 13 / 29 / 53 for 3×3 / 5×5 / 7×7 at 1 km spacing (fewer if tracker points land on grid points). Use `estimateCalls()` from `src/ranking/estimate.ts`.
+  - 2 keywords × 3×3 ≈ 26–78 calls; 20 keywords × 7×7 ≈ **1,060–3,180** calls per run (the one retry can at most double this).
 - Text Search with `displayName` (Pro SKU): 1 call per keyword per run (Map Ranking only).
 - Place Details for competitor comparison: ~(1 + competitors) calls per report generation; Enterprise-tier fields. No reviews/photos by default.
 - GBP APIs: no per-call charge; quota-limited. Keep ≤ 5 req/s per job.
