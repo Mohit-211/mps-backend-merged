@@ -1,5 +1,7 @@
 # CLAUDE.md — MyPageSEO backend (mps-backend-merged)
 
+**Session start: read `docs/STATUS.md` first (current state + next step), then this file. Update `STATUS.md` at the end of every phase.**
+
 Read this whole file at the start of every session. It defines what the product is, what you may and may not touch, and the exact order of work. Work **bottom to top**: foundations first, features after. Never skip a phase gate.
 
 ---
@@ -68,6 +70,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 ### Quality gates (every commit)
 - `npm run build` passes with zero TypeScript errors in files you touched.
 - `npm run lint` passes for files you touched (don't mass-fix out-of-scope files).
+- `npm test` passes with no `GOOGLE_PLACE_API_KEY` set.
 - New pure logic (ranking math, matching, change calculation, health score, grid generation) has unit tests.
 - External API calls are wrapped in a client module that can be mocked; unit tests never hit the network.
 
@@ -93,13 +96,15 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 ## 3. Repository map (facts, verified)
 
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
-- Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` and started from `src/server.ts`. The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
+- Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` (`defineAllJobs`) and agenda is started from `src/server.ts` after `listen`. New jobs use `src/jobs/defineJob.ts` (`defineJob` / `scheduleJob`, IDs-only data). The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
+- Clients: `src/clients/http.ts` (transport, 15 s timeout, 1 retry, safe errors) and `src/clients/placesClient.ts` (Places API New; `createPlacesClient()` for tests, `placesClient` default instance). `gbpClient` comes in Phase 6.
+- Tests: `tests/` mirrors `src/`; fixtures in `tests/fixtures/`; helpers `tests/helpers/fakeTransport.ts` and `memoryMongo.ts`.
 - Production runs via pm2 with `instances: "max"` (cluster mode). Anything using in-memory state (node-cache, rate-limit memory store, node-cron) runs once **per instance**. Jobs must use agenda (Mongo-locked), never node-cron.
 - Config: `src/configs/config.ts` (Joi-validated env, loaded from `ENV_FILE` if set, else `./.env` in the working directory; see `docs/OPERATIONS.md`). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
 - OAuth: `src/configs/oAuth2Client.ts` exports a **function** `oAuth2Client(type)`; GBP and Analytics clients differ. Tokens stored in `UserAuth` model (`access_token`, `refresh_token`, plaintext). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`).
-- Location model (`src/models/location.model.ts`): `name, city, state, country, lat, lng, mobile, place_id, website_URL, created_by, is_active`.
-- Old ranking: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (`generateGrid()` math is correct and reusable), `helpers/localMapRankingReport.ts`, `services/common/{rankTracker,localSearchGrid,localMapRankingReport}.service.ts`, `services/common/serp.ts` (dead), matching middlewares/models/routes.
-- Old GBP: `helpers/gbpAudit.ts` (legacy Places API, organic rank, Moz placeholders), `services/common/gbpAudit.service.ts` (recomputes on every GET), `helpers/gbpPs.ts` (first account only, no readMask), `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda, keep).
+- Location model (`src/models/location.model.ts`): `name, address, city, state, country, zip_code, lat, lng, mobile, place_id, website_URL, business_category, client_id, created_by, is_active`.
+- Old ranking: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (`generateGrid()` math is correct and reusable), `helpers/localMapRankingReport.ts`, `services/common/{rankTracker,localSearchGrid,localMapRankingReport}.service.ts`, matching middlewares/models/routes (all deleted in Phase 9; `serp.ts` was already deleted in Phase 1.5).
+- Old GBP: `helpers/gbpAudit.ts` (legacy Places API; its organic-rank and Moz helpers were deleted in Phase 1.5), `services/common/gbpAudit.service.ts` (recomputes on every GET), `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda, keep). `helpers/gbpPs.ts` was deleted in Phase 1.5.
 
 ---
 
@@ -234,6 +239,8 @@ Security work is deferred until the rebuild features are done. It is now **Phase
 
 ## 7. PHASE 3 — Foundations
 
+**Done** (ranking-focused): merged into `claude/rebuild` as `53986e0` and pushed at milestone M1 on 2026-09-26. 3.3 and `gbpClient` were deferred to Phase 6. Details are in `docs/PROGRESS.md`.
+
 ### 3.1 Config (`src/configs/config.ts`)
 Add (Joi-validated, all optional in dev unless marked required):
 ```
@@ -269,15 +276,25 @@ Create typed, mockable clients. Each client: axios instance, timeout 15s, 1 retr
 - No node-cron for business logic. (Leave the existing heartbeat cron in `app.ts` untouched; out of scope.)
 
 ### 3.5 Test harness
-- Add dev dependencies `jest`, `ts-jest`, `@types/jest`, `mongodb-memory-server`. Add `npm test`. Tests live in `tests/` mirroring `src/`.
+- Dev dependencies `jest`, `ts-jest`, `@types/jest`, `mongodb-memory-server` (test binary pinned to MongoDB 7.0.14 in `package.json`). Tests live in `tests/` mirroring `src/`.
+- `npm test` = `tsc -p tests/tsconfig.json && jest`: src and tests are type-checked once up front, and jest workers only transpile (`tests/tsconfig.jest.json`, `isolatedModules`). Type-checking inside every worker made parallel workers fail to exit.
+- `tests/setupEnv.ts` makes tests load `.env.example` (never `.env`) and unsets `GOOGLE_PLACE_API_KEY`. Winston is silent in tests (`TEST_LOGS=1` to show it). External APIs are replayed through `tests/helpers/fakeTransport.ts`.
 - Fixtures: `tests/fixtures/places/*.json` now; `tests/fixtures/gbp/*.json` in Phase 6 (hand-written, realistic, no real personal data).
-- Smoke script `npm run smoke:places -- "<keyword>" <lat> <lng> [place_id]`: one IDs-only call, page 1. Only Mohit runs it, once the key exists.
+- Smoke scripts: `npm run smoke:places -- "<keyword>" <lat> <lng> [place_id]` makes one IDs-only call, page 1. **Only Mohit runs it**, once the key exists. `npm run smoke:agenda` is a job self-test with no external calls.
 
 **Gate.**
 
 ---
 
 ## 8. PHASE 4 — Ranking engine (pure logic + Places client usage)
+
+**Built** on `claude/phase-4-ranking-engine` (awaiting merge). Public API: `src/ranking/index.ts`. As built:
+- `engine.ts`: `createRankingEngine({ places, region, targets, radiusM?, concurrency ≤ 4, jitterMs, sleep?, random? })`. Create **one engine per run** (the cache and stats are per run). `searchPoint(keyword, point)` → `PlaceIdEntry[] | null`; `rankKeywordAtPoints(keyword, points)` → `{ point, byTarget }[]`; `getStats()` → `{ searches, cacheHits, errors, apiCalls.ids_only }`. A `PlacesApiError` becomes an `error` cell; a `PlacesConfigError` (no key) fails the run.
+- `metrics.ts`: `cellChange(prevCell, currCell)` implements the §4 cell rules. `keywordChange(prevSummary, currSummary)` works at summary level: `entered_top_60` when the previous `foundRate` was 0 and is now > 0, `dropped_out_of_top_60` for the reverse, otherwise the `avgRank` delta. Phase 5 passes `null` when `keywords_version` differs.
+- Also: `estimate.ts` (`estimateCalls(keywords, gridSize, opts)`), `region.ts` (`regionFromCountry`), and `limits.ts` (`applyDevKeywordCap`, `RANK_DEV_MAX_KEYWORDS` in development).
+- The Map Ranking names search (`searchTextWithNames`, 1 page at the center) is called by the Phase 5 `rank-run` job, not by the engine.
+
+Original spec:
 
 Files: `src/ranking/` (new folder).
 
@@ -461,7 +478,7 @@ Tests: validation per topic type, idempotent publish, recurrence mapping.
 ## 13. PHASE 9 — Cleanup & documentation
 
 Only after Mohit confirms the frontend has switched to the new endpoints:
-- Delete old ranking code: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (after `generateGrid` is ported), `helpers/localMapRankingReport.ts`, `helpers/getSerpCountryCode.ts` if unused, `services/common/serp.ts`, old ranking services/controllers/middlewares/routes/models, `configs/serpConfig.ts`, `constants/serpCountryCode.ts` if unused.
+- Delete old ranking code: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (after `generateGrid` is ported), `helpers/localMapRankingReport.ts`, `helpers/getSerpCountryCode.ts` (unused since Phase 1.5), old ranking services/controllers/middlewares/routes/models, `configs/serpConfig.ts`, `constants/serpCountryCode.ts` if unused.
 - Delete old GBP audit code: `helpers/gbpAudit.ts`, `services/common/gbpAudit.service.ts` and its route/controller/middleware/model.
 - Remove unused dependencies (`serpapi` and any others made unused). Remove SerpAPI/DataForSEO/Moz env vars from config and `.env.example`.
 - Do **not** drop MongoDB collections; write `docs/MIGRATION.md` listing collections that are now unused so Mohit can archive them.
@@ -495,7 +512,8 @@ Each fix = its own commit. Add a regression test per auth fix (request without t
 ## 14. Cost & quota reference (for estimates in PROGRESS.md)
 
 - Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Up to 3 calls per point per keyword (usually fewer with `stopWhenFound`).
-  - Rank tracker: 5 points × K keywords. Grid: size² points × K (center shared). 7×7 × 20 keywords ≈ 980–2,940 calls per run.
+  - Unique points per keyword = tracker (5) ∪ grid (size²), with the center shared: 13 / 29 / 53 for 3×3 / 5×5 / 7×7 at 1 km spacing (fewer if tracker points land on grid points). Use `estimateCalls()` from `src/ranking/estimate.ts`.
+  - 2 keywords × 3×3 ≈ 26–78 calls; 20 keywords × 7×7 ≈ **1,060–3,180** calls per run (the one retry can at most double this).
 - Text Search with `displayName` (Pro SKU): 1 call per keyword per run (Map Ranking only).
 - Place Details for competitor comparison: ~(1 + competitors) calls per report generation; Enterprise-tier fields. No reviews/photos by default.
 - GBP APIs: no per-call charge; quota-limited. Keep ≤ 5 req/s per job.

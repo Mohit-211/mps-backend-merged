@@ -9,10 +9,10 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | Phase | Branch | State |
 |---|---|---|
 | 1: Full codebase audit | `claude/phase-1.5-hygiene` (commit `5e8bdf2`) | Done |
-| 1.5: Repo hygiene | `claude/phase-1.5-hygiene` | Done. Merged into `claude/rebuild` locally (`e4a7419`). Not pushed; pushes at milestone M1. |
-| 1.6: Build green | `claude/phase-1.6-build-green` | Done and approved. **Not yet merged into local `claude/rebuild`** (the command is in the M1 block below). Agenda (C25) was fixed in Phase 3. |
-| 3: Foundations | `claude/phase-3-foundations` | Done (ranking-focused). **Milestone M1**: awaiting approval, merge and push. |
-| 4: Ranking engine | — | Not started |
+| 1.5: Repo hygiene | `claude/phase-1.5-hygiene` | Done. Merged (`e4a7419`) and pushed. |
+| 1.6: Build green | `claude/phase-1.6-build-green` | Done. Merged into `claude/rebuild` through the Phase 3 merge `53986e0` (no separate merge commit). Pushed at M1. |
+| 3: Foundations | `claude/phase-3-foundations` | Done. Merged `53986e0`. **Pushed at M1 on 2026-09-26.** |
+| 4: Ranking engine | `claude/phase-4-ranking-engine` | Done. Awaiting approval and local merge. Pushes at M2. |
 | 5: Ranking reports | — | Not started |
 | 6: GBP connection fixes | — | Not started (includes signed OAuth state, encrypted tokens, `gbpClient`, token crypto deferred from Phase 3, and C12) |
 | 7: GBP data sync and report | — | Not started |
@@ -20,7 +20,7 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 9: Cleanup and docs | — | Not started |
 | 10: Security hardening (gated) | — | Deferred; needs explicit approval |
 
-Base branch: `claude/rebuild`, created from `main` @ `62240ac` with no commits of its own yet.
+Base branch: `claude/rebuild` (created from `main` @ `62240ac`; `main` is untouched). The current state is in [STATUS.md](STATUS.md).
 
 ---
 
@@ -235,6 +235,10 @@ Branch `claude/phase-3-foundations` was created from `claude/phase-1.6-build-gre
 - `src/server.ts` and `src/configs/mongoConnection.ts`: agenda start and stop only.
 - `src/jobs/postToGbp.ts`: signature only (it now receives the agenda instance).
 
+### Closed (2026-09-26)
+- Approved by Mohit. Merged into `claude/rebuild` as **`53986e0`** ("Phase 3 — foundations (M1)"), which also brought in Phase 1.6.
+- **Milestone M1 pushed on 2026-09-26:** `origin/claude/rebuild` = `53986e0`, plus `claude/phase-1.6-build-green` (`e09ff59`) and `claude/phase-3-foundations` (`7847004`). `main` is untouched.
+
 ### M1: merge and push (run by Mohit)
 
 Local merges, in order (1.6 is not in `claude/rebuild` yet):
@@ -262,3 +266,51 @@ git push -u origin claude/rebuild claude/phase-1.6-build-green claude/phase-3-fo
 > - **What's new:** a Places API (New) client in `src/clients/` with a free IDs-only search, timeouts and one retry. Background jobs now actually run: agenda was silently never starting before and has its own DB connection now. `src/jobs/defineJob.ts` is the pattern for new jobs (IDs-only data).
 > - **Next:** Phase 4 (ranking engine) and Phase 5 (Rank Tracker, Local Search Grid and Map Ranking endpoints), all tested against fixtures until the API key is added.
 > - **Docs:** `docs/AUDIT.md` (all findings with status), `docs/PROGRESS.md` (every phase and commit), `docs/OPERATIONS.md` (setup and running), `docs/ROUTES.md`.
+
+---
+
+## Phase 4: Ranking engine
+
+Branch `claude/phase-4-ranking-engine`, from `claude/rebuild` @ `53986e0`. Pure logic in `src/ranking/`, as specified in CLAUDE.md §4 and §8. **No existing code was changed**, and no out-of-scope files were touched.
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `f30d781` | Docs before planning: new `docs/STATUS.md`; CLAUDE.md session-start line and stale facts fixed; Phase 3 closed; C25 Fixed and C20 Partial in AUDIT; smoke-script table in OPERATIONS. |
+| `fc164da` | `types.ts` and `points.ts`: `trackerPoints` (center plus N/S/E/W at 1.5 km) and `gridPoints` (3/5/7, 0.25–5 km, row 0 north, col 0 west, center exact). The flat-earth math is ported from the legacy `generateGrid()`. 22 tests. |
+| `19764c5` | `rankCell.ts` (`toCell` with the 60 cap and `movedPlaceId`, `bucket`, `displayRank`) and `metrics.ts` (`avgRank` with `not_found` = 61 and errors excluded, `foundRate`, `top3Rate`, `overallAvgRank`, `cellChange`, `keywordChange`, `overallChange`). 38 tests. |
+| `21ca8ca` | `engine.ts`: per-run engine; promise cache keyed by (keyword, lat 5 dp, lng 5 dp); at most 4 searches at once with 100–300 ms jitter; all targets ranked from one list; API errors become `error` cells with their calls counted; a missing key fails the run; stats. 16 tests. |
+| `3e77047` | `estimate.ts` (`estimateCalls`), `region.ts` (`regionFromCountry`), `limits.ts` (`applyDevKeywordCap`), `index.ts` barrel. 32 tests. |
+| this commit | CLAUDE.md §8 "as built" and §14 corrected cost figures; STATUS.md rewritten; this entry. |
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm run build` | **0 TypeScript errors.** |
+| `npm run lint` | 98 errors (same as Phase 3). **No new errors**, and none in `src/ranking`. |
+| `npm test` (no `GOOGLE_PLACE_API_KEY`) | **175/175 pass** (65 from before plus 110 new) across 12 suites, repeated runs, no warnings. |
+| Required test areas | Geometry within 1% (haversine, including 60°N) and parity with the legacy `generateGrid`. Metrics edge cases: all `not_found` (61 / 0 / 0), all `error` (null), mixed. Change labels `entered_top_60` and `dropped_out_of_top_60` at both cell and keyword level. Cache hits: tracker plus 3×3 gives 13 searches with 1 hit; concurrent dedupe; map reuse of the center. Pool: peak in flight is exactly 4 over 49 searches, jitter within [100, 300]. Estimator figures. |
+| Isolation | `src/ranking` has no imports from `src/helpers` (the math is ported) and no `any`. |
+
+**API calls consumed:** 0.
+
+### Decisions
+- **Keyword-level change** (CLAUDE.md said `keywordChange(prevCell|prevAvg, curr)`): implemented as `keywordChange(prevSummary, currSummary)`.
+  - Labels come from `foundRate` going 0 → >0 (`entered_top_60`) or >0 → 0 (`dropped_out_of_top_60`).
+  - Otherwise the change is the `avgRank` delta, labelled `improved`, `declined` or `unchanged`.
+  - The cell-level rules are in `cellChange`, exactly as in §4.
+  - The plan flagged this interpretation for confirmation; it was approved with the plan.
+- **Grid orientation:** row 0 is north and col 0 is west (heatmap order). The legacy grid ran south to north.
+- **Cost figures:** `estimateCalls` counts tracker ∪ grid points. The old §14 figure (980–2,940 for 20 keywords × 7×7) left out the 4 tracker points; the correct range is **1,060–3,180**. CLAUDE.md §14 is updated.
+- **Where things live:** `regionFromCountry` and `applyDevKeywordCap` are in `src/ranking` for Phase 5. The Map Ranking names search stays in the Phase 5 job, not the engine.
+
+### Merge command (run by Mohit after approval)
+
+```sh
+git switch claude/rebuild
+git merge --no-ff claude/phase-4-ranking-engine -m "Phase 4 — ranking engine"
+```
+
+No push: the next push is **M2**, after Phase 5.
