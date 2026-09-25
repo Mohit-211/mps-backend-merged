@@ -24,7 +24,7 @@ const envVarsSchema = Joi.object({
 	MONGODB_USER: Joi.string().required(),
 	MONGODB_PASSWORD: Joi.string().required(),
 	MONGODB_AUTH_SOURCE: Joi.string()
-		.default('mps_db')
+		.required()
 		.description('Database holding the Mongo user (authSource)'),
 
 	SMTP_HOST: Joi.string().description('server that will send the emails'),

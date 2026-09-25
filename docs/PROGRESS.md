@@ -134,7 +134,8 @@ Branch `claude/phase-1.6-build-green`. The plan was to branch from `claude/rebui
 | — | `8380dcc` | Progress entry. |
 | — | `1fe3278` | CLAUDE.md §2 git and milestone workflow; OPERATIONS Homebrew Mongo; decisions recorded. |
 | e | `8e68c68` | **Separate local database `mps_rebuild`** (Mohit: no connection to the original database). `authSource` is now configurable (`MONGODB_AUTH_SOURCE`, default `mps_db`). `.env.example` and OPERATIONS updated. |
-| — | this commit | AUDIT C25, and the final Phase 1.6 results. |
+| — | `58318ad` | AUDIT C25, and the final Phase 1.6 results. |
+| — | this commit | **`mps_db` removed entirely.** `MONGODB_AUTH_SOURCE` is now required, with no default. Without it, startup fails with `"MONGODB_AUTH_SOURCE" is required`. No code, config or docs reference `mps_db` any more (except this log). |
 
 ### Checks (step f)
 
@@ -165,6 +166,7 @@ Branch `claude/phase-1.6-build-green`. The plan was to branch from `claude/rebui
 - Phase 1.5 was merged into `claude/rebuild` locally by Mohit (`e4a7419`, not pushed).
 - Git workflow updated in CLAUDE.md §2: merge per phase with Mohit's approval; push only at milestones M1–M4.
 - Local MongoDB: Homebrew `mongodb-community@7.0` is the default and Docker is the alternative (OPERATIONS.md).
+- The original `mps_db` database is dropped from the code entirely. The server will get a fresh setup with a new database after the rebuild; until then only the local `mps_rebuild` is used.
 
 ### Status of earlier blockers
 1. **Docker:** superseded. Local MongoDB now runs via Homebrew with a separate `mps_rebuild` database.
