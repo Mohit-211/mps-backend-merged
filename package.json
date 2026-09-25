@@ -6,7 +6,7 @@
   "scripts": {
     "start": "pm2 start ecosystem.config.json --no-daemon",
     "dev": "cross-env NODE_ENV=development nodemon",
-    "build": "tsc -p . && shx cp package.json ./build/package.json && shx cp package-lock.json ./build/package-lock.json && shx cp .env ./build/.env",
+    "build": "tsc -p . && shx cp package.json ./build/package.json && shx cp package-lock.json ./build/package-lock.json",
     "lint": "eslint src/**/*.ts",
     "lint-fix": "eslint --fix src/**/*.ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",

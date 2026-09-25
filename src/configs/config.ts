@@ -2,8 +2,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import Joi from 'joi';
 
-// Load environment variables from .env file
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+// Load environment variables from ENV_FILE if set, else .env in the working directory (repo root)
+dotenv.config({ path: process.env.ENV_FILE || path.resolve(process.cwd(), '.env') });
 
 // Define the environment variables schema
 const envVarsSchema = Joi.object({
