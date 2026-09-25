@@ -23,6 +23,9 @@ const envVarsSchema = Joi.object({
 	MONGODB_URL: Joi.string().required().description('Mongo DB url'),
 	MONGODB_USER: Joi.string().required(),
 	MONGODB_PASSWORD: Joi.string().required(),
+	MONGODB_AUTH_SOURCE: Joi.string()
+		.default('mps_db')
+		.description('Database holding the Mongo user (authSource)'),
 
 	SMTP_HOST: Joi.string().description('server that will send the emails'),
 	SMTP_PORT: Joi.number().description('port to connect to the email server'),
@@ -137,6 +140,7 @@ interface Config {
 			url: string;
 			user: string;
 			password: string;
+			authSource: string;
 		};
 	};
 
@@ -257,6 +261,7 @@ const config: Config = {
 			url: envVars.MONGODB_URL,
 			user: envVars.MONGODB_USER,
 			password: envVars.MONGODB_PASSWORD,
+			authSource: envVars.MONGODB_AUTH_SOURCE,
 		},
 	},
 

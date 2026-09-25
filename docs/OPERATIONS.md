@@ -29,37 +29,49 @@ Checks:
 
 ### Local MongoDB
 
-`src/configs/mongoConnection.ts` always authenticates with `MONGODB_USER` and `MONGODB_PASSWORD` against `authSource: 'mps_db'`, so the user must exist in the `mps_db` database. Local development must only ever point at a local database.
+The rebuild uses its **own local database, `mps_rebuild`**, on a MongoDB server running on the developer's machine and bound to localhost only. It never connects to the production database, and the rebuild is free to change collections and indexes in it.
 
-**Default: Homebrew** (MongoDB Community 7.0, runs as a brew service on `localhost:27017`):
+`src/configs/mongoConnection.ts` authenticates with `MONGODB_USER` / `MONGODB_PASSWORD` against `MONGODB_AUTH_SOURCE`. That variable defaults to `mps_db` so existing deployments are unchanged. Locally it is `mps_rebuild`.
+
+**Default: Homebrew** (MongoDB Community 7.0, a brew service on `127.0.0.1:27017`):
 
 ```sh
 brew tap mongodb/brew
+# Homebrew 7 asks you to trust third-party formulae. The install reads these four:
+brew trust --formula mongodb/brew/mongodb-community@7.0 mongodb/brew/mongodb-database-tools \
+                     mongodb/brew/mongodb-enterprise mongodb/brew/mongodb-community
 brew install mongodb-community@7.0
-brew services start mongodb-community@7.0
-mongosh mps_db --quiet --eval \
-  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_db"}]})'
+brew services start mongodb/brew/mongodb-community@7.0
+mongosh mps_rebuild --quiet --eval \
+  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_rebuild"}]})'
 ```
 
 `.env`:
 
 ```
-MONGODB_URL=mongodb://127.0.0.1:27017/mps_db
+MONGODB_URL=mongodb://127.0.0.1:27017/mps_rebuild
 MONGODB_USER=mps_local
 MONGODB_PASSWORD=mps_local_pw
+MONGODB_AUTH_SOURCE=mps_rebuild
 ```
 
 **Alternative: Docker**
 
 ```sh
-docker run -d --name mps-mongo -p 27017:27017 mongo:7
-docker exec mps-mongo mongosh mps_db --quiet --eval \
-  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_db"}]})'
+docker run -d --name mps-mongo -p 127.0.0.1:27017:27017 mongo:7
+docker exec mps-mongo mongosh mps_rebuild --quiet --eval \
+  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_rebuild"}]})'
 ```
 
 Use the same `.env` values.
 
-Seed reference data with `npm run mongo-migrate`. On a healthy start the log shows "Mongo has connected successfully" and "Agenda has started and is processing jobs."
+Mongoose creates the collections and model indexes on first start. Seed reference data (roles, countries, and so on) with `npm run mongo-migrate`.
+
+On a healthy start the log shows:
+- "Mongo has connected successfully"
+- "Mongoose connection opened successfully"
+
+It should also show "Agenda has started and is processing jobs." **That line currently never appears; see AUDIT C25.**
 
 ## Build
 

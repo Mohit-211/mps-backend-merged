@@ -14,7 +14,7 @@ export let agenda: Agenda;
 mongoose.connect(`${config.databases.mongodb.url}`, {
   user: config.databases.mongodb.user,
   pass: config.databases.mongodb.password,
-  authSource: 'mps_db',
+  authSource: config.databases.mongodb.authSource,
   maxPoolSize: 10,
   socketTimeoutMS: 4500000,
   family: 4,
