@@ -121,11 +121,18 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - **foundRate**: share of non-error cells with status `ok`. 2 decimals.
 - **top3Rate**: share of non-error cells with rank ≤ 3. 2 decimals.
 - **overallAvgRank**: mean of keyword avgRanks (unweighted). 1 decimal.
-- **Change vs previous run**: only computed when both runs have the **identical keyword set** (same `keywords_version`).
-  - Both `ok`: `change = previous - current` (positive = improved).
-  - `not_found → ok`: label `entered_top_60`, no numeric change.
-  - `ok → not_found`: label `dropped_out_of_top_60`, no numeric change.
-  - Either side `error`: `change = null`.
+- **Change vs previous run**: only computed when both runs have the **identical keyword set** (same `keywords_version`). Otherwise every change is `null`.
+  - **Per cell** (one target at one point, `cellChange`):
+    - Both `ok`: `change = previous - current` (positive = improved), labelled `improved`, `declined` or `unchanged`.
+    - `not_found → ok`: label `entered_top_60`, no numeric change.
+    - `ok → not_found`: label `dropped_out_of_top_60`, no numeric change.
+    - Either side `error`, or both `not_found`: `change = null`, no label.
+  - **Per keyword** (one target's keyword summary, `keywordChange`; accepted by Mohit 2026-09-26):
+    - `foundRate` went from 0 (not found at any point) to > 0: label `entered_top_60`, no numeric change.
+    - `foundRate` went from > 0 to 0: label `dropped_out_of_top_60`, no numeric change.
+    - Otherwise `change = previous avgRank - current avgRank` (1 decimal), labelled `improved`, `declined` or `unchanged`.
+    - Either summary all-`error` (`avgRank` null), or no comparable previous run: `change = null`, no label.
+  - **Overall**: `change = previous overallAvgRank - current overallAvgRank` (1 decimal), or `null`.
 - **Rank buckets (for UI)**: 1–3 `pack`, 4–10 `visible`, 11–20 `low`, 21–60 `invisible`, 60+ `not_found`, `error`.
 
 ### Sample points
