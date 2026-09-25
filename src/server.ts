@@ -3,6 +3,8 @@ import app from './app';
 import { DateTime } from 'luxon';
 import config from './configs/config';
 import logger from './configs/logger';
+import { getAgenda, startAgenda, stopAgenda } from './configs/agenda';
+import { defineAllJobs } from './jobs';
 import http from 'http';
 import https from 'https';
 import fs from 'fs';
@@ -28,8 +30,14 @@ server.listen(config.essentials.port, '0.0.0.0',() => {
   );
 });
 
+// Job processing starts only in the server process (seed scripts never process jobs).
+const agenda = getAgenda();
+defineAllJobs(agenda);
+startAgenda(agenda).catch((error: Error) => logger.error(`Agenda failed to start: ${error.message}`));
+
 // Server exit operations
-const exitHandler = () => {
+const exitHandler = async () => {
+  await stopAgenda().catch((error: Error) => logger.error(`Agenda failed to stop: ${error.message}`));
   if (server) {
     server.close(() => {
       logger.info('Server closed');

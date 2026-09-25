@@ -1,9 +1,9 @@
 import { postPublishStatus } from '../configs/constantTypes';
-import { agenda } from '../configs/mongoConnection';
+import { Agenda } from 'agenda';
 import { GBPPost } from '../models';
 import { publishPostToGBP } from '../services/common/gbpPostSchedular.service';
 
-export const defineAgendaJobs = () => {
+export const defineAgendaJobs = (agenda: Agenda) => {
     agenda.define('post-to-gbp', { shouldSaveResult: true }, async (job) => {
         const { user, gbpPostData, gbpPostObj } = job.attrs.data;
         const result = await publishPostToGBP({ user, gbpPostData, gbpPostObj });
