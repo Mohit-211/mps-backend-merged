@@ -80,8 +80,8 @@ export interface RankRunEstimateDoc {
 	total: CallRangeDoc;
 }
 
-export interface IRankRun extends Document {
-	_id: Types.ObjectId;
+/** Plain RankRun fields (what .lean() returns, plus _id). */
+export interface RankRunData {
 	location_id: Types.ObjectId;
 	created_by: Types.ObjectId;
 	trigger: RankRunTrigger;
@@ -117,6 +117,12 @@ export interface IRankRun extends Document {
 	created_at: Date;
 	updated_at: Date;
 }
+
+export interface IRankRun extends Document, RankRunData {
+	_id: Types.ObjectId;
+}
+
+export type LeanRankRun = RankRunData & { _id: Types.ObjectId };
 
 const rankCellSchema = new Schema<RankCellDoc>(
 	{
