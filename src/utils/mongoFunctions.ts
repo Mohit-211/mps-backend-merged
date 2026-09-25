@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Document, Model } from 'mongoose';
+import { Model } from 'mongoose';
 import httpStatus from 'http-status';
 import ApiError from './apiError';
 
@@ -15,8 +15,8 @@ type MongoOperationType =
 	| 'findOneAndUpdate'
 	| 'findOneAndDelete';
 
-interface MongoOperationOptions {
-	schema: Model<Document>;
+interface MongoOperationOptions<T> {
+	schema: Model<T>;
 	condition?: Record<string, any>;
 	updateData?: Record<string, any>;
 	createData?: Record<string, any> | Record<string, any>[];
@@ -24,14 +24,14 @@ interface MongoOperationOptions {
 	selectedFields?: string;
 }
 
-const mongoFunctions = async ({
+const mongoFunctions = async <T>({
 	schema,
 	condition,
 	updateData,
 	createData,
 	operationType,
 	selectedFields
-}: MongoOperationOptions): Promise<any> => {
+}: MongoOperationOptions<T>): Promise<any> => {
 	try {
 		let result: any;
 		if (!selectedFields) selectedFields = '';
