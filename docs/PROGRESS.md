@@ -9,7 +9,7 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | Phase | Branch | State |
 |---|---|---|
 | 1: Full codebase audit | `claude/phase-1.5-hygiene` (commit `5e8bdf2`) | Done |
-| 1.5: Repo hygiene | `claude/phase-1.5-hygiene` | Done and approved. **Merge into `claude/rebuild` and push are pending** (Mohit to run; see Phase 1.6 notes) |
+| 1.5: Repo hygiene | `claude/phase-1.5-hygiene` | Done. Merged into `claude/rebuild` locally (`e4a7419`). Not pushed; pushes at milestone M1. |
 | 1.6: Build green | `claude/phase-1.6-build-green` | Done except the local MongoDB (Docker not installed). Awaiting Mohit. |
 | 3: Foundations | — | Next after 1.6 approval |
 | 4: Ranking engine | — | Not started |
@@ -150,6 +150,14 @@ Branch `claude/phase-1.6-build-green`. The plan was to branch from `claude/rebui
 - **Step b:** nothing else needed a behaviour change, so the skip list is empty.
 - **Finding ID:** the admin-JWT issue you called "S16" is already **S19** in AUDIT.md (S16 is the path traversal). I updated S19 instead of renumbering.
 - **Local `.env`:** created from `.env.example` placeholders, with `PORT=5055` (macOS AirPlay uses 5000). It is gitignored and not committed.
+
+### Mohit's decisions (2026-09-25, after review)
+- `getKeywordMovmentData` fix: accepted (the function is deleted in Phase 9 anyway).
+- S19 numbering, security in §13a after Phase 9, local `PORT=5055`: accepted.
+- Security deferral: acknowledged and stays deferred. Not to be raised again unless something new comes up.
+- Phase 1.5 was merged into `claude/rebuild` locally by Mohit (`e4a7419`, not pushed).
+- Git workflow updated in CLAUDE.md §2: merge per phase with Mohit's approval; push only at milestones M1–M4.
+- Local MongoDB: Homebrew `mongodb-community@7.0` is the default and Docker is the alternative (OPERATIONS.md).
 
 ### Blocked, needs Mohit
 1. **Docker (step e).** Install Docker Desktop, or tell me to use a Homebrew MongoDB (`brew install mongodb-community@7.0`) instead. After that I will:

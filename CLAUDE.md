@@ -45,7 +45,15 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 ## 2. Working rules (apply to every phase)
 
 ### Git
-- Never commit to `main`. Base branch for all work: `claude/rebuild`. One sub-branch per phase: `claude/phase-<n>-<slug>`, merged into `claude/rebuild` only after Mohit approves.
+- Base branch for all work: `claude/rebuild`. One sub-branch per phase: `claude/phase-<n>-<slug>`, created from `claude/rebuild`.
+- Commit freely on `claude/phase-*` branches. Never commit to or push `main`.
+- At the end of each phase, ask Mohit to approve the local merge into `claude/rebuild` (`git merge --no-ff`), giving him the exact command. Mohit runs it or grants permission. Do not push.
+- Push only at milestones, and only when Mohit says so:
+  - **M1:** after Phase 3 (Foundations).
+  - **M2:** after Phase 5 (Ranking reports: all three pages working).
+  - **M3:** after Phase 7 (GBP sync + report).
+  - **M4:** after Phase 9 (Cleanup).
+- At a milestone, give Mohit one push command covering `claude/rebuild` and every phase branch since the last milestone, plus a short summary for his developers.
 - Small commits, one concern each. Message format: `<phase>: <area>: <what>` e.g. `p4: ranking: add IDs-only text search client`.
 - Never rewrite history on shared branches. Never force-push `claude/rebuild`.
 - The old code is backed up separately by Mohit. Deleting old in-scope code is allowed **only in the phase that explicitly says so**.

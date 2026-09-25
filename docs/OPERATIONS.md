@@ -27,30 +27,39 @@ Checks:
 - `GET /api/healthcheck` returns `{"response":"ok"}`.
 - `GET /ping` returns 200.
 
-### Local MongoDB (Docker)
+### Local MongoDB
+
+`src/configs/mongoConnection.ts` always authenticates with `MONGODB_USER` and `MONGODB_PASSWORD` against `authSource: 'mps_db'`, so the user must exist in the `mps_db` database. Local development must only ever point at a local database.
+
+**Default: Homebrew** (MongoDB Community 7.0, runs as a brew service on `localhost:27017`):
 
 ```sh
-docker run -d --name mps-mongo -p 27017:27017 mongo:7
+brew tap mongodb/brew
+brew install mongodb-community@7.0
+brew services start mongodb-community@7.0
+mongosh mps_db --quiet --eval \
+  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_db"}]})'
 ```
 
-`src/configs/mongoConnection.ts` always authenticates with `MONGODB_USER` and `MONGODB_PASSWORD` against `authSource: 'mps_db'`. After starting the container, create a matching user in `mps_db` once:
-
-```sh
-docker exec mps-mongo mongosh mps_db --quiet --eval \
-  'db.createUser({user:"mps_local_user",pwd:"change-me",roles:[{role:"readWrite",db:"mps_db"}]})'
-```
-
-Then set the following in `.env`:
+`.env`:
 
 ```
 MONGODB_URL=mongodb://127.0.0.1:27017/mps_db
-MONGODB_USER=mps_local_user
-MONGODB_PASSWORD=change-me
+MONGODB_USER=mps_local
+MONGODB_PASSWORD=mps_local_pw
 ```
 
-This must only ever point at a local database. Seed reference data with `npm run mongo-migrate`.
+**Alternative: Docker**
 
-> Status (Phase 1.6): not yet verified. Docker is not installed on the development machine used so far.
+```sh
+docker run -d --name mps-mongo -p 27017:27017 mongo:7
+docker exec mps-mongo mongosh mps_db --quiet --eval \
+  'db.createUser({user:"mps_local",pwd:"mps_local_pw",roles:[{role:"readWrite",db:"mps_db"}]})'
+```
+
+Use the same `.env` values.
+
+Seed reference data with `npm run mongo-migrate`. On a healthy start the log shows "Mongo has connected successfully" and "Agenda has started and is processing jobs."
 
 ## Build
 
