@@ -1,12 +1,10 @@
 import httpStatus from 'http-status';
 import axios from 'axios';
-import { getJson } from "serpapi";
 
 
 import { ApiError } from '../utils';
 import config from '../configs/config';
 import { ILocation } from '../models';
-import { getShortCountryCode } from './getSerpCountryCode';
 
 export const fetchNAPDatFromGoogle = async (placeId: string) => {
     const googlePlacesApiUrl = `https://maps.googleapis.com/maps/api/place/details/json`;
@@ -28,69 +26,6 @@ export const fetchNAPDatFromGoogle = async (placeId: string) => {
 				: httpStatus.INTERNAL_SERVER_ERROR,
 			error.message,
 		);
-    }
-};
-
-export async function keywordPositionSearch(keyword: string, locationDoc: ILocation) {
-    try {
-        const params = {
-            q: keyword,
-            google_domain: "google.com",
-            gl: getShortCountryCode(locationDoc.country),
-            hl: "en",
-            engine: "google",
-            num: 20,
-        };
-    
-        const data = await getJson("google", params);
-        const response = {
-            self: {} as any,
-            items: [] as any[],
-        };
-
-        if (data.organic_results && data.organic_results.length > 0) {
-            const domain = new URL(locationDoc.website_URL).hostname;
-            const rankings: any = {};
-            rankings[domain] = { rank: 51 }; // Default rank to 51 (indicating not found)
-
-            // Loop through organic results to find any of the domains
-            data.organic_results.forEach((result: any, index: number) => {
-                const singleComparisonObj = {
-                    business_name: result.source || '',
-                    rank: result.position || 0,
-                    verified: false,
-                    citations: 0,
-                    key_citations: 0,
-                    links: 0,
-                    linking_domains: 0,
-                    website_authority: 0,
-                    review: 0,
-                    rating: 0,
-                    photos: 0,
-                    category: result.snippet_highlighted_words ? result.snippet_highlighted_words[0]  : '',
-                };
-                
-                const resultLink = result['displayed_link'];
-                
-                // Check if the current result's displayed link matches the domain
-                if (resultLink.includes(domain) && rankings[domain].rank === 51) {
-                    response.self = singleComparisonObj;
-                };
-                
-                if(response.items.length < 10 ){
-                    response.items.push(singleComparisonObj);
-                };
-            });
-        }
-
-        return response;
-    } catch (error) {
-        throw new ApiError(
-            error.statusCode
-                ? error.statusCode
-                : httpStatus.INTERNAL_SERVER_ERROR,
-            error.message,
-        );
     }
 };
 
@@ -140,11 +75,6 @@ export async function fetchNearby(keyword: string, locationDoc: ILocation, napDa
             };
 
             const resultLink = placeDetails.website || null;
-            let mozData: any = {};
-            // if (resultLink) {
-            //     mozData = await fetchMozData(resultLink);
-            //     Object.assign(singleComparisonObj, mozData);
-            // }
 
             if (resultLink && resultLink.includes(domain) && rankings[domain].rank === 51) {
                 response.self = singleComparisonObj;
@@ -162,20 +92,6 @@ export async function fetchNearby(keyword: string, locationDoc: ILocation, napDa
             error.response?.status || httpStatus.INTERNAL_SERVER_ERROR,
             error.message || 'An error occurred while fetching nearby places'
         );
-    }
-};
-
-const fetchMozData = async (url: string) => {
-    try {
-        const data = await getDomainOverviewFromSEOMOZ([url]);
-        return {
-            website_authority: data?.domain_authority || 0,
-            linking_domains: data?.root_domains_to_subdomain || 0,
-            links: data?.external_pages_to_root_domain || 0,
-        };
-    } catch (error) {
-        console.error('Error fetching Moz data:', error);
-        return { website_authority: 0, linking_domains: 0, links: 0 };
     }
 };
 
@@ -202,28 +118,3 @@ export async function fetchNapComparison(locationDoc: ILocation, napData: any) {
         );
     }
 };
-
-export const getDomainOverviewFromSEOMOZ = async (domains: string[]): Promise<any> => {
-	try {
-        
-        let response = await axios.post('https://lsapi.seomoz.com/v2/url_metrics', {
-          targets: domains,
-        }, {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-moz-token': config.seoMOZApis.keySecret
-          }
-        });
-        return response.data.results[0];
-
-	} catch (error) {
-        console.log("11111111111111111111111", error)
-		throw new ApiError(
-			error.statusCode
-				? error.statusCode
-				: httpStatus.INTERNAL_SERVER_ERROR,
-			error.message,
-		);
-	}
-};
-
