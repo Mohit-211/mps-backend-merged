@@ -14,7 +14,9 @@
     "prepush": "npm run lint",
     "mongo-migrate": "cross-env NODE_ENV=development ts-node --transpile-only ./src/configs/mongoMigrate.ts",
     "seed-country-city-state": "cross-env NODE_ENV=development ts-node ./src/configs/fetchCountryStateCityDataFromRemoteApi.ts",
-    "test": "jest"
+    "test": "jest",
+    "smoke:places": "ts-node --transpile-only src/scripts/smokePlaces.ts",
+    "smoke:agenda": "ts-node --transpile-only src/scripts/smokeAgenda.ts"
   },
   "keywords": [
     "Node",
