@@ -10,7 +10,7 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 |---|---|---|
 | 1: Full codebase audit | `claude/phase-1.5-hygiene` (commit `5e8bdf2`) | Done |
 | 1.5: Repo hygiene | `claude/phase-1.5-hygiene` | Done. Merged into `claude/rebuild` locally (`e4a7419`). Not pushed; pushes at milestone M1. |
-| 1.6: Build green | `claude/phase-1.6-build-green` | Done except the local MongoDB (Docker not installed). Awaiting Mohit. |
+| 1.6: Build green | `claude/phase-1.6-build-green` | Done, except "agenda started" (pre-existing bug C25, fix proposed for Phase 3). Awaiting Mohit's approval of the merge. |
 | 3: Foundations | — | Next after 1.6 approval |
 | 4: Ranking engine | — | Not started |
 | 5: Ranking reports | — | Not started |
@@ -131,7 +131,10 @@ Branch `claude/phase-1.6-build-green`. The plan was to branch from `claude/rebui
 | c | `e9cab7a` | `config.ts` loads `process.env.ENV_FILE` if set, else `path.resolve(process.cwd(), '.env')`. Removed `shx cp .env ./build/.env` from the build script. Added `docs/OPERATIONS.md` (env loading, local dev, local Mongo, build, pm2 started from the repo root). |
 | d | `35af600` | Moved the DataForSEO login and password to optional `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` (`config.ts` accepts empty values; `.env.example` updated). If either is unset, `getKeywordSearchVolume` returns `null`, which is what it already returned on any failure. |
 | 5 | `76c6ae1` | Security deferred. CLAUDE.md: Phase 2 moved to "Phase 10 — Security hardening (gated)" in §13a, the phase order is recorded, the Phase 6 exception is written down, and §5b was added. AUDIT: S19 confirmed Critical, with the fix plan, and security items previously `Open` are now `Deferred P10`. |
-| — | this commit | This progress entry. |
+| — | `8380dcc` | Progress entry. |
+| — | `1fe3278` | CLAUDE.md §2 git and milestone workflow; OPERATIONS Homebrew Mongo; decisions recorded. |
+| e | `8e68c68` | **Separate local database `mps_rebuild`** (Mohit: no connection to the original database). `authSource` is now configurable (`MONGODB_AUTH_SOURCE`, default `mps_db`). `.env.example` and OPERATIONS updated. |
+| — | this commit | AUDIT C25, and the final Phase 1.6 results. |
 
 ### Checks (step f)
 
@@ -141,13 +144,17 @@ Branch `claude/phase-1.6-build-green`. The plan was to branch from `claude/rebui
 | `npm run build` | **Passes, 0 TypeScript errors** (was 46). No `.env` copy step. |
 | `npm run lint` | 99 errors vs 103 after Phase 1.5 and 115 at baseline. **No new errors:** no file/rule pair increased. The 4 fewer are in the reduced `configs/paypal.ts`. |
 | `npm run dev` reads `./.env` | Yes. It read `PORT` from the file with nothing injected. `ENV_FILE` overrides it, and `node build/index.js` started from the repo root also reads `./.env`. `/api/healthcheck` returned 200 in all three. |
-| DB connected and agenda started | **Not done: blocked.** Docker is not installed on this machine (none of Docker Desktop, OrbStack, Colima or Podman), so `mps-mongo` could not be started. Without a database, Mongo never connects and agenda never starts (agenda only starts after the Mongo `open` event). |
+| Local MongoDB | Homebrew `mongodb-community@7.0` (7.0.43) with mongosh 2.12.0, installed and started as a brew service by Claude on 2026-09-25 (Mohit approved). It listens on `127.0.0.1` and `::1` only. It was a fresh server with no data; user `mps_local` (readWrite) was created in the new `mps_rebuild` database. |
+| DB connected | **Yes.** `npm run dev` logged "Mongo has connected successfully" and "Mongoose connection opened successfully", with no errors. Mongoose created all model collections and indexes in `mps_rebuild`. |
+| `/api/healthcheck` | **200** (also `/ping` 200). |
+| Agenda started | **No, because of a pre-existing bug (AUDIT C25).** `agenda@5.0.0` waits for a callback that MongoDB driver 6 (used by Mongoose 8) never calls, so `agenda.start()` hangs and no "Agenda …" log line appears. A probe confirmed agenda becomes ready when given its own connection. This needs a behaviour change, so it is skipped under rule 4b. |
 
 **API calls consumed:** 0.
 
 ### Decisions
 - **`getKeywordMovmentData` (step a).** The strict rule is "behaviour-changing fixes are listed and skipped", but that would have left 2 errors and conflicted with "zero errors". The function is imported but never called anywhere, so the fix (use the client factory, the same pattern as its sibling `getLastFiveMonthPosition`) has no effect on the running app. It is dead code slated for deletion in Phase 9 (C11). **If you want the strict reading instead, revert this hunk and the 2 errors return.**
-- **Step b:** nothing else needed a behaviour change, so the skip list is empty.
+- **Step b (skip list):** one item.
+  - **C25**, at [mongoConnection.ts:35-50](../src/configs/mongoConnection.ts#L35-L50): agenda never becomes ready with Mongoose's driver 6 connection. Proposed fix: in Phase 3.4, when building the job registry, either give agenda its own connection (`new Agenda({ db: { address: MONGODB_URL, collection: 'agendaJobs', options: { auth, authSource } } })`, which the probe confirmed becomes ready) or upgrade agenda. Also check agenda 5's other driver calls (the `findOneAndUpdate` result shape changed in driver 6) before choosing.
 - **Finding ID:** the admin-JWT issue you called "S16" is already **S19** in AUDIT.md (S16 is the path traversal). I updated S19 instead of renumbering.
 - **Local `.env`:** created from `.env.example` placeholders, with `PORT=5055` (macOS AirPlay uses 5000). It is gitignored and not committed.
 
@@ -159,18 +166,16 @@ Branch `claude/phase-1.6-build-green`. The plan was to branch from `claude/rebui
 - Git workflow updated in CLAUDE.md §2: merge per phase with Mohit's approval; push only at milestones M1–M4.
 - Local MongoDB: Homebrew `mongodb-community@7.0` is the default and Docker is the alternative (OPERATIONS.md).
 
-### Blocked, needs Mohit
-1. **Docker (step e).** Install Docker Desktop, or tell me to use a Homebrew MongoDB (`brew install mongodb-community@7.0`) instead. After that I will:
-   - run `docker run -d --name mps-mongo -p 27017:27017 mongo:7`
-   - create the `mps_db` user (the code always authenticates against `authSource: 'mps_db'`; see OPERATIONS.md)
-   - point `.env` at it
-   - re-run step f: DB connected, agenda started, `/api/healthcheck` 200.
-2. **Merge and push for Phase 1.5.** The session's permission policy blocked both. Either run them yourself:
-   ```sh
-   git switch claude/rebuild
-   git merge --no-ff claude/phase-1.5-hygiene -m "Phase 1.5 — repo hygiene"
-   git push -u origin claude/rebuild claude/phase-1.5-hygiene
-   ```
-   or add a permission rule for `git merge` / `git push` to this project's Claude Code settings.
-3. **Rotate the DataForSEO credential.** It is still in git history (S13), and that history is already on GitHub (`origin/main` = `62240ac`).
+### Status of earlier blockers
+1. **Docker:** superseded. Local MongoDB now runs via Homebrew with a separate `mps_rebuild` database.
+2. **Phase 1.5 merge:** done by Mohit locally (`e4a7419`). Pushes happen at milestone M1.
+3. **Rotate the DataForSEO credential:** still open. It is in git history, which is already on GitHub (`origin/main` = `62240ac`).
 
+### Merge command for Phase 1.6 (run by Mohit after approval)
+
+```sh
+git switch claude/rebuild
+git merge --no-ff claude/phase-1.6-build-green -m "Phase 1.6 — build green"
+```
+
+No push until milestone M1 (after Phase 3).
