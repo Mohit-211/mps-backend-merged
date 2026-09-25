@@ -37,6 +37,7 @@ export * from "./localMapRanking.model";
 export * from "./userGBP.model";
 export * from "./gbpPost.model";
 export * from "./campaign.model";
+export * from "./rankRun.model";
 
 
 // location service — citations

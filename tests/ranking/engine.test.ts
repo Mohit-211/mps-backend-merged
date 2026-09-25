@@ -148,6 +148,9 @@ describe('ranking engine: errors', () => {
 		});
 		expect(ranks.filter((r) => r.byTarget.self.status === 'ok')).toHaveLength(4);
 		expect(engine.getStats()).toMatchObject({ searches: 5, errors: 1, apiCalls: { ids_only: 4 + 2 } });
+		expect(engine.getErrors()).toEqual([
+			{ keyword: 'plumber', point: { lat: failAt.lat, lng: failAt.lng }, status: 500, message: expect.stringContaining('Internal error') },
+		]);
 	});
 
 	it('rethrows a missing key (PlacesConfigError) instead of reporting errors', async () => {

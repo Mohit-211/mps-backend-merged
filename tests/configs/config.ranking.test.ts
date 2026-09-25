@@ -7,6 +7,8 @@ const RANKING_KEYS = [
 	'RANK_MAX_KEYWORDS',
 	'RANK_TRACKER_OFFSET_KM',
 	'RANK_DEV_MAX_KEYWORDS',
+	'RANK_MAX_CALLS_PER_RUN',
+	'STORE_PLACE_NAMES',
 ];
 
 type ConfigModule = typeof import('../../src/configs/config');
@@ -41,6 +43,8 @@ describe('config.ranking', () => {
 			maxKeywords: 20,
 			trackerOffsetKm: 1.5,
 			devMaxKeywords: 2,
+			maxCallsPerRun: 3200,
+			storePlaceNames: true,
 		});
 	});
 

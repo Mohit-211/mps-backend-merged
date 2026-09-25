@@ -25,6 +25,7 @@ export {
 	type PointRanks,
 	type RankingEngine,
 	type RankingEngineOptions,
+	type SearchError,
 } from './engine';
 export {
 	countKeywords,

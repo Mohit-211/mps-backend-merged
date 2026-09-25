@@ -9,6 +9,7 @@ import subscriptionRoutes from './subscription.route';
 import contactUsRoutes from './contactUs.route';
 
 import locationRoute from './location.route';
+import rankingRoute from './ranking.route';
 import businessCategoryRoute from './businessCategory.route';
 import rankTrackerRoute from './rankTracker.route';
 import reputationManagerRoute from './reputationManagerReport.route';
@@ -64,6 +65,11 @@ const commonRoutes = [
 	{
 		path: '/locations',
 		route: locationRoute,
+	},
+	{
+		// Ranking reports (Phase 5): /locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}
+		path: '/locations',
+		route: rankingRoute,
 	},
 	{
 		path: '/business-categories',

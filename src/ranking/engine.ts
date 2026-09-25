@@ -43,6 +43,13 @@ export interface EngineStats {
 	apiCalls: { ids_only: number };
 }
 
+export interface SearchError {
+	keyword: string;
+	point: GeoPoint;
+	status: number | string;
+	message: string;
+}
+
 export const normaliseKeyword = (keyword: string): string => keyword.trim().replace(/\s+/g, ' ').toLowerCase();
 
 export const cacheKey = (keyword: string, point: GeoPoint): string =>
@@ -101,6 +108,7 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 	const runInPool = createPool(concurrency);
 	const cache = new Map<string, Promise<PlaceIdEntry[] | null>>();
 	const stats: EngineStats = { searches: 0, cacheHits: 0, errors: 0, apiCalls: { ids_only: 0 } };
+	const searchErrors: SearchError[] = [];
 
 	const jitter = (): number => Math.round(minJitter + random() * (maxJitter - minJitter));
 
@@ -122,6 +130,12 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 				if (err instanceof PlacesApiError) {
 					stats.apiCalls.ids_only += err.apiCalls;
 					stats.errors += 1;
+					searchErrors.push({
+						keyword: keyword.trim(),
+						point: { lat: point.lat, lng: point.lng },
+						status: err.status ?? err.code,
+						message: err.message,
+					});
 					logger.warn(`ranking search failed status=${err.status ?? err.code} calls=${err.apiCalls}`);
 					return null;
 				}
@@ -155,7 +169,10 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 
 	const getStats = (): EngineStats => ({ ...stats, apiCalls: { ...stats.apiCalls } });
 
-	return { searchPoint, rankKeywordAtPoints, getStats };
+	/** Searches that failed after the client's retry (one entry per failed point, not per target). */
+	const getErrors = (): SearchError[] => searchErrors.map((e) => ({ ...e, point: { ...e.point } }));
+
+	return { searchPoint, rankKeywordAtPoints, getStats, getErrors };
 };
 
 export type RankingEngine = ReturnType<typeof createRankingEngine>;

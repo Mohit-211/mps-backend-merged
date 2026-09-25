@@ -77,10 +77,27 @@ describe('agenda (own connection, C25)', () => {
 		await job.remove();
 	}, 30000);
 
-	it('registers post-to-gbp through the job registry', async () => {
+	it('registers post-to-gbp, rank-run and rank-scheduler through the job registry', async () => {
 		const { defineAllJobs } = await import('../../src/jobs');
 		const names = defineAllJobs(agenda);
-		expect(names).toContain('post-to-gbp');
+		expect(names).toEqual(expect.arrayContaining(['post-to-gbp', 'rank-run', 'rank-scheduler']));
+	});
+
+	it('schedules rank-scheduler every 15 minutes as a single recurring job', async () => {
+		// A separate agenda that is never started: the recurring job is saved but never runs here
+		// (its handler needs a Mongoose connection this test file does not open).
+		const { scheduleRecurringJobs } = await import('../../src/jobs');
+		const idle = createAgenda({ address: mongo.getUri('mps_recurring') });
+		await new Promise((resolve) => idle.once('ready', resolve));
+		try {
+			await scheduleRecurringJobs(idle);
+			await scheduleRecurringJobs(idle); // idempotent
+			const jobs = await idle.jobs({ name: 'rank-scheduler' });
+			expect(jobs).toHaveLength(1);
+			expect(jobs[0].attrs.repeatInterval).toBe('15 minutes');
+		} finally {
+			await idle.close({ force: true });
+		}
 	});
 });
 
