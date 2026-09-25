@@ -597,6 +597,10 @@ async function getSerpPlaceCidMaping(place_id: string = '') {
 }
 
 export async function getKeywordSearchVolume(keyword: string[], locationDoc: ILocation) {
+    const { login, password } = config.dataForSeo;
+    if (!login || !password) {
+        return null;
+    }
     try {
         const post_array = [
             {
@@ -611,8 +615,8 @@ export async function getKeywordSearchVolume(keyword: string[], locationDoc: ILo
             post_array,
             {
                 auth: {
-                    username: 'dipankar.bhoumik@blockcod.com',
-                    password: '423805ba38d1f124'
+                    username: login,
+                    password: password
                 },
                 headers: {
                     'content-type': 'application/json'

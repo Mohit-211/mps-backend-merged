@@ -57,6 +57,9 @@ const envVarsSchema = Joi.object({
 	SERP_API_KEY: Joi.string(),
 	SERP_API_TIMEOUT: Joi.number(),
 
+	DATAFORSEO_LOGIN: Joi.string().allow('').description('DataForSEO API login (optional)'),
+	DATAFORSEO_PASSWORD: Joi.string().allow('').description('DataForSEO API password (optional)'),
+
 	SEO_MOZ_API_USERNAME: Joi.string(),
 	SEO_MOZ_API_PASSWORD: Joi.string(),
 	SEO_MOZ_API_KEY: Joi.string(),
@@ -168,6 +171,11 @@ interface Config {
 	razorpay: {
 		keyId?: string;
 		keySecret?: string;
+	};
+
+	dataForSeo: {
+		login?: string;
+		password?: string;
 	};
 
 	seoMOZApis: {
@@ -291,6 +299,11 @@ const config: Config = {
 			url: envVars.GOOGLE_PLACE_API_URL,
 			keySecret: envVars.GOOGLE_PLACE_API_KEY,
 		},
+	},
+
+	dataForSeo: {
+		login: envVars.DATAFORSEO_LOGIN,
+		password: envVars.DATAFORSEO_PASSWORD,
 	},
 
 	seoMOZApis: {
