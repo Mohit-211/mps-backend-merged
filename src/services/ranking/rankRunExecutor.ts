@@ -219,6 +219,8 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 					point: { label: r.point.label, lat: r.point.lat, lng: r.point.lng },
 					byTarget: r.byTarget,
 					top3: r.top3,
+					result_count: r.resultCount,
+					more_results: r.moreResults,
 				})),
 				summary: trackerSummary,
 			});
@@ -226,7 +228,16 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 				keyword,
 				size: run.config.grid_size,
 				spacing_km: run.config.spacing_km,
-				points: gRanks.map((r) => ({ row: r.point.row, col: r.point.col, lat: r.point.lat, lng: r.point.lng, byTarget: r.byTarget, top3: r.top3 })),
+				points: gRanks.map((r) => ({
+					row: r.point.row,
+					col: r.point.col,
+					lat: r.point.lat,
+					lng: r.point.lng,
+					byTarget: r.byTarget,
+					top3: r.top3,
+					result_count: r.resultCount,
+					more_results: r.moreResults,
+				})),
 				summary: gridSummary,
 			});
 		}

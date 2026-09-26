@@ -94,6 +94,9 @@ describe('rank-run: full run (2 keywords × 3×3)', () => {
 		expect(center.top3).toHaveLength(3);
 		expect(center.top3?.[1]).toBe(SELF_PLACE_ID);
 		expect(run.grid[0].points[0].top3).toHaveLength(3);
+		// Search depth per point: found on page 1 of a longer list, so paging stopped early.
+		expect(center).toMatchObject({ result_count: 20, more_results: true });
+		expect(run.grid[0].points[0].result_count).toBeGreaterThan(0);
 
 		expect(run.mapList[0].results).toHaveLength(20);
 		expect(run.mapList[0].results[1]).toMatchObject({

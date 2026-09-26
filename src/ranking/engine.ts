@@ -33,6 +33,10 @@ export interface PointRanks<P extends GeoPoint> {
 	byTarget: Record<string, RankCell>;
 	/** First 3 place IDs of the result list at this point (empty when the search failed). */
 	top3: string[];
+	/** Results retrieved at this point (null when the search failed). Fewer than 60 means a shallow market,
+	 *  unless `moreResults` is true: paging stopped early because every target was found. */
+	resultCount: number | null;
+	moreResults: boolean;
 }
 
 export interface EngineStats {
@@ -111,6 +115,7 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 	const cache = new Map<string, Promise<PlaceIdEntry[] | null>>();
 	const stats: EngineStats = { searches: 0, cacheHits: 0, errors: 0, apiCalls: { ids_only: 0 } };
 	const searchErrors: SearchError[] = [];
+	const stoppedEarly = new Map<string, boolean>();
 
 	const jitter = (): number => Math.round(minJitter + random() * (maxJitter - minJitter));
 
@@ -127,6 +132,7 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 					stopWhenFound: targetIds,
 				});
 				stats.apiCalls.ids_only += result.apiCalls;
+				stoppedEarly.set(cacheKey(keyword, point), result.stoppedEarly);
 				return result.places;
 			} catch (err) {
 				if (err instanceof PlacesApiError) {
@@ -165,7 +171,13 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 				const entries = await searchPoint(keyword, point);
 				const byTarget: Record<string, RankCell> = {};
 				for (const target of targets) byTarget[target.key] = toCell(entries, target.placeId);
-				return { point, byTarget, top3: (entries ?? []).slice(0, 3).map((e) => e.id) };
+				return {
+					point,
+					byTarget,
+					top3: (entries ?? []).slice(0, 3).map((e) => e.id),
+					resultCount: entries ? entries.length : null,
+					moreResults: stoppedEarly.get(cacheKey(keyword, point)) ?? false,
+				};
 			}),
 		);
 
