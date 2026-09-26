@@ -2,7 +2,6 @@ import * as roleMiddleware from './role.middleware';
 import * as faqMiddleware from './faq.middleware';
 import * as supportMiddleware from './support.middleware';
 
-import * as locationMiddleware from './location.middleware';
 import * as businessCategoryMiddleware from './businessCategory.middleware';
 import * as WhiteLabelProfileMiddleware from './whiteLabelProfile.middleware';
 import * as citationMiddleware from './citation.middleware';
@@ -13,7 +12,6 @@ export {
     roleMiddleware,
     faqMiddleware,
     supportMiddleware,
-    locationMiddleware,
     businessCategoryMiddleware,
     WhiteLabelProfileMiddleware,
     citationMiddleware,

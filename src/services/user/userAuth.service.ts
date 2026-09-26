@@ -43,6 +43,8 @@ import {
 import { TokenDefination } from "../../types/interfaces";
 import config from "../../configs/config";
 import { gbpOAuthService } from "../gbp/oauth.service";
+import { addMemberToOwnedOrganizations, createOrganizationForOwner, normaliseOrgCountry } from "../org/context";
+import { Membership } from "../../models";
 import { bindingService } from "../gbp/binding.service";
 import { tokenStore } from "../gbp/tokenStore";
 
@@ -200,6 +202,13 @@ export const register = async (body: BodyDefinition) => {
         "Failed to create new user profile"
       );
     }
+
+    // Phase 8: every account gets an organization (legacy signup; the rebuilt app uses POST /auth/signup).
+    await createOrganizationForOwner(userDoc._id, {
+      name: business_name || name || email.split("@")[0],
+      type: user_type === userTypes.agency ? "agency" : "business",
+      country: normaliseOrgCountry(country_name),
+    });
 
     await sendOTP({ email, type: otpTypes.EMAIL_VERIFICATION });
 
@@ -589,6 +598,8 @@ export const addEmployee = async (body: BodyDefinition) => {
       );
     }
 
+    // Phase 8: the employee is a member of the owner's organizations.
+    await addMemberToOwnedOrganizations(user._id, userDoc._id);
 
     return "New Employee Created Successfully.";
   } catch (error) {
@@ -619,6 +630,8 @@ export const deleteEmployee = async (body: BodyDefinition) => {
     }
 
     await User.findByIdAndDelete(userDoc._id);
+    // Phase 8: remove the employee's memberships.
+    await Membership.updateMany({ user_id: userDoc._id }, { $set: { status: "removed" } });
 
     return "Employee deleted successfully.";
   } catch (error: any) {

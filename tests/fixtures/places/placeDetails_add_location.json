@@ -1,0 +1,17 @@
+{
+  "id": "ChIJaddedPlace0000000001",
+  "displayName": { "text": "Fredericton Plumbing Co", "languageCode": "en" },
+  "formattedAddress": "100 Queen St, Fredericton, NB E3B 1A1, Canada",
+  "addressComponents": [
+    { "longText": "100", "shortText": "100", "types": ["street_number"] },
+    { "longText": "Queen Street", "shortText": "Queen St", "types": ["route"] },
+    { "longText": "Fredericton", "shortText": "Fredericton", "types": ["locality", "political"] },
+    { "longText": "New Brunswick", "shortText": "NB", "types": ["administrative_area_level_1", "political"] },
+    { "longText": "Canada", "shortText": "CA", "types": ["country", "political"] },
+    { "longText": "E3B 1A1", "shortText": "E3B 1A1", "types": ["postal_code"] }
+  ],
+  "location": { "latitude": 45.9636, "longitude": -66.6431 },
+  "nationalPhoneNumber": "(506) 555-0100",
+  "websiteUri": "https://frederictonplumbing.example",
+  "primaryTypeDisplayName": { "text": "Plumber", "languageCode": "en" }
+}

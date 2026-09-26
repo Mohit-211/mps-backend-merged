@@ -25,6 +25,7 @@ import {
 } from '../../models';
 import { regionFromCountry } from '../../ranking/region';
 import { withDefaults } from '../../services/ranking/trackingSettings';
+import { updateSummaryFromReport } from '../../services/locations/summary';
 import { COMPETITOR_DETAILS_FIELDS, SCORE_HISTORY_MAX } from '../scoring.config';
 import { computeGbpScore } from '../score/gbpScore';
 import { HolidayCountry } from '../score/holidays';
@@ -272,6 +273,7 @@ export const generateGbpReport = async (locationId: string, trigger: ReportTrigg
 		score_history: [...(previous?.score_history ?? []), historyEntry].slice(-SCORE_HISTORY_MAX),
 	};
 	const saved = await GbpReport.findOneAndUpdate({ location_id: location._id }, { $set: data }, { upsert: true, new: true });
+	await updateSummaryFromReport(location._id as Types.ObjectId, data);
 	const consumed = location.gbp_report?.force_competitors_at && location.gbp_report.force_competitors_at.getTime() <= now.getTime();
 	await Location.updateOne(
 		{ _id: location._id },

@@ -133,6 +133,7 @@ const mapDetails = (raw: RawPlaceDetails): PlaceDetails => ({
 	nationalPhoneNumber: raw.nationalPhoneNumber,
 	businessStatus: raw.businessStatus,
 	editorialSummary: raw.editorialSummary?.text,
+	addressComponents: raw.addressComponents?.map((c) => ({ long: c.longText ?? '', short: c.shortText ?? '', types: c.types ?? [] })),
 });
 
 const toEntry = (raw: { id?: string; movedPlaceId?: string }): PlaceIdEntry | null => {

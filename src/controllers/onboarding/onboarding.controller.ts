@@ -1,4 +1,6 @@
 import { ILocation } from '../../models/location.model';
+import { OrgContext } from '../../services/org/context';
+import { skipStep as skipOrgStep } from '../../services/org/onboardingState';
 import { centerService, onboardingService, placesSearchService, suggestionsService } from '../../services/onboarding';
 import { catchAsync, responseWrapper } from '../../utils';
 
@@ -6,18 +8,26 @@ import { catchAsync, responseWrapper } from '../../utils';
 
 const userIdOf = (req: { body?: { user?: { _id?: unknown } } }): string => String(req.body?.user?._id);
 
-export const getState = catchAsync(async (req, res) => responseWrapper(res, await onboardingService.getState(userIdOf(req))));
+const orgOf = (res: { locals: Record<string, unknown> }): OrgContext => res.locals.org as OrgContext;
+
+export const getState = catchAsync(async (req, res) => responseWrapper(res, await onboardingService.getState(orgOf(res))));
 
 export const listProfiles = catchAsync(async (req, res) => responseWrapper(res, await onboardingService.listProfiles(userIdOf(req))));
 
 export const selectProfile = catchAsync(async (req, res) => {
-	const result = await onboardingService.selectProfile(userIdOf(req), res.locals.selectProfile);
+	const result = await onboardingService.selectProfile(orgOf(res), res.locals.selectProfile);
 	return responseWrapper(res, result, result.created ? 'Location created and linked to the Business Profile.' : 'Location linked to the Business Profile.');
 });
 
 export const complete = catchAsync(async (req, res) => {
 	const result = await onboardingService.complete(userIdOf(req), res.locals.locationId as string);
 	return responseWrapper(res, result, 'Onboarding complete. The first ranking run is queued.');
+});
+
+export const skipStep = catchAsync(async (req, res) => {
+	const ctx = orgOf(res);
+	await skipOrgStep(ctx.organization._id, res.locals.skipStep as 'google' | 'reporting_brand');
+	return responseWrapper(res, await onboardingService.getState(ctx), 'Step skipped.');
 });
 
 export const competitorSuggestions = catchAsync(async (req, res) => {
@@ -28,8 +38,13 @@ export const competitorSuggestions = catchAsync(async (req, res) => {
 });
 
 export const searchPlaces = catchAsync(async (req, res) => {
-	const result = await placesSearchService.search(res.locals.location as ILocation, res.locals.userId as string, res.locals.q as string);
-	return responseWrapper(res, result);
+	const location = res.locals.location as ILocation | null;
+	if (location) {
+		return responseWrapper(res, await placesSearchService.search(location, res.locals.userId as string, res.locals.q as string));
+	}
+	const ctx = orgOf(res);
+	const country = (res.locals.country as string | null) ?? ctx.organization.country;
+	return responseWrapper(res, await placesSearchService.searchForNewLocation(ctx.organization._id, country, res.locals.userId as string, res.locals.q as string));
 });
 
 export const setCenter = catchAsync(async (req, res) => {

@@ -1,6 +1,7 @@
 import logger from '../configs/logger';
 import { GbpSync, IGbpSync, IRankRun, RankRun } from '../models';
 import { requestReportSafely } from '../services/gbp/report.service';
+import { updateSummaryFromRuns } from '../services/locations/summary';
 
 // Extension points after a GBP sync or a rank run: both request a GBP report generation (Phase 7c).
 // Requests are debounced in report.service, so a sync and a rank run finishing together give one report.
@@ -17,5 +18,6 @@ export const onGbpSyncFinished = async (syncId: string, status: IGbpSync['status
 export const onRankRunFinished = async (runId: string): Promise<void> => {
 	const run = await RankRun.findById(runId).select({ location_id: 1, status: 1 }).lean<Pick<IRankRun, 'location_id' | 'status'>>();
 	if (!run || (run.status !== 'done' && run.status !== 'partial')) return;
+	await updateSummaryFromRuns(String(run.location_id)).catch((err: Error) => logger.error(`location summary after rank run ${runId} failed: ${err.message}`));
 	await requestReportSafely(String(run.location_id), 'rank_run');
 };

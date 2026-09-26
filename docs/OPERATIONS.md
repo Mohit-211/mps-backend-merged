@@ -113,18 +113,30 @@ npm run seed:rank-demo
 - **Re-running:** deletes and recreates only the demo user's data, with a new password and token.
 - Endpoint reference: [API.md](API.md). First real run with a key: [LIVE_TEST.md](LIVE_TEST.md).
 
-## Demo GBP report data (frontend work, no API key)
+## Demo organizations (frontend work, no API key)
 
 ```sh
-npm run seed:gbp-demo              # reviews, media and posts filled (as with GBP_V4_ENABLED=true)
-npm run seed:gbp-demo -- --v4-off  # the report as it looks before v4 access (GBP Score partial)
+npm run seed:demo-orgs              # GBP reviews, media and posts filled (as with GBP_V4_ENABLED=true)
+npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 access (GBP Score partial)
 ```
 
-- **Creates:** a demo user (`gbp-demo@mypageseo.test`) with two Toronto plumber locations in `mps_rebuild`:
-  - **bound:** a fake GBP binding, a finished sync, 18 months of daily metrics (with a few gaps), 6 months of search keywords (some only "fewer than 15"), a profile snapshot (with a pending Google edit), about 60 reviews, 3 rank runs and a generated report;
-  - **unbound** (as if added via Places search): 1 rank run and a report whose private sections say `gbp_not_connected`.
-- **How:** the real rank-run and report code with **offline** Places clients (`src/ranking/demo/demoPlaces.ts`, `src/gbp/demo/demoGbp.ts`): **0 Google calls**.
-- **Output:** a login, an access token, both location ids and `curl` examples. Same guards as `seed:rank-demo` (development + `mps_rebuild`; only the demo user's data is replaced).
+`npm run seed:gbp-demo` is an alias. It creates, in `mps_rebuild`:
+- **Business** `business-demo@mypageseo.test`: 1 GBP-connected location with 3 monthly rank runs, 18 months of GBP data and a GBP report.
+- **Agency** `agency-demo@mypageseo.test`, on a demo plan (`Demo Agency (seed)`: 5 locations, 60 keywords): 2 clients and 3 locations (2 GBP-connected, 1 added from a Places search: `gbp_not_connected`), each with rank runs and a report.
+- **Client user** `agency-client@mypageseo.test`: sees one client, read-only.
+
+**How:** the real rank-run and report code with **offline** Places clients: **0 Google calls**. The demo Google connection is a placeholder that is never used. **Output:** one password for all demo accounts, three tokens, ids and `curl` examples. Same guards as `seed:rank-demo` (development + `mps_rebuild`; only the demo accounts' data and the demo plan are replaced).
+
+## Organizations, plan limits and auth (Phase 8)
+
+- **Migration:** `npm run migrate:organizations` (idempotent; `mps_rebuild`, or `-- --confirm` for another database after a backup of users, locations and clients). Every existing account gets an organization:
+  - AGENCY → agency organization; BUSINESS or no type → business organization; the user is the owner and it becomes the default organization.
+  - EMPLOYEE → member of its owner's organization; CLIENT accounts are skipped (reported).
+  - Locations and clients get their creator's organization; locations also get `source`, `gbp_connected` and their list summary.
+  - Two locations with the same `place_id` in one organization: the second stays unassigned and unchanged, and is reported (exit code 3). Delete one, then re-run. The unique index is synced only when there are none.
+  - It prints the mapping (user ids and organization names, no emails). **Run it once when deploying Phase 8**, before the app serves requests: locations without an organization are not reachable.
+- **Plan limits:** from the organization owner's active plan (`subscription_plans.location_limit`, `keyword_limit`; set them per plan in the database, the payment code is unchanged). Otherwise `DEFAULT_LOCATION_LIMIT` (1) and `DEFAULT_KEYWORD_LIMIT` (empty = no org-wide cap).
+- **Auth codes:** `AUTH_CODE_TTL_MINUTES` (15). Codes are HMAC-hashed with a key derived from `JWT_SECRET` (changing `JWT_SECRET` invalidates pending codes). Rate-limit counters are in `rate_limits` (TTL); IP-based limits need `trust proxy` (Phase 10).
 
 ## Ranking jobs
 

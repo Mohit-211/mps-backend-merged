@@ -12,19 +12,19 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Login | `POST /user/auth/login`, `POST /user/auth/refresh-auth`, `POST /user/auth/logout` | available (legacy auth) |
-| Signup | `POST /user/auth/register` | **partial**: creates a user; **no Business/Agency type, organization name or country yet → Phase 8** |
-| Forgot password | `POST /user/auth/forgot-password` (OTP by email) | available (legacy; OTP-based, not a link) |
-| Reset password | `POST /user/auth/reset-password` | available (legacy) |
-| Verify email | `POST /user/auth/otp`, `POST /user/auth/verify-otp` | available (legacy OTP flow) |
+| Login | `POST /auth/login` (returns organizations + onboarding), `POST /user/auth/refresh-auth`, `POST /user/auth/logout` | **available (8)**. The legacy `/user/auth/login` is deprecated. |
+| Signup | `POST /auth/signup` (Business or Agency, user details, organization name, country, terms) | **available (8)**: creates the user, the organization and the owner membership, and emails a code |
+| Forgot password | `POST /auth/forgot-password` | **available (8)**: a 6-digit code by email (not a link); same answer whether or not the account exists |
+| Reset password | `POST /auth/reset-password` `{ email, code, password }` | **available (8)**; signs out every session. (Changing the password while logged in: legacy `POST /user/auth/reset-password`.) |
+| Verify email | `POST /auth/verify-email`, `POST /auth/verify-email/resend` | **available (8)**: 6-digit code, 15 minutes, 5 attempts; verify logs the user in |
 | Social login ("optional") | – | not supported (not planned) |
 
 ## Onboarding
 
 | Screen | Backend | Status |
 |---|---|---|
-| Business onboarding | `GET /onboarding/state`, `POST /onboarding/select-profile`, `PUT /locations/:id/center`, `PUT /locations/:id/tracking`, `GET /locations/:id/competitor-suggestions`, `GET /places/search`, `POST /onboarding/complete` | **partial**: the location part is available (7a); the organization step and the Places-search "add location" path are **planned (Phase 8)** |
-| Agency onboarding | as above + clients | **partial**: the location part is available; agency info, the first client and the reporting brand are **planned (Phase 8)** |
+| Business onboarding | `GET /onboarding/state` (organization steps + empty states), `POST /onboarding/skip`, `POST /onboarding/select-profile` or `GET /places/search` + `POST /locations`, `PUT /locations/:id/center`, `PUT /locations/:id/tracking`, `GET /locations/:id/competitor-suggestions`, `POST /onboarding/complete` | **available (8)**: resumable at any step; Google can be skipped (Places-search path) |
+| Agency onboarding | as above + `POST /clients` (first client) and `client_id` on add-location | **available (8)**. The "reporting brand" step is `not_available` until white-label is built. |
 | Google/GBP connection | `GET /user/auth/google/gbp/popup` + `POST /user/auth/google/gbp/code` (popup), `GET /user/auth/google/gbp` (redirect), `POST /user/auth/google/gbp/revoke` | available (several Google accounts per user) |
 | Setup completion | `POST /onboarding/complete` | available (queues the first rank run and the first GBP sync; sets the monthly refresh) |
 
@@ -39,10 +39,10 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Location list (`/locations`) | legacy `GET /locations` (basic fields) | **partial**: the table with client, rank summary, GBP score, rating/reviews and status is **planned (Phase 8)** |
-| Add location | (a) GBP: `GET /onboarding/gbp-profiles` → `POST /onboarding/select-profile`; (b) Places search → pick | (a) available; (b) **planned (Phase 8)**. No manual entry, by design. |
-| Location overview (`/locations/:id`) | – | **planned (Phase 8)**: header (name, city, rating, reviews) + latest summaries |
-| Location settings | `PUT/GET /locations/:id/tracking` (keywords, competitors, grid, `frequency: auto_monthly \| manual_only`) | **partial**: tracking is available; other settings in Phase 8 |
+| Location list (`/locations`) | `GET /locations` (search, filter by client/status, sort, pages) | **available (8)**: name, city, client, rank + change, GBP score + grade, rating/reviews, status (`active \| setup_required \| gbp_not_connected \| reconnect_required`), last/next refresh. "Visibility" = the rank summary (no separate visibility score). |
+| Add location | (a) GBP: `GET /onboarding/gbp-profiles` → `POST /onboarding/select-profile`; (b) `GET /places/search?q=` → `POST /locations { place_id }` | **available (8)**: plan limit, one place per organization, optional client. No manual entry, by design. |
+| Location overview (`/locations/:id`) | `GET /locations/:id` (header), `GET /locations/:id/overview` | **available (8)**: header + rankings, GBP score, performance, reviews, competitors, refresh and empty states |
+| Location settings | `PUT/GET /locations/:id/tracking`, `PATCH /locations/:id` (name, timezone, client), `DELETE /locations/:id` (soft delete) | **available (8)** |
 | Refresh button | `POST /locations/:id/refresh`, `GET /locations/:id/refresh` (`next_allowed_at`, monthly schedule) | available (7b): once per 24 h per type |
 | GBP data freshness | `GET /locations/:id/gbp/sync` (status per data type, last synced); `GET /locations/:id/refresh` → `report.pending` | available (7b, 7c) |
 
@@ -95,10 +95,10 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Clients / client detail | legacy `/user/clients` CRUD | **partial**: legacy CRUD exists; organization-scoped clients with location assignment are **planned (Phase 8)** |
-| Client locations | – | planned (Phase 8) |
-| Client users | – | not planned yet |
-| Agency team | legacy `/user/auth/employee/*` | legacy; organization team is **planned (Phase 8)** at the earliest |
+| Clients / client detail | `GET/POST /clients`, `GET/PATCH/DELETE /clients/:id` | **available (8)**: list with location count and averages; detail with assigned locations and summary. "Reports" and "Activity" on the detail page: not planned yet. |
+| Client locations | `POST /clients/:id/locations`, `DELETE /clients/:id/locations/:locationId`, `client_id` on add-location | **available (8)** |
+| Client users | the `client_user` role (read-only, assigned clients only) | **enforced (8)**; inviting client users is not built yet |
+| Agency team | `GET /organization/members`; adding members: legacy `/user/auth/employee/*` (now also creates a membership) | **partial (8)**: list available; invitations not built yet |
 
 ## Automations
 
@@ -110,12 +110,12 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Organization | – | planned (Phase 8) |
+| Organization | `GET/PATCH /organization`, `GET /organization/usage` (plan, locations and keywords used/limit, clients) | **available (8)** |
 | Profile | legacy `GET/PUT /user/profile` | available (legacy) |
-| Team / permissions | legacy employees | planned (Phase 8+) |
+| Team / permissions | roles `owner`, `member`, `client_user`; `GET /organization/members` | **partial (8)**: roles enforced; role changes and invitations not built yet |
 | Integrations | GBP connections (above) | **partial**: GBP only. **Google Analytics / Search Console: not supported** (removed; organic scope). |
 | Notifications | legacy `POST /user/notifications` (toggle) | legacy toggle only; event notifications not planned yet |
-| Billing | legacy `/subscription/*`, `/payments/*` | legacy (Square / PayPal); plan limits are read in Phase 8; the payment logic is not changed |
+| Billing | legacy `/subscription/*`, `/payments/*`; limits via `GET /organization/usage` | legacy (Square / PayPal). Plan limits (`location_limit`, `keyword_limit` on the plan) are enforced since Phase 8; the payment logic is unchanged. |
 | White label | legacy `/white-label-profiles` (brand fields) | **partial**: profile CRUD exists; public report links were removed (see [LEGACY_FEATURES.md](LEGACY_FEATURES.md)) |
 | Security | – | not planned yet |
 

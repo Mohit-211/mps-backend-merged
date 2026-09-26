@@ -1550,3 +1550,171 @@ For an unbound location (trimmed):
   "competitors": { "available": true, "rows": [ "… client and competitors with public_score …" ], "insights": [ "…" ] },
   "score_history": [ { "generated_at": "…", "gbp_score": null, "grade": null, "public_score": 71 } ] }
 ```
+
+## Auth, organizations, locations and clients (Phase 8)
+
+Every location, client and report belongs to an **organization** (Business or Agency). A user acts in an organization through a membership: `owner` (everything), `member` (everything except editing the organization), `client_user` (agency; read-only, only the locations of its assigned clients).
+
+- **Current organization:** the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. No organization → **403** `{ "reason": "no_organization" }`.
+- **Location routes** (`/locations/:locationId/...`, including tracking, rank runs, refresh and the GBP report) check membership of the location's organization: another organization's location is **404**; a `client_user` write is **403** `{ "reason": "read_only" }`.
+- **Refusals carry a reason** in `data`: `read_only`, `agency_only`, `owner_only`, `location_limit_reached`, `keyword_limit_reached`, `duplicate_place`, `place_id_mismatch`, `email_not_verified`, `rate_limited`.
+
+Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
+
+### Auth (`/api/v1/auth`)
+
+Codes are 6 digits, stored hashed, valid 15 minutes (`AUTH_CODE_TTL_MINUTES`), 5 attempts, single use. Rate limits (per email, and per IP once `trust proxy` is set in Phase 10): signup 5/h per IP, login 10/15 min per email + IP, verify 10/15 min, resend 3/h, forgot 3/h per email and 20/h per IP, reset 10/15 min. Above a limit: **429** `{ "reason": "rate_limited", "retry_after_seconds": 3599 }`.
+
+`POST /auth/signup`
+
+```json
+{ "account_type": "agency", "name": "Pat Owner", "email": "pat@agency.example", "password": "secret123",
+  "organization_name": "Pat Agency", "country": "US", "accept_terms": true }
+```
+→ **201** `{ "user_id": "…", "organization_id": "…", "email_verification": "sent" }`. The password needs 8+ characters with a letter and a digit. A taken email → **409** `{ "reason": "email_taken" }`.
+
+`POST /auth/verify-email` `{ "email", "code" }` → the session (logs in directly):
+
+```json
+{ "verified": true,
+  "tokens": { "access": { "token": "…", "expires": "…" }, "refresh": { "token": "…", "expires": "…" } },
+  "user": { "id": "…", "email": "pat@agency.example", "name": "Pat Owner", "user_type": "AGENCY" },
+  "organizations": [ { "organization_id": "…", "name": "Pat Agency", "type": "agency", "role": "owner" } ],
+  "current_organization_id": "…",
+  "onboarding": { "id": "…", "type": "agency", "steps": [ { "id": "agency_info", "status": "done" }, { "id": "google", "status": "pending" }, "…" ],
+                  "next_step": "google", "completed": false, "completed_at": null } }
+```
+
+A wrong code → **400** `{ "reason": "invalid_code", "attempts_left": 4 }`; expired or used up → **400** `{ "reason": "code_expired", "attempts_left": 0 }`; already verified → **400** `{ "reason": "already_verified" }`.
+
+| Endpoint | Body | Response |
+|---|---|---|
+| `POST /auth/verify-email/resend` | `{ email }` | **200** `{ "email_verification": "sent_if_pending" }`, the same whether or not the account exists |
+| `POST /auth/login` | `{ email, password }` | The session (as above, without `verified`). Unverified → **403** `{ "reason": "email_not_verified" }` (call resend). Wrong email or password → **401** (one message for both). Disabled → **403** `account_disabled`. |
+| `POST /auth/forgot-password` | `{ email }` | **200** `{ "reset": "sent_if_account_exists" }` |
+| `POST /auth/reset-password` | `{ email, code, password }` | **200** `{ "reset": true }`; every refresh token is revoked (log in again) |
+
+Token refresh and logout stay at `POST /user/auth/refresh-auth` and `POST /user/auth/logout`.
+
+### Organization (`/api/v1/organization`)
+
+`GET /organization`
+
+```json
+{ "organization": { "id": "6ab8…7270", "name": "Northern Local SEO", "type": "agency", "country": "CA", "created_at": "…" },
+  "role": "owner",
+  "memberships": [ { "organization_id": "6ab8…7270", "name": "Northern Local SEO", "type": "agency", "role": "owner" } ] }
+```
+
+`GET /organization/usage`
+
+```json
+{ "plan": { "id": "6ab8…", "name": "Demo Agency (seed)", "source": "subscription" },
+  "locations": { "used": 3, "limit": 5 }, "keywords": { "used": 9, "limit": 60 }, "clients": { "used": 2 } }
+```
+
+- The plan is the owner's active subscription plan (`subscription_status: ACTIVE` + `current_plan_id`) with its `location_limit` / `keyword_limit`. Otherwise `source: "default"`: `DEFAULT_LOCATION_LIMIT` (1) and `DEFAULT_KEYWORD_LIMIT` (empty = no org-wide cap; 20 per location always applies). `clients` is `null` for a business.
+- Over the location limit, an add answers **403** `{ "reason": "location_limit_reached", "used": 1, "limit": 1, "plan": { … } }`. Deleting a location frees its slot at once.
+- `PUT /locations/:id/tracking` over the keyword limit: **403** `{ "reason": "keyword_limit_reached", "used": 2, "requested": 2, "limit": 3, "plan": { … } }`.
+
+`PATCH /organization` (owner) `{ name?, country? }` → as GET. `GET /organization/members` (owner/member) → `[{ user_id, name, email, role, client_ids, status }]`.
+
+### Locations (`/api/v1/locations`)
+
+`GET /locations?search=&client_id=&status=&sort=name|city|rank|gbp_score|rating|last_refreshed&order=asc|desc&page=&limit=` (default `sort=name`, `limit=25`, max 100):
+
+```json
+{ "locations": [
+    { "location_id": "6ab8…727b", "name": "Maple Leaf Plumbing & Heating", "city": "Toronto", "country": "Canada",
+      "client": { "client_id": "6ab8…7275", "name": "Maple Leaf Group" }, "source": "gbp", "gbp_connected": true,
+      "status": "active", "rank": { "overall_avg_rank": 21.3, "change": 12.6 }, "gbp": { "score": 50, "grade": "D", "partial": false },
+      "reviews": { "rating": 4.6, "count": 64 }, "last_refreshed_at": "2026-09-26T18:23:14.983Z", "next_refresh_at": "2026-10-16T18:27:14.983Z" },
+    { "name": "Danforth Drain Pros", "source": "places_search", "gbp_connected": false, "status": "gbp_not_connected",
+      "rank": { "overall_avg_rank": 10, "change": 0 }, "gbp": null, "reviews": { "rating": 4.3, "count": 38 }, "…": "…" } ],
+  "page": 1, "limit": 25, "total": 3 }
+```
+
+- **`status`**, first match wins: `setup_required` (onboarding not completed, or no keywords), `reconnect_required` (GBP bound but its Google connection is revoked or gone), `gbp_not_connected`, `active`.
+- `rank`, `gbp` and `reviews` come from the latest rank run and GBP report (`null` before there is one). Without GBP, `reviews` shows the public Place Details rating.
+
+`POST /locations` `{ "place_id": "ChIJ…", "client_id"?: "…" }`: add a location from a `GET /places/search` result (no manual entry). One Place Details call (id, name, address with components, location, phone, website, category). US/CA only.
+
+```json
+{ "location": { "location_id": "…", "name": "Fredericton Plumbing Co", "city": "Fredericton", "state": "NB", "country": "Canada",
+                "source": "places_search", "gbp_connected": false, "status": "setup_required",
+                "onboarding": { "step": "place_selected", "started_at": "…", "completed_at": null }, "…": "…" },
+  "api_calls": 1 }
+```
+
+→ **201**. The same place already in the organization → **409** `{ "reason": "duplicate_place", "location_id": "…" }`. Over the plan limit → **403** `location_limit_reached` (checked before the Places call). Then set keywords and competitors and call `POST /onboarding/complete`.
+
+`GET /places/search?q=` without `locationId` is the add-location search (the organization's country, or `&country=US|CA`); each result carries `already_added` (a location id or `null`).
+
+`GET /locations/:locationId` → the header: `{ location_id, name, address, city, state, country, zip_code, phone, website, business_category, place_id, source, gbp_connected, status, client, lat, lng, timezone, onboarding, created_at }`.
+
+`GET /locations/:locationId/overview` → the header plus the latest stored summaries:
+
+```json
+{ "…header": "…",
+  "rankings": { "available": true, "run_id": "…", "run_at": "2026-09-25T18:27:14.983Z", "status": "partial", "overall_avg_rank": 21.3, "change": 12.6,
+                "keywords": 3, "trend": [ { "run_at": "2026-08-26T18:27:14.983Z", "overall_avg_rank": 33.9 }, { "run_at": "2026-09-25T18:27:14.983Z", "overall_avg_rank": 21.3 } ] },
+  "gbp": { "available": true, "score": 50, "grade": "D", "partial": false,
+           "top_fixes": [ { "id": "map_rank", "label": "Average map rank", "fix_hint": "Improve relevance and prominence for your keywords (categories, reviews, posts)." }, "…" ] },
+  "performance": { "available": true, "range": "28d", "impressions": 6871, "actions": 312, "impressions_change": 0.068, "actions_change": 0.072 },
+  "reviews": { "available": true, "rating": 4.6, "count": 64, "unreplied": 10 },
+  "competitors": { "available": true, "tracked": 1, "compared": 4, "public_score": 71,
+                   "best_competitor": { "place_id": "ChIJdemoDanforthDrainPros03", "name": "Danforth Drain Pros", "public_score": 55 } },
+  "refresh": { "frequency": "auto_monthly", "next_refresh_at": "…", "rankings": { "…": "…" }, "gbp": { "…": "…" }, "report": { "…": "…" } },
+  "empty_states": { "no_keywords": false, "no_competitors": false, "no_ranking_data": false, "gbp_not_connected": false, "no_reports": false } }
+```
+
+A section without data is `{ "available": false, "reason": … }`: `no_keywords`, `no_ranking_data`, `gbp_not_connected`, `no_report`, `no_competitors`, `v4_access_pending`.
+
+`PATCH /locations/:locationId` (owner/member) `{ name?, timezone? (IANA), client_id? (agency; null to unassign) }` → the header. Business data (address, phone, …) comes from GBP / Places and can't be edited.
+
+`DELETE /locations/:locationId` (owner/member): soft delete.
+
+```json
+{ "deleted": true, "gbp_unbound": true, "jobs_cancelled": { "rank_run": 0, "gbp_sync": 0, "gbp_report": 1 }, "usage": { "used": 2, "limit": 5 } }
+```
+
+Active runs and syncs are ended, their jobs cancelled, the GBP binding removed (tokens kept unless it was that Google account's last binding), history kept. The place can be added again later.
+
+### Clients (`/api/v1/clients`, agency only)
+
+A business organization gets **403** `{ "reason": "agency_only" }`. A `client_user` sees only its own clients, read-only.
+
+`GET /clients?search=&status=ACTIVE|INACTIVE&page=&limit=` → `{ clients: [client], page, limit, total }`; `POST /clients` `{ name, website?, contact_email? }` → **201** client; `PATCH /clients/:clientId` `{ name?, website?, contact_email?, status? }`.
+
+```json
+{ "client_id": "6ab8…7275", "name": "Maple Leaf Group", "website": "https://mapleleafgroup.example", "contact_email": "owner@mapleleafgroup.example",
+  "status": "ACTIVE", "locations_count": 2, "avg_rank": 21.7, "avg_gbp_score": 49.5, "created_at": "…" }
+```
+
+`GET /clients/:clientId` → `{ client, locations: [rows as in GET /locations], summary: { locations: 2, avg_rank: 21.7, avg_gbp_score: 49.5, gbp_connected: 2 } }`.
+
+| Endpoint | Response |
+|---|---|
+| `DELETE /clients/:clientId` | `{ "deleted": true, "locations_unassigned": 1 }` (its locations stay in the organization) |
+| `POST /clients/:clientId/locations` `{ location_id }` | `{ "assigned": true, "client_id", "location_id" }` (the location must be in the organization, else 404) |
+| `DELETE /clients/:clientId/locations/:locationId` | `{ "unassigned": true, … }` |
+
+### Onboarding (Phase 8 changes)
+
+`GET /onboarding/state` now starts with the organization's steps (derived from data, resumable):
+
+```json
+{ "organization": { "id": "…", "type": "agency",
+    "steps": [ { "id": "agency_info", "status": "done" }, { "id": "google", "status": "done" }, { "id": "first_client", "status": "done" },
+               { "id": "first_location", "status": "done" }, { "id": "location_setup", "status": "done" }, { "id": "reporting_brand", "status": "not_available" } ],
+    "next_step": null, "completed": true, "completed_at": "…" },
+  "empty_states": { "no_locations": false, "google_not_connected": false, "no_ranking_data": false, "no_keywords": false, "no_competitors": false, "no_reports": false },
+  "gbp": { "connected": true, "connections": [ "…" ] },
+  "locations": [ { "location_id": "…", "name": "…", "source": "gbp", "client_id": "…", "onboarding": { "step": "completed", "…": "…" } } ] }
+```
+
+- **Business steps:** `organization_info` → `google` → `first_location` → `location_setup`. **Agency:** `agency_info` → `google` → `first_client` → `first_location` → `location_setup` → `reporting_brand` (`not_available` until white-label exists). Status: `done | pending | skipped | not_available`.
+- `POST /onboarding/skip { "step": "google" | "reporting_brand" }` (owner/member): skip Google to add locations from a Places search.
+- **Location steps:** `profile_selected` (GBP) or `place_selected` (Places search) → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`.
+- `POST /onboarding/select-profile` accepts `client_id` (agency) and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind-with-user`).
+- `POST /onboarding/complete` no longer needs a GBP binding: it queues the first rank run, the first GBP sync only when bound, and sets the monthly refresh.

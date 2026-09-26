@@ -37,6 +37,8 @@ export interface IUser extends Document {
 	subscription_status?: string;
 
 	current_plan_id?: Schema.Types.ObjectId;
+	/** Phase 8: the organization used when no X-Organization-Id header is sent. */
+	default_organization_id?: mongoose.Types.ObjectId | null;
 	is_active: boolean;
 	created_at: Date;
 	created_by?: Schema.Types.ObjectId;
@@ -148,6 +150,11 @@ const userSchema = new Schema<IUser>(
 		current_plan_id: {
 			type: Schema.Types.ObjectId,
 			ref: 'SubscriptionPlan',
+			default: null,
+		},
+		default_organization_id: {
+			type: Schema.Types.ObjectId,
+			ref: 'Organization',
 			default: null,
 		},
 		is_active: {

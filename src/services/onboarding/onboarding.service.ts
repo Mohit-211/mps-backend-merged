@@ -4,8 +4,12 @@ import logger from '../../configs/logger';
 import { tokenTypes } from '../../configs/constantTypes';
 import { ConnectionRef, GbpClient, gbpClient } from '../../clients/gbpClient';
 import { GbpLocation } from '../../clients/types/gbp';
-import { GbpSync, ILocation, Location, Profile, RankRun, UserGBP } from '../../models';
-import { ApiError } from '../../utils';
+import { Client, GbpSync, ILocation, Location, RankRun, UserGBP } from '../../models';
+import { ApiError, apiErrorWithData } from '../../utils';
+import { OrgContext } from '../org/context';
+import { canWrite, findAccessibleLocation, findLocationForUser, locationScope, readOnly } from '../org/access';
+import { assertCanAddLocation } from '../org/limits';
+import { EmptyStates, OrgOnboarding, orgOnboardingState } from '../org/onboardingState';
 import { BindResult, bindingService } from '../gbp/binding.service';
 import { DiscoveredLocation, countryName, discoveryService, formatAddress } from '../gbp/discovery.service';
 import { toGbpApiError } from '../gbp/errors';
@@ -16,8 +20,9 @@ import { SyncEnqueueResult, enqueueGbpSync } from '../gbp/sync.service';
 import { initialSchedule } from '../refresh/cadence';
 import { withDefaults } from '../ranking/trackingSettings';
 
-// Onboarding (Phase 7a): connect Google → pick a Business Profile (creates or links our Location and
-// binds it) → keywords → competitors → complete (first rank run + a GBP sync request for Phase 7b).
+// Onboarding (Phase 7a, organizations since Phase 8): connect Google → pick a Business Profile (creates
+// or links a Location of the organization and binds it) → keywords → competitors → complete (first rank
+// run, plus the first GBP sync when bound). Locations can also come from a Places search (POST /locations).
 
 export const SUPPORTED_REGIONS = ['US', 'CA'];
 const NOT_AVAILABLE = 'n/a';
@@ -25,12 +30,15 @@ const NOT_AVAILABLE = 'n/a';
 type UserId = Types.ObjectId | string;
 
 export interface OnboardingState {
+	/** Phase 8: the organization's onboarding steps (derived; resumable). */
+	organization: OrgOnboarding;
+	empty_states: EmptyStates;
 	gbp: {
 		connected: boolean;
 		/** Every connected Google account ("Connected as …"); a user may connect several. */
 		connections: { google_sub: string | null; google_email: string | null; status: 'active' | 'revoked' }[];
 	};
-	locations: { location_id: string; name: string; onboarding: ILocation['onboarding'] }[];
+	locations: { location_id: string; name: string; source: ILocation['source'] | null; client_id: string | null; onboarding: ILocation['onboarding'] }[];
 }
 
 export interface SelectProfileInput {
@@ -39,6 +47,8 @@ export interface SelectProfileInput {
 	location_id?: string;
 	/** Which connected Google account the profile was listed under; required with several. */
 	google_sub?: string;
+	/** Phase 8 (agency): assign the new or linked location to this client of the organization. */
+	client_id?: string;
 }
 
 export interface SelectProfileResult {
@@ -99,20 +109,27 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 	const enqueueSync = deps.enqueueSync ?? ((location: ILocation, userId: UserId) => enqueueGbpSync(location, userId, 'onboarding'));
 	const now = deps.now ?? (() => new Date());
 
-	const getState = async (userId: UserId): Promise<OnboardingState> => {
-		const connections = (await tokens.listConnections(userId, tokenTypes.GBP)).map((c) => ({
+	const getState = async (ctx: OrgContext): Promise<OnboardingState> => {
+		const connections = (await tokens.listConnections(ctx.userId, tokenTypes.GBP)).map((c) => ({
 			google_sub: c.googleSub,
 			google_email: c.googleEmail,
 			status: c.status,
 		}));
 		const gbp: OnboardingState['gbp'] = { connected: connections.some((c) => c.status === 'active'), connections };
-		const locations = await Location.find({ created_by: userId, is_active: true, onboarding: { $exists: true } })
-			.select({ name: 1, onboarding: 1 })
+		const { organization, empty_states } = await orgOnboardingState(ctx, { tokens, now: now() });
+		const locations = await Location.find(locationScope(ctx))
+			.select({ name: 1, onboarding: 1, source: 1, client_id: 1 })
 			.lean<ILocation[]>();
 		const rows = locations
-			.map((l) => ({ location_id: String(l._id), name: l.name, onboarding: l.onboarding }))
-			.sort((a, b) => Number(a.onboarding?.step === 'completed') - Number(b.onboarding?.step === 'completed'));
-		return { gbp, locations: rows };
+			.map((l) => ({
+				location_id: String(l._id),
+				name: l.name,
+				source: l.source ?? null,
+				client_id: l.client_id ? String(l.client_id) : null,
+				onboarding: l.onboarding,
+			}))
+			.sort((a, b) => Number(a.onboarding?.step === 'completed' || !a.onboarding) - Number(b.onboarding?.step === 'completed' || !b.onboarding));
+		return { organization, empty_states, gbp, locations: rows };
 	};
 
 	/** Every profile from every connected Google account (grouped), with whether we can onboard it. */
@@ -129,14 +146,29 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 		};
 	};
 
-	const ownedLocation = async (userId: UserId, locationId: string) => {
+	/** A location of the context's organization the caller may change (404 otherwise; 403 for a client_user). */
+	const writableLocation = async (ctx: OrgContext, locationId: string) => {
 		if (!Types.ObjectId.isValid(locationId)) throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid location_id');
-		const location = await Location.findOne({ _id: locationId, created_by: userId, is_active: true });
+		if (!canWrite(ctx)) throw readOnly();
+		const location = await findAccessibleLocation(ctx, locationId);
 		if (!location) throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
 		return location;
 	};
 
-	const selectProfile = async (userId: UserId, input: SelectProfileInput): Promise<SelectProfileResult> => {
+	/** Phase 8 (agency): the client must belong to the organization. */
+	const clientOf = async (ctx: OrgContext, clientId: string | undefined) => {
+		if (!clientId) return null;
+		if (ctx.organization.type !== 'agency') throw apiErrorWithData(httpStatus.FORBIDDEN, 'Clients are available to agency organizations only.', { reason: 'agency_only' });
+		if (!Types.ObjectId.isValid(clientId)) throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid client_id');
+		const client = await Client.findOne({ _id: clientId, organization_id: ctx.organization._id, is_active: true }).select({ _id: 1 }).lean();
+		if (!client) throw new ApiError(httpStatus.NOT_FOUND, 'Client not found');
+		return client._id as Types.ObjectId;
+	};
+
+	const selectProfile = async (ctx: OrgContext, input: SelectProfileInput): Promise<SelectProfileResult> => {
+		if (!canWrite(ctx)) throw readOnly();
+		const userId = ctx.userId;
+		const clientId = await clientOf(ctx, input.client_id);
 		let profile: GbpLocation;
 		let conn: ConnectionRef;
 		try {
@@ -153,15 +185,25 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 		let location: ILocation | null = null;
 		let created = false;
 		if (input.location_id) {
-			location = await ownedLocation(userId, input.location_id);
+			location = await writableLocation(ctx, input.location_id);
 		} else if (profile.placeId) {
-			location = await Location.findOne({ created_by: userId, is_active: true, place_id: profile.placeId });
+			// The same place already in the organization is linked (e.g. added from a Places search, GBP bound later).
+			location = await Location.findOne({ organization_id: ctx.organization._id, is_active: true, place_id: profile.placeId });
 		}
 		if (!location) {
+			await assertCanAddLocation(ctx.organization);
 			const fields = locationFieldsFromProfile(profile);
-			location = await Location.create({ ...fields, center_source: fields.lat !== null ? 'gbp' : null, created_by: userId });
+			location = await Location.create({
+				...fields,
+				center_source: fields.lat !== null ? 'gbp' : null,
+				organization_id: ctx.organization._id,
+				source: 'gbp',
+				client_id: clientId,
+				created_by: userId,
+			});
 			created = true;
-			await Profile.updateOne({ user_id: userId, is_active: true }, { $inc: { no_of_locations: 1 } });
+		} else if (clientId) {
+			await Location.updateOne({ _id: location._id }, { $set: { client_id: clientId } });
 		}
 
 		const bound = await binding.bindLocation(userId, {
@@ -173,7 +215,10 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 		});
 		const afterBind = (await Location.findById(location._id).lean<ILocation>()) as ILocation;
 		const centerNeeded = typeof afterBind.lat !== 'number' || typeof afterBind.lng !== 'number';
-		if (!location.onboarding || location.onboarding.step !== 'completed') {
+		// Start (or restart at the first step) only before keywords: linking GBP to a location further along
+		// (e.g. added from a Places search) never moves its onboarding backwards.
+		const early = ['profile_selected', 'place_selected', 'center_needed'];
+		if (!location.onboarding || early.includes(location.onboarding.step)) {
 			await Location.updateOne(
 				{ _id: location._id },
 				{
@@ -205,7 +250,9 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 	};
 
 	const complete = async (userId: UserId, locationId: string): Promise<CompleteResult> => {
-		const location = await ownedLocation(userId, locationId);
+		const access = await findLocationForUser(userId, locationId, { write: true });
+		if (!access) throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
+		const location = access.location;
 		if (location.onboarding?.step === 'completed' && location.onboarding.completed_at) {
 			const last = await RankRun.findOne({ location_id: location._id }).sort({ run_at: -1 }).lean();
 			const lastSync = await GbpSync.findOne({ location_id: location._id }).sort({ run_at: -1 }).lean();
@@ -216,9 +263,6 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 				gbp_sync: lastSync ? { sync_id: String(lastSync._id), status: lastSync.status, existing: true } : null,
 				refresh: location.refresh ? { anchor_day: location.refresh.anchor_day, next_refresh_at: location.refresh.next_refresh_at } : null,
 			};
-		}
-		if (!(await UserGBP.exists({ user_id: userId, location_id: location._id, is_active: true }))) {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'Select a Business Profile for this location first.');
 		}
 		if (typeof location.lat !== 'number' || typeof location.lng !== 'number') {
 			throw new ApiError(httpStatus.BAD_REQUEST, 'Set the business center first (city or ZIP).');
@@ -234,13 +278,16 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 			if (err instanceof RunOverCapError) throw new ApiError(httpStatus.UNPROCESSABLE_ENTITY, err.message);
 			throw err;
 		}
-		// First GBP sync now (the location is bound); a failure here doesn't block completion.
-		let gbpSync: CompleteResult['gbp_sync'];
-		try {
-			const sync = await enqueueSync(location, userId);
-			gbpSync = { sync_id: sync.sync_id, status: sync.status, existing: sync.existing };
-		} catch (err) {
-			gbpSync = { error: err instanceof Error ? err.message : 'GBP sync could not be queued' };
+		// First GBP sync now when bound (Phase 8: a Places-search location completes without GBP);
+		// a failure here doesn't block completion.
+		let gbpSync: CompleteResult['gbp_sync'] = null;
+		if (await UserGBP.exists({ location_id: location._id, is_active: true })) {
+			try {
+				const sync = await enqueueSync(location, userId);
+				gbpSync = { sync_id: sync.sync_id, status: sync.status, existing: sync.existing };
+			} catch (err) {
+				gbpSync = { error: err instanceof Error ? err.message : 'GBP sync could not be queued' };
+			}
 		}
 		const at = now();
 		const schedule = initialSchedule(location, at);

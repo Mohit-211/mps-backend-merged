@@ -19,9 +19,10 @@ import { randomBytes } from 'crypto';
 import mongoose from 'mongoose';
 import config from '../configs/config';
 import { userStatusTypes, userTypes } from '../configs/constantTypes';
-import { Location, Profile, RankRun, User, UserToken } from '../models';
+import { Location, Membership, Organization, Profile, RankRun, User, UserToken } from '../models';
 import { generateAuthTokens } from '../services/common/token.service';
 import { normaliseKeywords } from '../services/ranking/trackingSettings';
+import { createOrganizationForOwner } from '../services/org/context';
 
 const EMAIL = 'live-test@mypageseo.test';
 
@@ -91,7 +92,10 @@ const main = async (): Promise<void> => {
 	if (previous) {
 		const locations = await Location.find({ created_by: previous._id }).select({ _id: 1 });
 		await RankRun.deleteMany({ location_id: { $in: locations.map((l) => l._id) } });
-		await Location.deleteMany({ created_by: previous._id });
+		await Location.collection.deleteMany({ created_by: previous._id });
+		const orgs = await Organization.find({ owner_user_id: previous._id }).select({ _id: 1 }).lean();
+		await Membership.deleteMany({ $or: [{ user_id: previous._id }, { organization_id: { $in: orgs.map((o) => o._id) } }] });
+		await Organization.deleteMany({ owner_user_id: previous._id });
 		await Profile.deleteMany({ user_id: previous._id });
 		await UserToken.deleteMany({ user_id: previous._id });
 		await User.deleteOne({ _id: previous._id });
@@ -105,7 +109,11 @@ const main = async (): Promise<void> => {
 		status: userStatusTypes.ACCEPTED,
 	});
 	await Profile.create({ user_id: user._id, name: 'Live Test' });
+	// Phase 8: the location belongs to the user's organization.
+	const organization = await createOrganizationForOwner(user._id, { name: arg('name') ?? 'MyPageSEO', type: 'business', country: 'CA' });
 	const location = await Location.create({
+		organization_id: organization._id,
+		source: 'places_search',
 		name: arg('name') ?? 'MyPageSEO',
 		address: arg('address') ?? 'unknown',
 		city: arg('city') ?? 'Fredericton',

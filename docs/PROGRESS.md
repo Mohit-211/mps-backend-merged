@@ -729,3 +729,36 @@ Run after the first real sync and report for MyPageSEO (GBP_CONNECT.md §5–6).
 6. **Public Score:** client vs 3–5 real Fredericton competitors. Does the ordering match intuition? Do the review-count bands suit a small market?
 7. **Keywords:** share of threshold-only keywords; are the `not_tracked` suggestions useful?
 8. **Place Details calls** per generation vs the estimate (≈ 6).
+
+## Phase 8: Auth, Organization, Onboarding & Locations
+
+Branch `claude/phase-8-org-onboarding` (from `claude/rebuild` after the 7c merge and the M3 push). Offline only: **0 Google calls, 0 Places calls** (the add-location Place Details is mocked in tests; the demo seed uses offline clients).
+
+**What changed**
+- **Organizations:** `Organization` (business / agency, name, country, owner, onboarding skips) and `Membership` (owner / member / client_user with `client_ids`). Locations and clients carry `organization_id`; every access check in the rebuilt code moved from `created_by` to membership (ranking, refresh, sync, report, onboarding, binding, Places search, legacy GBP posting). `X-Organization-Id` picks the organization; otherwise the user's default.
+- **Auth:** `/auth/signup|verify-email|verify-email/resend|login|forgot-password|reset-password`. Codes are HMAC-hashed, 15 minutes, 5 attempts, single use; Mongo rate limits; neutral answers for resend and forgot; reset revokes refresh tokens; logs carry user ids only. Legacy `/user/auth/{register,otp,verify-otp,login,forgot-password}` deprecated (still live); legacy register creates an organization and employee add/remove maintains memberships.
+- **Plan limits:** optional `location_limit` / `keyword_limit` on `SubscriptionPlan` (read from the owner's active plan), default `DEFAULT_LOCATION_LIMIT=1`; enforced on select-profile (new location), `POST /locations` and `PUT /tracking`. `GET /organization/usage`.
+- **Locations:** legacy routes replaced at the same paths; `google-locations/*` deleted. `GET /locations` (search, filter, sort, pages; status `active | setup_required | gbp_not_connected | reconnect_required`), `POST /locations { place_id }` (1 Place Details, US/CA, duplicate guard), `GET /locations/:id`, `/overview`, `PATCH`, soft `DELETE`. `Location.summary` kept by the rank-run and report hooks.
+- **Clients:** `/clients` CRUD, assign / unassign, detail with locations and summary (agency only; client_user sees its own).
+- **Onboarding:** organization steps (Business / Agency) derived from data, `POST /onboarding/skip`, location step `place_selected`, `/complete` without GBP, `place_id_mismatch` and `duplicate_place` refusals on bind.
+- **Scripts:** `migrate:organizations`; `seed:demo-orgs` (Business + Agency + client user; `seed:gbp-demo` alias); `seed:rank-demo` and `setup:live-test` create organizations.
+
+**Files touched (shared or out of scope, called out):**
+- `src/models/subscriptionPlan.model.ts`: 2 optional fields, data only.
+- `src/models/user.model.ts` (`default_organization_id`), `src/models/client.model.ts` (organization, contact email, optional URL / generated unique id).
+- `src/utils/apiError.ts`, `src/utils/errorHandler.ts`: optional `data` on errors.
+- `src/services/user/userAuth.service.ts`: organization hook on legacy register; membership hooks on employee add/remove.
+- `src/middlewares/common/gbpPostSchedular.middleware.ts`: 2 location lookups → membership.
+- Deleted: the legacy location controller, service and middleware (replaced).
+- Not changed: white-label (still `created_by`), payments, citations, admin.
+
+**Local data (mps_rebuild):** `migrate:organizations` mapped 3 accounts to business organizations (the live-test user → "Live Test"), assigned 3 locations and reported one duplicate (the old gbp-demo account, removed by `seed:demo-orgs`); a second run was clean and synced the unique index.
+
+**Tests:** 573 pass (was 547); build 0 errors; lint baseline 32. Dev server with the Places key empty: agency list (3 statuses), usage, client detail, overview, client_user reads 200 and writes 403, a business add over the limit 403, signup 201 and unverified login 403; 0 Google calls.
+
+**API calls consumed:** 0.
+
+**Open questions**
+- Team invitations, role changes and client-user invites are modelled (roles enforced) but have no endpoints yet.
+- The live-test organization is named "Live Test" (from its profile); rename with `PATCH /organization` if wanted.
+- White-label profiles still check `created_by` (out of scope).

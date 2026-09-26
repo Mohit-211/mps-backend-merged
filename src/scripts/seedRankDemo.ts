@@ -16,7 +16,8 @@ import mongoose, { Types } from 'mongoose';
 import { Agenda } from 'agenda';
 import config from '../configs/config';
 import { userStatusTypes, userTypes } from '../configs/constantTypes';
-import { Location, Profile, RankRun, User, UserToken } from '../models';
+import { Location, Membership, Organization, Profile, RankRun, User, UserToken } from '../models';
+import { createOrganizationForOwner } from '../services/org/context';
 import { DEMO_CENTER, DEMO_KEYWORDS, DEMO_PLACE_IDS, createDemoPlaces } from '../ranking/demo/demoPlaces';
 import { generateAuthTokens } from '../services/common/token.service';
 import { enqueueRankRun } from '../services/ranking/rankRun.service';
@@ -48,7 +49,10 @@ const removePreviousDemo = async (): Promise<void> => {
 	const locations = await Location.find({ created_by: user._id }).select({ _id: 1 });
 	const locationIds = locations.map((l) => l._id);
 	await RankRun.deleteMany({ $or: [{ created_by: user._id }, { location_id: { $in: locationIds } }] });
-	await Location.deleteMany({ created_by: user._id });
+	await Location.collection.deleteMany({ created_by: user._id });
+	const orgs = await Organization.find({ owner_user_id: user._id }).select({ _id: 1 }).lean();
+	await Membership.deleteMany({ $or: [{ user_id: user._id }, { organization_id: { $in: orgs.map((o) => o._id) } }] });
+	await Organization.deleteMany({ owner_user_id: user._id });
 	await Profile.deleteMany({ user_id: user._id });
 	await UserToken.deleteMany({ user_id: user._id });
 	await User.deleteOne({ _id: user._id });
@@ -83,7 +87,11 @@ const main = async (): Promise<void> => {
 	await Profile.create({ user_id: user._id, name: 'Rank Demo', business_name: 'Maple Leaf Plumbing & Heating' });
 
 	const now = Date.now();
+	// Phase 8: the location belongs to the demo user's organization.
+	const organization = await createOrganizationForOwner(user._id, { name: 'Maple Leaf Plumbing & Heating', type: 'business', country: 'CA' });
 	const location = await Location.create({
+		organization_id: organization._id,
+		source: 'places_search',
 		name: 'Maple Leaf Plumbing & Heating',
 		address: '100 Queen St E',
 		country: 'Canada',

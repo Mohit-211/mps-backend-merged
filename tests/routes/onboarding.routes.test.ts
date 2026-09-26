@@ -6,7 +6,14 @@ import { queryTypesArr } from '../../src/configs/constantTypes';
 import { Location, OAuthState, PlacesUsage, RankRun, UserAuth, UserGBP } from '../../src/models';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { loadGbpFixture } from '../helpers/fakeTransport';
-import { clearDb, createLocation, createUser, keywordsOf, startTestDb } from '../helpers/mongoose';
+import { clearDb, createLocation, createUser as createBareUser, ensureOrg, keywordsOf, startTestDb } from '../helpers/mongoose';
+
+/** Phase 8: every account has an organization (signup creates it). */
+const createUser = async (email: string) => {
+	const created = await createBareUser(email);
+	await ensureOrg(created.user._id);
+	return created;
+};
 
 // Routers import mongoConnection and the real agenda: replace both (schedule records rank-run jobs).
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
@@ -198,7 +205,9 @@ describe('onboarding flow over HTTP', () => {
 		expect((await request(app).get(`/api/v1/places/search?q=rival&locationId=${theirs._id}`).set(auth(token))).status).toBe(404);
 		expect((await request(app).get(`/api/v1/locations/${theirs._id}/competitor-suggestions`).set(auth(token))).status).toBe(404);
 		expect((await request(app).get(`/api/v1/places/search?q=r&locationId=${theirs._id}`).set(auth(token))).status).toBe(400);
-		expect((await request(app).get('/api/v1/places/search?q=rival').set(auth(token))).status).toBe(400);
+		// Phase 8: without locationId it is the add-location search (the organization's country).
+		expect((await request(app).get('/api/v1/places/search?q=rival').set(auth(token))).status).toBe(200);
+		expect((await request(app).get('/api/v1/places/search?q=rival&country=GB').set(auth(token))).status).toBe(400);
 		expect((await request(app).post('/api/v1/onboarding/select-profile').set(auth(token)).send({ gbpAccountId: 'x', gbpLocationId: 'locations/1' })).status).toBe(400);
 		expect((await request(app).post('/api/v1/onboarding/complete').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
 		expect((await request(app).post('/api/v1/onboarding/complete').set(auth(token)).send({ location_id: String(theirs._id) })).status).toBe(404);

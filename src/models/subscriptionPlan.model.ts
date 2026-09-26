@@ -14,6 +14,10 @@ export interface ISubscriptionPlan extends Document {
 
 	monthly_price: number;
 	setup_fee: number;
+	/** Phase 8 (data only, no payment logic): max active locations per organization; null = default. */
+	location_limit?: number | null;
+	/** Phase 8: max tracked keywords across the organization's locations; null = no org-wide cap. */
+	keyword_limit?: number | null;
 
 	paypal_product_id?: string;
 	paypal_plan_id?: string;
@@ -62,6 +66,8 @@ const subscriptionPlanSchema = new Schema<ISubscriptionPlan>(
 			default: 0,
 			min: 0,
 		},
+		location_limit: { type: Number, min: 0, default: null },
+		keyword_limit: { type: Number, min: 0, default: null },
 
 		paypal_product_id: {
 			type: String,

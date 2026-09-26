@@ -15,7 +15,13 @@ import { EnqueueResult } from '../../../src/services/ranking/rankRun.service';
 import { updateTracking } from '../../../src/services/ranking/tracking.service';
 import { createTokenCrypto } from '../../../src/utils/tokenCrypto';
 import { loadGbpFixture } from '../../helpers/fakeTransport';
-import { clearDb, createLocation, createUser, startTestDb } from '../../helpers/mongoose';
+import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../../helpers/mongoose';
+import { resolveOrgContext } from '../../../src/services/org/context';
+
+const ctxFor = async (userId: unknown) => {
+	await ensureOrg(userId as Types.ObjectId);
+	return resolveOrgContext(String(userId));
+};
 
 jest.mock('../../../src/configs/mongoConnection', () => ({ agenda: {} }));
 
@@ -102,7 +108,7 @@ describe('service-area onboarding: profile → center → keywords → competito
 			},
 		});
 
-		const selected = await onboarding.selectProfile(user._id, { gbpAccountId: 'accounts/1', gbpLocationId: sab.name });
+		const selected = await onboarding.selectProfile(await ctxFor(user._id), { gbpAccountId: 'accounts/1', gbpLocationId: sab.name });
 		expect(selected).toMatchObject({ created: true, center_needed: true, location: { lat: null, lng: null } });
 		const reload = async () => (await Location.findById(selected.location.location_id)) as ILocation;
 		expect((await reload()).onboarding?.step).toBe('center_needed');
@@ -136,7 +142,7 @@ describe('service-area onboarding: profile → center → keywords → competito
 			binding: createBindingService({ client, tokens, agenda: {} as Agenda }),
 			discovery: { listAllLocations: async () => ({ connections: [] }) },
 		});
-		const selected = await onboarding.selectProfile(user._id, { gbpAccountId: 'accounts/1', gbpLocationId: profile.name });
+		const selected = await onboarding.selectProfile(await ctxFor(user._id), { gbpAccountId: 'accounts/1', gbpLocationId: profile.name });
 		expect(selected.center_needed).toBe(false);
 		expect(await Location.findById(selected.location.location_id).lean()).toMatchObject({ center_source: 'gbp', onboarding: { step: 'profile_selected' } });
 	});

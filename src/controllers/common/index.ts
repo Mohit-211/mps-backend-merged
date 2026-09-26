@@ -8,7 +8,6 @@ import * as supportController from './support.controller';
 import * as subscriptionController from './subscription.controller';
 import * as contactUsController from './contactUs.controller';
 
-import * as locationController from './location.controller';
 import * as businessCategoryController from './businessCategory.controller';
 import * as whitelabelProfileController from './whitelabelProfile.controller';
 import * as gbpPSController from './gbpPostSchedular.controller';
@@ -27,7 +26,6 @@ export {
 	supportController,
 	subscriptionController,
 	contactUsController,
-	locationController,
 	businessCategoryController,
 	whitelabelProfileController,
 	gbpPSController,

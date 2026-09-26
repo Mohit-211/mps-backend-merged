@@ -1,10 +1,11 @@
 import httpStatus from 'http-status';
 
 import { responseWrapper, ApiError, catchAsync, isValidMongoObjectId } from '../../utils';
-import { Location, UserGBP } from '../../models';
+import { UserGBP } from '../../models';
 import { gbpCallToAction, gbpCallToActionArr, gbpPostTopicType, gbpPostTopicTypeArr, postPublishStatus } from '../../configs/constantTypes';
 import config from '../../configs/config';
 import { FilesDefinition } from '../../types/RouteDefinition';
+import { findLocationForUser } from '../../services/org/access';
 
 // Phase 6: bind needs only location_id, gbpAccountId and gbpLocationId. Title, metadata etc. are
 // read from Google by the binding service; client-sent copies are ignored. Ownership and the GBP
@@ -204,7 +205,8 @@ export const validateGBPPostbody = catchAsync(async (req, res, next) => {
 				httpStatus.BAD_REQUEST,
 			);
 		};
-		const locationDoc = await Location.findOne({ _id: location_id, created_by: user._id, is_active: true });
+		// Phase 8: organization membership (owner/member to post).
+		const locationDoc = (await findLocationForUser(user._id, location_id, { write: true }))?.location;
 		if (!locationDoc) {
 			return responseWrapper(
 				res,
@@ -354,7 +356,8 @@ export const validateGetAllPostbody = catchAsync(async (req, res, next) => {
 			);
 		};
 
-		const locationDoc = await Location.findOne({ _id: location_id, created_by: user._id, is_active: true });
+		// Phase 8: organization membership (any role can list).
+		const locationDoc = (await findLocationForUser(user._id, location_id, { write: false }))?.location;
 		if (!locationDoc) {
 			return responseWrapper(
 				res,

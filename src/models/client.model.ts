@@ -10,8 +10,11 @@ import { userStatusTypes, userStatusTypesArr } from "../configs/constantTypes";
 
 export interface IClient extends Document {
   company_name: string;
-  company_URL: string;
+  company_URL?: string | null;
   unique_id: string;
+  /** Phase 8: the owning (agency) organization. */
+  organization_id?: mongoose.Types.ObjectId;
+  contact_email?: string | null;
   status: string;
   is_active: boolean;
   no_of_locations: number;
@@ -37,12 +40,16 @@ const clientSchema = new Schema<IClient>(
     company_URL: {
       type: String,
       trim: true,
-      required: true,
+      default: null,
     },
+    organization_id: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
+    contact_email: { type: String, trim: true, lowercase: true, maxlength: 200, default: null },
     unique_id: {
       type: String,
       trim: true,
       required: true,
+      // Phase 8: generated when not given (the legacy form asked for it).
+      default: () => new mongoose.Types.ObjectId().toHexString(),
     },
     status: {
       type: String,
@@ -86,6 +93,8 @@ const clientSchema = new Schema<IClient>(
     collection: "clients",
   }
 );
+
+clientSchema.index({ organization_id: 1, is_active: 1, company_name: 1 });
 
 clientSchema.plugin(globalQueryFilters);
 clientSchema.plugin(toJSON);

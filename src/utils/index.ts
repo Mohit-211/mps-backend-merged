@@ -1,5 +1,5 @@
 import allowedOrigins from './accessDomains';
-import ApiError from './apiError';
+import ApiError, { apiErrorWithData } from './apiError';
 import catchAsync from './catchAsync';
 import apiErrorHandler from './errorHandler';
 import pick from './pick';
@@ -19,6 +19,7 @@ import compareObjectIds from './compareObjectIds';
 export {
 	allowedOrigins,
 	ApiError,
+	apiErrorWithData,
 	catchAsync,
 	apiErrorHandler,
 	pick,
