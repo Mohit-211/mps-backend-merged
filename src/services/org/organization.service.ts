@@ -27,7 +27,7 @@ export const updateOrganization = async (ctx: OrgContext, update: { name?: strin
 };
 
 export const listMembers = async (ctx: OrgContext) => {
-	const members = await Membership.find({ organization_id: ctx.organization._id, status: 'active' }).sort({ created_at: 1 }).lean<IMembership[]>();
+	const members = await Membership.find({ organization_id: ctx.organization._id, status: 'active' }).sort({ created_at: 1, _id: 1 }).lean<IMembership[]>();
 	const ids = members.map((m) => m.user_id);
 	const [users, profiles] = await Promise.all([
 		User.find({ _id: { $in: ids } }).select({ email: 1 }).lean<IUser[]>(),
@@ -42,5 +42,7 @@ export const listMembers = async (ctx: OrgContext) => {
 		role: m.role,
 		client_ids: (m.client_ids ?? []).map(String),
 		status: m.status,
+		invited_by: m.created_by && String(m.created_by) !== String(m.user_id) ? String(m.created_by) : null,
+		joined_at: m.created_at,
 	}));
 };

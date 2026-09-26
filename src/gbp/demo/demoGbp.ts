@@ -236,6 +236,10 @@ export interface DemoGbpOptions {
 	gbpLocationId?: string;
 	placeId?: string;
 	title?: string;
+	/** The Google connection (UserAuth google_sub) the binding uses. */
+	googleSub?: string;
+	/** false: the snapshot says the profile is not verified (a GBP issue on the dashboard). */
+	verified?: boolean;
 }
 
 export const writeDemoGbpData = async (
@@ -247,18 +251,19 @@ export const writeDemoGbpData = async (
 	const locationId = location._id;
 	const gbpLocationId = options.gbpLocationId ?? 'locations/demo';
 	const placeId = options.placeId ?? DEMO_PLACE_IDS.self;
+	const googleSub = options.googleSub ?? 'demo-google-sub';
 	await UserGBP.create({
 		user_id: userId,
 		location_id: locationId,
 		gbpAccountId: 'accounts/demo',
 		gbpLocationId,
-		google_sub: 'demo-google-sub',
+		google_sub: googleSub,
 		place_id: placeId,
 	});
 	const sync = await GbpSync.create({
 		location_id: locationId,
 		created_by: userId,
-		google_sub: 'demo-google-sub',
+		google_sub: googleSub,
 		gbp_location_id: gbpLocationId,
 		gbp_account_id: 'accounts/demo',
 		trigger: 'onboarding',
@@ -277,6 +282,7 @@ export const writeDemoGbpData = async (
 	const snapshot = demoSnapshot(locationId, sync._id as Types.ObjectId, now);
 	if (options.title) snapshot.profile.title = options.title;
 	snapshot.profile.place_id = placeId;
+	if (options.verified === false) snapshot.verification = { has_voice_of_merchant: false, has_business_authority: false, state: 'UNVERIFIED', guidance: null };
 	await GbpProfileSnapshot.create(snapshot);
 	await GbpReview.insertMany(demoReviews(locationId, now).map((r) => ({ ...r, review_name: `${r.review_name}-${String(locationId)}` })));
 	await Location.updateOne(

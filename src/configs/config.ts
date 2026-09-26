@@ -57,6 +57,8 @@ const envVarsSchema = Joi.object({
 	GBP_KEYWORD_ROLLING_MONTHS: Joi.number().integer().min(1).max(6).default(2),
 	DEFAULT_LOCATION_LIMIT: Joi.number().integer().min(0).default(1).description('Location limit for an organization without an active plan (or a plan without location_limit)'),
 	DEFAULT_KEYWORD_LIMIT: Joi.number().integer().min(1).empty('').default(null).description('Org-wide tracked-keyword limit without a plan value; empty = no org-wide cap'),
+	INVITATION_TTL_DAYS: Joi.number().integer().min(1).max(30).default(7).description('Lifetime of team invitation links'),
+	FRONTEND_URL: Joi.string().uri().allow('').default('').description('Base URL of the web app (invitation links, PayPal return URLs)'),
 	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of email-verification and password-reset codes'),
 	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
 	COMPETITOR_DETAILS_ATMOSPHERE: Joi.boolean().default(false).description('Also fetch editorialSummary (Atmosphere-tier Place Details) for the competitor comparison'),
@@ -189,6 +191,10 @@ interface Config {
 
 	auth: {
 		codeTtlMinutes: number;
+		/** Team invitation lifetime in days (Phase 11). */
+		invitationTtlDays: number;
+		/** Base URL of the web app, for links in emails. */
+		frontendUrl: string;
 	};
 
 	report: {
@@ -309,6 +315,8 @@ const config: Config = {
 
 	auth: {
 		codeTtlMinutes: envVars.AUTH_CODE_TTL_MINUTES,
+		invitationTtlDays: envVars.INVITATION_TTL_DAYS,
+		frontendUrl: envVars.FRONTEND_URL ?? '',
 	},
 
 	report: {

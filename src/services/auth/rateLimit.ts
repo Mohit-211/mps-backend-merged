@@ -21,6 +21,8 @@ export const LIMITS = {
 	forgotPerEmail: { name: 'forgot:email', max: 3, windowSeconds: 3600 },
 	forgotPerIp: { name: 'forgot:ip', max: 20, windowSeconds: 3600 },
 	resetPerEmail: { name: 'reset:email', max: 10, windowSeconds: 900 },
+	invitePerOrg: { name: 'invite:organization', max: 20, windowSeconds: 3600 },
+	invitationPerIp: { name: 'invitation:ip', max: 20, windowSeconds: 900 },
 } satisfies Record<string, Limit>;
 
 const keyOf = (limit: Limit, parts: string[]): string =>

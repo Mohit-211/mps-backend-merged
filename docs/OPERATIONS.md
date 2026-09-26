@@ -124,6 +124,11 @@ npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 acces
 - **Business** `business-demo@mypageseo.test`: 1 GBP-connected location with 3 monthly rank runs, 18 months of GBP data and a GBP report.
 - **Agency** `agency-demo@mypageseo.test`, on a demo plan (`Demo Agency (seed)`: 5 locations, 60 keywords): 2 clients and 3 locations (2 GBP-connected, 1 added from a Places search: `gbp_not_connected`), each with rank runs and a report.
 - **Client user** `agency-client@mypageseo.test`: sees one client, read-only.
+- **Dashboard data (Phase 11):**
+  - Ranks improve (Maple Leaf) and decline (Queen West).
+  - GBP Scores have a trend: two reports a month apart.
+  - Queen West is unverified and on a revoked Google connection (`reconnect_required`).
+  - One team invitation is pending (its token isn't printed).
 
 **How:** the real rank-run and report code with **offline** Places clients: **0 Google calls**. The demo Google connection is a placeholder that is never used. **Output:** one password for all demo accounts, three tokens, ids and `curl` examples. Same guards as `seed:rank-demo` (development + `mps_rebuild`; only the demo accounts' data and the demo plan are replaced).
 
@@ -136,6 +141,7 @@ npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 acces
   - Two locations with the same `place_id` in one organization: the second stays unassigned and unchanged, and is reported (exit code 3). Delete one, then re-run. The unique index is synced only when there are none.
   - It prints the mapping (user ids and organization names, no emails). **Run it once when deploying Phase 8**, before the app serves requests: locations without an organization are not reachable.
 - **Plan limits:** from the organization owner's active plan (`subscription_plans.location_limit`, `keyword_limit`; set them per plan in the database, the payment code is unchanged). Otherwise `DEFAULT_LOCATION_LIMIT` (1) and `DEFAULT_KEYWORD_LIMIT` (empty = no org-wide cap).
+- **Team invitations (Phase 11):** links are `${FRONTEND_URL}/invite?token=…`, valid `INVITATION_TTL_DAYS` (7). Emails use the SMTP settings. In development nothing is sent: the link is logged with the recipient masked.
 - **Auth codes:** `AUTH_CODE_TTL_MINUTES` (15). Codes are HMAC-hashed with a key derived from `JWT_SECRET` (changing `JWT_SECRET` invalidates pending codes). Rate-limit counters are in `rate_limits` (TTL); IP-based limits need `trust proxy` (Phase 10).
 
 ## Ranking jobs
@@ -228,7 +234,9 @@ On any database that already has data, in this order, **before the new version s
 3. **Install and build:** `npm ci` (the migration scripts run with ts-node, a dev dependency, so don't install with `--omit=dev` / `NODE_ENV=production`), then `npm run build`.
 4. **`npm run migrate:refresh -- --confirm`** (7b): tracking frequencies → `auto_monthly | manual_only`, plus the monthly refresh schedule. Idempotent.
 5. **`npm run migrate:organizations -- --confirm`** (Phase 8): every account gets an organization; locations and clients get theirs. **Required**: until it has run, existing locations can't be reached. Exit code 3 means duplicate `place_id`s within an organization: delete one of each pair it lists, then run it again (it syncs the unique index only when there are none). Idempotent.
-6. **`npm run gbp:encrypt-tokens`**, only on a database with GBP connections from before Phase 6. Idempotent.
-7. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` and `Recurring job scheduled: monthly-refresh`.
+6. **`npm run db:sync-indexes -- --confirm`**: syncs the indexes of the rebuilt collections with their schemas, building new ones and dropping ones no longer defined. **Required on any database from before 7a**: its `user_auths` still has the old one-Google-account-per-user unique index, which blocks connecting a second account.
+7. **`npm run summaries:rebuild -- --confirm`** (Phase 11): recomputes every location's list and dashboard summary from its latest runs and report. Idempotent.
+8. **`npm run gbp:encrypt-tokens`**, only on a database with GBP connections from before Phase 6. Idempotent.
+9. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` and `Recurring job scheduled: monthly-refresh`.
 
 `--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.

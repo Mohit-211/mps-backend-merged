@@ -19,7 +19,7 @@ export const noOrganization = () => apiErrorWithData(httpStatus.FORBIDDEN, 'No o
 
 /** Every active membership of a user, with its organization (oldest first). */
 export const listMemberships = async (userId: UserId) => {
-	const memberships = await Membership.find({ user_id: userId, status: 'active' }).sort({ created_at: 1 }).lean<IMembership[]>();
+	const memberships = await Membership.find({ user_id: userId, status: 'active' }).sort({ created_at: 1, _id: 1 }).lean<IMembership[]>();
 	const orgs = await Organization.find({ _id: { $in: memberships.map((m) => m.organization_id) }, is_active: true }).lean<IOrganization[]>();
 	const byId = new Map(orgs.map((o) => [String(o._id), o]));
 	return memberships.filter((m) => byId.has(String(m.organization_id))).map((m) => ({ membership: m, organization: byId.get(String(m.organization_id)) as IOrganization }));

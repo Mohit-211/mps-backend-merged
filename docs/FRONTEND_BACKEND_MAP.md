@@ -32,8 +32,8 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Business dashboard | – | **planned (after Phase 8)**. Inputs will exist (rank summary, GBP score, reviews); there is no aggregate endpoint yet. "Citation health" is **not supported** (see Citations). |
-| Agency dashboard | – | **planned (after Phase 8)**. "Reports ready/scheduled/failed" depends on the report center (not planned yet). |
+| Business dashboard | `GET /dashboard` (business shape) | **available (11)**: visibility (average rank, change, top-3 rate, trend), GBP Score + grade + change, rating/reviews (public numbers until v4), ranking movement, key competitor, top 5 recommended actions, last/next refresh. "Local Visibility score" = the average-rank block (no separate score). "Citation health": **not supported**. |
+| Agency dashboard | `GET /dashboard` (agency shape) | **available (11)**: client and location counts, portfolio averages (rank, GBP Score), statuses (reconnect / setup), locations with ranking declines, GBP issues, recommended actions, portfolio table (paged, sortable). "Unanswered reviews across portfolio" needs v4; "Reports ready/scheduled/failed": not planned yet. |
 
 ## Locations
 
@@ -97,8 +97,8 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 |---|---|---|
 | Clients / client detail | `GET/POST /clients`, `GET/PATCH/DELETE /clients/:id` | **available (8)**: list with location count and averages; detail with assigned locations and summary. "Reports" and "Activity" on the detail page: not planned yet. |
 | Client locations | `POST /clients/:id/locations`, `DELETE /clients/:id/locations/:locationId`, `client_id` on add-location | **available (8)** |
-| Client users | the `client_user` role (read-only, assigned clients only) | **enforced (8)**; inviting client users is not built yet |
-| Agency team | `GET /organization/members`; adding members: legacy `/user/auth/employee/*` (now also creates a membership) | **partial (8)**: list available; invitations not built yet |
+| Client users | `POST /organization/invitations { role: "client_user", client_ids }`, `POST /auth/invitations/inspect` + `accept`, role `client_user` (read-only, assigned clients only; dashboard limited to them) | **available (11)** |
+| Agency team | `GET /organization/members`, `POST/GET/DELETE /organization/invitations`, `PATCH/DELETE /organization/members/:userId` | **available (11)**: owner-managed; ownership transfer not available |
 
 ## Automations
 
@@ -112,7 +112,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 |---|---|---|
 | Organization | `GET/PATCH /organization`, `GET /organization/usage` (plan, locations and keywords used/limit, clients) | **available (8)** |
 | Profile | legacy `GET/PUT /user/profile` | available (legacy) |
-| Team / permissions | roles `owner`, `member`, `client_user`; `GET /organization/members` | **partial (8)**: roles enforced; role changes and invitations not built yet |
+| Team / permissions | roles `owner`, `member`, `client_user`; invitations, role change, removal (owner only) | **available (11)**. The legacy `/user/auth/employee/*` routes still work (they add a member directly). |
 | Integrations | GBP connections (above) | **partial**: GBP only. **Google Analytics / Search Console: not supported** (removed; organic scope). |
 | Notifications | legacy `POST /user/notifications` (toggle) | legacy toggle only; event notifications not planned yet |
 | Billing | legacy `/subscription/*`, `/payments/*`; limits via `GET /organization/usage` | legacy (Square / PayPal). Plan limits (`location_limit`, `keyword_limit` on the plan) are enforced since Phase 8; the payment logic is unchanged. |

@@ -83,6 +83,8 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/auth/login` | none | Login; returns tokens, organizations and onboarding (403 `email_not_verified`) | 8 | live |
 | POST | `/api/v1/auth/forgot-password` | none | Password reset code by email (same answer whether or not the account exists) | 8 | live |
 | POST | `/api/v1/auth/reset-password` | none | New password with the reset code; signs out every session | 8 | live |
+| POST | `/api/v1/auth/invitations/inspect` | none | What a team invitation is for (`{ token }` in the body): organization, email, role, account exists | 11 | live |
+| POST | `/api/v1/auth/invitations/accept` | none | Accept a team invitation: a new account is created and logged in; an existing account gets the membership (`login_required`) | 11 | live |
 
 ### User auth & account
 
@@ -128,7 +130,18 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/organization` | user + org | The current organization, the caller's role and every organization they belong to | 8 | live |
 | PATCH | `/api/v1/organization` | user + org (owner) | Edit `name`, `country` | 8 | live |
 | GET | `/api/v1/organization/usage` | user + org | Plan and usage: locations used/limit, keywords used/limit, clients (agency) | 8 | live |
-| GET | `/api/v1/organization/members` | user + org (owner/member) | Team members with roles | 8 | live |
+| GET | `/api/v1/organization/members` | user + org (owner/member) | Team members with roles, `invited_by`, `joined_at` | 8 | live |
+| PATCH | `/api/v1/organization/members/:userId` | user + org (owner) | Change a member's role (`member` / `client_user` + `client_ids`); the owner is protected | 11 | live |
+| DELETE | `/api/v1/organization/members/:userId` | user + org (owner) | Remove a member (the owner is protected) | 11 | live |
+| POST | `/api/v1/organization/invitations` | user + org (owner) | Invite by email (`member`, or `client_user` with clients); 7-day single-use link | 11 | live |
+| GET | `/api/v1/organization/invitations` | user + org (owner) | Invitations with status (`pending`, `accepted`, `revoked`, `expired`) | 11 | live |
+| DELETE | `/api/v1/organization/invitations/:invitationId` | user + org (owner) | Revoke a pending invitation | 11 | live |
+
+### Dashboard
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/dashboard` | user + org | Business or Agency dashboard from stored summaries (visibility, GBP Score, reviews, movement, key competitor, actions; agency: portfolio, statuses, declines, GBP issues, table) | 11 | live |
 
 ### Clients (agency)
 
@@ -473,7 +486,18 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 51 | DELETE | `/clients/:clientId/locations/:locationId` | user + org (agency, owner/member) | – | `{ unassigned, client_id, location_id }` |
 | 52 | POST | `/onboarding/skip` | user + org (owner/member) | `{ step: google\|reporting_brand }` | As #17 |
 
+| 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order` | Business: `{ type, locations_count, visibility, gbp, reviews, movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio, status_counts, declines, gbp_issues, recommended_actions, table }` |
+| 54 | POST | `/organization/invitations` | user + org (owner) | `{ email, role: member\|client_user, client_ids? }` | **201** `{ invitation_id, email, role, client_ids, status, expires_at, email_sent }`; **409** `already_member` |
+| 55 | GET | `/organization/invitations` | user + org (owner) | `status?` | `[{ invitation_id, email, role, client_ids, status, expires_at, invited_by, created_at }]` |
+| 56 | DELETE | `/organization/invitations/:invitationId` | user + org (owner) | – | `{ revoked, invitation_id }` |
+| 57 | PATCH | `/organization/members/:userId` | user + org (owner) | `{ role, client_ids? }` | `{ user_id, role, client_ids }`; **403** `owner_protected` |
+| 58 | DELETE | `/organization/members/:userId` | user + org (owner) | – | `{ removed, user_id }`; **403** `owner_protected` |
+| 59 | POST | `/auth/invitations/inspect` | none | `{ token }` | `{ organization, email, role, status, expires_at, account_exists }`; **404** unknown; **410** `expired` / `revoked` / `accepted` |
+| 60 | POST | `/auth/invitations/accept` | none | `{ token, name?, password? }` | New account: `{ accepted, organization_id, login_required: false, tokens, user, organizations, … }`; existing: `{ accepted, organization_id, login_required: true }` |
+
 **Notes:**
+- **#53:** reads only the stored per-location summaries (no rank-run or report documents, no Google). A client_user gets the agency shape for its clients only.
+- **#54–#60:** the invitation token (32 random bytes) is stored as a SHA-256 hash, valid `INVITATION_TTL_DAYS` (7), single use, and travels in the request body (never a URL path). In development no email is sent: the link is logged with the email masked.
 - **#17 (Phase 8):** `GET /onboarding/state` now returns `organization` (steps, `next_step`, `completed`) and `empty_states` before `gbp` and `locations`; every location of the organization is listed (unfinished first) with `source` and `client_id`.
 - **#19 (Phase 8):** `select-profile` takes `client_id?`, is limit-checked when it creates a location, links a location of the organization with the same place, and answers **409** `place_id_mismatch` for a location with a different place (also #15).
 - **#21 (Phase 8):** without `locationId` it is the add-location search (`country` or the organization's).

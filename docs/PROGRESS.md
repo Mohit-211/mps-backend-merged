@@ -762,3 +762,31 @@ Branch `claude/phase-8-org-onboarding` (from `claude/rebuild` after the 7c merge
 - Team invitations, role changes and client-user invites are modelled (roles enforced) but have no endpoints yet.
 - The live-test organization is named "Live Test" (from its profile); rename with `PATCH /organization` if wanted.
 - White-label profiles still check `created_by` (out of scope).
+
+## On `claude/rebuild` after the Phase 8 merge (2026-09-27)
+
+- `19b9a1d` OPERATIONS.md: a **deploy checklist** (backup, env, build, `migrate:refresh`, `migrate:organizations`, `gbp:encrypt-tokens`, start).
+
+## Phase 11: Dashboards + team (M4)
+
+Branch `claude/phase-11-dashboards-team`. Offline only: **0 Google calls, 0 Places calls**.
+
+**What changed**
+- **Summary:** `Location.summary` gains the dashboard fields (see CLAUDE.md §12b), written after each rank run and GBP report. The run summary reads only the latest run's tracker summaries, targets and map-list names, plus the last 6 runs' overall figures.
+- **`GET /dashboard`:**
+  - **Business:** visibility + trend, GBP Score + change, reviews (public numbers until v4), movement, key competitor, top 5 actions, refresh, statuses, locations.
+  - **Agency:** clients / locations, portfolio averages, status counts, declines, GBP issues, actions, paged and sortable table.
+  - A client_user is limited to its clients. No rank-run or report reads at request time (tested with spies).
+- **Team:**
+  - invitations (owner): create / re-issue, list with statuses, revoke
+  - accept / inspect (public, token in the body): new accounts are created verified and logged in; existing accounts get `login_required`
+  - role change and removal (the owner is protected), rate limits
+  - `sendInvitationEmail`; development logs the link with the email masked
+- **Scripts:** `summaries:rebuild`; `db:sync-indexes` (it dropped the stale Phase 6 `user_auths` unique index on the local database; any database from before 7a has it and it blocks a second Google account); `seed:demo-orgs` extended.
+- **Fix found on the way:** unstable ordering when two memberships or invitations share a `created_at` millisecond (flaky test); `_id` is now the tie-breaker.
+
+**Files touched (shared, called out):** `src/services/common/email.service.ts` (one exported `sendInvitationEmail`), `src/configs/config.ts` (`FRONTEND_URL` in the Joi config, `INVITATION_TTL_DAYS`).
+
+**Tests:** 590 pass (was 573); build 0 errors; lint 32. Dev server, Places key empty: business, agency and client-user dashboards; invite → masked dev log link → inspect → accept (new account) → role change → remove; 0 Google calls; the invitee's email never in the log.
+
+**API calls consumed:** 0.
