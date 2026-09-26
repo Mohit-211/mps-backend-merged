@@ -15,7 +15,7 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 4: Ranking engine | `claude/phase-4-ranking-engine` | Done. Merged `3da12ed`. Pushed at M2. |
 | 5: Ranking reports | `claude/phase-5-ranking-reports` | Done. Merged `2bb4cf8`. **Pushed at M2 on 2026-09-26.** |
 | 5.5: Live validation | `claude/phase-5.5-live-validation` | Done. Merged `5735bad` (not pushed; next push is M3). **Informal pass, one market; formal scoring pending.** |
-| 6: GBP connection fixes | `claude/phase-6-gbp-connection` | Planning (includes signed OAuth state, encrypted tokens, `gbpClient`, token crypto deferred from Phase 3, C12, C17, C22) |
+| 6: GBP connection fixes | `claude/phase-6-gbp-connection` | Done, **awaiting approval and merge**. Offline: 0 Google calls. The first live step (`gbp:preflight`) is Mohit's. |
 | 7: GBP data sync and report | — | Not started |
 | 8: GBP posting | — | Not started |
 | 9: Cleanup and docs | — | Not started |
@@ -436,4 +436,64 @@ Both are committed with the manual columns blank.
 
 ### Checks
 `npm run build`: 0 TypeScript errors. New and changed files lint-clean. **273/273 tests pass** with no key and no network.
+
+---
+
+## Phase 6: GBP connection
+
+Branch `claude/phase-6-gbp-connection`, from `claude/rebuild` @ `5735bad`. Built per CLAUDE.md §10, Mohit's Phase 6 list and the approved plan. **Offline:** tests use fixtures and mocks, and **0 Google API calls** were made. The first live step, `gbp:preflight`, is Mohit's.
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `f3b04f2` | (Phase 5.5 close-out: CSVs, STATUS, PROGRESS.) |
+| `022dadb` | Config: `TOKEN_ENCRYPTION_KEY` (64 hex, required in production), `GOOGLE_GBP_*` in Joi, `GBP_MAX_RPS`. `utils/tokenCrypto.ts` (AES-256-GCM, random IV, `enc:v1:` prefix). Tests. |
+| `2194ae1` | `http.ts`: DELETE, `formBody`, a shared `httpErrorFromResponse` (keeps the ErrorInfo `reason` and `quota_limit_value`, understands OAuth `{error, error_description}`). The fake transport uses the same parser. GBP error fixtures. |
+| `5aca9dd` | Models: `UserAuth` (`scope`, `status`, `last_error`, `last_refreshed_at`, and a unique active `(user_id, token_type)` index), `OAuthState` (hashed, TTL), `UserGBP` (`place_id`, `bound_at`, optional title/website/language, unique active indexes). `tokenStore` (C17, encrypted GBP tokens, legacy re-encrypt) and `encryptExistingTokens` (idempotent). Tests. |
+| `0b46e5b` | `gbpClient`: 5 rps limiter, 429 backoff (3 retries), quota-0 and disabled-API errors, refresh when < 60 s remain or on a 401, persisted refresh and rotation, `invalid_grant` marks revoked, paginated accounts and locations with `readMask`, `getLocation`, `exchangeCode`, `revoke` (token in the body). Fixtures and tests. |
+| `b6e572e` | OAuth (S11): one-time hashed state with 10-minute expiry, `business.manage` only, callback via `gbpClient`. `userAuth.service` delegates; `storeToken` is per token type (C17). Tests, including replay, expiry and forged state. |
+| `61063f7` | Discovery across all accounts with no Places calls (C9, C22); server-side bind with `place_id` rules; real unbind (C12) and disconnect; `POST /gbp/unbind`; `GBPPost.last_error`; `JOB_NAMES.GBP_SYNC`. Service and route tests. |
+| `4981953` | Posting (`publishPostToGBP`, `deleteGBPPost`) gets its token from `gbpClient.getAccessToken`. Posting logic is unchanged (Phase 8). |
+| `c5be35c` | `npm run gbp:preflight` (read-only; explains quota 0 / disabled API / reconnect / config), `setup:live-test --token-only`, `explainGbpError`. Tests. |
+| this commit | `docs/GBP_CONNECT.md`, API.md (GBP section), ROUTES, OPERATIONS, AUDIT (S11, S12, S29, C9, C12, C17, C22; new S30), CLAUDE.md §3, §10 and §13a, STATUS, this entry. |
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm run build` | **0 TypeScript errors.** |
+| `npm run lint` | 98 errors (unchanged baseline). All new files are lint-clean with no `any`. Touched shared files have no new errors (`userAuth.service` 14 → 9, `gbpPostSchedular.service` 14 → 10). |
+| `npm test` (no key) | **347/347 pass** in 27 suites (74 new). |
+| Required tests | State creation, validation, expiry and replay (plus a forged old-style JSON state); pagination with fixtures; token encryption, refresh and rotation; C17 regression (GBP never overwrites Search Console); quota-0 / disabled API / `invalid_grant`; limiter ≤ 5 requests per second; C22 (Places and the legacy helper asserted never called); bind `place_id` set / match / conflict; **C12: bind → unbind gives no binding, no tokens and no `gbp-sync` or scheduled-post jobs** (real agenda on the memory MongoDB); disconnect. |
+| Local, no Google calls | `npm run dev` then `GET /user/auth/google/gbp` gives a consent URL with only `business.manage`, `offline`, `consent` and a 43-character state. A bogus state and the old JSON state give 400. `GET /gbp` without a connection gives 400 "Please connect with Google Business Profile". |
+
+**API calls consumed: 0** (Google Business Profile and Places).
+
+### Decisions (approved with the plan)
+1. **Search Console tokens stay plaintext.** Only the C17 filter fix applies to them. S11, S12 and S29 for Search Console are Phase 10.
+2. **No `OAUTH_STATE_SECRET`.** A random one-time state stored as a hash replaces the HMAC.
+3. **Tokens are per user (Google account).** Unbind deletes them only with the last binding; disconnect removes everything.
+4. **Unbind cancels pending scheduled posts** for that GBP location (`REJECTED`, "GBP location unbound").
+5. **Bind fills `Location.lat/lng`** from GBP when both are empty.
+6. **`GET /gbp` returns `{ accounts, locations, errors }`** (a frontend change).
+7. **Legacy plaintext GBP tokens** are re-encrypted on first use; `gbp:encrypt-tokens` is written but **not run**. To run it on a server:
+   1. Back up `user_auths`.
+   2. Set `TOKEN_ENCRYPTION_KEY` and `MONGODB_*`.
+   3. Run `npm run gbp:encrypt-tokens`.
+   4. Run it again to confirm: it should report "0 encrypted now".
+- **Also:** "reconnect" is returned as 400, not 401, because a 401 would log the user out of MyPageSEO.
+
+### Shared or out-of-scope files touched
+- `services/user/userAuth.service.ts` and `controllers/user/userAuth.controller.ts`: only the GBP functions and `storeToken`.
+- `models/gbpPost.model.ts` (`last_error`), `models/index.ts` (export), `jobs/jobNames.ts` (`GBP_SYNC`).
+- `tests/helpers/fakeTransport.ts`.
+
+### Open items for Mohit
+- **Setup** (see [GBP_CONNECT.md](GBP_CONNECT.md)):
+  - Your `.env` `GOOGLE_GBP_REDIRECT_URI` uses port **5000**. Change it to `http://localhost:5055/api/v1/user/auth/google/gbp/callback` and register exactly that in Google Cloud.
+  - Add `TOKEN_ENCRYPTION_KEY` (`openssl rand -hex 32`).
+- **GBP API access approval** for the Cloud project. `gbp:preflight` reports quota 0 until then.
+- **Frontend:** `GET /gbp` now returns an object, the bind body needs only 3 fields, and `POST /gbp/unbind` is new.
+- **New finding S30 (Low, Phase 10):** the morgan request logger writes full URLs, so a failed OAuth callback logs its `code` and `state`.
 

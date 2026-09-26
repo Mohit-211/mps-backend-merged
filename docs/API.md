@@ -1,4 +1,4 @@
-# Ranking API (Phase 5)
+# API: ranking (Phase 5) and GBP connection (Phase 6)
 
 The endpoints behind the three ranking pages: **Rank Tracker**, **Local Search Grid** and **Local Map Ranking**. The example responses below are real responses from the demo data (`npm run seed:rank-demo`), with long arrays shortened (`"…"`).
 
@@ -1048,3 +1048,127 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
 ```
 
 **404** is returned for another user's location, on every endpoint.
+
+---
+
+## GBP connection (Phase 6)
+
+Setup and a step-by-step local walkthrough are in [GBP_CONNECT.md](GBP_CONNECT.md). The examples below use the hand-written test fixtures (no live GBP calls have been made yet). All routes need a user token, except the OAuth callback, which Google calls.
+
+GBP errors use the same envelope:
+
+| Status | Meaning |
+|---|---|
+| 400 | "Please connect with Google Business Profile"; "Reconnect Google Business Profile…" (Google rejected the stored authorisation); invalid input |
+| 404 | location not yours, or not bound |
+| 409 | the GBP location is already bound to another of your locations |
+| 502 | Google failed |
+| 503 | GBP API access not approved (quota 0), API not enabled, or server not configured |
+
+"Reconnect" is a 400, not a 401, because a 401 from this API means the MyPageSEO session expired.
+
+### `GET /api/v1/user/auth/google/gbp`
+
+Starts the connection. `data` is Google's consent URL, with scope `business.manage` only, offline access, and a one-time `state` valid for 10 minutes.
+
+### `GET /api/v1/user/auth/google/gbp/callback?code=&state=` (called by Google)
+
+```json
+{ "success": true, "status": 200, "message": "Connected with GBP successfully.", "data": { "connected": true } }
+```
+
+**400** is returned for an unknown, expired or reused `state` ("This connection link is invalid or has expired. Start the connection again."), and for `error=access_denied` ("Google Business Profile access was not granted.").
+
+### `GET /api/v1/gbp`
+
+Every location across **all** the user's accounts. The data comes from Business Information only: no Places calls.
+
+> **Changed in Phase 6:** `data` is now an object (`accounts`, `locations`, `errors`) instead of a bare array. Each location keeps the old fields and adds `accountName`, `place_id`, `latlng` and `bound_location_id`.
+
+```json
+{
+  "accounts": 2,
+  "locations": [
+    {
+      "gbpAccountId": "accounts/100000000000000000001",
+      "accountName": "Example Owner",
+      "gbpLocationId": "locations/200000000000000000001",
+      "title": "Example Plumbing Co",
+      "websiteUri": "https://example-plumbing.test/",
+      "languageCode": "en",
+      "metadata": { "placeId": "ChIJfakeGbpPlace000000001", "mapsUri": "https://maps.google.com/maps?cid=1" },
+      "profile": { "description": "Family-run plumbers." },
+      "mobile": "(214) 555-0100",
+      "business_category": "Plumber",
+      "country": "United States",
+      "state": "TX",
+      "city": "Dallas",
+      "zip_code": "75201",
+      "address": "100 Example St, Suite 5, Dallas, TX 75201",
+      "place_id": "ChIJfakeGbpPlace000000001",
+      "latlng": { "latitude": 32.7801, "longitude": -96.8005 },
+      "bound_location_id": null
+    }
+  ],
+  "errors": []
+}
+```
+
+- `errors` lists accounts whose locations could not be listed; the other accounts are still returned.
+- A service-area business with no storefront has `address: null`. A missing website shows as `"NA"` (legacy value).
+
+### `POST /api/v1/gbp/bind-with-user`
+
+Body: `{ "location_id", "gbpAccountId": "accounts/…", "gbpLocationId": "locations/…" }`. Other fields the old frontend sent (`title`, `metadata`, …) are accepted and ignored: the server reads the profile from Google, which also checks that the connected account can access it.
+
+```json
+{
+  "binding": {
+    "location_id": "66f5…",
+    "gbpAccountId": "accounts/100000000000000000001",
+    "gbpLocationId": "locations/200000000000000000001",
+    "title": "Example Plumbing Co",
+    "place_id": "ChIJfakeGbpPlace000000001"
+  },
+  "place_id": { "location": "ChIJfakeGbpPlace000000001", "gbp": "ChIJfakeGbpPlace000000001", "status": "set" },
+  "coordinates": "set"
+}
+```
+
+**`place_id.status`:**
+
+| Value | Meaning |
+|---|---|
+| `set` | Our location had none, so it was filled from GBP. |
+| `match` | Our location already had the same place ID. |
+| `conflict` | Our location has a different place ID. It is kept and never overwritten. |
+| `none` | GBP has no place ID. |
+
+**`coordinates`:**
+
+| Value | Meaning |
+|---|---|
+| `set` | lat/lng were empty and were filled from GBP. |
+| `kept` | Our location already had lat/lng. |
+| `none` | GBP has no coordinates. |
+
+### `POST /api/v1/gbp/unbind` (new)
+
+Body: `{ "location_id" }`.
+
+```json
+{ "unbound": true, "jobs_cancelled": { "gbp_sync": 0, "scheduled_posts": 1 }, "tokens_deleted": true }
+```
+
+- Cancelled scheduled posts are marked `REJECTED` with `last_error: "GBP location unbound"`.
+- `tokens_deleted` is true only when this was the user's last bound location. After that, the user must connect again to bind another.
+
+### `POST /api/v1/user/auth/google/gbp/revoke` (disconnect)
+
+```json
+{ "revoked": true, "bindings_removed": 1 }
+```
+
+- Revokes the authorisation at Google (best effort), then removes every binding, its scheduled jobs and the stored tokens.
+- `revoked: false` means Google could not be reached; the local cleanup still happened.
+
