@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import config from '../../configs/config';
 import { GbpSync, ILocation, Location, RankRun, RefreshType, UserGBP } from '../../models';
 import { ApiError } from '../../utils';
+import { ReportState, forceCompetitorRefresh, reportState } from '../gbp/report.service';
 import { SyncEnqueueResult, enqueueGbpSync } from '../gbp/sync.service';
 import { EnqueueResult, enqueueRankRun } from '../ranking/rankRun.service';
 import { withDefaults } from '../ranking/trackingSettings';
@@ -110,6 +111,10 @@ export const refreshLocation = async (
 		}
 	}
 	result.all_rate_limited = limited > 0 && limited === types.filter((t) => t !== 'gbp' || bound).length;
+	// 7c: the report generated after this refresh also refetches competitor Place Details (> 24 h old).
+	if (!result.all_rate_limited && (result.rankings || (result.gbp && !('skipped' in result.gbp)))) {
+		await forceCompetitorRefresh(location._id as Types.ObjectId, now);
+	}
 	return result;
 };
 
@@ -120,6 +125,8 @@ export interface RefreshState {
 	last_auto_refresh_at: Date | null;
 	rankings: { next_allowed_at: Date | null; active_run: { run_id: string; status: string } | null };
 	gbp: { next_allowed_at: Date | null; active_sync: { sync_id: string; status: string } | null; last_synced_at: Date | null } | null;
+	/** 7c: the GBP report generation (pending after a run or sync finishes, debounced). */
+	report: ReportState;
 }
 
 /** Button state for the frontend (GET /locations/:id/refresh). */
@@ -145,6 +152,7 @@ export const getRefreshState = async (location: ILocation, now: Date = new Date(
 					last_synced_at: fresh.gbp_sync?.last_synced_at ?? null,
 				}
 			: null,
+		report: reportState(fresh, now),
 	};
 };
 

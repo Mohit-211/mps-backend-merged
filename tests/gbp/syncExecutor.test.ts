@@ -27,6 +27,9 @@ import { loadGbpFixture } from '../helpers/fakeTransport';
 import { clearDb, createLocation, createUser, startTestDb } from '../helpers/mongoose';
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
+// 7c: a finished sync requests a GBP report through the app's agenda.
+const reportSchedule = jest.fn(async () => ({}));
+jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: reportSchedule, cancel: jest.fn() }), stopAgenda: jest.fn() }));
 
 const NOW = new Date('2026-09-26T09:00:00Z');
 const settings = { backfillMonths: 18, rollingDays: 40, keywordBackfillMonths: 6, keywordRollingMonths: 2 };
@@ -140,6 +143,7 @@ describe('gbp-sync executor', () => {
 		const result = await executeGbpSync(syncId, { client, v4Enabled: false, settings, now: () => NOW });
 
 		expect(result?.status).toBe('done');
+		expect(reportSchedule).toHaveBeenCalledWith(expect.any(Date), 'gbp-report', { location_id: String(location._id), trigger: 'gbp_sync' });
 		expect(result?.types).toMatchObject({
 			performance: { status: 'ok', rows: 6, range: { from: '2025-03-26', to: '2026-09-25' } },
 			keywords: { status: 'ok', rows: 24, range: { from: '2026-03', to: '2026-08' } }, // 6 months × 4 keywords

@@ -102,13 +102,14 @@ export const routeKey = (r: RouteEntry): string => `${r.method} ${r.path.replace
 
 const CATALOGUE_HEADER = ['method', 'path', 'auth', 'purpose', 'phase', 'status'];
 
+/** Table cells; an escaped pipe (`\\|`) stays inside its cell, as in Markdown. */
 const cells = (line: string): string[] =>
 	line
 		.trim()
 		.replace(/^\|/, '')
-		.replace(/\|$/, '')
-		.split('|')
-		.map((c) => c.trim());
+		.replace(/(?<!\\)\|$/, '')
+		.split(/(?<!\\)\|/)
+		.map((c) => c.trim().replace(/\\\|/g, '|'));
 
 const unticked = (s: string): string => s.replace(/`/g, '').trim();
 

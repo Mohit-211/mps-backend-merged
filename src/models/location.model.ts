@@ -35,6 +35,15 @@ export interface ILocationGbpSync {
   backfilled_at: Date | null;
 }
 
+/** GBP report bookkeeping (Phase 7c). */
+export interface ILocationGbpReport {
+  /** When the pending report generation runs (debounce); null when none is pending. */
+  scheduled_for: Date | null;
+  last_generated_at: Date | null;
+  /** Set by a manual refresh: the next generation refetches competitor Place Details older than 24 h. */
+  force_competitors_at: Date | null;
+}
+
 /** Ranking settings for one location (CLAUDE.md §9.1). One fixed keyword set, versioned. */
 export interface ILocationTracking {
   keywords: { text: string; normalized: string }[];
@@ -110,6 +119,7 @@ export interface ILocation extends Document {
   center_label?: string | null;
   onboarding?: ILocationOnboarding;
   gbp_sync?: ILocationGbpSync;
+  gbp_report?: ILocationGbpReport;
   refresh?: ILocationRefresh;
   /** IANA timezone (e.g. "America/Moncton"); optional. Used for the ~03:00 local monthly refresh. */
   timezone?: string | null;
@@ -260,6 +270,17 @@ const locationSchema = new Schema<ILocation>(
           last_status: { type: String, default: null },
           last_sync_id: { type: String, default: null },
           backfilled_at: { type: Date, default: null },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    gbp_report: {
+      type: new Schema<ILocationGbpReport>(
+        {
+          scheduled_for: { type: Date, default: null },
+          last_generated_at: { type: Date, default: null },
+          force_competitors_at: { type: Date, default: null },
         },
         { _id: false },
       ),

@@ -20,6 +20,7 @@
     "test:types": "tsc -p tests/tsconfig.json",
     "check:endpoints": "jest tests/docs/endpoints.test.ts",
     "seed:rank-demo": "ts-node --transpile-only src/scripts/seedRankDemo.ts",
+    "seed:gbp-demo": "ts-node --transpile-only src/scripts/seedGbpDemo.ts",
     "calibrate": "ts-node --transpile-only src/scripts/calibrate.ts",
     "calibrate:score": "ts-node --transpile-only src/scripts/calibrateScore.ts",
     "find:place": "ts-node --transpile-only src/scripts/findPlace.ts",

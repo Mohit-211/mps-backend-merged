@@ -44,7 +44,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | Location overview (`/locations/:id`) | – | **planned (Phase 8)**: header (name, city, rating, reviews) + latest summaries |
 | Location settings | `PUT/GET /locations/:id/tracking` (keywords, competitors, grid, `frequency: auto_monthly \| manual_only`) | **partial**: tracking is available; other settings in Phase 8 |
 | Refresh button | `POST /locations/:id/refresh`, `GET /locations/:id/refresh` (`next_allowed_at`, monthly schedule) | available (7b): once per 24 h per type |
-| GBP data freshness | `GET /locations/:id/gbp/sync` (status per data type, last synced) | available (7b); the GBP report itself is 7c |
+| GBP data freshness | `GET /locations/:id/gbp/sync` (status per data type, last synced); `GET /locations/:id/refresh` → `report.pending` | available (7b, 7c) |
 
 ## Rankings
 
@@ -62,10 +62,10 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Overview | GBP report | **planned (7c)**: performance, search keywords, health, pending Google edits |
-| Audit | GBP report `gbpScore` (pillars, checks, fixes) | **planned (7c)**. **Duplicates: not supported.** "Website signals" beyond "website set": not supported. |
-| Audit competitor analysis | GBP report `competitors` (Places Details + ranks, Public Score, gaps) | **planned (7c)**. Competitor citations, links, authority and photos: **not supported.** |
-| Reviews | GBP report `reviews` (v4) | **planned (7b/7c), needs Google v4 access**. Until then `{ available: false, reason: "v4_access_pending" }`. |
+| Overview | `GET /locations/:id/gbp/report?range=28d\|90d\|12m`: `performance` (totals, previous period, same period last year, by day, by surface, by device, actions per 1,000), `keywords` (top, change, not tracked), `pending_google_edits`, `verification` | **available (7c)**. Locations without GBP: `{ available: false, reason: "gbp_not_connected" }`. |
+| Audit | GBP report `gbp_score` (score, grade, 5 pillars, checks, top 5 fixes, `partial` + `excluded_pillars`), `score_history` | **available (7c)**. Until v4 access, Activity and Reviews are excluded (`partial: true`). **Duplicates: not supported.** "Website signals" beyond "website set": not supported. |
+| Audit competitor analysis | GBP report `competitors` (Place Details + center ranks, Public Score, insights) | **available (7c)**, also for locations without GBP. Competitor citations, links, authority and photos: **not supported.** |
+| Reviews | GBP report `reviews` (v4: average, total, new 30/90 d, reply rate, median reply time, per month, distribution, unreplied) | **built (7c), needs Google v4 access**. Until then `{ available: false, reason: "v4_access_pending" }`. Demo data: `npm run seed:gbp-demo`. |
 | Review reply | – | **planned (Phase 9+)**, needs v4. AI reply drafting: not planned yet. |
 | Posts | legacy `/gbp/post/*` | **partial / legacy**: rebuilt in **Phase 9** (needs v4) |
 | Post editor / calendar | legacy `/gbp/post/add` | planned (Phase 9) |
@@ -81,9 +81,9 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Competitor overview | `GET /locations/:id/competitor-suggestions`, tracking competitors, GBP report `competitors` | **partial**: suggestions and selection are available; comparison is **planned (7c)** (rating, reviews, rank, categories, hours, website, phone, Public Score). **Photos: not supported.** |
-| Comparison | GBP report `competitors.table` | planned (7c) |
-| Competitive gaps | GBP report `competitors.insights` (rule-based: review gap, rating gap, rank gap, profile gaps) | planned (7c). **Citation gap: not supported.** |
+| Competitor overview | `GET /locations/:id/competitor-suggestions`, tracking competitors, GBP report `competitors` | **available (7c)**: suggestions, selection and the comparison (rating, reviews, center rank, category, hours, website, phone, Public Score). **Photos: not supported.** |
+| Comparison | GBP report `competitors.rows` | available (7c) |
+| Competitive gaps | GBP report `competitors.insights` (rule-based, max 5: review gap, rating gap, missing hours/website/phone, rank gap, category) | available (7c). **Citation gap: not supported.** |
 
 ## Reports
 

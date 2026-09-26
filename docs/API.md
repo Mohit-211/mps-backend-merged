@@ -1372,6 +1372,7 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
 }
 ```
 
+- **7c:** a refresh that queues something also marks the competitor Place Details for refetch: the report generated after it refreshes competitor facts older than 24 h.
 - **Inside the 24 h window a type is skipped:** `{ "skipped": "rate_limited", "next_allowed_at": "…" }`.
 - An unconnected location gets `"gbp": { "skipped": "gbp_not_connected", "next_allowed_at": null }` (only when gbp was requested explicitly).
 - **429** when every requested type is rate-limited (the same body shape). **202** otherwise.
@@ -1385,10 +1386,12 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
 { "frequency": "auto_monthly", "gbp_connected": true,
   "next_refresh_at": "2026-10-26T09:00:00.000Z", "last_auto_refresh_at": null,
   "rankings": { "next_allowed_at": "2026-09-27T13:00:00.000Z", "active_run": { "run_id": "66f6…", "status": "running" } },
-  "gbp": { "next_allowed_at": null, "active_sync": null, "last_synced_at": "2026-09-26T09:02:11.000Z" } }
+  "gbp": { "next_allowed_at": null, "active_sync": null, "last_synced_at": "2026-09-26T09:02:11.000Z" },
+  "report": { "pending": true, "scheduled_for": "2026-09-26T13:04:00.000Z", "last_generated_at": "2026-08-26T09:07:40.000Z" } }
 ```
 
-`next_allowed_at: null` means the type can be refreshed now.
+- `next_allowed_at: null` means the type can be refreshed now.
+- `report` (7c): `pending` while a GBP report generation is scheduled (it runs about 2 minutes after a rank run or sync finishes).
 
 ### `GET /api/v1/locations/:locationId/gbp/sync[?syncId=]`
 
@@ -1420,3 +1423,130 @@ The latest (or the given) GBP sync:
 - **Per type:** one failing type makes the sync `partial`; the others are still stored. "Reconnect needed" or "API access not approved (quota 0)" stops the remaining calls and marks them `error` with that message.
 - **Before any sync:** `{ "gbp_connected": false, "sync": null, "last_synced_at": null }`.
 
+## GBP report (Phase 7c)
+
+**Generated in a job, never on a page view.** The `gbp-report` job runs about 2 minutes (`REPORT_DEBOUNCE_SECONDS`) after a rank run or a GBP sync finishes, after a change of tracked competitors, and after an unbind. A rank run and a sync finishing together give one report; while either is still running the report waits for it. The stored report is overwritten each time (no history of competitor data); only the client's own scores are kept in `score_history` (last 24).
+
+Examples below come from `npm run seed:gbp-demo` (offline demo data), trimmed.
+
+### `GET /api/v1/locations/:locationId/gbp/report[?range=28d|90d|12m]`
+
+`range` picks the performance window (default `28d`; `12m` = 365 days). Everything else is range-independent.
+
+```json
+{
+  "location_id": "6ab800103067c8d0f492949c",
+  "generated_at": "2026-09-26T17:25:36.832Z",
+  "trigger": "gbp_sync",
+  "gbp_connected": true,
+  "v4_enabled": true,
+  "range": "28d",
+  "gbp_score": {
+    "available": true, "score": 50, "grade": "D", "partial": false, "excluded_pillars": [],
+    "pillars": [
+      { "id": "completeness", "weight": 25, "available": true, "earned": 18, "available_max": 25, "score": 18 },
+      { "id": "activity",     "weight": 20, "available": true, "earned": 3,  "available_max": 20, "score": 3 },
+      { "id": "reviews",      "weight": 25, "available": true, "earned": 16, "available_max": 25, "score": 16 },
+      { "id": "visibility",   "weight": 20, "available": true, "earned": 6,  "available_max": 20, "score": 6 },
+      { "id": "engagement",   "weight": 10, "available": true, "earned": 7,  "available_max": 10, "score": 7 }
+    ],
+    "checks": [
+      { "id": "verified", "pillar": "completeness", "label": "Profile verified", "status": "scored", "value": true, "points": 5, "max": 5,
+        "detail": "Verified: you can manage the profile.", "fix_hint": null },
+      { "id": "description", "pillar": "completeness", "label": "Description", "status": "scored", "value": 201, "points": 1, "max": 3,
+        "detail": "201 characters.", "fix_hint": "Write a description of at least 250 characters (services, area, what makes you different)." },
+      "… 24 more checks"
+    ],
+    "top_fixes": [
+      { "id": "map_rank", "pillar": "visibility", "label": "Average map rank", "status": "scored", "value": 21.3, "points": 1, "max": 8,
+        "detail": "Average rank 21.3 across your keywords.", "fix_hint": "Improve relevance and prominence for your keywords (categories, reviews, posts)." },
+      "… up to 5"
+    ]
+  },
+  "performance": {
+    "available": true, "latest_date": "2026-09-23", "range": "28d", "days": 28, "start": "2026-08-27", "end": "2026-09-23",
+    "totals": { "impressions": 6871, "maps": 3823, "search": 3048, "mobile": 5243, "desktop": 1628,
+                "calls": 103, "website_clicks": 141, "direction_requests": 68, "conversations": 0, "bookings": 0,
+                "food_orders": 0, "food_menu_clicks": 0, "actions": 312 },
+    "coverage": { "days_with_data": 28, "days": 28 },
+    "previous_period": { "start": "2026-07-30", "end": "2026-08-26", "totals": { "impressions": 6434, "…": "…" },
+                         "coverage": { "days_with_data": 27, "days": 28 }, "change": { "impressions": 0.068, "actions": 0.072, "…": "…" } },
+    "same_period_last_year": { "start": "2025-08-27", "end": "2025-09-23", "totals": { "…": "…" }, "coverage": { "…": "…" }, "change": { "…": "…" } },
+    "by_day": [ { "date": "2026-09-23", "impressions": 235, "maps": 129, "search": 106, "actions": 11, "calls": 4, "website_clicks": 5, "direction_requests": 2 }, "…" ],
+    "by_surface": { "maps": 3823, "search": 3048 },
+    "by_device": { "mobile": 5243, "desktop": 1628 },
+    "actions_per_1000_impressions": 45.4,
+    "actions_per_1000_change": 0.004
+  },
+  "keywords": {
+    "available": true, "months": ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"], "latest_month": "2026-08",
+    "top": [
+      { "keyword": "plumber near me", "value": 504, "threshold": null, "previous_value": 487, "change": 17, "tracked": false },
+      { "keyword": "emergency plumber", "value": 144, "threshold": null, "previous_value": 151, "change": -7, "tracked": true },
+      { "keyword": "toilet repair", "value": null, "threshold": 15, "previous_value": null, "change": null, "tracked": false }
+    ],
+    "not_tracked": ["plumber near me", "maple leaf plumbing", "plumber toronto", "sump pump installation", "toilet repair"]
+  },
+  "reviews": {
+    "available": true, "average_rating": 4.6, "total": 64, "new_30d": 3, "new_90d": 7, "reply_rate_90d": 0.43, "median_reply_hours": 38.9,
+    "per_month": [ { "month": "2026-08", "count": 3, "average_rating": 5 }, { "month": "2026-09", "count": 2, "average_rating": 3.5 } ],
+    "distribution": { "1": 0, "2": 5, "3": 0, "4": 6, "5": 49 },
+    "unreplied": [ { "rating": 2, "created_at": "2026-09-26T14:37:03.632Z", "excerpt": "Came out within the hour for a burst pipe. Fair price.", "reviewer": null } ]
+  },
+  "media": { "available": true, "owner_count": 14, "customer_count": 22, "latest_owner_upload": "2026-08-16T17:25:36.539Z", "owner_uploads_per_month": { "2026-08": 3 } },
+  "posts": { "available": true, "total": 9, "last_post_at": "2026-09-14T17:25:36.539Z", "last_30_days": 2, "last_90_days": 5, "per_month": { "2026-09": 2 } },
+  "pending_google_edits": { "available": true, "has_pending": true, "diff_fields": ["regularHours"], "pending_fields": ["regularHours"] },
+  "verification": { "available": true, "has_voice_of_merchant": true, "has_business_authority": true, "state": "VERIFIED" },
+  "competitors": {
+    "available": true, "generated_at": "2026-09-26T17:25:36.832Z", "warning": null,
+    "rows": [
+      { "place_id": "ChIJdemoMapleLeafPlumbing01", "is_self": true, "source": "self", "name": "Maple Leaf Plumbing & Heating",
+        "rating": 4.6, "user_rating_count": 64, "primary_type": "plumber", "primary_type_label": "Plumber",
+        "has_hours": true, "has_website": true, "has_phone": true, "has_editorial_summary": null, "business_status": "OPERATIONAL",
+        "fetched_at": "2026-09-26T17:25:36.832Z", "stale": false, "error": null,
+        "center_rank": { "avg": 9.3, "top3_rate": 0.33, "keywords_found": 2, "keywords": 3 },
+        "public_score": { "score": 71, "flag": null, "parts": [ { "id": "rating", "points": 21, "max": 25, "available": true }, "…",
+                          { "id": "editorial_summary", "points": 0, "max": 5, "available": false } ] } },
+      { "place_id": "ChIJdemoDanforthDrainPros03", "is_self": false, "source": "tracking", "name": "Danforth Drain Pros",
+        "rating": 4.3, "user_rating_count": 38, "has_hours": false, "…": "…", "public_score": { "score": 55, "…": "…" } },
+      "… up to 5 competitors (source tracking or map_list)"
+    ],
+    "insights": [
+      { "id": "review_gap", "impact": 0.71, "place_id": "ChIJXbrc…", "message": "Toronto Plumbing sJ_O has 167 reviews; you have 64 (2.6× more). Ask every happy customer for a review." },
+      { "id": "rank_gap", "impact": 0.55, "place_id": "ChIJdemoDanforthDrainPros03", "message": "Danforth Drain Pros ranks higher than you at your location (average 7.3 vs 9.3). Compare their categories, reviews and posts with yours." }
+    ]
+  },
+  "sync": { "last_synced_at": "2026-09-26T17:21:36.539Z", "last_status": "done",
+            "types": { "performance": { "status": "ok", "message": null }, "…": "…" } },
+  "score_history": [ { "generated_at": "2026-09-26T17:25:36.832Z", "gbp_score": 50, "grade": "D", "public_score": 71 } ],
+  "api_calls": { "places_details": 5 },
+  "inputs": { "rank_run_id": "6ab8…", "sync_id": "6ab8…", "snapshot_id": "6ab8…" },
+  "generation": { "pending": false, "scheduled_for": null, "last_generated_at": "2026-09-26T17:25:36.832Z" }
+}
+```
+
+**Sections that can't be shown** are `{ "available": false, "reason": "…" }`:
+
+| reason | When |
+|---|---|
+| `gbp_not_connected` | The location has no GBP binding (added via Places search). Every private section: `gbp_score`, `performance`, `keywords`, `reviews`, `media`, `posts`, `pending_google_edits`, `verification`, `sync`. The competitor comparison still works. |
+| `v4_access_pending` | `reviews`, `media`, `posts` until Google approves v4 access (`GBP_V4_ENABLED=false`). The GBP Score then excludes the Activity and Reviews pillars: `partial: true`, `excluded_pillars: ["activity", "reviews"]`, rescaled to 100. |
+| `not_synced_yet` | Bound, but the first sync hasn't stored that data yet. |
+| `no_place_id` | `competitors` for a location without a place ID. |
+
+**GBP Score:** 5 pillars (completeness 25, activity 20, reviews 25, visibility 20, engagement 10); weights and thresholds in `src/gbp/scoring.config.ts`. A check is `scored` or `not_available`; a pillar with no available check is excluded and the rest rescaled. Grades: A ≥ 85, B ≥ 70, C ≥ 55, D ≥ 40, F.
+
+**Public Score:** the same formula for the client and every competitor, from public data only (Place Details + center ranks from the latest rank run's map list). Rating 25, review count 20, center rank 20, center top-3 rate 10, public profile 25 (category, hours, website, phone, editorial summary: the last is `available: false` unless `COMPETITOR_DETAILS_ATMOSPHERE=true`). Closed businesses score 0 with a `flag`.
+
+**Competitors:** the client, `tracking.competitors`, then the top 3 other businesses of the first keyword's map list (max 5 competitors). Place Details are fetched at most once per monthly cycle per business, or on a manual refresh (older than 24 h). A failed fetch keeps the previous facts with `stale: true` and `error`; without a Places key the section has `warning: "places_not_configured"`.
+
+**Errors:** **404** before the first report (`"No GBP report yet: it is generated after the first rank run or GBP sync."`), **400** for another `range`.
+
+For an unbound location (trimmed):
+
+```json
+{ "gbp_connected": false, "gbp_score": { "available": false, "reason": "gbp_not_connected" },
+  "performance": { "available": false, "reason": "gbp_not_connected" }, "…": "…",
+  "competitors": { "available": true, "rows": [ "… client and competitors with public_score …" ], "insights": [ "…" ] },
+  "score_history": [ { "generated_at": "…", "gbp_score": null, "grade": null, "public_score": 71 } ] }
+```
