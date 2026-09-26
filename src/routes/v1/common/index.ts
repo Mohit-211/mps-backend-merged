@@ -10,6 +10,8 @@ import contactUsRoutes from './contactUs.route';
 
 import locationRoute from './location.route';
 import rankingRoute from './ranking.route';
+import onboardingRoute from './onboarding.route';
+import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
 import rankTrackerRoute from './rankTracker.route';
 import reputationManagerRoute from './reputationManagerReport.route';
@@ -70,6 +72,16 @@ const commonRoutes = [
 		// Ranking reports (Phase 5): /locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}
 		path: '/locations',
 		route: rankingRoute,
+	},
+	{
+		// Onboarding (Phase 7a): /onboarding/{state,gbp-profiles,select-profile,complete}
+		path: '/onboarding',
+		route: onboardingRoute,
+	},
+	{
+		// Manual competitor search (Phase 7a): /places/search?q=&locationId=
+		path: '/places',
+		route: placesRoute,
 	},
 	{
 		path: '/business-categories',

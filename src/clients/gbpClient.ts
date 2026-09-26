@@ -38,7 +38,7 @@ export const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const OAUTH_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 
 export const DISCOVERY_READ_MASK =
-	'name,title,storefrontAddress,phoneNumbers,websiteUri,categories,latlng,metadata,languageCode,profile';
+	'name,title,storefrontAddress,serviceArea,phoneNumbers,websiteUri,categories,latlng,metadata,languageCode,profile';
 
 const MAX_ACCOUNT_PAGES = 20;
 const MAX_LOCATION_PAGES = 50;
@@ -136,6 +136,7 @@ export const mapLocation = (raw: RawLocation): GbpLocation | null => {
 					addressLines: (address.addressLines ?? []).filter((l) => l.trim().length > 0),
 				}
 			: null,
+		serviceAreaRegionCode: str(raw.serviceArea?.regionCode),
 		primaryPhone: str(raw.phoneNumbers?.primaryPhone),
 		websiteUri: str(raw.websiteUri),
 		primaryCategory: str(raw.categories?.primaryCategory?.displayName),

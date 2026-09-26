@@ -24,6 +24,8 @@ export interface GbpLocation {
 	title: string | null;
 	languageCode: string | null;
 	storefrontAddress: GbpPostalAddress | null;
+	/** serviceArea.regionCode: the country of a service-area business (no storefront). */
+	serviceAreaRegionCode: string | null;
 	primaryPhone: string | null;
 	websiteUri: string | null;
 	primaryCategory: string | null;
@@ -70,6 +72,7 @@ export interface RawLocation {
 		locality?: string;
 		addressLines?: string[];
 	};
+	serviceArea?: { regionCode?: string };
 	phoneNumbers?: { primaryPhone?: string };
 	websiteUri?: string;
 	categories?: { primaryCategory?: { displayName?: string } };

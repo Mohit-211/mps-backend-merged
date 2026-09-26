@@ -33,6 +33,8 @@ describe('tokenStore', () => {
 			expiryDate: expiry,
 			scope: 's',
 			status: 'active',
+			googleEmail: null,
+			googleSub: null,
 		});
 	});
 

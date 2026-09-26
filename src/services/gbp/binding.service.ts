@@ -5,6 +5,7 @@ import logger from '../../configs/logger';
 import { getAgenda } from '../../configs/agenda';
 import { postPublishStatus, tokenTypes } from '../../configs/constantTypes';
 import { GbpClient, gbpClient } from '../../clients/gbpClient';
+import { GbpLocation } from '../../clients/types/gbp';
 import { JOB_NAMES } from '../../jobs/jobNames';
 import { GBPPost, Location, User, UserGBP } from '../../models';
 import { ApiError } from '../../utils';
@@ -29,6 +30,8 @@ export interface BindInput {
 	location_id: string;
 	gbpAccountId: string;
 	gbpLocationId: string;
+	/** Internal: a profile already fetched from Google for gbpLocationId (onboarding), to avoid a second call. */
+	profile?: GbpLocation;
 }
 
 export type PlaceIdStatus = 'set' | 'match' | 'conflict' | 'none';
@@ -87,11 +90,15 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 			);
 		}
 
-		let gbp;
-		try {
-			gbp = await client.getLocation(userId, input.gbpLocationId);
-		} catch (err) {
-			throw toGbpApiError(err, { forbiddenMessage: 'The connected Google account cannot access this Business Profile location.' });
+		let gbp: GbpLocation;
+		if (input.profile && input.profile.name === input.gbpLocationId) {
+			gbp = input.profile;
+		} else {
+			try {
+				gbp = await client.getLocation(userId, input.gbpLocationId);
+			} catch (err) {
+				throw toGbpApiError(err, { forbiddenMessage: 'The connected Google account cannot access this Business Profile location.' });
+			}
 		}
 
 		await UserGBP.deleteMany({ location_id: location._id });

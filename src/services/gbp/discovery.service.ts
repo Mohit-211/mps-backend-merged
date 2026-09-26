@@ -30,6 +30,8 @@ export interface DiscoveredLocation {
 	city: string | null;
 	zip_code: string | null;
 	address: string | null;
+	/** Storefront country, or the service area's for a business without a storefront ("US", "CA", …). */
+	region_code: string | null;
 	place_id: string | null;
 	latlng: { latitude: number; longitude: number } | null;
 	bound_location_id: string | null;
@@ -76,6 +78,7 @@ export const toDiscovered = (account: GbpAccount, location: GbpLocation, boundTo
 	city: location.storefrontAddress?.locality ?? null,
 	zip_code: location.storefrontAddress?.postalCode ?? null,
 	address: formatAddress(location.storefrontAddress),
+	region_code: location.storefrontAddress?.regionCode ?? location.serviceAreaRegionCode,
 	place_id: location.placeId,
 	latlng: location.latlng,
 	bound_location_id: boundTo,

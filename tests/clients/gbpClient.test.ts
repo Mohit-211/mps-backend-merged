@@ -189,6 +189,7 @@ describe('gbpClient tokens', () => {
 			refreshToken: '1//FAKE-refresh-initial',
 			expiryDate: new Date(T0 + 3599_000),
 			scope: 'https://www.googleapis.com/auth/business.manage',
+			idToken: null,
 		});
 		const form = new URLSearchParams(fake.requests[0].data as string);
 		expect(Object.fromEntries(form)).toMatchObject({
