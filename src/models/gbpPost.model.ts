@@ -26,6 +26,8 @@ export interface IGBPPost extends Document {
     offer?: IOffer | null;
     searchUrl?: string;
     status: string;
+    /** Why the post failed or was cancelled (e.g. "GBP location unbound"). */
+    last_error?: string | null;
     is_posted: boolean;
     is_scheduled: boolean;
     is_active: boolean;
@@ -235,6 +237,10 @@ const gbpPostSchema = new Schema<IGBPPost>(
             type: String,
             enum: postPublishStatusArr,
             default: postPublishStatus.live
+        },
+        last_error: {
+            type: String,
+            default: null,
         },
         is_active: {
             type: Boolean,

@@ -1,143 +1,27 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from 'http-status';
-import { google } from 'googleapis';
 import axios from 'axios'
 import moment from 'moment-timezone';
 import { DateTime } from 'luxon'
 
-import { ApiError, mongoFunctions } from '../../utils';
+import { ApiError } from '../../utils';
 import { BodyDefinition, FilesDefinition, ParamsDefinition } from '../../types/RouteDefinition';
-import { GBPPost, UserAuth, UserGBP } from '../../models';
-import { mongoOperationsTypes, postPublishStatus, tokenTypes } from '../../configs/constantTypes';
-import { oAuth2ClientGBP, refreshAccessToken } from '../../configs/gbpOauthClinet';
+import { GBPPost, UserAuth } from '../../models';
+import { postPublishStatus, tokenTypes } from '../../configs/constantTypes';
+import { refreshAccessToken } from '../../configs/gbpOauthClinet';
 import { agenda } from '../../configs/mongoConnection';
-import { fetchNAPDatFromGoogle } from '../../helpers';
+import { BindResult, DiscoveryResult, UnbindResult, bindingService, discoveryService } from '../gbp';
 
 
-export const getRegisteredGoogleBusinessProfile = async (body: BodyDefinition): Promise<any> => {
-	try {
-		const { user } = body;
-
-		const authTokenDoc = await UserAuth.findOne({
-			user_id: user._id,
-			is_active: true,
-			token_type: tokenTypes.GBP,
-		});
-
-		if (!authTokenDoc) {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'Please connect with Google Business Profile');
-		}
-
-		let accessToken = authTokenDoc.access_token;
-		if (new Date() > new Date(authTokenDoc.expiry_date)) {
-			accessToken = await refreshAccessToken(authTokenDoc.refresh_token);
-		}
-
-		oAuth2ClientGBP.setCredentials({
-			access_token: accessToken,
-			refresh_token: authTokenDoc.refresh_token,
-		});
-
-		const accountMgmt = google.mybusinessaccountmanagement({
-			version: 'v1',
-			auth: oAuth2ClientGBP,
-		});
-
-		const accountRes = await accountMgmt.accounts.list();
-		const accounts = accountRes.data.accounts;
-
-		if (!accounts || accounts.length === 0) {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'No Google Business accounts found for this user.');
-		}
-
-		const accountId = accounts[0].name;
-		console.log("Using accountId:", accountId);
-
-		const businessInfo = google.mybusinessbusinessinformation({
-			version: 'v1',
-			auth: oAuth2ClientGBP,
-		});
-
-		const locationsRes = await businessInfo.accounts.locations.list({
-			parent: accountId,
-			// readMask: 'storeCode,regularHours,name,languageCode,title,phoneNumbers,storefrontAddress,websiteUri,regularHours,specialHours,labels,latlng,openInfo,metadata,profile,categories,serviceArea,relationshipData,moreHours,adWordsLocationExtensions'
-			readMask: 'name,languageCode,title,phoneNumbers,profile,storefrontAddress,websiteUri,regularHours,latlng,openInfo,metadata,phoneNumbers,categories'
-		});
-		
-		const locations = locationsRes.data.locations || [];
-		// return locations
-		
-		const response: any[] = [];
-		for (let location of locations) {
-			const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
-			const locationObj: any = {
-				gbpAccountId: `${accountId}`,
-				gbpLocationId: `${location?.name}`,
-				title: location?.title,
-				websiteUri: location?.websiteUri || 'NA',
-				languageCode: location?.languageCode,
-				metadata: location?.metadata,
-				profile: location?.profile,
-				mobile: location?.phoneNumbers?.primaryPhone || null,
-				business_category: location?.categories?.primaryCategory?.displayName || null,
-				country: location?.storefrontAddress && location?.storefrontAddress?.regionCode ? regionNames.of(location?.storefrontAddress?.regionCode) : null,
-				state: location?.storefrontAddress?.administrativeArea || null,
-				city: location?.storefrontAddress?.locality || null,
-				zip_code: location?.storefrontAddress?.postalCode || null,
-			}
-			if(location.metadata.placeId){
-				let placeDetails = await fetchNAPDatFromGoogle(location.metadata.placeId)
-				if(placeDetails){
-					locationObj.address = placeDetails.formatted_address || null
-				}
-			}
-
-			response.push(locationObj)
-		}
-		return response;
-
-	} catch (error: any) {
-		// console.error("Error fetching Google Business Profile:", JSON.stringify(error, null, 2));
-		const googleError = error.errors?.[0]?.message || error.message;
-		throw new ApiError(
-			error.code || httpStatus.INTERNAL_SERVER_ERROR,
-			googleError || 'Failed to fetch Google Business locations',
-		);
-	}
+// Phase 6: discovery across all accounts with no Places calls (C9, C22), and server-side binding.
+export const getRegisteredGoogleBusinessProfile = async (body: BodyDefinition): Promise<DiscoveryResult> => {
+	const { user } = body;
+	return discoveryService.listAllLocations(user._id);
 };
 
-export const bindGoogleBusinessProfileWithUser = async (body: BodyDefinition): Promise<any> => {
-	try {
-		const { user, gbpAccountId, gbpLocationId, title, websiteUri, languageCode, metadata, profile, location_id } = body;
-		let userGBPObj = {
-			user_id: user._id,
-			gbpAccountId,
-			gbpLocationId,
-			title,
-			websiteUri,
-			languageCode,
-			metadata,
-			profile,
-			location_id
-		}
-		await UserGBP.deleteMany({
-			user_id: user?._id,
-			location_id
-		})
-		await mongoFunctions({
-			schema: UserGBP,
-			createData: userGBPObj,
-			operationType: mongoOperationsTypes.CREATE,
-		});
-		return ''
-	} catch (error: any) {
-		// console.error("Error fetching Google Business Profile:", JSON.stringify(error, null, 2));
-		const googleError = error.errors?.[0]?.message || error.message;
-		throw new ApiError(
-			error.code || httpStatus.INTERNAL_SERVER_ERROR,
-			googleError || 'Failed to fetch Google Business locations',
-		);
-	}
+export const bindGoogleBusinessProfileWithUser = async (body: BodyDefinition): Promise<BindResult> => {
+	const { user, gbpAccountId, gbpLocationId, location_id } = body;
+	return bindingService.bindLocation(user._id, { location_id, gbpAccountId, gbpLocationId });
 };
 
 export const addPostToGBP = async (body: BodyDefinition): Promise<any> => {
@@ -421,38 +305,10 @@ export const deleteGBPPost = async (userId: string, gbpPostId: string): Promise<
 	}
 };
 
-export const unbindGoogleBusinessProfileWithUser = async (body: BodyDefinition): Promise<any> => {
-	try {
-		const { user, gbpAccountId, gbpLocationId, title, websiteUri, languageCode, metadata, profile, location_id } = body;
-		let userGBPObj = {
-			user_id: user._id,
-			gbpAccountId,
-			gbpLocationId,
-			title,
-			websiteUri,
-			languageCode,
-			metadata,
-			profile,
-			location_id
-		}
-		await UserGBP.deleteMany({
-			user_id: user?._id,
-			location_id
-		})
-		await mongoFunctions({
-			schema: UserGBP,
-			createData: userGBPObj,
-			operationType: mongoOperationsTypes.CREATE,
-		});
-		return ''
-	} catch (error: any) {
-		// console.error("Error fetching Google Business Profile:", JSON.stringify(error, null, 2));
-		const googleError = error.errors?.[0]?.message || error.message;
-		throw new ApiError(
-			error.code || httpStatus.INTERNAL_SERVER_ERROR,
-			googleError || 'Failed to fetch Google Business locations',
-		);
-	}
+// C12: a real unbind (binding, scheduled jobs, and the tokens if it was the last binding).
+export const unbindGoogleBusinessProfileWithUser = async (body: BodyDefinition): Promise<UnbindResult> => {
+	const { user, location_id } = body;
+	return bindingService.unbindLocation(user._id, location_id);
 };
 
 /*

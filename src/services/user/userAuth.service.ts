@@ -44,6 +44,7 @@ import { TokenDefination } from "../../types/interfaces";
 import { oAuth2Client } from "../../configs/oAuth2Client";
 import config from "../../configs/config";
 import { gbpOAuthService } from "../gbp/oauth.service";
+import { bindingService } from "../gbp/binding.service";
 import { tokenStore } from "../gbp/tokenStore";
 
 export const sendOTP = async (body: BodyDefinition) => {
@@ -620,42 +621,11 @@ export const gBPAuthCallback = async (query: QueryDefinition) =>
     error: typeof query.error === "string" ? query.error : undefined,
   });
 
+// Disconnect GBP: revoke at Google (best effort), remove every binding and its scheduled jobs,
+// delete the stored tokens (services/gbp/binding.service.ts).
 export const gBPConnectionRevoke = async (body: BodyDefinition) => {
-  try {
-    let { user } = body;
-
-    const authTokenDoc: IUserAuth = await UserAuth.findOne({
-      user_id: user._id,
-      is_active: true,
-      token_type: tokenTypes.GBP,
-    });
-
-    if (!authTokenDoc || !authTokenDoc.refresh_token) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "No Token Found!");
-    }
-    let isRevoked = await revokeToken(authTokenDoc.refresh_token);
-
-    if (!isRevoked) {
-      throw new ApiError(
-        httpStatus.INTERNAL_SERVER_ERROR,
-        "Failed to revoke google analutics access"
-      );
-    }
-
-    await UserAuth.deleteOne({
-      user_id: user._id,
-      token_type: tokenTypes.GBP,
-    });
-
-    await User.findOneAndUpdate({ _id: user._id }, { is_gbp_connected: false });
-
-    return "";
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
+  const { user } = body;
+  return bindingService.disconnect(user._id);
 };
 
 // Utility for store and revoke token
