@@ -77,6 +77,27 @@ export interface ILocationSummary {
   public_score: number | null;
   rating: number | null;
   review_count: number | null;
+  /** Phase 11 (dashboards), written after each rank run / report: */
+  top3_rate?: number | null;
+  rank_trend?: { run_at: Date; overall_avg_rank: number | null }[];
+  movement?: LocationMovement | null;
+  declines?: { keyword: string; change: number | null; label: string }[];
+  key_competitor?: { place_id: string; name: string | null; avg_rank: number | null; self_avg_rank: number | null; ahead: boolean } | null;
+  gbp_score_change?: number | null;
+  top_fixes?: { id: string; pillar: string; label: string; fix_hint: string | null; lost: number }[];
+  gbp_issues?: { id: string; label: string }[];
+  reviews_available?: boolean | null;
+  unreplied?: number | null;
+}
+
+/** Keyword movement of the latest rank run vs the previous one (Phase 11). */
+export interface LocationMovement {
+  improved: number;
+  declined: number;
+  unchanged: number;
+  entered_top_60: number;
+  dropped_out_of_top_60: number;
+  not_comparable: number;
 }
 
 /** Where the location's lat/lng came from: the GBP profile, a Place Details lookup, or the user (city/ZIP). */
@@ -254,6 +275,16 @@ const locationSchema = new Schema<ILocation>(
           public_score: { type: Number, default: null },
           rating: { type: Number, default: null },
           review_count: { type: Number, default: null },
+          top3_rate: { type: Number, default: null },
+          rank_trend: { type: Schema.Types.Mixed, default: [] },
+          movement: { type: Schema.Types.Mixed, default: null },
+          declines: { type: Schema.Types.Mixed, default: [] },
+          key_competitor: { type: Schema.Types.Mixed, default: null },
+          gbp_score_change: { type: Number, default: null },
+          top_fixes: { type: Schema.Types.Mixed, default: [] },
+          gbp_issues: { type: Schema.Types.Mixed, default: [] },
+          reviews_available: { type: Boolean, default: null },
+          unreplied: { type: Number, default: null },
         },
         { _id: false },
       ),

@@ -22,6 +22,7 @@ import blogCategoryRoutes from './blogCategory.routes';
 import authRoute from './auth.route';
 import organizationRoute from './organization.route';
 import clientsRoute from './clients.route';
+import dashboardRoute from './dashboard.route';
 
 
 
@@ -85,6 +86,11 @@ const commonRoutes = [
 		// Phase 8: agency clients
 		path: '/clients',
 		route: clientsRoute,
+	},
+	{
+		// Phase 11: Business / Agency dashboard
+		path: '/dashboard',
+		route: dashboardRoute,
 	},
 	{
 		// Onboarding (Phase 7a): /onboarding/{state,gbp-profiles,select-profile,complete}

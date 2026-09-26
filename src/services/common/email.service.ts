@@ -71,6 +71,24 @@ export const sendForgotPasswordOTP = async (to: string, otp: string): Promise<bo
   }
 };
 
+/** Phase 11: a team invitation. The link carries the one-time token; it is never logged here. */
+export const sendInvitationEmail = async (to: string, link: string, organizationName: string, role: string): Promise<boolean> => {
+  try {
+    const roleLabel = role === 'client_user' ? 'a client' : 'a team member';
+    await transport.sendMail({
+      from: `${config.email.from}`,
+      to,
+      subject: `You're invited to ${organizationName} on MyPageSEO`,
+      text: `You have been invited to join ${organizationName} on MyPageSEO as ${roleLabel}. Accept the invitation: ${link}\nThe link expires in ${config.auth.invitationTtlDays} days.`,
+      html: `<p>You have been invited to join <strong>${organizationName.replace(/[<>&"]/g, '')}</strong> on MyPageSEO as ${roleLabel}.</p><p><a href="${link}">Accept the invitation</a></p><p>The link expires in ${config.auth.invitationTtlDays} days.</p>`,
+    });
+    return true;
+  } catch {
+    logger.error('Invitation email could not be sent');
+    return false;
+  }
+};
+
 export const sendResetPasswordConfirmationMail = async (to: string): Promise<void> => {
   try {
     const subject = 'Successfully Changed password';

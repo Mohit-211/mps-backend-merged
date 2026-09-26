@@ -1718,3 +1718,111 @@ A business organization gets **403** `{ "reason": "agency_only" }`. A `client_us
 - **Location steps:** `profile_selected` (GBP) or `place_selected` (Places search) → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`.
 - `POST /onboarding/select-profile` accepts `client_id` (agency) and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind-with-user`).
 - `POST /onboarding/complete` no longer needs a GBP binding: it queues the first rank run, the first GBP sync only when bound, and sets the monthly refresh.
+
+## Dashboard and team (Phase 11)
+
+Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
+
+### `GET /api/v1/dashboard[?page=&limit=&sort=name|client|rank|rank_change|gbp_score&order=asc|desc]`
+
+The shape follows the organization type. **It reads only the stored per-location summaries** (`Location.summary`, written after every rank run and GBP report), plus location statuses and client names. No rank-run or report documents are read, and nothing calls Google. A `client_user` gets the agency shape for its assigned clients only.
+
+**Business:**
+
+```json
+{ "type": "business", "locations_count": 1,
+  "visibility": { "avg_rank": 21.3, "change": 12.6, "top3_rate": 0.07,
+                  "trend": [ { "run_at": "2026-07-27T…", "avg_rank": 22.9 }, { "run_at": "2026-08-26T…", "avg_rank": 33.9 }, { "run_at": "2026-09-25T…", "avg_rank": 21.3 } ] },
+  "gbp": { "available": true, "score": 50, "grade": "D", "change": -13, "partial": false },
+  "reviews": { "available": true, "rating": 4.6, "count": 64, "unreplied": 10 },
+  "movement": { "improved": 2, "declined": 0, "unchanged": 0, "entered_top_60": 1, "dropped_out_of_top_60": 0, "not_comparable": 0 },
+  "key_competitor": { "place_id": "ChIJdemoDanforthDrainPros03", "name": "Danforth Drain Pros", "avg_rank": 10, "self_avg_rank": 21.3, "ahead": true,
+                      "location_id": "…", "location_name": "Maple Leaf Plumbing & Heating" },
+  "recommended_actions": [
+    { "id": "ranking:competitor_ahead", "source": "ranking", "location_id": "…", "location_name": "Maple Leaf Plumbing & Heating",
+      "title": "Danforth Drain Pros ranks ahead of you", "detail": "Average rank 10 vs your 21.3. Compare their reviews, categories and posts.", "impact": 0.57 },
+    { "id": "gbp:map_rank", "source": "gbp", "title": "Average map rank", "detail": "Improve relevance and prominence for your keywords (categories, reviews, posts).", "impact": 0.35, "…": "…" } ],
+  "refresh": { "last_refreshed_at": "2026-09-26T…", "next_refresh_at": "2026-10-16T…" },
+  "status_counts": { "active": 1, "setup_required": 0, "gbp_not_connected": 0, "reconnect_required": 0 },
+  "locations": [ { "location_id": "…", "name": "Maple Leaf Plumbing & Heating", "status": "active", "avg_rank": 21.3, "change": 12.6, "gbp_score": 50 } ] }
+```
+
+- **`visibility`:** `avg_rank` is the overall average map rank (the lower the better). `change` is the previous run minus the latest (positive = improved). `top3_rate` is the share of tracker points in the top 3. With several locations these are the means over the locations with data, and the trend is averaged from the latest run backwards.
+- **`gbp`:** `{ available: false, reason: "gbp_not_connected" | "no_report" }` without data. `change` is the difference from the previous report.
+- **`reviews`:** `{ available: false, reason: "v4_access_pending" | "gbp_not_connected", public_rating, public_review_count }` until v4 access. The public numbers come from Place Details.
+- **`movement`:** keyword changes of the latest rank run vs the previous one (summed over locations).
+- **`key_competitor`:** the tracked competitor furthest ahead (or the best-ranked one when none is ahead), or `null`.
+- **`recommended_actions`:** the top 5 by `impact` (0–1) across locations. Sources:
+  - `connection` (reconnect Google)
+  - `setup` (finish setup)
+  - `ranking` (a keyword that dropped out of the top 60, the biggest decline, a competitor ahead)
+  - `gbp` (the GBP Score's top fixes)
+
+**Agency:**
+
+```json
+{ "type": "agency", "clients_count": 2, "locations_count": 3,
+  "portfolio": { "avg_rank": 17.8, "avg_rank_change": 4, "avg_top3_rate": 0.05, "avg_gbp_score": 47, "avg_gbp_score_change": -13 },
+  "status_counts": { "active": 1, "setup_required": 0, "gbp_not_connected": 1, "reconnect_required": 1 },
+  "declines": [ { "location_id": "…", "name": "Queen West Plumbing Co.", "client": { "client_id": "…", "name": "Maple Leaf Group" },
+                  "change": -0.7, "declined_keywords": 1, "dropped_out": 0 } ],
+  "gbp_issues": [ { "location_id": "…", "name": "Queen West Plumbing Co.", "client": { "…": "…" },
+                    "issues": [ { "id": "reconnect_required", "label": "The Google connection was revoked: reconnect" },
+                                { "id": "not_verified", "label": "The profile is not verified" },
+                                { "id": "pending_google_edits", "label": "Google has suggested edits waiting for review" },
+                                { "id": "holiday_hours", "label": "Holiday hours are missing for upcoming holidays" } ] } ],
+  "recommended_actions": [ { "id": "connection:reconnect", "source": "connection", "location_name": "Queen West Plumbing Co.", "title": "Reconnect Google", "impact": 0.95, "…": "…" }, "…" ],
+  "table": { "rows": [
+      { "location_id": "…", "name": "Danforth Drain Pros", "client": { "client_id": "…", "name": "Danforth Services" }, "status": "gbp_not_connected",
+        "visibility": { "avg_rank": 10, "change": 0, "top3_rate": 0.07 }, "gbp": null },
+      { "location_id": "…", "name": "Maple Leaf Plumbing & Heating", "client": { "…": "…" }, "status": "active",
+        "visibility": { "avg_rank": 21.3, "change": 12.6, "top3_rate": 0.07 }, "gbp": { "score": 50, "grade": "D", "change": -13 } } ],
+    "page": 1, "limit": 25, "total": 3 } }
+```
+
+- **`declines`:** locations whose average rank got worse, or with a keyword that dropped out of the top 60. Worst first, max 10.
+- **`gbp_issues`:** `reconnect_required`, `not_verified`, `pending_google_edits`, `sync_failed`, `holiday_hours`; max 10 locations.
+- **`table`:** sorted by `sort` / `order` (default `name`); locations without data sort last.
+
+### Team (owner only)
+
+`POST /organization/invitations` `{ "email": "new-teammate@example.com", "role": "member" }` or `{ …, "role": "client_user", "client_ids": ["…"] }` (agency only):
+
+```json
+{ "invitation_id": "…", "email": "new-teammate@example.com", "role": "member", "client_ids": [], "status": "pending",
+  "expires_at": "2026-10-04T…", "invited_by": "…", "created_at": "…", "email_sent": true }
+```
+
+- **The link** is `${FRONTEND_URL}/invite?token=…`. The token is 32 random bytes, stored only as a SHA-256 hash, valid 7 days (`INVITATION_TTL_DAYS`), single use.
+- **Inviting the same email again** while it's pending issues a new link; the old one stops working.
+- **Development:** no email is sent; the server log shows `invitation for n***@example.com: <link>`.
+- **Refusals:** **409** `already_member`; **403** `agency_only` (a client_user in a business); **400** without valid `client_ids`; **429** above 20 invitations an hour per organization.
+
+| Endpoint | Response |
+|---|---|
+| `GET /organization/invitations[?status=pending\|accepted\|revoked\|expired]` | `[invitation]`, newest first |
+| `DELETE /organization/invitations/:invitationId` | `{ "revoked": true, "invitation_id": "…" }` |
+| `PATCH /organization/members/:userId` `{ role, client_ids? }` | `{ "user_id", "role", "client_ids" }` |
+| `DELETE /organization/members/:userId` | `{ "removed": true, "user_id": "…" }`; the user's default organization moves to another membership |
+
+The owner can't be changed or removed: **403** `{ "reason": "owner_protected" }`. Ownership transfer is not available. `GET /organization/members` rows now include `invited_by` (null for the owner) and `joined_at`.
+
+### Accepting an invitation (public; the token goes in the body, never in the URL)
+
+`POST /auth/invitations/inspect` `{ "token": "…" }`:
+
+```json
+{ "organization": { "name": "Northern Local SEO", "type": "agency" }, "email": "new-teammate@example.com", "role": "member",
+  "status": "pending", "expires_at": "…", "account_exists": false }
+```
+
+**404** for an unknown token; **410** `{ "reason": "expired" | "revoked" | "accepted" }`.
+
+`POST /auth/invitations/accept`:
+
+| Body | Response |
+|---|---|
+| `{ token, name, password }` for a **new** email | The account is created (verified: the link proves the mailbox) and logged in: `{ "accepted": true, "organization_id", "login_required": false, "tokens", "user", "organizations", "current_organization_id", "onboarding" }` |
+| `{ token }` for an **existing** account | `{ "accepted": true, "organization_id": "…", "login_required": true }`: the membership is added; log in normally (the link alone isn't a login) |
+
+A new email without `name` / `password` → **400** `account_details_required`. Rate limit: 20 per 15 minutes per IP (inspect + accept).

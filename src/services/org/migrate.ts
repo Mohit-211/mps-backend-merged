@@ -37,7 +37,7 @@ type Id = Types.ObjectId | string;
 const DUPLICATE_KEY = 11000;
 
 const ownerOrgOf = async (userId: Id): Promise<Types.ObjectId | null> => {
-	const m = await Membership.findOne({ user_id: userId, role: 'owner', status: 'active' }).sort({ created_at: 1 }).lean<IMembership>();
+	const m = await Membership.findOne({ user_id: userId, role: 'owner', status: 'active' }).sort({ created_at: 1, _id: 1 }).lean<IMembership>();
 	return m ? (m.organization_id as Types.ObjectId) : null;
 };
 
@@ -52,7 +52,7 @@ export const migrateOrganizations = async (): Promise<MigrationReport> => {
 		summaries_updated: 0,
 		duplicates: [],
 	};
-	const users = await User.find({}).select({ user_type: 1, owner_id: 1, email: 1 }).sort({ created_at: 1 }).lean<IUser[]>();
+	const users = await User.find({}).select({ user_type: 1, owner_id: 1, email: 1 }).sort({ created_at: 1, _id: 1 }).lean<IUser[]>();
 	const profiles = new Map(
 		(await Profile.find({ user_id: { $in: users.map((u) => u._id) } }).select({ user_id: 1, name: 1, business_name: 1, country: 1 }).lean<IProfile[]>()).map((p) => [
 			String(p.user_id),
@@ -109,7 +109,7 @@ export const migrateOrganizations = async (): Promise<MigrationReport> => {
 		if (!createdBy) return null;
 		const own = await ownerOrgOf(createdBy as Id);
 		if (own) return own;
-		const member = await Membership.findOne({ user_id: createdBy, status: 'active' }).sort({ created_at: 1 }).lean<IMembership>();
+		const member = await Membership.findOne({ user_id: createdBy, status: 'active' }).sort({ created_at: 1, _id: 1 }).lean<IMembership>();
 		return member ? (member.organization_id as Types.ObjectId) : null;
 	};
 	const locations = await Location.find({ $or: [{ organization_id: null }, { organization_id: { $exists: false } }] }).lean<ILocation[]>();
