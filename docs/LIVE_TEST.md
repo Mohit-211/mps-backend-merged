@@ -37,6 +37,13 @@ The coordinates are only a search bias (the city center is fine). The script mak
 
 **Check** that the name and address are the right business before going on. If the top result is wrong, refine the query rather than guessing a place ID.
 
+**Picking a business from a list** (e.g. "an independent plumber in Dallas"):
+
+```sh
+npm run find:place -- "plumber Dallas TX" 32.7767 -96.7970 --names --region=us   # 1 Pro call: up to 20 names + place IDs
+npm run find:place -- --id=<place_id>                                             # 1 Place Details call: name, address, coordinates
+```
+
 ## Step 2: live-test user and location (`setup:live-test`, 0 calls)
 
 ```sh
@@ -99,11 +106,12 @@ Reads the run from the database only and writes `docs/calibration/<run date>-<lo
 | `row`, `col` | grid position (row 0 = north); for tracker points `row` is `C`/`N`/`S`/`E`/`W` |
 | `lat`, `lng` | the sample point |
 | `api_rank` | our rank for the business: a number, `60+` or `error` |
+| `api_results` | how many results our search returned at that point: `17` means the whole list had 17 places (a shallow market); `20+` means paging stopped once the business was found, so the list is longer |
 | `api_top3` | our top 3 at that point, separated by " \| ". Names come from the run's Map Ranking lists (center, both keywords); a place that never appears there is shown as `(unknown: <id>)`, because naming it would cost an extra paid call |
 | `maps_url` | `https://www.google.com/maps/search/<keyword>/@<lat>,<lng>,14z` |
 | `manual_rank`, `manual_top3`, `notes` | blank, for you |
 
-It refuses to overwrite an existing sheet (it may hold your entries) unless `--force` is given.
+It refuses to overwrite an existing sheet (it may hold your entries) unless `--force` is given. `--suffix=r2` writes `<run date>-<location>-r2.csv`, for a second round on the same day.
 
 ## Step 6: fill in the manual columns
 
@@ -127,7 +135,9 @@ It prints:
 - **Top-3 overlap:** the average share of our top 3 found in the manual top 3, over rows where our top 3 is fully named.
 - **Verdict:** **PASS** if within-2 ≥ 70% **and** top-3 overlap ≥ 60%, otherwise **FAIL** with the reasons and the 5 worst rows (gap with `60+` counted as 61).
 
-Rows without a `manual_rank`, and rows where our search errored, are skipped and counted.
+Rows without a `manual_rank`, and rows where our search errored, are skipped and counted. The output also shows how many rows were scored per keyword and point type.
+
+`--tracker-only` scores only the tracker rows (C/N/S/E/W), so you can check 5 rows per keyword instead of 13.
 
 ## How to read the results
 
