@@ -30,10 +30,6 @@ export * from "./userSubscription.model";
 export * from "./contactUs.model";
 
 // location service — GBP / rank tracking / reports
-export * from "./rankTrackerReport.model";
-export * from "./gbpAuditReport.model";
-export * from "./localSearchGridReport.model";
-export * from "./localMapRanking.model";
 export * from "./userGBP.model";
 export * from "./gbpPost.model";
 export * from "./campaign.model";

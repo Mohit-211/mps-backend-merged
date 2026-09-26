@@ -13,12 +13,7 @@ import rankingRoute from './ranking.route';
 import onboardingRoute from './onboarding.route';
 import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
-import rankTrackerRoute from './rankTracker.route';
-import reputationManagerRoute from './reputationManagerReport.route';
-import gbpAuditRoute from './gbpAudit.route';
 import whiteLabelRoute from './whitelabelProfile.route';
-import localSearchGridRoute from './localSearchGrid.route';
-import localMapRankingRoute from './localMapRankingReport.route';
 import gbpPSRoute from './gbpPostSchedular.route';
 import citationRoute from './citation.route';
 import paymentRoute from './payment.route';
@@ -88,28 +83,8 @@ const commonRoutes = [
 		route: businessCategoryRoute,
 	},
 	{
-		path: '/rank-tracker',
-		route: rankTrackerRoute,
-	},
-	{
-		path: '/reputation-manager',
-		route: reputationManagerRoute,
-	},
-	{
-		path: '/gbp-audit',
-		route: gbpAuditRoute,
-	},
-	{
 		path: '/white-label-profiles',
 		route: whiteLabelRoute,
-	},
-	{
-		path: '/local-search-grid',
-		route: localSearchGridRoute,
-	},
-	{
-		path: '/local-map-ranking',
-		route: localMapRankingRoute,
 	},
 	{
 		path: '/gbp',

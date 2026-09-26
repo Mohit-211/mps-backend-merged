@@ -1,7 +1,6 @@
 import httpStatus from 'http-status';
 import { getJson } from "serpapi";
 
-import { ICompetitor, ILocation } from '../models';
 import { ApiError } from '../utils';
 
 

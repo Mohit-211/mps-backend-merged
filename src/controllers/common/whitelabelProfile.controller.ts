@@ -1,6 +1,6 @@
 import httpStatus from 'http-status';
 import { responseWrapper, catchAsync, pick } from '../../utils';
-import { gbpAuditService, rankTrackerService, reputationManagerService, whitelabelProfileService } from '../../services';
+import { whitelabelProfileService } from '../../services';
 
 export const createNewProfile = catchAsync(async (req, res) => {
     const body = pick(req.body, ['user', 'name', 'header', 'footer', 'color']);
@@ -49,33 +49,5 @@ export const deleteWhiteLevelProfile = catchAsync(async (req, res) => {
     return responseWrapper(
         res,
         result
-    );
-});
-
-export const getRankTrackerReportForWLP = catchAsync(async (req, res) => {
-    const body = pick(req.body, ['locationDoc']);
-    const result = await rankTrackerService.getRankTrackerReport(body);
-    return responseWrapper(
-        res,
-        result,
-    );
-});
-
-
-export const getGBPAuditReportForWLP = catchAsync(async (req, res) => {
-    const body = pick(req.body, ['locationDoc']);
-    const result = await gbpAuditService.getGBPAuditReport(body);
-    return responseWrapper(
-        res,
-        result,
-    );
-});
-
-export const getReputationManagerReportForWLP = catchAsync(async (req, res) => {
-    const body = pick(req.body, ['locationDoc']);
-    const result = await reputationManagerService.getMonitorReviewReport(body);
-    return responseWrapper(
-        res,
-        result,
     );
 });

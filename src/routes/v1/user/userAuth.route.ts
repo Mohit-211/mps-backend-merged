@@ -47,22 +47,6 @@ router.get(
   userAuthController.deactivateAccount
 );
 
-//Analytics
-router.get(
-  "/google/analytics",
-  [userAuthMiddleware.verifyAuthJWTToken],
-  userAuthController.getAnalyticsAuthUrl
-);
-router.get(
-  "/google/analytics/callback",
-  userAuthController.analyticsAuthCallback
-);
-router.post(
-  "/google/analytics/revoke",
-  [userAuthMiddleware.verifyAuthJWTToken],
-  userAuthController.analyticsConnectionRevoke
-);
-
 //GBP
 router.get(
   "/google/gbp",

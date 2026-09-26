@@ -14,9 +14,8 @@ jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 const cancelMock = jest.fn(async () => 0);
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ cancel: cancelMock, schedule: jest.fn() }), stopAgenda: jest.fn() }));
 
-// C22: discovery must never call Places. Both the legacy helper and the new client are watched.
-const legacyPlaceDetails = jest.fn();
-jest.mock('../../src/helpers', () => ({ ...jest.requireActual('../../src/helpers'), fetchNAPDatFromGoogle: legacyPlaceDetails }));
+// C22: discovery must never call Places (the legacy Place Details helper was deleted in the cleanup;
+// the new Places client is watched).
 const placesCalls = jest.fn();
 jest.mock('../../src/clients/placesClient', () => {
 	const actual = jest.requireActual('../../src/clients/placesClient');
@@ -89,7 +88,6 @@ afterAll(async () => db.stop());
 beforeEach(async () => {
 	await clearDb();
 	fake.revoked = [];
-	legacyPlaceDetails.mockClear();
 	placesCalls.mockClear();
 });
 
@@ -158,7 +156,6 @@ describe('GBP routes: discovery, bind, unbind, disconnect', () => {
 			address: '100 Example St, Suite 5, Dallas, TX 75201',
 			place_id: 'ChIJfakeGbpPlace000000001',
 		});
-		expect(legacyPlaceDetails).not.toHaveBeenCalled();
 		expect(placesCalls).not.toHaveBeenCalled();
 	});
 
