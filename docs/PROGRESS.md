@@ -677,3 +677,12 @@ No push: M3 comes after 7c.
 - **Live-test page:** `GET /dev/gbp-connect` (`src/routes/dev/devConnect.route.ts`), mounted in `app.ts` only when `NODE_ENV=development`. It runs the GIS popup flow against `/user/auth/google/gbp/popup` and `/code`, with its own CSP (helmet's blocks the GIS script). GBP_CONNECT.md §3a; the preflight example updated to the multi-account output.
 - **Shared-file edit (called out):** `src/app.ts`, 5 lines to mount the dev router.
 - **API calls:** 0.
+
+## Live test with MyPageSEO, attempt 1 (2026-09-26, triggered by Mohit)
+
+- **Popup connect: passed.** On `/dev/gbp-connect`, the Google account `mohit@mypageseo.com` connected (`google_sub` 101302451261559635090). Tokens are stored encrypted (`enc:v1:`), with scope `business.manage` + `userinfo.email` + `openid`, the id_token verified, and `is_gbp_connected=true`.
+  - Setup fixes on the way: `ACCESSDOMAINS` must include `http://localhost:5055` (a same-origin POST sends an `Origin`), and `TOKEN_ENCRYPTION_KEY` was set.
+- **Profile discovery: blocked by Google.** `accounts.list` returned 429 `RATE_LIMIT_EXCEEDED` with `quota_limit_value: 0` for "Requests per minute" on `mybusinessaccountmanagement.googleapis.com` (Cloud project 1010247538246). The GBP API access is not approved for this project; per CLAUDE.md §10 this is an access gate, so the test stopped here.
+- **Google calls:** 1 OAuth code exchange, 1 `accounts.list` (429). Places: 0.
+- **Not run yet:** preflight, bind, first sync. They resume once Google approves access (quota > 0).
+- **Found:** `mongoose.set('debug', true)` in `src/configs/mongoConnection.ts` is unconditional, so every query is logged in every environment, including user emails, OAuth-state hashes and the (encrypted) token documents.
