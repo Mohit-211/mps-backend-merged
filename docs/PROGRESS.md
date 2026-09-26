@@ -19,6 +19,7 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 7a: Connect (popup) + onboarding | `claude/phase-7a-connect-onboarding` | Done, **awaiting approval and merge**. Offline: 0 Google calls. |
 | 7b: GBP sync | — | Not started |
 | 7c: Scoring + report + competitors (M3) | — | Not started |
+| 9a: Legacy cleanup (early part of Phase 9) | `claude/phase-9a-legacy-cleanup` | Done, **awaiting merge after 7a**. |
 | 8: GBP posting | — | Not started |
 | 9: Cleanup and docs | — | Not started |
 | 10: Security hardening (gated) | — | Deferred; needs explicit approval |
@@ -552,4 +553,44 @@ Branch `claude/phase-7a-connect-onboarding`, from `claude/rebuild` @ `4e4d556`. 
 5. (7b) first sync; (7c) report.
 
 The frontend also needs the **Authorised JavaScript origin** in the OAuth client for the popup.
+
+---
+
+## Phase 9a: Legacy cleanup (early part of Phase 9)
+
+Branch `claude/phase-9a-legacy-cleanup`, from the 7a branch (so it merges after 7a), with the 7a review fixes merged in (`6867c88`). Requested by Mohit.
+
+**Mohit's decisions:**
+- Delete the old ranking and report endpoints now (the frontend moves to the new ones).
+- Remove the Reputation Manager and the white-label report links, but keep a rebuild reference.
+- Remove every unused config and env variable (checked one by one).
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `2e1fc26` | Deleted (57 files, about 7,300 lines):<br>• old Rank Tracker / Local Search Grid / Local Map Ranking / GBP Audit / Reputation Manager (routes, controllers, services, middlewares, helpers, models)<br>• the 3 white-label report routes<br>• the Search Console connect (3 routes, `oAuth2Client.ts`)<br>• `serpConfig`, `google-countries`, `google-domains`, `serpCountryCode`, `razorpay.ts`, `gbpOauthClinet.ts`, the legacy select fields<br>• unused config and env vars (Stripe, Razorpay, SerpAPI, Moz, DataForSEO, `GOOGLE_PLACE_API_URL`, unused Square / company / JWT-minutes / admin-URL / role vars)<br>The legacy location create now uses the Places (New) client, `location` field only (C23). The legacy `generateGrid()` regression test now uses recorded output. |
+| `6867c88` | Merged the 7a review fixes (clean merge). |
+| this commit | Removed the unused `googleapis` package. Docs: `LEGACY_FEATURES.md` (what the removed features did, why, and how to rebuild the Reputation Manager and white-label links properly; the old code is at `1695187`), `MIGRATION.md` (unused collections, dead rows and fields, removed env vars), ROUTES (158 routes), AUDIT (9 superseded findings → removed; C8, C11 and C23 updated; S13, S15 and S17 partly resolved), ENDPOINTS, OPERATIONS, CLAUDE §3 and §13, STATUS, this entry. |
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm run build` | **0 TypeScript errors.** |
+| `npm run lint` | **32** (was 98). Most of the baseline was in the deleted legacy files. No touched file got worse. |
+| `npm test` | **414/414 pass** (no key, no network). |
+
+**API calls consumed: 0.**
+
+### Kept on purpose
+- **Square and PayPal:** payments still use them.
+- **SMTP.**
+- **`serpapi`:** the citation tracker (out of scope) imports it; it has never worked (C13).
+- **`users.is_analytics_connected`:** still returned to the frontend (MIGRATION.md).
+- **MongoDB collections:** none dropped.
+
+### Merge order (Mohit)
+1. 7a: `claude/phase-7a-connect-onboarding`
+2. then 9a: `claude/phase-9a-legacy-cleanup`
 

@@ -1,7 +1,8 @@
 # Route inventory
 
 - **Baseline:** commit `62240ac`, plus the Phase 5 ranking routes, the Phase 6 GBP unbind route and the Phase 7a connect and onboarding routes (marked **new**).
-- **Totals:** 173 live routes. 95 unauthenticated, 74 user token, 2 refresh token, 2 admin token.
+- **Totals:** 158 live routes. 91 unauthenticated, 63 user token, 2 refresh token, 2 admin token.
+- **Removed in the legacy cleanup** (15 routes: old ranking reports, GBP audit, Reputation Manager, white-label report links, Search Console connect): see [LEGACY_FEATURES.md](LEGACY_FEATURES.md).
 - **Details:** request and response shapes for the new ranking routes are in [API.md](API.md).
 - **Findings column:** IDs point to [AUDIT.md](AUDIT.md) (S = security, C = correctness).
 - **Middleware order, services and models:** see AUDIT.md §1.
@@ -55,9 +56,6 @@ Keep this file in sync when routes are added or removed. New Phase 5+ endpoints 
 | POST | `/api/v1/user/auth/refresh-auth` | refresh token | Refresh Auth |  |
 | POST | `/api/v1/user/auth/logout` | refresh token | Logout |  |
 | GET | `/api/v1/user/auth/deactivate` | user | Deactivate Account | S23 |
-| GET | `/api/v1/user/auth/google/analytics` | user | Get Analytics Auth Url |  |
-| GET | `/api/v1/user/auth/google/analytics/callback` | **none** | Analytics Auth Callback | S11, C17 |
-| POST | `/api/v1/user/auth/google/analytics/revoke` | user | Analytics Connection Revoke |  |
 | GET | `/api/v1/user/auth/google/gbp` | user | Get GBP Auth Url |  |
 | GET | `/api/v1/user/auth/google/gbp/callback` | **none** (one-time `state`) | GBP Auth Callback. Phase 6: hashed one-time state, encrypted tokens | S11, C17 fixed |
 | POST | `/api/v1/user/auth/google/gbp/revoke` | user | Disconnect one Google account (`google_sub`): revoke it, remove its bindings, jobs and tokens (Phase 6; per account since 7a) | S29 fixed |
@@ -103,25 +101,12 @@ Every route also checks **location ownership**: another user's location returns 
 | GET | `/api/v1/locations/:locationId/grid` | user + owner | Local Search Grid page (`?keyword=&runId=`) | |
 | GET | `/api/v1/locations/:locationId/map-ranking` | user + owner | Local Map Ranking page (`?keyword=&runId=&resolveNames=`) | |
 
-### Ranking (legacy; replaced by the routes above, deleted in Phase 9)
-
-| Method | Path | Auth | Purpose | Findings |
-|---|---|---|---|---|
-| POST | `/api/v1/rank-tracker` | user | Generate Rank Tracker Report | C1, C2, C3, C13, C19 |
-| GET | `/api/v1/rank-tracker/:locationId` | user | Get Rank Tracker Report | S15 |
-| POST | `/api/v1/local-search-grid` | user | Generate Local Search Grid Report | C4, C5, C6, C18 |
-| GET | `/api/v1/local-search-grid/:locationId` | user | Get Local Search Grid Report | S15 |
-| POST | `/api/v1/local-map-ranking` | user | Generate Local Map Ranking Report | C6, C13 |
-| GET | `/api/v1/local-map-ranking/:locationId` | user | Get Local Map Ranking Report | S15 |
-
 ### GBP (in scope)
 
 | Method | Path | Auth | Purpose | Findings |
 |---|---|---|---|---|
-| POST | `/api/v1/gbp-audit` | user | Generate GBP Audit Report |  |
-| GET | `/api/v1/gbp-audit/:locationId` | user | Get GBP Audit Report | S15, C8 |
-| GET | `/api/v1/gbp` | user | List every GBP location across all accounts (Phase 6: no Places calls; response is `{accounts, locations, errors}`) | S20, C9 and C22 fixed |
-| POST | `/api/v1/gbp/bind-with-user` | user | Bind a GBP location to a Location (Phase 6: read from Google, `place_id` rules) |  |
+| GET | `/api/v1/gbp` | user | Every GBP profile from every connected Google account, grouped (`{ connections: [...] }`; no Places calls) | S20, C9 and C22 fixed |
+| POST | `/api/v1/gbp/bind-with-user` | user | Bind a GBP location to a Location (read from Google, `place_id` rules; `google_sub` with several accounts) |  |
 | POST | `/api/v1/gbp/unbind` | user | **new** (Phase 6): unbind a Location | C12 fixed |
 
 ### Onboarding (Phase 7a)
@@ -148,15 +133,6 @@ Every route also checks **location ownership**: another user's location returns 
 | GET | `/api/v1/white-label-profiles` | user | Get White Label Profile |  |
 | GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | **none** | Get White Label Profile Detail | S17 |
 | DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile | S17 |
-| GET | `/api/v1/white-label-profiles/rank-tracker-report/:whiteLevelProfileId` | **none** | Get Rank Tracker Report For WLP | S17 |
-| GET | `/api/v1/white-label-profiles/reputation-manager-report/:whiteLevelProfileId` | **none** | Get Reputation Manager Report For WLP | S17 |
-| GET | `/api/v1/white-label-profiles/gbp-audit-report/:whiteLevelProfileId` | **none** | Get GBP Audit Report For WLP | S17, C8 |
-
-### Reputation manager
-
-| Method | Path | Auth | Purpose | Findings |
-|---|---|---|---|---|
-| GET | `/api/v1/reputation-manager/monitor-reviews/:locationId` | user | Get Monitor Review Report |  |
 
 ### Citations
 
