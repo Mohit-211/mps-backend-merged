@@ -10,7 +10,7 @@ const MAX_ERROR_MESSAGE_LENGTH = 300;
 const MAX_RETRY_AFTER_MS = 5000;
 
 export interface HttpRequest {
-	method: 'GET' | 'POST';
+	method: 'GET' | 'POST' | 'DELETE';
 	url: string;
 	headers: Record<string, string>;
 	data?: unknown;
@@ -31,6 +31,10 @@ export class HttpRequestError extends Error {
 	readonly code: HttpErrorCode;
 	readonly retryable: boolean;
 	readonly retryAfterMs?: number;
+	/** Google ErrorInfo reason (e.g. SERVICE_DISABLED, RATE_LIMIT_EXCEEDED) or OAuth error code (invalid_grant). */
+	readonly reason?: string;
+	/** ErrorInfo metadata.quota_limit_value: "0" means the API is not approved for this project. */
+	readonly quotaLimitValue?: string;
 	attempts = 1;
 
 	constructor(params: {
@@ -39,6 +43,8 @@ export class HttpRequestError extends Error {
 		status?: number;
 		apiStatus?: string;
 		retryAfterMs?: number;
+		reason?: string;
+		quotaLimitValue?: string;
 	}) {
 		super(params.message);
 		this.name = 'HttpRequestError';
@@ -46,6 +52,8 @@ export class HttpRequestError extends Error {
 		this.status = params.status;
 		this.apiStatus = params.apiStatus;
 		this.retryAfterMs = params.retryAfterMs;
+		this.reason = params.reason;
+		this.quotaLimitValue = params.quotaLimitValue;
 		this.retryable = isRetryable(params.status, params.code);
 	}
 }
@@ -57,8 +65,15 @@ export const isRetryable = (status: number | undefined, code: HttpErrorCode): bo
 	return status === 429 || status >= 500;
 };
 
+interface GoogleErrorDetail {
+	reason?: string;
+	metadata?: Record<string, string>;
+}
+
 interface GoogleErrorBody {
-	error?: { code?: number; message?: string; status?: string };
+	// Google APIs: { error: { code, message, status, details } }. OAuth endpoints: { error: 'invalid_grant', error_description }.
+	error?: { code?: number; message?: string; status?: string; details?: GoogleErrorDetail[] } | string;
+	error_description?: string;
 }
 
 const truncate = (text: string): string =>
@@ -73,20 +88,46 @@ const parseRetryAfter = (value: unknown): number | undefined => {
 export const isTransportError = (err: unknown): boolean =>
 	err instanceof HttpRequestError || axios.isAxiosError(err);
 
+/**
+ * Safe error from an HTTP error response. Keeps only the status, the API's error status, message,
+ * ErrorInfo reason and quota_limit_value; never the request, headers or the rest of the payload.
+ */
+export const httpErrorFromResponse = (status: number, rawBody: unknown, retryAfter?: unknown): HttpRequestError => {
+	const body = (rawBody && typeof rawBody === 'object' ? rawBody : {}) as GoogleErrorBody;
+	if (typeof body.error === 'string') {
+		return new HttpRequestError({
+			code: 'HTTP_ERROR',
+			status,
+			reason: body.error,
+			message: truncate(`${body.error}${body.error_description ? `: ${body.error_description}` : ''}`),
+			retryAfterMs: parseRetryAfter(retryAfter),
+		});
+	}
+	const error = body.error;
+	const details = Array.isArray(error?.details) ? error.details : [];
+	const reason = details.find((d) => typeof d?.reason === 'string')?.reason;
+	const quotaLimitValue = details.find((d) => d?.metadata?.quota_limit_value !== undefined)?.metadata?.quota_limit_value;
+	return new HttpRequestError({
+		code: 'HTTP_ERROR',
+		status,
+		apiStatus: error?.status,
+		reason,
+		quotaLimitValue,
+		message: truncate(error?.message || `Request failed with status ${status}`),
+		retryAfterMs: parseRetryAfter(retryAfter),
+	});
+};
+
+/** application/x-www-form-urlencoded body (OAuth token and revoke endpoints). */
+export const formBody = (fields: Record<string, string>): string => new URLSearchParams(fields).toString();
+
 // Builds a safe error from anything axios (or a transport) throws. Only status, the API's own
 // error status/message and the error code survive; headers, URL and request config are dropped.
 export const toHttpRequestError = (err: unknown): HttpRequestError => {
 	if (err instanceof HttpRequestError) return err;
 	if (axios.isAxiosError(err)) {
 		if (err.response) {
-			const body = err.response.data as GoogleErrorBody | undefined;
-			return new HttpRequestError({
-				code: 'HTTP_ERROR',
-				status: err.response.status,
-				apiStatus: body?.error?.status,
-				message: truncate(body?.error?.message || `Request failed with status ${err.response.status}`),
-				retryAfterMs: parseRetryAfter(err.response.headers?.['retry-after']),
-			});
+			return httpErrorFromResponse(err.response.status, err.response.data, err.response.headers?.['retry-after']);
 		}
 		const timedOut = err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' || err.code === 'ERR_CANCELED';
 		return new HttpRequestError({

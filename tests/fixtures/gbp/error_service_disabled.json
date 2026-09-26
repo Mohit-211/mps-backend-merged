@@ -1,0 +1,15 @@
+{
+  "error": {
+    "code": 403,
+    "message": "My Business Account Management API has not been used in project 000000000000 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/mybusinessaccountmanagement.googleapis.com/overview?project=000000000000 then retry.",
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "SERVICE_DISABLED",
+        "domain": "googleapis.com",
+        "metadata": { "service": "mybusinessaccountmanagement.googleapis.com", "consumer": "projects/000000000000" }
+      }
+    ]
+  }
+}
