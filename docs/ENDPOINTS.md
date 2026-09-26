@@ -153,6 +153,12 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + owner` (
 | GET | `/api/v1/locations/:locationId/refresh` | user + owner | Refresh button state and monthly schedule | 7b | live |
 | GET | `/api/v1/locations/:locationId/gbp/sync` | user + owner | Latest (or `?syncId=`) GBP sync, status per data type | 7b | live |
 
+### GBP report
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/locations/:locationId/gbp/report` | user + owner | The stored GBP report (`?range=28d\|90d\|12m`): GBP Score, performance, keywords, reviews/media/posts, competitor comparison with Public Scores and gap insights | 7c | live |
+
 ### GBP posting (legacy, rebuilt in Phase 9)
 
 | Method | Path | Auth | Purpose | Phase | Status |
@@ -380,13 +386,25 @@ Every location refreshes **automatically once a month** (rankings, then the GBP 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
 | 25 | POST | `/locations/:locationId/refresh` | user, owner | body `{ types?: ["rankings","gbp"] }` (default: rankings, plus gbp when connected) | **202** `{ rankings: { run_id, status, existing, estimate, next_allowed_at } \| { skipped: 'rate_limited', next_allowed_at }, gbp: { sync_id, status, existing, estimated_calls, next_allowed_at } \| { skipped: 'gbp_not_connected' \| 'rate_limited', next_allowed_at } }` |
-| 26 | GET | `/locations/:locationId/refresh` | user, owner | – | Button state: `{ frequency, gbp_connected, next_refresh_at, last_auto_refresh_at, rankings: { next_allowed_at, active_run }, gbp: { next_allowed_at, active_sync, last_synced_at } \| null }` |
+| 26 | GET | `/locations/:locationId/refresh` | user, owner | – | Button state: `{ frequency, gbp_connected, next_refresh_at, last_auto_refresh_at, rankings: { next_allowed_at, active_run }, gbp: { next_allowed_at, active_sync, last_synced_at } \| null, report: { pending, scheduled_for, last_generated_at } }` |
 | 27 | GET | `/locations/:locationId/gbp/sync` | user, owner | query `syncId?` (24-hex) | `{ gbp_connected, sync: { sync_id, status, trigger, backfill, run_at, started_at, finished_at, duration_ms, types, api_calls, failure_reason } \| null, last_synced_at }` |
 
 **Notes:**
 - **#25:** **429** only when every requested type is rate-limited; the body still has `next_allowed_at` per type, so the button can say when it's available again. An in-progress run or sync is returned (`existing: true`) without using the limit. **400** for an unknown type; **422** if the rank run is over the call cap.
-- **#26:** `next_allowed_at` is `null` when the type can be refreshed now.
+- **#25 (7c):** a refresh that queues something also marks competitor Place Details for refetch in the next GBP report (facts older than 24 h).
+- **#26:** `next_allowed_at` is `null` when the type can be refreshed now. `report` (7c): `pending` while a GBP report generation is scheduled.
 - **#27:** `types` has one entry per data type (`performance`, `keywords`, `profile`, `verification`, `reviews`, `media`, `posts`), each `{ status: pending | ok | error | not_available | skipped, message, rows, range }`. Reviews, media and posts are `not_available` (`v4_access_pending`) until Google approves v4 access. Sync `status`: `queued`, `running`, `done`, `partial` (some types failed) or `failed`.
+
+### GBP report (Phase 7c)
+
+Generated in the `gbp-report` job about 2 minutes after a rank run or GBP sync finishes (one report when both finish together), after a change of tracked competitors, and after an unbind. GET only reads it.
+
+| # | Method | Path | Auth | Params | Returns |
+|---|---|---|---|---|---|
+| 28 | GET | `/locations/:locationId/gbp/report` | user, owner | query `range` (`28d` default, `90d`, `12m`) | `{ location_id, generated_at, trigger, gbp_connected, v4_enabled, range, gbp_score, performance, keywords, reviews, media, posts, pending_google_edits, verification, competitors: { rows, insights, warning }, sync, score_history, api_calls, inputs, generation }` |
+
+**Notes:**
+- **#28:** **404** before the first report; **400** for another `range`. A section that can't be shown is `{ available: false, reason }`: `gbp_not_connected` (every private section of a location added via Places search; the competitor comparison still works), `v4_access_pending` (reviews, media, posts; the GBP Score then excludes those pillars with `partial: true`), `not_synced_yet`, `no_place_id`. Shapes and examples: [API.md](API.md#gbp-report-phase-7c).
 
 ## Removed endpoints
 

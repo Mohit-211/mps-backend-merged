@@ -89,3 +89,21 @@ describe('listRoutes', () => {
 		]);
 	});
 });
+
+describe('parseEndpointsDoc', () => {
+	it('keeps escaped pipes inside a cell and reads detail rows relative to /api/v1', () => {
+		const doc = parseEndpointsDoc(
+			[
+				'| Method | Path | Auth | Purpose | Phase | Status |',
+				'|---|---|---|---|---|---|',
+				'| GET | `/api/v1/x` | user | Range `28d\\|90d` | 7c | live |',
+				'',
+				'| # | Method | Path | Returns |',
+				'|---|---|---|---|',
+				'| 1 | GET | `/x` | `a \\| b` |',
+			].join('\n'),
+		);
+		expect(doc.catalogue).toEqual([{ method: 'GET', path: '/api/v1/x', auth: 'user', purpose: 'Range 28d|90d', phase: '7c', status: 'live', line: 3 }]);
+		expect(doc.details).toEqual([{ method: 'GET', path: '/api/v1/x', line: 7 }]);
+	});
+});

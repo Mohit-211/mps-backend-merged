@@ -12,6 +12,7 @@ import { ApiError } from '../../utils';
 import { toGbpApiError } from './errors';
 import { TokenStore, tokenStore } from './tokenStore';
 import { resolveConnection } from './connections';
+import { requestReportSafely } from './report.service';
 
 // Binding a GBP location to one of our Locations, unbinding it (AUDIT C12), and disconnecting GBP.
 // - Bind reads the profile from Google (never trusts client-sent title/metadata) and takes place_id
@@ -224,6 +225,7 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		}
 		const jobs = await cancelLocationJobs(userId, location._id as Types.ObjectId, binding.gbpLocationId);
 		await UserGBP.deleteOne({ _id: binding._id });
+		await requestReportSafely(location._id as Types.ObjectId, 'unbind', { agenda: agenda() });
 		const tokensDeleted = await deleteTokensIfUnbound(userId, googleSub);
 		logger.info(`gbp unbind: location ${String(location._id)} (tokens_deleted=${tokensDeleted})`);
 		return { unbound: true, jobs_cancelled: jobs, tokens_deleted: tokensDeleted };
@@ -260,6 +262,7 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		for (const binding of bindings) {
 			await cancelLocationJobs(userId, binding.location_id as unknown as Types.ObjectId, binding.gbpLocationId);
 			await UserGBP.deleteOne({ _id: binding._id });
+			await requestReportSafely(binding.location_id as unknown as Types.ObjectId, 'unbind', { agenda: agenda() });
 		}
 		await tokens.remove(userId, tokenTypes.GBP, sub);
 		return { revoked, bindings_removed: bindings.length, google_email: email };

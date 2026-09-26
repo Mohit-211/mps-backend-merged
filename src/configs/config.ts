@@ -55,6 +55,8 @@ const envVarsSchema = Joi.object({
 	GBP_ROLLING_DAYS: Joi.number().integer().min(7).max(90).default(40),
 	GBP_KEYWORD_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(6),
 	GBP_KEYWORD_ROLLING_MONTHS: Joi.number().integer().min(1).max(6).default(2),
+	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
+	COMPETITOR_DETAILS_ATMOSPHERE: Joi.boolean().default(false).description('Also fetch editorialSummary (Atmosphere-tier Place Details) for the competitor comparison'),
 	TOKEN_ENCRYPTION_KEY: Joi.string()
 		.allow('')
 		.pattern(/^[0-9a-fA-F]{64}$/)
@@ -175,6 +177,13 @@ interface Config {
 		localHour: number;
 	};
 
+	report: {
+		/** Seconds between a report request and its generation (deduplicates close triggers). */
+		debounceSeconds: number;
+		/** Request editorialSummary (Atmosphere tier) in competitor Place Details. */
+		detailsAtmosphere: boolean;
+	};
+
 	security: {
 		/** Empty when unset (development/test): token encryption then throws on use. */
 		tokenEncryptionKey: string;
@@ -277,6 +286,11 @@ const config: Config = {
 	refresh: {
 		minIntervalHours: envVars.REFRESH_MIN_INTERVAL_HOURS,
 		localHour: envVars.REFRESH_LOCAL_HOUR,
+	},
+
+	report: {
+		debounceSeconds: envVars.REPORT_DEBOUNCE_SECONDS,
+		detailsAtmosphere: envVars.COMPETITOR_DETAILS_ATMOSPHERE,
 	},
 
 	security: {

@@ -38,6 +38,7 @@ export * from "./oauthState.model";
 export * from "./placesUsage.model";
 export * from "./gbpSync.model";
 export * from "./gbpData.model";
+export * from "./gbpReport.model";
 
 
 // location service — citations

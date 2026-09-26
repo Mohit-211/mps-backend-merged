@@ -7,6 +7,8 @@ export const JOB_NAMES = {
 	GBP_SYNC: 'gbp-sync',
 	/** 7b: the location-level monthly refresh (rank run + GBP sync), every 15 minutes. */
 	MONTHLY_REFRESH: 'monthly-refresh',
+	/** 7c: generates a location's GBP report after a sync or rank run (debounced). */
+	GBP_REPORT: 'gbp-report',
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];

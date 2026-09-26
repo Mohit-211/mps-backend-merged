@@ -2,9 +2,10 @@ import httpStatus from 'http-status';
 import { ILocation } from '../../models/location.model';
 import { RunOverCapError, getRunForLocation, listRuns, runStatusView } from '../../services/ranking/rankRun.service';
 import { refreshLocation } from '../../services/refresh/refresh.service';
+import { requestReportSafely } from '../../services/gbp/report.service';
 import { gridView, mapRankingView, rankTrackerView } from '../../services/ranking/rankReports.service';
 import { getTracking, updateTracking } from '../../services/ranking/tracking.service';
-import { TrackingUpdate } from '../../services/ranking/trackingSettings';
+import { TrackingUpdate, withDefaults } from '../../services/ranking/trackingSettings';
 import { catchAsync, responseWrapper } from '../../utils';
 
 // Ranking endpoints (CLAUDE.md §9.4). loadOwnedLocation has already checked ownership.
@@ -22,7 +23,11 @@ const reportQuery = (res: { locals: Record<string, unknown> }): ReportQuery => (
 export const getTrackingSettings = catchAsync(async (req, res) => responseWrapper(res, getTracking(location(res))));
 
 export const updateTrackingSettings = catchAsync(async (req, res) => {
+	const before = [...withDefaults(location(res).tracking).competitors].sort().join(',');
 	const result = await updateTracking(location(res), res.locals.trackingUpdate as TrackingUpdate);
+	// 7c: a changed competitor set refreshes an existing GBP report (only new competitors cost a Place Details call).
+	const after = [...result.tracking.competitors].sort().join(',');
+	if (before !== after && location(res).gbp_report?.last_generated_at) await requestReportSafely(locationId(res), 'competitors_changed');
 	return responseWrapper(res, result, 'Tracking settings saved.');
 });
 

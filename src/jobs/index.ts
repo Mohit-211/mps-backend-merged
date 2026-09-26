@@ -4,6 +4,7 @@ import { JOB_NAMES } from './jobNames';
 import { defineAgendaJobs as definePostToGbpJob } from './postToGbp';
 import { defineRankRunJob } from './rankRun.job';
 import { defineGbpSyncJob } from './gbpSync.job';
+import { defineGbpReportJob } from './gbpReport.job';
 import { MONTHLY_REFRESH_INTERVAL, defineMonthlyRefreshJob } from './monthlyRefresh.job';
 
 // The single job registry. src/server.ts calls defineAllJobs() before startAgenda(), then
@@ -14,6 +15,7 @@ export const defineAllJobs = (agenda: Agenda): string[] => {
 	definePostToGbpJob(agenda);
 	defineRankRunJob(agenda);
 	defineGbpSyncJob(agenda);
+	defineGbpReportJob(agenda);
 	defineMonthlyRefreshJob(agenda);
 	const names = Object.keys((agenda as unknown as { _definitions: Record<string, unknown> })._definitions);
 	logger.info(`Agenda jobs defined: ${names.join(', ')}`);

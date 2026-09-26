@@ -6,6 +6,8 @@ import * as onboardingController from '../../../controllers/onboarding/onboardin
 import { validateCenter, validateSuggestionsQuery } from '../../../middlewares/onboarding/onboarding.middleware';
 import * as refreshController from '../../../controllers/refresh/refresh.controller';
 import { validateRefresh } from '../../../middlewares/refresh/refresh.middleware';
+import * as gbpReportController from '../../../controllers/gbp/report.controller';
+import { validateGbpReportQuery } from '../../../middlewares/gbp/report.middleware';
 
 // Ranking reports (CLAUDE.md §9.4), mounted at /api/v1/locations next to the location routes.
 // Every route: user auth, then location ownership (404 for someone else's location).
@@ -28,5 +30,7 @@ router.put('/:locationId/center', [...owned, validateCenter], onboardingControll
 router.post('/:locationId/refresh', [...owned, validateRefresh], refreshController.postRefresh);
 router.get('/:locationId/refresh', owned, refreshController.getRefresh);
 router.get('/:locationId/gbp/sync', owned, refreshController.getGbpSync);
+// Phase 7c: the stored GBP report (generated in the gbp-report job).
+router.get('/:locationId/gbp/report', [...owned, validateGbpReportQuery], gbpReportController.getGbpReport);
 
 export default router;
