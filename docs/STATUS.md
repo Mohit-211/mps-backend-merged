@@ -121,7 +121,7 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 - the smoke scripts: `smoke:agenda` (free), and `smoke:places` (1 Places call; Mohit only)
 - live validation: [LIVE_TEST.md](LIVE_TEST.md) (`find:place`, `setup:live-test`, `calibrate`, `calibrate:score`)
 - GBP: [GBP_CONNECT.md](GBP_CONNECT.md) (Google Cloud setup, popup and redirect connect, `gbp:preflight`, `gbp:encrypt-tokens`, `setup:live-test --token-only`)
-- API reference: [API.md](API.md) (ranking, GBP connection, onboarding)
+- API reference: [ENDPOINTS.md](ENDPOINTS.md) (one-page list of every rebuilt endpoint) and [API.md](API.md) (full examples)
 
 **Where each fact lives:**
 
