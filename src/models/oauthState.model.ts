@@ -7,10 +7,15 @@ import { Document, Model, Schema, Types, model } from 'mongoose';
 export const OAUTH_STATE_PURPOSES = ['gbp'] as const;
 export type OAuthStatePurpose = (typeof OAUTH_STATE_PURPOSES)[number];
 
+/** 'redirect': consumed only by the OAuth callback. 'popup': consumed only by POST /google/gbp/code. */
+export const OAUTH_FLOWS = ['redirect', 'popup'] as const;
+export type OAuthFlow = (typeof OAUTH_FLOWS)[number];
+
 export interface IOAuthState extends Document {
 	token_hash: string;
 	user_id: Types.ObjectId;
 	purpose: OAuthStatePurpose;
+	flow: OAuthFlow;
 	expires_at: Date;
 	used_at: Date | null;
 	created_at: Date;
@@ -21,6 +26,7 @@ const OAuthStateSchema = new Schema<IOAuthState>(
 		token_hash: { type: String, required: true },
 		user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 		purpose: { type: String, enum: OAUTH_STATE_PURPOSES, required: true },
+		flow: { type: String, enum: OAUTH_FLOWS, default: 'redirect' },
 		expires_at: { type: Date, required: true },
 		used_at: { type: Date, default: null },
 		created_at: { type: Date, default: Date.now },

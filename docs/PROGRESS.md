@@ -15,8 +15,10 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 4: Ranking engine | `claude/phase-4-ranking-engine` | Done. Merged `3da12ed`. Pushed at M2. |
 | 5: Ranking reports | `claude/phase-5-ranking-reports` | Done. Merged `2bb4cf8`. **Pushed at M2 on 2026-09-26.** |
 | 5.5: Live validation | `claude/phase-5.5-live-validation` | Done. Merged `5735bad` (not pushed; next push is M3). **Informal pass, one market; formal scoring pending.** |
-| 6: GBP connection fixes | `claude/phase-6-gbp-connection` | Done, **awaiting approval and merge**. Offline: 0 Google calls. The first live step (`gbp:preflight`) is Mohit's. |
-| 7: GBP data sync and report | — | Not started |
+| 6: GBP connection fixes | `claude/phase-6-gbp-connection` | Done. Merged `4e4d556` (no push; M3 after Phase 7). |
+| 7a: Connect (popup) + onboarding | `claude/phase-7a-connect-onboarding` | Done, **awaiting approval and merge**. Offline: 0 Google calls. |
+| 7b: GBP sync | — | Not started |
+| 7c: Scoring + report + competitors (M3) | — | Not started |
 | 8: GBP posting | — | Not started |
 | 9: Cleanup and docs | — | Not started |
 | 10: Security hardening (gated) | — | Deferred; needs explicit approval |
@@ -496,4 +498,58 @@ Branch `claude/phase-6-gbp-connection`, from `claude/rebuild` @ `5735bad`. Built
 - **GBP API access approval** for the Cloud project. `gbp:preflight` reports quota 0 until then.
 - **Frontend:** `GET /gbp` now returns an object, the bind body needs only 3 fields, and `POST /gbp/unbind` is new.
 - **New finding S30 (Low, Phase 10):** the morgan request logger writes full URLs, so a failed OAuth callback logs its `code` and `state`.
+
+---
+
+## Phase 7a: Google connect (account-chooser popup) + onboarding
+
+Branch `claude/phase-7a-connect-onboarding`, from `claude/rebuild` @ `4e4d556`. It follows Mohit's Phase 7 brief (7a) and the approved plan. **Offline:** tests use fixtures and mocks, and **0 Google or Places calls** were made.
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `fa3b08e` | Connect: the GIS popup (`GET /google/gbp/popup`, `POST /google/gbp/code`, exchanged with `postmessage`); scopes `openid email business.manage`; `prompt=select_account consent`; id_token verification (`services/gbp/idToken.ts`: RS256 signature, issuer, audience, expiry, `email_verified`); `google_email` and `google_sub` stored; `OAuthState.flow` (popup and redirect states can't be swapped; a popup state must belong to the caller); account switch while bound gives 409; missing refresh token rules. `PLACES_USER_DAILY_LIMIT` config. Tests use locally signed id_tokens. |
+| `5fa41bf` | Places: `searchTextForSuggestions` (Enterprise mask with rating and `userRatingCount`, 1 page) and `searchTextNamesAddresses` (Pro, 10 results), each with an exact-mask guard and its own SKU counter. The IDs-only ranking mask is unchanged (tested). Fixtures. |
+| `7c0230f` | Onboarding: `Location.onboarding` / `gbp_sync` / `competitor_suggestions`; `places_usage` (atomic daily cap, TTL); `/onboarding/{state,gbp-profiles,select-profile,complete}`; `GET /locations/:id/competitor-suggestions` (merge, dedupe, self excluded incl. moved listings, best position, top 10, 24 h cache per `keywords_version`, dev keyword cap); `GET /places/search`; the tracking PUT advances the onboarding step; bind accepts a pre-fetched profile (1 GBP call per select); `serviceArea` added to the discovery `readMask` (service-area country). Tests. |
+| `fd0663e` | Docs: API.md (onboarding section + screen map), GBP_CONNECT.md (popup + frontend snippet), ROUTES, OPERATIONS, CLAUDE.md §11 (the 7a/7b/7c split, 7a as built, the `GBP_V4_ENABLED` plan), STATUS, this entry. |
+| `52b4d17`, `1695187` | CLAUDE.md environment and repo map brought up to date; `docs/ENDPOINTS.md` (one-page list of every rebuilt endpoint). |
+| `8af1b19` | **Review fixes (Mohit):** (1) popup settings are `select_account: true` only (GIS has no `prompt`); (2) **several Google accounts per user**: connections keyed by id_token `sub` (`UserAuth` index `user_id + token_type + google_sub`, `UserGBP.google_sub`, `gbpClient` `ConnectionRef`), discovery grouped per account, bind and disconnect take `google_sub`, per-account unbind and disconnect, the 409 rule removed, pre-7a rows still work and are upgraded on reconnect; (3) **service-area center step**: `PUT /locations/:id/center { query }` (1 IDs-only Text Search without location bias + 1 Details `location`, `center_source: 'manual'`, daily cap), steps `center_needed` / `center_set`, `/complete` requires a center; `Location.center_source` (`gbp` / `place_details` / `manual`), `center_label`. Places `searchText` bias is now optional (ranking always sets it). Tests: two-account scenario (disconnect A, B keeps working, with real agenda jobs), center service and flow, route checks. |
+| this commit | Docs for the fixes: API.md, GBP_CONNECT.md, ENDPOINTS.md, ROUTES (173), CLAUDE §11, STATUS ("Decide before launch (Maps ToS)"), this entry. |
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm run build` | **0 TypeScript errors.** |
+| `npm run lint` | 98 (unchanged baseline). All new files are lint-clean. |
+| `npm test` (no key) | **414/414 pass** in 35 suites (67 new in 7a, including the review fixes). |
+| Local, no Google calls | `GET /google/gbp/popup` returns the config (only `openid email business.manage`, `select_account consent`, a 43-character state). `POST /google/gbp/code` with a bogus state gives 400. `GET /onboarding/state` for the live-test user gives not connected with no locations. `/places/search` without a token gives 401. The server log shows 0 Places or GBP calls. |
+
+**API calls consumed: 0.**
+
+### Decisions (approved with the plan)
+1. **Suggestions use the Text Search Enterprise SKU** (rating and review count): 1 call per keyword (2 in development), cached 24 hours.
+2. **Switching Google account while bound gives 409** ("disconnect first").
+3. **`/places/search` requires `locationId`.**
+4. **US and Canada only** at select-profile.
+5. **`PLACES_USER_DAILY_LIMIT` = 50** per user per UTC day (suggestions + manual search).
+6. **`/onboarding/complete` records `gbp_sync.requested_at`**; the 7b scheduler picks it up.
+7. **The suggestions cache holds names, addresses and ratings for 24 hours:** part of the Maps ToS decision before production.
+- **Also:** a service-area business can be onboarded (country from `serviceArea.regionCode`). Competitor suggestions need coordinates, so for it they work only after its first ranking run resolves the center.
+- **Popup settings (after review):** `select_account: true` only; no `prompt`. A same-account reconnect without a refresh token reuses the stored one.
+- **Several Google accounts per user (after review):** replaces the earlier 409 "switch account" rule.
+- **Service-area center (after review):** geocoded with Places (IDs-only search + Details `location`) instead of the Geocoding API (not enabled) or Nominatim (1 request/second policy, different data source).
+
+### Shared or out-of-scope files touched
+`services/user/userAuth.service.ts`, `controllers/user/userAuth.controller.ts` and `routes/v1/user/userAuth.route.ts` (the two popup routes only); `routes/v1/common/index.ts` (two mounts); `models/location.model.ts` (additions only); `models/index.ts`.
+
+### Your live steps (when you say so; in order)
+1. **Popup connect** for MyPageSEO (frontend, or a small test page with the GBP_CONNECT.md snippet). Calls: 1 OAuth token exchange + 1 certificate fetch. Connecting another Google account later adds a second connection.
+2. **`npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`**. Calls: 1 accounts page + 1 locations page per account.
+3. **select-profile.** 1 GBP call.
+4. **Competitor suggestions.** 2 Enterprise Text Search calls in development (1 per keyword, first 2 keywords).
+5. (7b) first sync; (7c) report.
+
+The frontend also needs the **Authorised JavaScript origin** in the OAuth client for the popup.
 

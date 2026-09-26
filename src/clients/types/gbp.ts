@@ -24,6 +24,8 @@ export interface GbpLocation {
 	title: string | null;
 	languageCode: string | null;
 	storefrontAddress: GbpPostalAddress | null;
+	/** serviceArea.regionCode: the country of a service-area business (no storefront). */
+	serviceAreaRegionCode: string | null;
 	primaryPhone: string | null;
 	websiteUri: string | null;
 	primaryCategory: string | null;
@@ -40,6 +42,8 @@ export interface OAuthTokens {
 	refreshToken: string | null;
 	expiryDate: Date;
 	scope: string | null;
+	/** OpenID Connect id_token (present when the openid scope was granted). Verify before use. */
+	idToken: string | null;
 }
 
 // ---- raw API response shapes (boundary only) ----
@@ -68,6 +72,7 @@ export interface RawLocation {
 		locality?: string;
 		addressLines?: string[];
 	};
+	serviceArea?: { regionCode?: string };
 	phoneNumbers?: { primaryPhone?: string };
 	websiteUri?: string;
 	categories?: { primaryCategory?: { displayName?: string } };
@@ -87,4 +92,5 @@ export interface RawTokenResponse {
 	expires_in?: number;
 	scope?: string;
 	token_type?: string;
+	id_token?: string;
 }

@@ -9,6 +9,7 @@ import {
 } from '../../clients/gbpClient';
 import { ApiError } from '../../utils';
 import { TokenCryptoConfigError, TokenDecryptError } from '../../utils/tokenCrypto';
+import { AmbiguousConnectionError } from './tokenStore';
 
 /**
  * Maps GBP client and token errors to API errors with messages a user (or Mohit) can act on.
@@ -17,6 +18,9 @@ import { TokenCryptoConfigError, TokenDecryptError } from '../../utils/tokenCryp
 export const toGbpApiError = (err: unknown, context?: { forbiddenMessage?: string }): unknown => {
 	if (err instanceof ApiError) return err;
 	if (err instanceof GbpNotConnectedError) return new ApiError(httpStatus.BAD_REQUEST, 'Please connect with Google Business Profile');
+	if (err instanceof AmbiguousConnectionError) {
+		return new ApiError(httpStatus.BAD_REQUEST, 'Several Google accounts are connected: reconnect this profile or choose an account (google_sub).');
+	}
 	if (err instanceof GbpReauthRequiredError) return new ApiError(httpStatus.BAD_REQUEST, err.message);
 	if (err instanceof GbpAccessNotApprovedError || err instanceof GbpApiDisabledError) {
 		return new ApiError(httpStatus.SERVICE_UNAVAILABLE, err.message);

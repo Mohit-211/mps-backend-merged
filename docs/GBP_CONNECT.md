@@ -1,6 +1,10 @@
 # Connecting Google Business Profile (local)
 
-For Mohit: how to set up Google Cloud and `.env`, then connect MyPageSEO's Business Profile to the local backend (Phase 6). Endpoint shapes are in [API.md](API.md#gbp-connection-phase-6).
+For Mohit and the frontend: how to set up Google Cloud and `.env`, then connect a Business Profile.
+- **Phase 7a:** the account-chooser popup and onboarding.
+- **Phase 6:** the redirect fallback.
+
+Endpoint shapes are in [API.md](API.md#gbp-connection-phase-6) and [API.md](API.md#onboarding-phase-7a).
 
 **Live-call rules (Phases 6–7):** GBP calls are free but quota-limited. The client keeps them at **5 requests/second or fewer**, only against the account you connect. Nothing runs live until you say so; the first live step is `gbp:preflight`, which you trigger.
 
@@ -13,9 +17,11 @@ For Mohit: how to set up Google Cloud and `.env`, then connect MyPageSEO's Busin
 2. **OAuth consent screen:**
    - User type **External**, publishing status **Testing**.
    - Add the Google account that manages MyPageSEO's profile as a **test user**.
-   - Scope: `https://www.googleapis.com/auth/business.manage` (the only one the app asks for).
+   - Scopes: `openid`, `email` and `https://www.googleapis.com/auth/business.manage`.
+   - Any Google account may connect.
 3. **Credentials** → Create credentials → OAuth client ID → **Web application**.
-   - Authorised redirect URI: **`http://localhost:5055/api/v1/user/auth/google/gbp/callback`**
+   - Authorised redirect URI (the redirect fallback): **`http://localhost:5055/api/v1/user/auth/google/gbp/callback`**
+   - Authorised JavaScript origin (the popup): the frontend's origin, e.g. `http://localhost:3000`.
    - Copy the client ID and secret.
 4. **GBP API access:** Google only allows GBP API calls after the project is approved through its GBP API access request. Until then every call gets a quota of 0, and `gbp:preflight` reports exactly "GBP API access not approved (quota 0)".
 
@@ -33,7 +39,58 @@ For Mohit: how to set up Google Cloud and `.env`, then connect MyPageSEO's Busin
 - Without it in development, the server starts, and GBP endpoints answer "not configured".
 - Never commit `.env`.
 
-## 3. Connect MyPageSEO
+## 3. Connect with the account-chooser popup (Phase 7a, recommended)
+
+The frontend uses the Google Identity Services **code client** in popup mode. Google shows the browser's signed-in accounts, and the user may pick any of them.
+
+```html
+<script src="https://accounts.google.com/gsi/client" async></script>
+```
+
+```js
+// 1. When the connect screen opens (the state is valid for 10 minutes and works once):
+const cfg = (await api.get('/api/v1/user/auth/google/gbp/popup')).data.data;
+// cfg = { client_id, scope: "openid email …/business.manage", state, ux_mode: "popup", select_account: true }
+
+const codeClient = google.accounts.oauth2.initCodeClient({
+  ...cfg,
+  callback: async ({ code, state, error }) => {
+    if (error) return showError(error);                 // e.g. the user closed the popup
+    const res = await api.post('/api/v1/user/auth/google/gbp/code', { code, state });
+    const { google_email, google_sub } = res.data.data;
+    showConnected(google_email);                        // "Connected as x@gmail.com"; keep google_sub for bind/disconnect
+  },
+});
+
+// 2. On the button click (it must be a user gesture, or popup blockers step in):
+connectButton.onclick = () => codeClient.requestCode();
+```
+
+**Notes for the frontend:**
+- Fetch a new config if the screen stays open for more than 10 minutes, or after a failed attempt (each state works once).
+- `POST /code` needs the user's MyPageSEO token, and the state must belong to that user.
+- **Settings:** `select_account: true` shows the account chooser. GIS's code client has no `prompt` / `access_type` options.
+  - The code flow returns a refresh token on the first consent.
+  - If Google omits it on a same-account reconnect, the stored one is kept.
+  - For a new account without one, the API returns 400 asking the user to remove access at myaccount.google.com/permissions and retry.
+- **Several Google accounts** (agencies): the same button connects another account.
+  - Each Google account is its own *connection* (`google_sub`, shown as "Connected as …"). Connecting the same account again just updates it.
+  - Pass `google_sub` when binding (`select-profile`, `bind-with-user`) or disconnecting once more than one account is connected.
+  - Disconnect (`POST /user/auth/google/gbp/revoke { google_sub }`) removes only that account and its bound profiles; the others keep working.
+
+After connecting, the onboarding screens call, in order:
+1. `GET /onboarding/gbp-profiles` (grouped per Google account)
+2. `POST /onboarding/select-profile` (with the profile's `google_sub`)
+   - **If the response says `center_needed: true`** (a service-area business with no address), ask for a city or ZIP: `PUT /locations/:id/center { query }`. That is 2 Places calls, resolved once.
+3. `PUT /locations/:id/tracking` (keywords)
+4. `GET /locations/:id/competitor-suggestions` (and optionally `GET /places/search`)
+5. `PUT /locations/:id/tracking` (competitors)
+6. `POST /onboarding/complete`
+
+`GET /onboarding/state` lets the app resume at the right step. See [API.md](API.md#onboarding-phase-7a).
+
+## 4. Connect MyPageSEO locally (redirect fallback)
+
 
 1. Start the server: `npm run dev`.
 2. Get a login token for the live-test user from Phase 5.5. This refreshes the token only; the location and runs are kept.
@@ -49,10 +106,10 @@ For Mohit: how to set up Google Cloud and `.env`, then connect MyPageSEO's Busin
    `data` is a `https://accounts.google.com/o/oauth2/v2/auth?...` URL. The link is valid for **10 minutes** and works **once**.
 4. **Open the URL in a browser** and sign in with the Google account that manages MyPageSEO.
    - Because the app is in testing mode, Google shows **"Google hasn't verified this app"**. Choose *Continue*.
-   - The consent screen asks to **"See, edit, create and delete your Google business listings"**. That is the only permission requested. Allow it.
+   - The consent screen asks to **"See, edit, create and delete your Google business listings"**, plus your email address. Allow it.
 5. Google redirects to the callback. The browser shows:
    ```json
-   {"success":true,"status":200,"message":"Connected with GBP successfully.","data":{"connected":true}}
+   {"success":true,"status":200,"message":"Connected with GBP successfully.","data":{"connected":true,"google_email":"you@gmail.com","google_sub":"…"}}
    ```
    The callback stores the tokens (encrypted) and makes no Business Profile calls.
 6. **Preflight** (you run it; read-only):
@@ -91,8 +148,8 @@ For Mohit: how to set up Google Cloud and `.env`, then connect MyPageSEO's Busin
 
 | Action | Endpoint |
 |---|---|
-| Unbind one location | `POST /api/v1/gbp/unbind {"location_id": "…"}`. Removes the binding and cancels its scheduled jobs. Deletes the tokens if it was your last binding. |
-| Disconnect entirely | `POST /api/v1/user/auth/google/gbp/revoke`. Revokes at Google, then removes all bindings and tokens. |
+| Unbind one location | `POST /api/v1/gbp/unbind {"location_id": "…"}`. Removes the binding and cancels its scheduled jobs. Deletes that Google account's tokens if it was that account's last binding. |
+| Disconnect one Google account | `POST /api/v1/user/auth/google/gbp/revoke {"google_sub": "…"}` (`google_sub` is optional with a single account). Revokes that account at Google, then removes only its bindings, their jobs and its tokens. |
 | Remove access from the Google side | [myaccount.google.com/permissions](https://myaccount.google.com/permissions) |
 
 ## Existing connections (servers with old data)

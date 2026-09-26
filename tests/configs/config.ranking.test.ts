@@ -45,6 +45,7 @@ describe('config.ranking', () => {
 			devMaxKeywords: 2,
 			maxCallsPerRun: 3200,
 			storePlaceNames: true,
+			userDailyLimit: 50,
 		});
 	});
 

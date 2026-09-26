@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-26, end of Phase 6 (GBP connection)._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-26, end of Phase 7a (connect + onboarding)._
 
 ## Product goal
 
@@ -19,8 +19,10 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 4 Ranking engine | Done | `claude/phase-4-ranking-engine` | yes (`3da12ed`) | M2 (2026-09-26) |
 | 5 Ranking reports | Done | `claude/phase-5-ranking-reports` | yes (`2bb4cf8`) | M2 (2026-09-26) |
 | 5.5 Live validation | Done: **informal pass, one market, formal scoring pending** | `claude/phase-5.5-live-validation` | yes (`5735bad`) | M3 |
-| **6 GBP connection** | **Done, awaiting approval** | `claude/phase-6-gbp-connection` | not yet | M3 |
-| 7 GBP sync + report | Not started | — | — | M3 |
+| 6 GBP connection | Done | `claude/phase-6-gbp-connection` | yes (`4e4d556`) | M3 |
+| **7a Connect + onboarding** | **Done, awaiting approval** | `claude/phase-7a-connect-onboarding` | not yet | M3 |
+| 7b GBP sync | Not started | — | — | M3 |
+| 7c Scoring + report + competitors | Not started | — | — | **M3** |
 | 8 GBP posting | Not started | — | — | M4 |
 | 9 Cleanup | Not started | — | — | M4 |
 | 10 Security (gated) | Deferred | — | — | — |
@@ -51,7 +53,13 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
   - a real unbind (C12) and disconnect
   - `npm run gbp:preflight`
   - Setup and connection: [GBP_CONNECT.md](GBP_CONNECT.md).
-- **Tests:** 347 pass with no API key and no network.
+- **Connect + onboarding (Phase 7a), offline so far:**
+  - Google account-chooser **popup** (any account, verified email shown as "Connected as …"), with the redirect flow as a fallback
+  - **several Google accounts per user** (agencies): each is its own connection; profiles grouped per account; per-account bind, unbind and disconnect
+  - **service-area businesses**: a center step (city or ZIP resolved once) before keywords
+  - onboarding screens: pick a profile (creates or links our Location and binds it), keywords, **competitor suggestions** (top 10 across keywords, 24 h cache) or manual search, complete (first rank run + GBP sync request)
+  - a daily cap on user-triggered Places calls
+- **Tests:** 402 pass with no API key and no network.
 
 ## Key decisions
 
@@ -67,20 +75,30 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 2026-09-26 | `STORE_PLACE_NAMES=true` for development. **Must decide before production launch (Maps ToS).** |
 | 2026-09-26 | Phase 5.5 calibration: **informal pass** on one small market; formal scoring and a big-market test are in the backlog. |
 | 2026-09-26 | Phase 6: tokens belong to the user's Google account. Unbind deletes them only with the last binding; disconnect removes everything. Search Console tokens stay plaintext until Phase 10. `GET /gbp` returns `{accounts, locations, errors}`. |
+| 2026-09-26 | Phase 7 split into 7a (connect + onboarding), 7b (sync) and 7c (scoring + report, M3). `GBP_V4_ENABLED` (default false) switches reviews, media and posts; the v4 API access is pending. |
+| 2026-09-26 | 7a: any Google account, **several per user** (one connection per Google account; the earlier 409 rule was dropped after review); competitor suggestions on the Enterprise SKU (cached 24 h); `PLACES_USER_DAILY_LIMIT` 50; US/CA only; service-area center from a city or ZIP (Places IDs-only search + Details `location`). |
 | 2026-09-26 | Phases 6–7 live GBP calls: free but quota-limited, max 5 requests/second, only against the account Mohit connects, and nothing live until Mohit says so (first step: `gbp:preflight`, triggered by Mohit). |
 
 ## Open items (owner: Mohit)
 
-1. **Approve Phase 6 and merge** (command in the phase summary). No push: the next push is M3, after Phase 7.
-2. **GBP setup** ([GBP_CONNECT.md](GBP_CONNECT.md)):
-   - Change `.env` `GOOGLE_GBP_REDIRECT_URI` to port **5055**.
-   - Add `TOKEN_ENCRYPTION_KEY` (`openssl rand -hex 32`).
-   - Create the OAuth client and consent screen (testing mode, you as test user) and enable the two APIs.
-3. **GBP API access approval** (quota > 0). Then connect MyPageSEO and run `npm run gbp:preflight -- <userId>` (you trigger it).
-4. **Frontend:** `GET /gbp` response shape changed, the bind body is 3 fields, and `POST /gbp/unbind` is new (API.md).
-5. **ToS decision on business names before production launch:** `STORE_PLACE_NAMES` (store them, the current default, or resolve them live with `?resolveNames=true`). The same question applies to competitor Place Details in Phase 7.
-6. **Rotate the DataForSEO credential** (it is in git history on GitHub, AUDIT S13).
-7. **Security Phase 10:** deferred. It now includes S30 (the OAuth `code` in request logs) and the Search Console parts of S11, S12 and S29.
+1. **Approve Phase 7a and merge** (command in the phase summary). No push: M3 comes after 7c.
+2. **Google Cloud:**
+   - Add the frontend's **Authorised JavaScript origin** to the OAuth client (needed for the popup).
+   - `.env`: `TOKEN_ENCRYPTION_KEY` and the redirect URI on port 5055 (Phase 6).
+3. **Live steps, when you say so** (PROGRESS.md, Phase 7a): popup connect → `gbp:preflight` → select-profile → competitor suggestions. Then the 7b first sync and the 7c report.
+4. **Google My Business API (v4)** access is pending. Until then `GBP_V4_ENABLED=false` (7b).
+5. **Frontend:** the onboarding screens (API.md "Onboarding"), plus the Phase 6 changes to `GET /gbp`, bind and unbind.
+6. **Maps ToS decisions before launch:** see "Decide before launch (Maps ToS)" below.
+7. **Rotate the DataForSEO credential** (AUDIT S13).
+8. **Security Phase 10:** deferred (includes S30 and the Search Console parts of S11, S12 and S29).
+
+## Decide before launch (Maps ToS)
+
+All three store or show Google Maps content. Confirm each against the Google Maps Platform terms before production:
+
+1. **`STORE_PLACE_NAMES`** (default true in development): business names stored in `RankRun.mapList`. The alternative is to resolve them live with `?resolveNames=true`.
+2. **The 24 h competitor-suggestion cache** (`Location.competitor_suggestions`): names, addresses, ratings and review counts from Text Search, kept for 24 hours per keyword set.
+3. **Competitor Place Details** in the GBP report (7c): the latest comparison only, overwritten on each generation.
 
 ## Backlog (not now)
 
@@ -91,11 +109,15 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 
 ## Next up
 
-**Phase 7, GBP sync + report** (CLAUDE.md §11), in plan mode first, after Phase 6 is merged.
-- The `gbp-sync` job: daily metrics (18-month backfill), search keywords, profile snapshot, verification, reviews, media and posts. Everything stored; pages never call Google.
-- Health score, competitor comparison (Place Details, ToS flag), insights.
-- The GBP report API.
-- Live GBP calls only after `gbp:preflight` succeeds and you say so.
+**Phase 7b, GBP sync** (CLAUDE.md §11 7.1), in plan mode first, after 7a is merged.
+- The `gbp-sync` job:
+  - Performance: 18-month daily backfill then 10 days rolling; search keywords, 6-month backfill then monthly
+  - Business Information: full profile, attributes, service items, pending Google edits
+  - Verifications
+- Behind **`GBP_V4_ENABLED`** (default false): reviews, media, posts. When off they are `not_available`.
+- A status per data type (`ok` | `error` | `not_available`). It runs in jobs only, and picks up `gbp_sync.requested_at` from onboarding.
+
+Then **7c** (scoring, report, competitors, `seed:gbp-demo`, **M3**).
 
 **Frontend (can start now):** build the three ranking pages against `docs/API.md`, using `npm run seed:rank-demo`.
 
@@ -108,3 +130,15 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 - the ranking jobs
 - the smoke scripts: `smoke:agenda` (free), and `smoke:places` (1 Places call; Mohit only)
 - live validation: [LIVE_TEST.md](LIVE_TEST.md) (`find:place`, `setup:live-test`, `calibrate`, `calibrate:score`)
+- GBP: [GBP_CONNECT.md](GBP_CONNECT.md) (Google Cloud setup, popup and redirect connect, `gbp:preflight`, `gbp:encrypt-tokens`, `setup:live-test --token-only`)
+- API reference: [ENDPOINTS.md](ENDPOINTS.md) (one-page list of every rebuilt endpoint) and [API.md](API.md) (full examples)
+
+**Where each fact lives:**
+
+| Topic | File |
+|---|---|
+| Current state and next step | this file |
+| History and commit hashes | [PROGRESS.md](PROGRESS.md) |
+| Findings and their status | [AUDIT.md](AUDIT.md) |
+| Routes | [ROUTES.md](ROUTES.md) |
+| Rules and phase specs ("as built" notes) | [CLAUDE.md](../CLAUDE.md) |

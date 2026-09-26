@@ -64,7 +64,11 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - Work only against a **local MongoDB** and a local `.env`. Never use production credentials, never connect to production DB, never SSH anywhere.
 - Never print, log, or commit secrets. Never hardcode credentials (the old code has a hardcoded DataForSEO login; that pattern is banned).
 - API keys used during development must be **test keys with low quotas/budget caps**. If a required key is missing, stop and ask; do not stub a real-looking key.
-- **No Places API key yet (Phases 3–5).** All unit and integration tests use mocked clients and fixtures and must pass with no key. **No real Google API calls in any phase until Mohit says so.** Smoke scripts may be written but not run.
+- **Real Google calls only when Mohit says so, within the budget he gives.**
+  - Mohit's local `.env` has a Places API (New) key (since Phase 5.5) and the GBP OAuth client. Never print, log or commit them.
+  - The only live runs so far are the Phase 5.5 Fredericton validation (106 IDs-only, 7 Pro, 3 Details calls). Report call counts after every live step.
+  - All unit and integration tests use mocked clients and fixtures and must pass with no key.
+  - GBP live steps (connect, `gbp:preflight`, select-profile, sync) are triggered by Mohit.
 - When calling real Google APIs during development: max **2 keywords**, **3×3 grid**, **1 location** per test run. Log how many API calls each test run made.
 
 ### Quality gates (every commit)
@@ -98,11 +102,18 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
 - Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` (`defineAllJobs`) and agenda is started from `src/server.ts` after `listen`. New jobs use `src/jobs/defineJob.ts` (`defineJob` / `scheduleJob`, IDs-only data). The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
 - Ranking API (Phase 5): `/api/v1/locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}` (see `docs/API.md`). Jobs `rank-run` and `rank-scheduler`. Model `RankRun` (`rank_runs`) and `Location.tracking`.
-- Clients: `src/clients/http.ts` (transport, 15 s timeout, 1 retry, safe errors) and `src/clients/placesClient.ts` (Places API New; `createPlacesClient()` for tests, `placesClient` default instance). `gbpClient` comes in Phase 6.
+- **Clients:**
+  - `src/clients/http.ts`: transport, 15 s timeout, 1 retry, safe errors with ErrorInfo `reason` and `quota_limit_value`.
+  - `src/clients/placesClient.ts`: Places API (New). Each search has a guarded field mask: IDs-only for ranking, Pro names for Map Ranking, Enterprise for competitor suggestions, Pro names and addresses for manual search. Plus Place Details. `createPlacesClient()` is for tests; `placesClient` is the default instance.
+  - `src/clients/gbpClient.ts`: GBP and OAuth; ≤ `GBP_MAX_RPS`; refresh and rotation persisted; quota-0 and disabled-API errors.
+- **GBP (Phases 6–7a):** `src/services/gbp/` (`tokenStore`, `oauth.service` with popup and redirect, `idToken`, `discovery.service`, `binding.service`, `errors`).
+- **Onboarding (7a):** `src/services/onboarding/` (state, select-profile, suggestions, manual search, daily Places cap, steps). Routes: `/onboarding/*`, `/places/search`, `/locations/:id/competitor-suggestions`.
+- **Scripts:** `seed:rank-demo`, `smoke:places`, `smoke:agenda`, `find:place`, `setup:live-test [--token-only]`, `calibrate`, `calibrate:score`, `gbp:preflight`, `gbp:encrypt-tokens` (see `docs/OPERATIONS.md`, `docs/LIVE_TEST.md`, `docs/GBP_CONNECT.md`).
+- **Live-test data** (local `mps_rebuild`): user `live-test@mypageseo.test` (id `6ab76e2c99cf66c2cc414a13`); location MyPageSEO Fredericton (id `6ab76e2c99cf66c2cc414a18`, place `ChIJneho2koPp0wRIbUtaCCIReA`).
 - Tests: `tests/` mirrors `src/`; fixtures in `tests/fixtures/`; helpers `tests/helpers/fakeTransport.ts` and `memoryMongo.ts`.
 - Production runs via pm2 with `instances: "max"` (cluster mode). Anything using in-memory state (node-cache, rate-limit memory store, node-cron) runs once **per instance**. Jobs must use agenda (Mongo-locked), never node-cron.
 - Config: `src/configs/config.ts` (Joi-validated env, loaded from `ENV_FILE` if set, else `./.env` in the working directory; see `docs/OPERATIONS.md`). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
-- OAuth (Phase 6): GBP connect is `src/services/gbp/oauth.service.ts` (one-time hashed state in `OAuthState`, scope `business.manage`). All GBP calls go through `src/clients/gbpClient.ts` (≤ `GBP_MAX_RPS`, refresh + rotation persisted). Tokens live in `UserAuth`, one active row per `(user_id, token_type)`, via `src/services/gbp/tokenStore.ts`: **GBP tokens are AES-256-GCM encrypted** (`TOKEN_ENCRYPTION_KEY`), Search Console tokens are still plaintext. `src/configs/oAuth2Client.ts` is used only by the Search Console flow; `configs/gbpOauthClinet.ts` is unused (Phase 9). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`, `place_id`), via `src/services/gbp/binding.service.ts`.
+- OAuth (Phases 6–7a): GBP connect is `src/services/gbp/oauth.service.ts`. It has a GIS popup flow plus a redirect fallback, a one-time hashed state in `OAuthState` (`flow` popup/redirect), scopes `openid email business.manage`, and a verified id_token whose `google_email` is stored. All GBP calls go through `src/clients/gbpClient.ts` (≤ `GBP_MAX_RPS`, refresh + rotation persisted). Tokens live in `UserAuth`, one active row per `(user_id, token_type)`, via `src/services/gbp/tokenStore.ts`: **GBP tokens are AES-256-GCM encrypted** (`TOKEN_ENCRYPTION_KEY`), Search Console tokens are still plaintext. `src/configs/oAuth2Client.ts` is used only by the Search Console flow; `configs/gbpOauthClinet.ts` is unused (Phase 9). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`, `place_id`), via `src/services/gbp/binding.service.ts`.
 - Location model (`src/models/location.model.ts`): `name, address, city, state, country, zip_code, lat, lng, mobile, place_id, website_URL, business_category, client_id, created_by, is_active`.
 - Old ranking: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (`generateGrid()` math is correct and reusable), `helpers/localMapRankingReport.ts`, `services/common/{rankTracker,localSearchGrid,localMapRankingReport}.service.ts`, matching middlewares/models/routes (all deleted in Phase 9; `serp.ts` was already deleted in Phase 1.5).
 - Old GBP: `helpers/gbpAudit.ts` (legacy Places API; its organic-rank and Moz helpers were deleted in Phase 1.5), `services/common/gbpAudit.service.ts` (recomputes on every GET), `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda, keep). `helpers/gbpPs.ts` was deleted in Phase 1.5.
@@ -457,6 +468,21 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
 ---
 
 ## 11. PHASE 7 — GBP data sync + GBP Report
+
+**Split into three sub-phases** (Mohit, 2026-09-26). Each has its own branch from `claude/rebuild`, plan mode, approval and merge. M3 comes after 7c.
+- **7a: connect + onboarding.** **Built** on `claude/phase-7a-connect-onboarding`:
+  - Google Identity Services popup (`GET /user/auth/google/gbp/popup`, `POST /user/auth/google/gbp/code` with `redirect_uri=postmessage`); any Google account.
+  - Scopes `openid email business.manage`; the id_token is verified and `google_email` stored. Popup settings: `select_account: true` only (GIS has no `prompt`). The redirect fallback sends `prompt=select_account consent`.
+  - **Several Google accounts per user** (agencies): one *connection* per Google account, keyed by the id_token `sub`. Token rows are keyed by `user_id + token_type + google_sub`; each `UserGBP` binding stores the `google_sub` it was made with, and `gbpClient` acts through a `ConnectionRef { userId, googleSub }`. Discovery is grouped per account. Bind and disconnect take `google_sub` (required with several). Disconnect and unbind are per account.
+  - Onboarding: `/onboarding/{state,gbp-profiles,select-profile,complete}`, `GET /locations/:id/competitor-suggestions` (Text Search **Enterprise** mask, 24 h cache, top 10) and `GET /places/search?q=&locationId=` (Pro, 10 results).
+  - `PLACES_USER_DAILY_LIMIT` (default 50) caps user-triggered Places calls per user per day.
+  - `Location.onboarding` holds the step: `profile_selected` → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`. A service-area profile without coordinates adds the center step: `PUT /locations/:id/center { query }` (1 IDs-only search + 1 Details `location`; `center_source: 'manual'`). `/complete` requires a center, queues the first rank run and sets `gbp_sync.requested_at` for 7b.
+  - Frontend flow: `docs/GBP_CONNECT.md`, `docs/API.md`.
+- **7b: the `gbp-sync` job** (7.1 below), with a global switch **`GBP_V4_ENABLED`** (default false).
+  - When false, no v4 calls are made: reviews, media and posts are marked `not_available` (not an error).
+  - All v4 code is still built and tested on fixtures, so going live means setting `GBP_V4_ENABLED=true` with no code changes.
+  - Sample data only in `seed:gbp-demo` and tests, never in live responses.
+- **7c: scoring + report + competitors** (7.2–7.4 below, extended by Mohit's 7c brief: GBP Score with 5 pillars and rescaling when a pillar is `not_available`, a Public Score, `seed:gbp-demo`). Milestone **M3**.
 
 ### 7.1 Sync job `gbp-sync` (per bound location; daily at 03:00 location timezone; also "sync now")
 Never fetch GBP data on a page view. Store everything; pages read from DB.

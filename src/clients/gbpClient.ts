@@ -38,7 +38,7 @@ export const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const OAUTH_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 
 export const DISCOVERY_READ_MASK =
-	'name,title,storefrontAddress,phoneNumbers,websiteUri,categories,latlng,metadata,languageCode,profile';
+	'name,title,storefrontAddress,serviceArea,phoneNumbers,websiteUri,categories,latlng,metadata,languageCode,profile';
 
 const MAX_ACCOUNT_PAGES = 20;
 const MAX_LOCATION_PAGES = 50;
@@ -136,6 +136,7 @@ export const mapLocation = (raw: RawLocation): GbpLocation | null => {
 					addressLines: (address.addressLines ?? []).filter((l) => l.trim().length > 0),
 				}
 			: null,
+		serviceAreaRegionCode: str(raw.serviceArea?.regionCode),
 		primaryPhone: str(raw.phoneNumbers?.primaryPhone),
 		websiteUri: str(raw.websiteUri),
 		primaryCategory: str(raw.categories?.primaryCategory?.displayName),
@@ -153,6 +154,7 @@ const mapTokens = (raw: RawTokenResponse, nowMs: number): OAuthTokens => {
 		refreshToken: str(raw.refresh_token),
 		expiryDate: new Date(nowMs + (raw.expires_in ?? 3600) * 1000),
 		scope: str(raw.scope),
+		idToken: str(raw.id_token),
 	};
 };
 
@@ -194,6 +196,15 @@ export interface GbpClientOptions {
 }
 
 type UserId = Types.ObjectId | string;
+
+/**
+ * Which Google account to act as: the user's connection with this id_token sub (null = a pre-7a
+ * connection without identity; undefined = the user's only connection).
+ */
+export interface ConnectionRef {
+	userId: UserId;
+	googleSub?: string | null;
+}
 
 export const createGbpClient = (options: GbpClientOptions = {}) => {
 	const transport = options.transport ?? createAxiosTransport();
@@ -264,11 +275,20 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		return data;
 	};
 
-	/** Exchanges the OAuth callback code for tokens. */
-	const exchangeCode = async (code: string): Promise<OAuthTokens> => {
+	/**
+	 * Exchanges an authorisation code for tokens. The redirect flow uses the configured redirect URI;
+	 * the Google Identity Services popup flow must use "postmessage".
+	 */
+	const exchangeCode = async (code: string, redirectUriOverride?: string): Promise<OAuthTokens> => {
 		const { clientId, clientSecret, redirectUri } = oauthConfig();
 		const raw = await tokenRequest(
-			{ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' },
+			{
+				code,
+				client_id: clientId,
+				client_secret: clientSecret,
+				redirect_uri: redirectUriOverride ?? redirectUri,
+				grant_type: 'authorization_code',
+			},
 			'oauth.exchange',
 		);
 		return mapTokens(raw, now());
@@ -284,9 +304,10 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		});
 	};
 
-	/** Valid access token for the user: refreshed (and persisted) when < 60 s remain, or when forced. */
-	const getAccessToken = async (userId: UserId, force = false): Promise<string> => {
-		const stored = await tokens.load(userId, tokenTypes.GBP);
+	/** Valid access token for a connection: refreshed (and persisted) when < 60 s remain, or when forced. */
+	const getAccessToken = async (conn: ConnectionRef, force = false): Promise<string> => {
+		const { userId, googleSub } = conn;
+		const stored = await tokens.load(userId, tokenTypes.GBP, googleSub);
 		if (!stored) throw new GbpNotConnectedError();
 		if (stored.status === 'revoked') throw new GbpReauthRequiredError(0);
 		const fresh = stored.expiryDate !== null && stored.expiryDate.getTime() - now() > REFRESH_MARGIN_MS;
@@ -301,29 +322,34 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 			);
 		} catch (err) {
 			if (err instanceof GbpApiError && err.reason === 'invalid_grant') {
-				await tokens.markRevoked(userId, tokenTypes.GBP, err.message);
+				await tokens.markRevoked(userId, tokenTypes.GBP, err.message, googleSub ?? stored.googleSub);
 				throw new GbpReauthRequiredError(err.apiCalls);
 			}
 			throw err;
 		}
 		const refreshed = mapTokens(raw, now());
-		await tokens.saveRefreshed(userId, tokenTypes.GBP, {
-			accessToken: refreshed.accessToken,
-			refreshToken: refreshed.refreshToken, // rotation: stored (encrypted) only when Google sent a new one
-			expiryDate: refreshed.expiryDate,
-		});
+		await tokens.saveRefreshed(
+			userId,
+			tokenTypes.GBP,
+			{
+				accessToken: refreshed.accessToken,
+				refreshToken: refreshed.refreshToken, // rotation: stored (encrypted) only when Google sent a new one
+				expiryDate: refreshed.expiryDate,
+			},
+			googleSub ?? stored.googleSub,
+		);
 		return refreshed.accessToken;
 	};
 
-	/** Authenticated GET for a user; on a 401, refreshes once and retries. */
-	const authedGet = async <T>(userId: UserId, label: string, url: string): Promise<T> => {
+	/** Authenticated GET for a connection; on a 401, refreshes once and retries. */
+	const authedGet = async <T>(conn: ConnectionRef, label: string, url: string): Promise<T> => {
 		const attempt = async (token: string): Promise<T> =>
 			(await send<T>(label, { method: 'GET', url, headers: { Authorization: `Bearer ${token}` } })).data;
 		try {
-			return await attempt(await getAccessToken(userId));
+			return await attempt(await getAccessToken(conn));
 		} catch (err) {
 			if (err instanceof GbpApiError && err.status === 401 && !(err instanceof GbpReauthRequiredError)) {
-				return attempt(await getAccessToken(userId, true));
+				return attempt(await getAccessToken(conn, true));
 			}
 			throw err;
 		}
@@ -337,13 +363,13 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		return query ? `${base}?${query}` : base;
 	};
 
-	/** Every account the user can access (all pages). */
-	const listAccounts = async (userId: UserId): Promise<GbpAccount[]> => {
+	/** Every account the connection's Google account can access (all pages). */
+	const listAccounts = async (conn: ConnectionRef): Promise<GbpAccount[]> => {
 		const accounts: GbpAccount[] = [];
 		let pageToken: string | undefined;
 		for (let page = 0; page < MAX_ACCOUNT_PAGES; page++) {
 			const url = withQuery(`${ACCOUNT_MANAGEMENT_URL}/accounts`, { pageSize: '20', pageToken });
-			const data = await authedGet<RawAccountsPage>(userId, 'accounts.list', url);
+			const data = await authedGet<RawAccountsPage>(conn, 'accounts.list', url);
 			for (const raw of data.accounts ?? []) {
 				const account = mapAccount(raw);
 				if (account) accounts.push(account);
@@ -356,7 +382,7 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 	};
 
 	/** Every location of one account (all pages), with the discovery readMask. */
-	const listLocations = async (userId: UserId, accountName: string): Promise<GbpLocation[]> => {
+	const listLocations = async (conn: ConnectionRef, accountName: string): Promise<GbpLocation[]> => {
 		const locations: GbpLocation[] = [];
 		let pageToken: string | undefined;
 		for (let page = 0; page < MAX_LOCATION_PAGES; page++) {
@@ -365,7 +391,7 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 				pageSize: '100',
 				pageToken,
 			});
-			const data = await authedGet<RawLocationsPage>(userId, 'locations.list', url);
+			const data = await authedGet<RawLocationsPage>(conn, 'locations.list', url);
 			for (const raw of data.locations ?? []) {
 				const location = mapLocation(raw);
 				if (location) locations.push(location);
@@ -378,8 +404,8 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 	};
 
 	/** One location ("locations/123"); fails if the user's Google account cannot access it. */
-	const getLocation = async (userId: UserId, locationName: string, readMask = DISCOVERY_READ_MASK): Promise<GbpLocation> => {
-		const raw = await authedGet<RawLocation>(userId, 'locations.get', withQuery(`${BUSINESS_INFORMATION_URL}/${locationName}`, { readMask }));
+	const getLocation = async (conn: ConnectionRef, locationName: string, readMask = DISCOVERY_READ_MASK): Promise<GbpLocation> => {
+		const raw = await authedGet<RawLocation>(conn, 'locations.get', withQuery(`${BUSINESS_INFORMATION_URL}/${locationName}`, { readMask }));
 		const location = mapLocation(raw);
 		if (!location) throw new GbpApiError('GBP locations.get returned no location name', {}, 1);
 		return location;

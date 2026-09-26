@@ -123,7 +123,7 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 				if (!result.details.location) throw new Error('Place Details returned no location');
 				center = { lat: result.details.location.latitude, lng: result.details.location.longitude };
 				centerSource = 'place_details';
-				await Location.updateOne({ _id: location._id }, { $set: { lat: center.lat, lng: center.lng } });
+				await Location.updateOne({ _id: location._id }, { $set: { lat: center.lat, lng: center.lng, center_source: 'place_details' } });
 			} catch (err) {
 				if (err instanceof PlacesApiError) apiCalls.details += err.apiCalls;
 				throw new Error(`Could not resolve the location center: ${(err as Error).message}`);

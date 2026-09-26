@@ -23,6 +23,12 @@ jest.mock('../../src/clients/placesClient', () => {
 	return { ...actual, placesClient: new Proxy({}, { get: () => placesCalls }) };
 });
 
+// id_token verification would fetch Google's certificates: replace it (it has its own tests).
+jest.mock('../../src/services/gbp/idToken', () => ({
+	...jest.requireActual('../../src/services/gbp/idToken'),
+	verifyGoogleIdToken: async () => ({ sub: '100000000000000000001', email: 'owner@example.test' }),
+}));
+
 // The Google side of GBP, faked at the client boundary (no network).
 const fake = {
 	accounts: [] as GbpAccount[],
@@ -39,12 +45,13 @@ jest.mock('../../src/clients/gbpClient', () => {
 				accessToken: 'ya29.FAKE-route',
 				refreshToken: '1//FAKE-route',
 				expiryDate: new Date(Date.now() + 3600_000),
-				scope: 'https://www.googleapis.com/auth/business.manage',
+				scope: 'openid email https://www.googleapis.com/auth/business.manage',
+				idToken: 'fake.id.token',
 			}),
 			// Like the real client: no stored GBP token means "not connected".
-			listAccounts: async (userId: unknown) => {
+			listAccounts: async (conn: { userId: unknown }) => {
 				const { UserAuth: tokensModel } = jest.requireActual('../../src/models');
-				if (!(await tokensModel.exists({ user_id: userId, token_type: 'GBP' }))) throw new actual.GbpNotConnectedError();
+				if (!(await tokensModel.exists({ user_id: conn.userId, token_type: 'GBP' }))) throw new actual.GbpNotConnectedError();
 				return fake.accounts;
 			},
 			listLocations: async () => fake.locations,
@@ -108,12 +115,12 @@ describe('GBP routes: auth', () => {
 });
 
 describe('GBP routes: connect', () => {
-	it('returns a consent URL with business.manage only and a stored state', async () => {
+	it('returns a consent URL with openid, email and business.manage and a stored state', async () => {
 		const { token } = await createUser('a@test.dev');
 		const res = await request(app).get('/api/v1/user/auth/google/gbp').set(auth(token));
 		expect(res.status).toBe(200);
 		const url = new URL(res.body.data);
-		expect(url.searchParams.get('scope')).toBe('https://www.googleapis.com/auth/business.manage');
+		expect(url.searchParams.get('scope')).toBe('openid email https://www.googleapis.com/auth/business.manage');
 		expect(await OAuthState.countDocuments({})).toBe(1);
 	});
 
@@ -144,10 +151,11 @@ describe('GBP routes: discovery, bind, unbind, disconnect', () => {
 		await connect(token);
 		const res = await request(app).get('/api/v1/gbp').set(auth(token));
 		expect(res.status).toBe(200);
-		expect(res.body.data.accounts).toBe(2);
-		expect(res.body.data.errors).toEqual([]);
-		expect(res.body.data.locations).toHaveLength(2); // same 2 locations under both accounts, listed once
-		expect(res.body.data.locations[0]).toMatchObject({
+		expect(res.body.data.connections).toHaveLength(1);
+		const group = res.body.data.connections[0];
+		expect(group).toMatchObject({ google_email: 'owner@example.test', label: 'Connected as owner@example.test', status: 'ok', accounts: 2, errors: [] });
+		expect(group.locations).toHaveLength(2); // same 2 locations under both accounts, listed once
+		expect(group.locations[0]).toMatchObject({
 			address: '100 Example St, Suite 5, Dallas, TX 75201',
 			place_id: 'ChIJfakeGbpPlace000000001',
 		});
@@ -195,7 +203,7 @@ describe('GBP routes: discovery, bind, unbind, disconnect', () => {
 		await connect(token);
 		const res = await request(app).post('/api/v1/user/auth/google/gbp/revoke').set(auth(token));
 		expect(res.status).toBe(200);
-		expect(res.body.data).toEqual({ revoked: true, bindings_removed: 0 });
+		expect(res.body.data).toEqual({ revoked: true, bindings_removed: 0, google_email: 'owner@example.test' });
 		expect(fake.revoked).toEqual(['1//FAKE-route']);
 		expect(await UserAuth.countDocuments({ user_id: user._id })).toBe(0);
 	});

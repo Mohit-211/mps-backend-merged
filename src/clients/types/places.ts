@@ -11,8 +11,11 @@ export interface SearchTextParams {
 	textQuery: string;
 	/** CLDR region code, e.g. 'us' or 'ca'. */
 	regionCode: string;
-	/** Center of the locationBias circle (the sample point). */
-	center: LatLng;
+	/**
+	 * Center of the locationBias circle (the sample point). Ranking always sets it; only the
+	 * city/ZIP center lookup (no known location yet) omits it, which sends no locationBias.
+	 */
+	center?: LatLng;
 	/** Circle radius in metres; defaults to PLACES_SEARCH_RADIUS_M. */
 	radiusM?: number;
 }
@@ -46,6 +49,31 @@ export interface SearchTextIdsResult {
 
 export interface SearchTextWithNamesResult {
 	places: NamedPlaceEntry[];
+	apiCalls: number;
+}
+
+/** Competitor suggestion candidate (Text Search Enterprise fields). */
+export interface SuggestionPlace extends PlaceIdEntry {
+	name: string | null;
+	address: string | null;
+	rating: number | null;
+	userRatingCount: number | null;
+}
+
+export interface SearchTextSuggestionsResult {
+	places: SuggestionPlace[];
+	apiCalls: number;
+}
+
+/** Manual competitor search result (Text Search Pro fields). */
+export interface NameAddressPlace {
+	id: string;
+	name: string | null;
+	address: string | null;
+}
+
+export interface SearchTextNamesAddressesResult {
+	places: NameAddressPlace[];
 	apiCalls: number;
 }
 
@@ -92,6 +120,8 @@ export interface PlaceDetailsResult {
 export interface PlacesCallStats {
 	ids_only: number;
 	pro: number;
+	/** Text Search Enterprise (rating / userRatingCount): competitor suggestions only. */
+	enterprise: number;
 	details: number;
 }
 
@@ -106,6 +136,9 @@ export interface RawPlace {
 	id?: string;
 	movedPlaceId?: string;
 	displayName?: RawLocalizedText;
+	formattedAddress?: string;
+	rating?: number;
+	userRatingCount?: number;
 }
 
 export interface RawSearchTextResponse {

@@ -22,6 +22,40 @@ export interface ILocationTracking {
   last_error: string | null;
 }
 
+/** In order. center_needed / center_set only occur for profiles without coordinates (service-area). */
+export type OnboardingStep = 'profile_selected' | 'center_needed' | 'center_set' | 'keywords_set' | 'competitors_set' | 'completed';
+export const ONBOARDING_STEPS: OnboardingStep[] = ['profile_selected', 'center_needed', 'center_set', 'keywords_set', 'competitors_set', 'completed'];
+
+/** Where the location's lat/lng came from: the GBP profile, a Place Details lookup, or the user (city/ZIP). */
+export type CenterSource = 'gbp' | 'place_details' | 'manual';
+export const CENTER_SOURCES: CenterSource[] = ['gbp', 'place_details', 'manual'];
+
+/** First-run state for locations created or linked through onboarding (Phase 7a). */
+export interface ILocationOnboarding {
+  step: OnboardingStep;
+  started_at: Date;
+  completed_at: Date | null;
+}
+
+export interface CompetitorSuggestion {
+  place_id: string;
+  name: string | null;
+  address: string | null;
+  rating: number | null;
+  userRatingCount: number | null;
+  best_position: number;
+  keywords: { keyword: string; position: number }[];
+}
+
+/** 24 h cache of competitor suggestions (Places content; see the Maps ToS decision). */
+export interface ILocationCompetitorSuggestions {
+  generated_at: Date;
+  keywords_version: number;
+  keywords_used: string[];
+  api_calls: number;
+  results: CompetitorSuggestion[];
+}
+
 export interface ILocation extends Document {
   name: string;
   address: string;
@@ -44,6 +78,13 @@ export interface ILocation extends Document {
   deleted_at?: Date;
   deleted_by?: Schema.Types.ObjectId;
   tracking?: ILocationTracking;
+  center_source?: CenterSource | null;
+  /** What the user typed for a manual center (e.g. "Fredericton, NB"). */
+  center_label?: string | null;
+  onboarding?: ILocationOnboarding;
+  /** Set by POST /onboarding/complete; the gbp-sync scheduler (Phase 7b) picks it up. */
+  gbp_sync?: { requested_at: Date | null };
+  competitor_suggestions?: ILocationCompetitorSuggestions;
 }
 
 interface IModelLocation extends Model<ILocation> {
@@ -167,6 +208,52 @@ const locationSchema = new Schema<ILocation>(
     },
     tracking: {
       type: trackingSchema,
+      default: undefined,
+    },
+    center_source: { type: String, enum: [...CENTER_SOURCES, null], default: null },
+    center_label: { type: String, default: null },
+    onboarding: {
+      type: new Schema<ILocationOnboarding>(
+        {
+          step: { type: String, enum: ONBOARDING_STEPS, required: true },
+          started_at: { type: Date, required: true },
+          completed_at: { type: Date, default: null },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    gbp_sync: {
+      type: new Schema({ requested_at: { type: Date, default: null } }, { _id: false }),
+      default: undefined,
+    },
+    competitor_suggestions: {
+      type: new Schema<ILocationCompetitorSuggestions>(
+        {
+          generated_at: { type: Date, required: true },
+          keywords_version: { type: Number, required: true },
+          keywords_used: { type: [String], default: [] },
+          api_calls: { type: Number, default: 0 },
+          results: {
+            type: [
+              new Schema<CompetitorSuggestion>(
+                {
+                  place_id: { type: String, required: true },
+                  name: { type: String, default: null },
+                  address: { type: String, default: null },
+                  rating: { type: Number, default: null },
+                  userRatingCount: { type: Number, default: null },
+                  best_position: { type: Number, required: true },
+                  keywords: [{ _id: false, keyword: String, position: Number }],
+                },
+                { _id: false },
+              ),
+            ],
+            default: [],
+          },
+        },
+        { _id: false },
+      ),
       default: undefined,
     },
   },

@@ -70,6 +70,17 @@ router.get(
   userAuthController.getGBPAuthUrl
 );
 router.get("/google/gbp/callback", userAuthController.gBPAuthCallback);
+// Phase 7a: Google Identity Services popup (account chooser) flow.
+router.get(
+  "/google/gbp/popup",
+  [userAuthMiddleware.verifyAuthJWTToken],
+  userAuthController.getGBPPopupConfig
+);
+router.post(
+  "/google/gbp/code",
+  [userAuthMiddleware.verifyAuthJWTToken],
+  userAuthController.gBPPopupCode
+);
 router.post(
   "/google/gbp/revoke",
   [userAuthMiddleware.verifyAuthJWTToken],

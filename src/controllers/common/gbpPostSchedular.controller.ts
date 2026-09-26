@@ -13,7 +13,7 @@ export const getRegisteredGoogleBusinessProfile = catchAsync(async (req, res) =>
 });
 
 export const bindGoogleBusinessProfileWithUser = catchAsync(async (req, res) => {
-    const body = pick(req.body, ['user', 'gbpLocationId', 'gbpAccountId', 'location_id'])
+    const body = pick(req.body, ['user', 'gbpLocationId', 'gbpAccountId', 'location_id', 'google_sub'])
     const result = await gbpPSService.bindGoogleBusinessProfileWithUser(body);
     return responseWrapper(
         res,

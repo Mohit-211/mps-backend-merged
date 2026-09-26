@@ -68,6 +68,7 @@ const envVarsSchema = Joi.object({
 	GOOGLE_GBP_CLIENT_SECRET: Joi.string().allow(''),
 	GOOGLE_GBP_REDIRECT_URI: Joi.string().allow(''),
 	GBP_MAX_RPS: Joi.number().integer().min(1).max(10).default(5),
+	PLACES_USER_DAILY_LIMIT: Joi.number().integer().min(0).default(50).description('User-triggered Places calls per user per UTC day'),
 	TOKEN_ENCRYPTION_KEY: Joi.string()
 		.allow('')
 		.pattern(/^[0-9a-fA-F]{64}$/)
@@ -224,6 +225,8 @@ interface Config {
 		devMaxKeywords: number;
 		maxCallsPerRun: number;
 		storePlaceNames: boolean;
+		/** User-triggered Places calls (suggestions, manual search) per user per UTC day. */
+		userDailyLimit: number;
 	};
 
 	gbp: {
@@ -351,6 +354,7 @@ const config: Config = {
 		devMaxKeywords: envVars.RANK_DEV_MAX_KEYWORDS,
 		maxCallsPerRun: envVars.RANK_MAX_CALLS_PER_RUN,
 		storePlaceNames: envVars.STORE_PLACE_NAMES,
+		userDailyLimit: envVars.PLACES_USER_DAILY_LIMIT,
 	},
 
 	gbp: {
