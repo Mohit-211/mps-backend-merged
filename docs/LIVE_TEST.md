@@ -15,96 +15,119 @@ For Mohit, once a `GOOGLE_PLACE_API_KEY` exists. Until then, everything runs off
 - **Terminal 1:** `npm run dev`. Check that the log shows "Agenda has started and is processing jobs".
 - **Terminal 2:** everything below.
 
-## Step 1: `smoke:places` (1 call)
+## The flow at a glance
 
-Pick a real business you can check on Google Maps.
-- Get its **place ID** with Google's free [Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id). It runs in your browser and makes no call from our side.
-- Note its latitude and longitude from Google Maps: right-click the pin, then click the coordinates.
+| Step | Command | Google calls |
+|---|---|---|
+| 1. Find the business | `npm run find:place -- "<name> <city>" <lat> <lng> --region=ca` | 1 IDs-only + 1 Place Details |
+| 2. Create the live-test user and location | `npm run setup:live-test -- ...` | 0 |
+| 3. Smoke test | `npm run smoke:places -- "<keyword>" <lat> <lng> <place_id> --region=ca` | 1 IDs-only |
+| 4. One real run | `POST /locations/:locationId/rank-runs` | 26–78 IDs-only + 2 Pro + 0 Details |
+| 5. Calibration sheet | `npm run calibrate -- <locationId> <runId>` | 0 |
+| 6. Manual check | fill in `manual_rank` / `manual_top3` from the Maps links | 0 |
+| 7. Score | `npm run calibrate:score -- docs/calibration/<file>.csv` | 0 |
+
+## Step 1: find the business (`find:place`, 2 calls)
 
 ```sh
-npm run smoke:places -- "<keyword>" <lat> <lng> <place_id> --region=ca   # or --region=us
+npm run find:place -- "MyPageSEO Fredericton NB" 45.9636 -66.6431 --region=ca
 ```
 
-**Cost:** 1 IDs-only Text Search call on the free Essentials SKU (2 if the one retry fires).
+The coordinates are only a search bias (the city center is fine). The script makes **one** IDs-only Text Search (page 1 only) and **one** Place Details call for the top result, with the fields `id, displayName, formattedAddress, location` (Essentials tier). It prints the place ID, name, address, coordinates and the call count.
 
-**Expected output**
+**Check** that the name and address are the right business before going on. If the top result is wrong, refine the query rather than guessing a place ID.
 
+## Step 2: live-test user and location (`setup:live-test`, 0 calls)
+
+```sh
+npm run setup:live-test -- --name "MyPageSEO" --city Fredericton --state NB --country Canada \
+  --place-id <place_id> --lat <lat> --lng <lng> --address "<formatted address>" \
+  --keywords "seo company,digital marketing agency" --token-file <scratch dir>/live_token
 ```
-Keyword:        emergency plumber
-Center:         43.6629, -79.3347 (region ca)
-Results:        20 (page 1 only)
-Target:         ChIJ... found at rank 4          (or "not found on page 1 (rank > 20)")
-API calls:      1 (IDs-only SKU, retries included)
+
+- Refuses unless `NODE_ENV=development` **and** the database is `mps_rebuild`.
+- Creates the user `live-test@mypageseo.test` (separate from the demo seed), and a location with `place_id` and `lat`/`lng` set **directly** (the legacy `POST /locations` would make an all-fields Place Details call, AUDIT C23).
+- Tracking: the keywords, a 3×3 grid at 1 km, frequency `manual` (the scheduler never picks it up).
+- The access token goes to `--token-file` (mode 600), never to the terminal. Re-running recreates the live-test user and deletes its old runs.
+
+## Step 3: smoke test (`smoke:places`, 1 call)
+
+```sh
+npm run smoke:places -- "seo company" <lat> <lng> <place_id> --region=ca
 ```
 
-**Check**
-- `Results` is 20.
-- The rank roughly matches a manual Maps search (see "Compare with Google Maps" below).
+**Expected:** `Results: 20`, the target's rank on page 1 (or "not found on page 1"), `API calls: 1`.
 
 **If it fails**
 - `status=403 PERMISSION_DENIED`: the key is not enabled for Places API (New), or its restrictions block it.
 - `status=429`: a quota or budget cap was hit.
 - `GOOGLE_PLACE_API_KEY not set`: the key isn't in `.env`.
 
-## Step 2: one location, 2 keywords, 3×3 grid
+## Step 4: one real run
 
-**Expected cost: 26–78 IDs-only calls, plus 2 Pro calls, plus 0–1 Place Details calls.**
-- **IDs-only (26–78):** 13 unique points × 2 keywords, 1–3 pages each. It is fewer when the business is found on page 1. The worst case with every retry is 156.
+**Expected cost: 26–78 IDs-only calls, plus 2 Pro calls, 0 Place Details** (lat/lng are set).
+- **IDs-only:** 13 unique points × 2 keywords, 1–3 pages each; fewer when the business is found on page 1. The worst case with every retry is 156.
 - **Pro (2):** the Map Ranking list, one names search per keyword.
-- **Place Details (0 or 1):** only if the location has no lat/lng, for a single `location` field.
 
-### 2a. Log in and create the location
-
-1. Use the demo login. `npm run seed:rank-demo` prints a login and an access token (re-running it creates a fresh demo user). Then:
-
-   ```sh
-   export TOKEN='<access token from seed:rank-demo>'
-   API=http://localhost:5055/api/v1
-   ```
-
-2. Create the real business as a location. **Do not send `place_id` here.** The legacy create endpoint would make an expensive Place Details call (AUDIT C23).
-
-   ```sh
-   curl -s -X POST $API/locations -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-     -d '{"name":"<business name>","address":"<street>","country":"Canada","state":"Ontario","city":"Toronto","zip_code":"<zip>","mobile":"<phone>","website_URL":"<site>","business_category":"<category>"}'
-   curl -s $API/locations -H "Authorization: Bearer $TOKEN"     # copy the new location's _id
-   ```
-
-3. Set its place ID and coordinates directly in the local database. Adding coordinates makes Place Details calls **0**; if you leave them out, the run resolves them with **1** call.
-
-   ```sh
-   mongosh "mongodb://mps_local:<local-db-password>@127.0.0.1:27017/mps_rebuild?authSource=mps_rebuild" --quiet --eval \
-     'db.locations.updateOne({_id: ObjectId("<locationId>")}, {$set: {place_id: "<place_id>", lat: <lat>, lng: <lng>}})'
-   ```
-
-### 2b. Tracking settings and the estimate
+With `npm run dev` running in terminal 1:
 
 ```sh
-LOC=$API/locations/<locationId>
-curl -s -X PUT $LOC/tracking -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"keywords":["<keyword 1>","<keyword 2>"],"grid":{"size":3,"spacing_km":1},"frequency":"manual"}'
+TOKEN=$(cat <scratch dir>/live_token)
+LOC=http://localhost:5055/api/v1/locations/<locationId>
+curl -s $LOC/tracking -H "Authorization: Bearer $TOKEN"                   # check data.estimate
+curl -s -X POST $LOC/rank-runs -H "Authorization: Bearer $TOKEN"          # 202, note data.run_id
+curl -s $LOC/rank-runs/<run_id> -H "Authorization: Bearer $TOKEN"         # repeat until done/partial/failed
 ```
 
-Check the response:
-- `data.estimate.idsOnly` is `{ "min": 26, "max": 78, "maxWithRetries": 156 }`
-- `data.estimate.pro.min` is 2
-- `data.estimate.details.min` is 0 (or 1 without lat/lng)
-
-Keep `frequency` as `manual`, so the scheduler never runs this location by itself.
-
-### 2c. Run it
-
-```sh
-curl -s -X POST $LOC/rank-runs -H "Authorization: Bearer $TOKEN"                   # 202, note data.run_id
-curl -s $LOC/rank-runs/<run_id> -H "Authorization: Bearer $TOKEN"                   # repeat until status is done/partial/failed
-```
-
-A 2-keyword 3×3 run should finish in well under a minute. Terminal 1 logs one line, for example `rank-run <id>: done keywords=2 ids_only=31 pro=2 details=0`.
+Terminal 1 logs one line, for example `rank-run <id>: done keywords=2 ids_only=31 pro=2 details=0`.
 
 **Check**
 - `status` is `done`. `partial` means some points failed; see `errors_count` and the error cells.
-- `api_calls.ids_only` is within 26–78, `api_calls.pro` is 2, and `api_calls.details` is 0 or 1.
-- Write the real counts into PROGRESS.md: that is the first measured cost.
+- `api_calls` is within the estimate. Write the real counts into PROGRESS.md.
+
+## Step 5: calibration sheet (`calibrate`, 0 calls)
+
+```sh
+npm run calibrate -- <locationId> <runId>
+```
+
+Reads the run from the database only and writes `docs/calibration/<run date>-<location>.csv`, one row per keyword × point (5 tracker + 9 grid per keyword):
+
+| Column | Meaning |
+|---|---|
+| `keyword`, `point_type` | `tracker` or `grid` |
+| `row`, `col` | grid position (row 0 = north); for tracker points `row` is `C`/`N`/`S`/`E`/`W` |
+| `lat`, `lng` | the sample point |
+| `api_rank` | our rank for the business: a number, `60+` or `error` |
+| `api_top3` | our top 3 at that point, separated by " \| ". Names come from the run's Map Ranking lists (center, both keywords); a place that never appears there is shown as `(unknown: <id>)`, because naming it would cost an extra paid call |
+| `maps_url` | `https://www.google.com/maps/search/<keyword>/@<lat>,<lng>,14z` |
+| `manual_rank`, `manual_top3`, `notes` | blank, for you |
+
+It refuses to overwrite an existing sheet (it may hold your entries) unless `--force` is given.
+
+## Step 6: fill in the manual columns
+
+For each row:
+1. Open `maps_url` in an **incognito** window (logged-in results are personalised). Don't pan or zoom the map.
+2. `manual_rank`: the business's position in the results list, **ignoring "Sponsored"**. Write `60+` if it isn't in the list.
+3. `manual_top3`: the first 3 non-sponsored names, `|`-separated (e.g. `Alpha SEO | Beta Media | Gamma`). Exact spelling isn't needed; names are compared loosely (case, punctuation and "Inc/Ltd/Co" are ignored).
+4. `notes`: anything odd.
+
+The tracker `C` row and the grid center are the same search; fill in either (the scorer counts the point once).
+
+## Step 7: score (`calibrate:score`, 0 calls)
+
+```sh
+npm run calibrate:score -- docs/calibration/<file>.csv
+```
+
+It prints:
+- **Within 2:** the share of points where |api_rank − manual_rank| ≤ 2 (both `60+` counts as agreement).
+- **Found on Maps but 60+ in the API**, and the reverse.
+- **Top-3 overlap:** the average share of our top 3 found in the manual top 3, over rows where our top 3 is fully named.
+- **Verdict:** **PASS** if within-2 ≥ 70% **and** top-3 overlap ≥ 60%, otherwise **FAIL** with the reasons and the 5 worst rows (gap with `60+` counted as 61).
+
+Rows without a `manual_rank`, and rows where our search errored, are skipped and counted.
 
 ## How to read the results
 
@@ -121,21 +144,11 @@ curl -s "$LOC/map-ranking?keyword=<keyword 1>" -H "Authorization: Bearer $TOKEN"
 - **Map Ranking:** the top 20 at the center. `is_self: true` marks the business.
 - **Change** fields are `null` on the first run. A second run with the same keywords shows `change` and `changeLabel`.
 
-## Compare with Google Maps
+## Investigate if
 
-For the center and one corner point:
-1. Open an **incognito** window. Logged-in results are personalised.
-2. Go to `https://www.google.com/maps/search/<keyword>/@<lat>,<lng>,14z`, using the point's `lat`/`lng` from the response.
-3. Count the business's position in the results list, **ignoring "Sponsored" results**.
-
-**What to expect**
-- Within a few positions of our rank near the center.
-- The top 3 ("pack") usually match.
-- Differences grow with distance and on crowded keywords. Text Search is a proxy for the Maps list, not an exact copy.
-
-**Investigate if**
-- The business is `60+` with us but top 10 on Maps. Check the `place_id`: the place may have moved, so compare with the Place ID Finder.
+- The business is `60+` with us but top 10 on Maps. Check the `place_id`: the place may have moved (re-run `find:place`).
 - Every point shows the same rank. Check `lat`/`lng` and the region (`US` vs `Canada`).
+- Differences grow with distance and on crowded keywords. Text Search is a proxy for the Maps list, not an exact copy; the calibration verdict says whether the proxy is good enough.
 
 ## Rollback
 
@@ -148,11 +161,11 @@ mongosh "mongodb://mps_local:<local-db-password>@127.0.0.1:27017/mps_rebuild?aut
 ```
 
 - Delete one run only: `db.rank_runs.deleteOne({ _id: ObjectId("<run_id>") })`.
-- Remove the test location entirely: `db.locations.deleteOne({ _id: ObjectId("<locationId>") })`.
+- Remove the test location entirely: `db.locations.deleteOne({ _id: ObjectId("<locationId>") })`, or re-run `setup:live-test` to start clean.
 - **Stop all live calls:** remove `GOOGLE_PLACE_API_KEY` from `.env` and restart `npm run dev`. Any run then fails immediately with "GOOGLE_PLACE_API_KEY not set", before any network call.
 - The scheduler only runs locations whose `frequency` is `weekly` or `monthly`. Keep test locations on `manual`.
 
 ## After the test
 
-- Record in PROGRESS.md: the real `api_calls` against the estimate, the run duration, and how the results compared with manual Maps searches.
+- Record in PROGRESS.md: the real `api_calls` against the estimate, the run duration, and the calibration verdict. Commit the filled-in CSV.
 - Only then try larger runs outside development (`NODE_ENV=production` lifts the 2-keyword / 3×3 limits). The hard cap `RANK_MAX_CALLS_PER_RUN` (default 3200) still applies.
