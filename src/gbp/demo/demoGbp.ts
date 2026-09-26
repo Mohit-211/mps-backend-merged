@@ -231,21 +231,35 @@ export const createDemoDetailsClient = () => {
  * Writes a complete demo GBP data set for a location: a binding, a finished sync, 18 months of
  * metrics, 6 months of keywords, a snapshot (with v4 media/posts/review summary) and reviews.
  */
-export const writeDemoGbpData = async (location: { _id: Types.ObjectId; created_by?: unknown }, userId: Types.ObjectId, now: Date): Promise<void> => {
+export interface DemoGbpOptions {
+	/** GBP location resource name (unique per user binding). */
+	gbpLocationId?: string;
+	placeId?: string;
+	title?: string;
+}
+
+export const writeDemoGbpData = async (
+	location: { _id: Types.ObjectId; created_by?: unknown },
+	userId: Types.ObjectId,
+	now: Date,
+	options: DemoGbpOptions = {},
+): Promise<void> => {
 	const locationId = location._id;
+	const gbpLocationId = options.gbpLocationId ?? 'locations/demo';
+	const placeId = options.placeId ?? DEMO_PLACE_IDS.self;
 	await UserGBP.create({
 		user_id: userId,
 		location_id: locationId,
 		gbpAccountId: 'accounts/demo',
-		gbpLocationId: 'locations/demo',
+		gbpLocationId,
 		google_sub: 'demo-google-sub',
-		place_id: DEMO_PLACE_IDS.self,
+		place_id: placeId,
 	});
 	const sync = await GbpSync.create({
 		location_id: locationId,
 		created_by: userId,
 		google_sub: 'demo-google-sub',
-		gbp_location_id: 'locations/demo',
+		gbp_location_id: gbpLocationId,
 		gbp_account_id: 'accounts/demo',
 		trigger: 'onboarding',
 		status: 'done',
@@ -260,10 +274,21 @@ export const writeDemoGbpData = async (location: { _id: Types.ObjectId; created_
 	});
 	await GbpMetricDaily.insertMany(demoMetricRows(locationId, now));
 	await GbpKeywordMonthly.insertMany(demoKeywordRows(locationId, now));
-	await GbpProfileSnapshot.create(demoSnapshot(locationId, sync._id as Types.ObjectId, now));
-	await GbpReview.insertMany(demoReviews(locationId, now));
+	const snapshot = demoSnapshot(locationId, sync._id as Types.ObjectId, now);
+	if (options.title) snapshot.profile.title = options.title;
+	snapshot.profile.place_id = placeId;
+	await GbpProfileSnapshot.create(snapshot);
+	await GbpReview.insertMany(demoReviews(locationId, now).map((r) => ({ ...r, review_name: `${r.review_name}-${String(locationId)}` })));
 	await Location.updateOne(
 		{ _id: locationId },
-		{ $set: { 'gbp_sync.last_synced_at': sync.finished_at, 'gbp_sync.last_status': 'done', 'gbp_sync.last_sync_id': String(sync._id), 'gbp_sync.backfilled_at': now } },
+		{
+			$set: {
+				gbp_connected: true,
+				'gbp_sync.last_synced_at': sync.finished_at,
+				'gbp_sync.last_status': 'done',
+				'gbp_sync.last_sync_id': String(sync._id),
+				'gbp_sync.backfilled_at': now,
+			},
+		},
 	);
 };

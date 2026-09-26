@@ -20,14 +20,16 @@
     "test:types": "tsc -p tests/tsconfig.json",
     "check:endpoints": "jest tests/docs/endpoints.test.ts",
     "seed:rank-demo": "ts-node --transpile-only src/scripts/seedRankDemo.ts",
-    "seed:gbp-demo": "ts-node --transpile-only src/scripts/seedGbpDemo.ts",
+    "seed:demo-orgs": "ts-node --transpile-only src/scripts/seedDemoOrgs.ts",
+    "seed:gbp-demo": "ts-node --transpile-only src/scripts/seedDemoOrgs.ts",
     "calibrate": "ts-node --transpile-only src/scripts/calibrate.ts",
     "calibrate:score": "ts-node --transpile-only src/scripts/calibrateScore.ts",
     "find:place": "ts-node --transpile-only src/scripts/findPlace.ts",
     "setup:live-test": "ts-node --transpile-only src/scripts/setupLiveTest.ts",
     "gbp:encrypt-tokens": "ts-node --transpile-only src/scripts/encryptExistingTokens.ts",
     "gbp:preflight": "ts-node --transpile-only src/scripts/gbpPreflight.ts",
-    "migrate:refresh": "ts-node --transpile-only src/scripts/migrateRefresh.ts"
+    "migrate:refresh": "ts-node --transpile-only src/scripts/migrateRefresh.ts",
+    "migrate:organizations": "ts-node --transpile-only src/scripts/migrateOrganizations.ts"
   },
   "keywords": [
     "Node",
