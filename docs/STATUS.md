@@ -4,6 +4,8 @@ _Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); 
 
 ## Product goal
 
+**Target product:** [product/frontend-roadmap.pdf](product/frontend-roadmap.pdf). Backend summary: [PRODUCT.md](PRODUCT.md). Screen → endpoint → status for the frontend team: [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md).
+
 MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focused only on **Google Maps / Places visibility**. There are three ranking pages, **Rank Tracker**, **Local Search Grid** and **Local Map Ranking**, all powered by one ranking engine and one fixed keyword set per location. There is also a GBP report and GBP posting.
 
 **Out of scope:** organic/website ranking, SerpAPI, DataForSEO, Moz, and Google Q&A.
@@ -22,13 +24,15 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 6 GBP connection | Done | `claude/phase-6-gbp-connection` | yes (`4e4d556`) | M3 |
 | **7a Connect + onboarding** | **Done (review fixes in), awaiting merge** | `claude/phase-7a-connect-onboarding` | not yet | M3 |
 | **9a Legacy cleanup** (early Phase 9) | **Done, awaiting merge after 7a** | `claude/phase-9a-legacy-cleanup` | not yet | M3 |
-| 7b GBP sync | Not started | — | — | M3 |
+| **7b GBP sync (monthly cadence)** | **In progress** (context docs committed first) | `claude/phase-7b-gbp-sync` (from 9a) | not yet | M3 |
+| Live test with MyPageSEO | After 7b | — | — | — |
 | 7c Scoring + report + competitors | Not started | — | — | **M3** |
-| 8 GBP posting | Not started | — | — | M4 |
-| 9 Cleanup | Not started | — | — | M4 |
+| 8 Auth, Organization, Onboarding & Locations | Not started (plan mode + data-model diagram first) | — | — | M4 (to be agreed) |
+| 9 GBP posting (was 8; needs v4) | Not started | — | — | — |
+| 9b Remaining cleanup (was 9) | Not started | — | — | — |
 | 10 Security (gated) | Deferred | — | — | — |
 
-`main` is untouched (`62240ac`). There is no Phase 2; security moved to Phase 10.
+`main` is untouched (`62240ac`). There is no Phase 2; security moved to Phase 10. **Merge order:** 7a → 9a → 7b. After Phase 8 the next feature is chosen with Mohit (likely reports center, dashboards or citations).
 
 ## Done so far
 
@@ -80,6 +84,9 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 2026-09-26 | Phase 7 split into 7a (connect + onboarding), 7b (sync) and 7c (scoring + report, M3). `GBP_V4_ENABLED` (default false) switches reviews, media and posts; the v4 API access is pending. |
 | 2026-09-26 | 7a: any Google account, **several per user** (one connection per Google account; the earlier 409 rule was dropped after review); competitor suggestions on the Enterprise SKU (cached 24 h); `PLACES_USER_DAILY_LIMIT` 50; US/CA only; service-area center from a city or ZIP (Places IDs-only search + Details `location`). |
 | 2026-09-26 | Legacy cleanup brought forward (9a): old report endpoints deleted (the frontend moves to the new ones); the Reputation Manager and white-label report links are removed, with a rebuild reference in LEGACY_FEATURES.md; unused env vars removed; no collections dropped. |
+| 2026-09-26 | **Monthly cadence + manual refresh:**<br>• Each location refreshes monthly: rank run → GBP sync (if bound) → GBP report.<br>• Staggered on the setup day of the month (clamped to 28) at about 03:00 local time.<br>• `POST /locations/:id/refresh` at most once per 24 h per type, returning `next_allowed_at`.<br>• `tracking.frequency` becomes `auto_monthly \| manual_only`.<br>• One `monthly-refresh` scheduler replaces the rank-scheduler logic.<br>• GBP performance: rolling 40 days per sync; search keywords: the last 2 months. |
+| 2026-09-26 | **Two ways to add a location, no manual entry:**<br>• (a) GBP profile or (b) Places search.<br>• Every location has a `place_id`; `source` and `gbp_connected` are recorded.<br>• A GBP can be bound later, matched by `place_id` (a differing one is refused).<br>• Without GBP, private sections return `gbp_not_connected`.<br>• No duplicate `place_id` per organization. |
+| 2026-09-26 | **New phase order:** 7b → live test → 7c (M3) → **8 Auth, Organization, Onboarding & Locations** → 9 GBP posting → 9b cleanup → 10 security. The roadmap PDF added as the target product. |
 | 2026-09-26 | Phases 6–7 live GBP calls: free but quota-limited, max 5 requests/second, only against the account Mohit connects, and nothing live until Mohit says so (first step: `gbp:preflight`, triggered by Mohit). |
 
 ## Open items (owner: Mohit)
@@ -90,7 +97,7 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
    - `.env`: `TOKEN_ENCRYPTION_KEY` and the redirect URI on port 5055 (Phase 6).
 3. **Live steps, when you say so** (PROGRESS.md, Phase 7a): popup connect → `gbp:preflight` → select-profile → competitor suggestions. Then the 7b first sync and the 7c report.
 4. **Google My Business API (v4)** access is pending. Until then `GBP_V4_ENABLED=false` (7b).
-5. **Frontend:** the onboarding screens (API.md "Onboarding"), plus the Phase 6 changes to `GET /gbp`, bind and unbind.
+5. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 6. **Maps ToS decisions before launch:** see "Decide before launch (Maps ToS)" below.
 7. **Rotate the DataForSEO credential** (AUDIT S13).
 8. **Security Phase 10:** deferred (includes S30 and the Search Console parts of S11, S12 and S29).
@@ -112,17 +119,26 @@ All three store or show Google Maps content. Confirm each against the Google Map
 
 ## Next up
 
-**Phase 7b, GBP sync** (CLAUDE.md §11 7.1), in plan mode first, after 7a is merged.
-- The `gbp-sync` job:
-  - Performance: 18-month daily backfill then 10 days rolling; search keywords, 6-month backfill then monthly
-  - Business Information: full profile, attributes, service items, pending Google edits
-  - Verifications
-- Behind **`GBP_V4_ENABLED`** (default false): reviews, media, posts. When off they are `not_available`.
-- A status per data type (`ok` | `error` | `not_available`). It runs in jobs only, and picks up `gbp_sync.requested_at` from onboarding.
+1. **Phase 7b, GBP sync on the monthly cadence** (branch `claude/phase-7b-gbp-sync`, built on 9a). Plan mode first.
+   - **Sync:** the `gbp-sync` job.
+     - Performance: an 18-month backfill, then a rolling 40 days.
+     - Search keywords: 6 months, then the last 2.
+     - Profile, attributes, service items, pending Google edits, verification.
+     - v4 reviews, media and posts behind `GBP_V4_ENABLED`.
+     - A status per data type.
+   - **Scheduling and refresh:**
+     - the `monthly-refresh` scheduler (staggered)
+     - `POST /locations/:id/refresh` with a 24 h limit and `next_allowed_at`
+     - `tracking.frequency` `auto_monthly | manual_only`, with migration
+2. **Live test with MyPageSEO** (you trigger it): popup connect → `gbp:preflight` → select-profile → suggestions → first sync.
+3. **7c** (scoring, report, competitors, `seed:gbp-demo`) → **M3 push**.
+4. **Phase 8: Auth, Organization, Onboarding & Locations**, in plan mode with a data-model diagram:
+   - Business/Agency signup and the organization
+   - plan limits and agency clients
+   - the unified add-location flow (GBP or Places search)
+   - the locations list and location overview
 
-Then **7c** (scoring, report, competitors, `seed:gbp-demo`, **M3**).
-
-**Frontend (can start now):** build the three ranking pages against `docs/API.md`, using `npm run seed:rank-demo`.
+**Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
 
 ## How to run
 

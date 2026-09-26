@@ -8,7 +8,16 @@ Read this whole file at the start of every session. It defines what the product 
 
 ## 0. Product intent (what we are building)
 
-MyPageSEO is a **local SEO reporting platform** for US and Canadian businesses. It is about **Google Maps / Google Places visibility only**. Website (organic) SEO is permanently out of scope.
+MyPageSEO is a **Local SEO management platform** for US and Canadian **businesses and agencies** (Organization → Clients (agency) → Locations → modules). It is about **Google Maps / Google Business Profile visibility only**. Website (organic) SEO is permanently out of scope.
+
+- **Target product:** `docs/product/frontend-roadmap.pdf` (screens and flows). Backend summary: `docs/PRODUCT.md`. Screen-by-screen backend status: `docs/FRONTEND_BACKEND_MAP.md`. Line up with the roadmap, but **never invent data the backend can't provide**. The "not supported" list is in both docs.
+- **A location is one business on Google Maps (usually a GBP), and every location has a Google `place_id`.**
+  - It can be added only via **(a) Connect GBP → pick a profile** or **(b) Places search → pick a result** (one Place Details call, minimal fields). **No manual entry.**
+  - `source: "gbp" | "places_search"`, `gbp_connected: boolean`.
+  - A (b) location may bind its GBP later, matched by `place_id`; a differing `place_id` is refused.
+  - Without GBP: rankings and the public competitor comparison work, and private GBP sections return `{ available: false, reason: "gbp_not_connected" }`.
+  - The same `place_id` can't be added twice in one organization.
+- **Data cadence:** a monthly automatic refresh per location (rank run → GBP sync if bound → GBP report), staggered on the day of the month the location finished setup (clamped to 28) at about 03:00 local time. A manual refresh (`POST /locations/:id/refresh`) is allowed once per 24 h per type. `tracking.frequency` is `auto_monthly | manual_only`.
 
 Deliverables of this rebuild:
 
@@ -16,7 +25,8 @@ Deliverables of this rebuild:
 2. **Local Search Grid page**: rank heatmap per keyword over a 3×3 / 5×5 / 7×7 grid.
 3. **Local Map Ranking page**: "who ranks at your location", the top 20 businesses per keyword at the business location, with the client highlighted.
 4. **GBP Report page**: the client's Google Business Profile performance, profile health, reviews, search keywords, and a competitor comparison.
-5. **GBP Posting**: create, schedule and manage posts on the client's profile (existing feature, to be kept and improved).
+5. **Auth, Organization, Onboarding & Locations** (Phase 8): Business vs Agency signup, organization, plan limits, clients, the unified "add location" flow, the locations list and the location overview.
+6. **GBP Posting** (Phase 9): create, schedule and manage posts (existing feature, to be rebuilt; needs GBP v4 access).
 
 All three ranking pages are powered by **one ranking engine** and **one fixed keyword set per location**. Ranking uses **Google Places API (New) Text Search**, not SerpAPI.
 
@@ -53,8 +63,8 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - Push only at milestones, and only when Mohit says so:
   - **M1:** after Phase 3 (Foundations).
   - **M2:** after Phase 5 (Ranking reports: all three pages working).
-  - **M3:** after Phase 7 (GBP sync + report).
-  - **M4:** after Phase 9 (Cleanup).
+  - **M3:** after Phase 7c (GBP sync + report).
+  - **M4:** to be agreed with Mohit (previously "after cleanup"; the phase order changed on 2026-09-26).
 - At a milestone, give Mohit one push command covering `claude/rebuild` and every phase branch since the last milestone, plus a short summary for his developers.
 - Small commits, one concern each. Message format: `<phase>: <area>: <what>` e.g. `p4: ranking: add IDs-only text search client`.
 - Never rewrite history on shared branches. Never force-push `claude/rebuild`.
@@ -79,7 +89,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - External API calls are wrapped in a client module that can be mocked; unit tests never hit the network.
 
 ### Phase gates
-Phase order: 1 → 1.5 → 1.6 → 3 Foundations → 4 Ranking engine → 5 Ranking reports → 6 GBP connection → 7 GBP sync + report → 8 GBP posting → 9 Cleanup → 10 Security (gated). There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-26): 1 → 1.5 → 1.6 → 3 Foundations → 4 Ranking engine → 5 Ranking reports → 6 GBP connection → 7a Connect + onboarding → 9a Legacy cleanup (done early) → **7b GBP sync (monthly)** → live test with MyPageSEO → **7c Scoring + report + competitors (M3)** → **8 Auth, Organization, Onboarding & Locations** → 9 GBP posting (needs v4) → 9b Remaining cleanup → 10 Security (gated). After Phase 8 the next feature is chosen with Mohit; don't plan beyond Phase 8. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 At the end of every phase:
 1. Stop.
@@ -156,6 +166,14 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 ### Keywords
 - Fixed per location: `location.tracking.keywords` (max **20**, trimmed, lowercased for comparison, de-duplicated, original casing kept for display).
 - Editing keywords increments `keywords_version` and sets `keywords_updated_at`. Change calculations never compare across versions.
+
+### Refresh cadence (Mohit, 2026-09-26)
+- `location.tracking.frequency`: **`auto_monthly`** (default) | **`manual_only`**. This replaces `weekly | monthly | manual`; existing values are migrated (`weekly`/`monthly` → `auto_monthly`, `manual` → `manual_only`).
+- **Monthly refresh:** one cluster-safe `monthly-refresh` scheduler enqueues, per due location, a `rank-run` and (if GBP-bound) a `gbp-sync`. The GBP report is generated after the sync.
+  - The due date is the day of the month setup completed (clamped to 28), at about 03:00 in the location's timezone (UTC fallback).
+- **Manual refresh:** `POST /locations/:id/refresh { types?: ["rankings","gbp"] }` reuses the one-active-run guards.
+  - Limited to once per `REFRESH_MIN_INTERVAL_HOURS` (default 24) per location per type.
+  - It returns ids, estimated calls and `next_allowed_at`.
 
 ### Competitors
 - `location.tracking.competitors`: array of `place_id` (max 5), plus, for the GBP report, the top 3 non-client results from the latest `mapList` center search.
@@ -350,6 +368,7 @@ Unit tests: points geometry (distances within 1%), metrics edge cases (all not_f
   - In development: `RANK_DEV_MAX_KEYWORDS` and a forced 3×3 grid.
   - **422** when `estimateCalls().idsOnly.max` exceeds `RANK_MAX_CALLS_PER_RUN` (default 3200).
   - An active run is returned with `existing: true`.
+- **Scheduling note (7b):** the 15-minute `rank-scheduler` and weekly/monthly frequencies are replaced by the location-level `monthly-refresh` scheduler (§4 "Refresh cadence").
 - **Stuck guard** (in `rank-scheduler`): runs `running` for more than 30 minutes, or `queued` for more than 30 minutes, are marked `failed`. Scheduler claims are a compare-and-set on `next_run_at`.
 - **Extra endpoint:** `GET /api/v1/locations/:locationId/rank-runs` (paginated history). The page endpoints accept `?runId=`, return 404 before the first completed run and 409 for an unfinished run. Ownership is checked on every route; another user's location gives 404.
 - **Names:** `STORE_PLACE_NAMES` (default true). When false, names are null, and `GET map-ranking?resolveNames=true` resolves them live with Place Details (see §15). This is **pending Mohit's ToS decision**.
@@ -365,7 +384,7 @@ tracking: {
   keywords_updated_at: Date,
   competitors: [String],                                // place_ids, max 5
   grid: { size: Number /*3|5|7*/, spacing_km: Number }, // default {5, 1}
-  frequency: String,                                    // 'weekly' | 'monthly' | 'manual'
+  frequency: String,                                    // 'weekly' | 'monthly' | 'manual' (superseded in 7b: 'auto_monthly' | 'manual_only', §4)
   next_run_at: Date,
   last_run_at: Date,
   last_error: String,
@@ -478,19 +497,19 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
   - `PLACES_USER_DAILY_LIMIT` (default 50) caps user-triggered Places calls per user per day.
   - `Location.onboarding` holds the step: `profile_selected` → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`. A service-area profile without coordinates adds the center step: `PUT /locations/:id/center { query }` (1 IDs-only search + 1 Details `location`; `center_source: 'manual'`). `/complete` requires a center, queues the first rank run and sets `gbp_sync.requested_at` for 7b.
   - Frontend flow: `docs/GBP_CONNECT.md`, `docs/API.md`.
-- **7b: the `gbp-sync` job** (7.1 below), with a global switch **`GBP_V4_ENABLED`** (default false).
+- **7b: the `gbp-sync` job** (7.1 below) on the **monthly cadence** (§4 "Refresh cadence"): the `monthly-refresh` scheduler, `POST /locations/:id/refresh`, `tracking.frequency` `auto_monthly | manual_only`. Global switch **`GBP_V4_ENABLED`** (default false).
   - When false, no v4 calls are made: reviews, media and posts are marked `not_available` (not an error).
   - All v4 code is still built and tested on fixtures, so going live means setting `GBP_V4_ENABLED=true` with no code changes.
   - Sample data only in `seed:gbp-demo` and tests, never in live responses.
-- **7c: scoring + report + competitors** (7.2–7.4 below, extended by Mohit's 7c brief: GBP Score with 5 pillars and rescaling when a pillar is `not_available`, a Public Score, `seed:gbp-demo`). Milestone **M3**.
+- **7c: scoring + report + competitors** (7.2–7.4 below, extended by Mohit's 7c brief: GBP Score with 5 pillars and rescaling when a pillar is `not_available`, a Public Score, `seed:gbp-demo`). Without a GBP binding, the private sections return `{ available: false, reason: "gbp_not_connected" }` and the Public Score and competitor comparison still work. Milestone **M3**.
 
-### 7.1 Sync job `gbp-sync` (per bound location; daily at 03:00 location timezone; also "sync now")
+### 7.1 Sync job `gbp-sync` (per bound location; **monthly** via the `monthly-refresh` scheduler, plus manual refresh)
 Never fetch GBP data on a page view. Store everything; pages read from DB.
 
 | Data | Endpoint | Store in |
 |---|---|---|
-| Daily metrics | `GET https://businessprofileperformance.googleapis.com/v1/{locations/ID}:fetchMultiDailyMetricsTimeSeries` with `dailyMetrics` = `BUSINESS_IMPRESSIONS_DESKTOP_MAPS, BUSINESS_IMPRESSIONS_DESKTOP_SEARCH, BUSINESS_IMPRESSIONS_MOBILE_MAPS, BUSINESS_IMPRESSIONS_MOBILE_SEARCH, CALL_CLICKS, WEBSITE_CLICKS, BUSINESS_DIRECTION_REQUESTS, BUSINESS_CONVERSATIONS, BUSINESS_BOOKINGS, BUSINESS_FOOD_ORDERS, BUSINESS_FOOD_MENU_CLICKS` and `dailyRange` | `GbpMetricDaily` `{ location_id, date, metric, value }` unique index on (location_id, date, metric). First sync backfills 18 months; later syncs fetch the last 10 days (data lags; upsert). |
-| Search keywords | `GET https://businessprofileperformance.googleapis.com/v1/{locations/ID}/searchkeywords/impressions/monthly` with `monthlyRange` | `GbpKeywordMonthly` `{ location_id, month, keyword, value \| threshold }`. Backfill 6 months; later monthly. Preserve "threshold" values as thresholds (don't coerce to numbers). |
+| Daily metrics | `GET https://businessprofileperformance.googleapis.com/v1/{locations/ID}:fetchMultiDailyMetricsTimeSeries` with `dailyMetrics` = `BUSINESS_IMPRESSIONS_DESKTOP_MAPS, BUSINESS_IMPRESSIONS_DESKTOP_SEARCH, BUSINESS_IMPRESSIONS_MOBILE_MAPS, BUSINESS_IMPRESSIONS_MOBILE_SEARCH, CALL_CLICKS, WEBSITE_CLICKS, BUSINESS_DIRECTION_REQUESTS, BUSINESS_CONVERSATIONS, BUSINESS_BOOKINGS, BUSINESS_FOOD_ORDERS, BUSINESS_FOOD_MENU_CLICKS` and `dailyRange` | `GbpMetricDaily` `{ location_id, date, metric, value }` unique index on (location_id, date, metric). First sync backfills 18 months; later (monthly) syncs fetch a **rolling 40-day window** (data lags; upsert). |
+| Search keywords | `GET https://businessprofileperformance.googleapis.com/v1/{locations/ID}/searchkeywords/impressions/monthly` with `monthlyRange` | `GbpKeywordMonthly` `{ location_id, month, keyword, value \| threshold }`. Backfill 6 months; later syncs fetch the **last 2 months**. Preserve "threshold" values as thresholds (don't coerce to numbers). |
 | Profile | `GET https://mybusinessbusinessinformation.googleapis.com/v1/{locations/ID}?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,regularHours,specialHours,moreHours,serviceArea,categories,profile,openInfo,metadata,labels,serviceItems,latlng` + `GET .../v1/{locations/ID}/attributes` | `GbpProfileSnapshot` (latest + dated history) |
 | Verification | `GET https://mybusinessverifications.googleapis.com/v1/{locations/ID}/VoiceOfMerchantState` | on snapshot |
 | Reviews | `GET https://mybusiness.googleapis.com/v4/{accounts/A}/{locations/L}/reviews` (paginate; includes averageRating, totalReviewCount) | `GbpReview` upsert by review name (rating, comment, createTime, updateTime, reply, reply state, media) |
@@ -531,7 +550,24 @@ Tests: aggregation math (period comparisons with gaps in daily data), threshold 
 
 ---
 
-## 12. PHASE 8 — GBP Posting (keep, harden, extend)
+## 12. PHASE 8 — Auth, Organization, Onboarding & Locations
+
+Scope from Mohit (2026-09-26), aligned with the roadmap PDF §2, §5, §6 and §14. **Plan mode first, with a data-model diagram.**
+
+- **Signup as Business or Agency.** An organization (name, country, type) and an account context (which organization the user acts in).
+- **Plan / location limits enforced.** Business is plan-limited (e.g. 3); Agency is plan-based. Read limits from the existing subscription / plan data where it exists. **Don't change payment logic.**
+- **Agency:** clients CRUD, and assigning locations to clients. Reuse or repair the existing client code only where needed.
+- **Unified "add location"** (§0: (a) GBP profile or (b) Places search) → keywords → competitors → setup complete → first refresh queued.
+- **Onboarding state machine** per the PDF's Business and Agency flows, resumable anywhere.
+- **Locations list** for the PDF's `/locations` table: name, city, client, rank summary, GBP score, rating/reviews, status `active | setup_required | gbp_not_connected | reconnect_required`.
+- **Location overview endpoint:** header data + latest summaries.
+- `source` / `gbp_connected` on locations; the per-organization `place_id` duplicate guard.
+
+**Gate.**
+
+---
+
+## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)
 
 Keep the existing flow (`gbpPostSchedular.service.ts`, `jobs/postToGbp.ts`, v4 `localPosts`). Improve without breaking existing endpoints:
 - Use `gbpClient` (token refresh + encrypted tokens) instead of ad-hoc axios calls.
@@ -548,14 +584,14 @@ Tests: validation per topic type, idempotent publish, recurrence mapping.
 
 ---
 
-## 13. PHASE 9 — Cleanup & documentation
+## 13. PHASE 9b — Remaining cleanup & documentation (was Phase 9)
 
 **Partly done early (9a, Mohit, 2026-09-26)** on `claude/phase-9a-legacy-cleanup`, because the frontend moves to the new endpoints:
 - Deleted: old ranking code, the GBP audit, the Reputation Manager, the white-label report links, the Search Console connect, SerpAPI / Moz / DataForSEO config and helpers, unused config and env vars (Stripe, Razorpay, …), and the `googleapis` package.
 - Written: `docs/LEGACY_FEATURES.md` (how to rebuild Reputation Manager and white-label links properly) and `docs/MIGRATION.md`.
-- **Left for Phase 9 proper:** swagger.json, ARCHITECTURE.md, the final OPERATIONS/API pass, `serpapi` (still imported by citations, out of scope).
+- **Left for Phase 9b:** swagger.json, ARCHITECTURE.md, the final OPERATIONS/API pass, `serpapi` (still imported by citations, out of scope).
 
-Only after Mohit confirms the frontend has switched to the new endpoints:
+Original spec (the deletions below were done in 9a):
 - Delete old ranking code: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (after `generateGrid` is ported), `helpers/localMapRankingReport.ts`, `helpers/getSerpCountryCode.ts` (unused since Phase 1.5), old ranking services/controllers/middlewares/routes/models, `configs/serpConfig.ts`, `constants/serpCountryCode.ts` if unused.
 - Delete old GBP audit code: `helpers/gbpAudit.ts`, `services/common/gbpAudit.service.ts` and its route/controller/middleware/model.
 - Remove unused dependencies (`serpapi` and any others made unused). Remove SerpAPI/DataForSEO/Moz env vars from config and `.env.example`.

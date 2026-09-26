@@ -20,6 +20,9 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 7b: GBP sync | — | Not started |
 | 7c: Scoring + report + competitors (M3) | — | Not started |
 | 9a: Legacy cleanup (early part of Phase 9) | `claude/phase-9a-legacy-cleanup` | Done, **awaiting merge after 7a**. |
+| 7b: GBP sync (monthly cadence) | `claude/phase-7b-gbp-sync` (from 9a) | In progress |
+| 8: Auth, Organization, Onboarding & Locations | — | Not started (was "GBP posting") |
+| 9: GBP posting (was 8) / 9b: remaining cleanup | — | Not started |
 | 8: GBP posting | — | Not started |
 | 9: Cleanup and docs | — | Not started |
 | 10: Security hardening (gated) | — | Deferred; needs explicit approval |
@@ -593,4 +596,26 @@ Branch `claude/phase-9a-legacy-cleanup`, from the 7a branch (so it merges after 
 ### Merge order (Mohit)
 1. 7a: `claude/phase-7a-connect-onboarding`
 2. then 9a: `claude/phase-9a-legacy-cleanup`
+
+---
+
+## Decisions 2026-09-26: roadmap, monthly cadence, add-location paths, phase order
+
+Recorded on `claude/phase-7b-gbp-sync` before 7b work (docs-only commit).
+
+- **Target product:** `docs/product/frontend-roadmap.pdf` (25 pages, Business vs Agency, screen inventory). Summarised for the backend in `docs/PRODUCT.md`. Every §16 screen is mapped to endpoints and a status in `docs/FRONTEND_BACKEND_MAP.md`, including an explicit "not supported" list: organic Google ranks, search volume, competitor citations/links/authority, competitor photo counts, Q&A, duplicates, Analytics/Search Console, social login.
+- **Decision 1: monthly auto + manual refresh.**
+  - Per-location monthly refresh (rank run → GBP sync → GBP report), staggered on the setup day (≤ 28) at about 03:00 local time.
+  - `POST /locations/:id/refresh` (24 h per type, `next_allowed_at`).
+  - `tracking.frequency` becomes `auto_monthly | manual_only` (migrated).
+  - One `monthly-refresh` scheduler.
+  - 7b sync windows: performance a rolling 40 days, keywords the last 2 months.
+- **Decision 2: two ways to add a location, no manual entry.**
+  - (a) GBP profile or (b) Places search (one minimal Place Details call).
+  - Every location has a `place_id`, plus `source` and `gbp_connected`.
+  - A later GBP bind is matched by `place_id`.
+  - `gbp_not_connected` sections.
+  - A per-organization duplicate guard.
+- **New phase order:** 7b → live test → 7c (M3) → **8 Auth, Organization, Onboarding & Locations** → 9 GBP posting → 9b cleanup → 10 security. Nothing is planned beyond Phase 8. M4 is to be agreed.
+- **CLAUDE.md** updated: product intent, the "Refresh cadence" in §4, the phase order and milestones, §11 7b/7c, §12 new Phase 8, §12a posting as Phase 9, §13 cleanup as 9b.
 
