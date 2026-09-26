@@ -6,11 +6,20 @@ import { DateTime } from 'luxon'
 
 import { ApiError } from '../../utils';
 import { BodyDefinition, FilesDefinition, ParamsDefinition } from '../../types/RouteDefinition';
-import { GBPPost, UserAuth } from '../../models';
-import { postPublishStatus, tokenTypes } from '../../configs/constantTypes';
-import { refreshAccessToken } from '../../configs/gbpOauthClinet';
+import { GBPPost } from '../../models';
+import { postPublishStatus } from '../../configs/constantTypes';
+import { gbpClient } from '../../clients/gbpClient';
 import { agenda } from '../../configs/mongoConnection';
-import { BindResult, DiscoveryResult, UnbindResult, bindingService, discoveryService } from '../gbp';
+import { BindResult, DiscoveryResult, UnbindResult, bindingService, discoveryService, toGbpApiError } from '../gbp';
+
+/** Access token for the posting calls (encrypted at rest, refreshed and persisted by gbpClient). */
+const gbpAccessToken = async (userId: string): Promise<string> => {
+	try {
+		return await gbpClient.getAccessToken(userId);
+	} catch (err) {
+		throw toGbpApiError(err);
+	}
+};
 
 
 // Phase 6: discovery across all accounts with no Places calls (C9, C22), and server-side binding.
@@ -110,20 +119,8 @@ export const publishPostToGBP = async (body: BodyDefinition): Promise<{ status: 
 	try {
 		let { user, gbpPostData, gbpPostObj, savedPost } = body;
 
-		const authTokenDoc = await UserAuth.findOne({
-			user_id: user._id,
-			is_active: true,
-			token_type: tokenTypes.GBP,
-		});
-
-		if (!authTokenDoc) {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'Please connect with Google Business Profile');
-		}
-
-		let accessToken = authTokenDoc.access_token;
-		if (new Date() > new Date(authTokenDoc.expiry_date)) {
-			accessToken = await refreshAccessToken(authTokenDoc.refresh_token);
-		}
+		// Phase 6: decrypted, refreshed (and persisted) token from the GBP client.
+		const accessToken = await gbpAccessToken(user._id);
 
 		const addPostUrl = `https://mybusiness.googleapis.com/v4/${gbpPostObj.gbpAccountId}/${gbpPostObj.gbpLocationId}/localPosts`;
 
@@ -269,20 +266,7 @@ export const deletePost = async (body: BodyDefinition): Promise<any> => {
 
 export const deleteGBPPost = async (userId: string, gbpPostId: string): Promise<boolean> => {
 	try {
-		const authTokenDoc = await UserAuth.findOne({
-			user_id: userId,
-			is_active: true,
-			token_type: tokenTypes.GBP,
-		});
-
-		if (!authTokenDoc) {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'Please connect with Google Business Profile');
-		}
-
-		let accessToken = authTokenDoc.access_token;
-		if (new Date() > new Date(authTokenDoc.expiry_date)) {
-			accessToken = await refreshAccessToken(authTokenDoc.refresh_token);
-		}
+		const accessToken = await gbpAccessToken(userId);
 
 		const deleteUrl = `https://mybusiness.googleapis.com/v4/${gbpPostId}`;
 
