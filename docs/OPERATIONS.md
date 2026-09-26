@@ -55,6 +55,8 @@ MONGODB_PASSWORD=<local-db-password>
 MONGODB_AUTH_SOURCE=mps_rebuild
 ```
 
+**Query logging (`MONGOOSE_DEBUG`).** Off by default. `MONGOOSE_DEBUG=true` prints every Mongoose query to the console, including whole documents (emails, OAuth-state hashes, encrypted tokens). It works only with `NODE_ENV=development`; in any other environment it is ignored and a warning is logged at startup. Turn it on only while debugging a query, and don't paste its output into tickets or chats.
+
 **Alternative: Docker**
 
 ```sh

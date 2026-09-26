@@ -21,6 +21,7 @@ const envVarsSchema = Joi.object({
 	MONGODB_AUTH_SOURCE: Joi.string()
 		.required()
 		.description('Database holding the Mongo user (authSource)'),
+	MONGOOSE_DEBUG: Joi.boolean().default(false).description('Log every Mongoose query (development only)'),
 
 	SMTP_HOST: Joi.string().description('server that will send the emails'),
 	SMTP_PORT: Joi.number().description('port to connect to the email server'),
@@ -113,6 +114,8 @@ interface Config {
 			user: string;
 			password: string;
 			authSource: string;
+			/** Requested query logging; applied only in development (see mongooseDebug.ts). */
+			debug: boolean;
 		};
 	};
 
@@ -220,6 +223,7 @@ const config: Config = {
 			user: envVars.MONGODB_USER,
 			password: envVars.MONGODB_PASSWORD,
 			authSource: envVars.MONGODB_AUTH_SOURCE,
+			debug: envVars.MONGOOSE_DEBUG,
 		},
 	},
 

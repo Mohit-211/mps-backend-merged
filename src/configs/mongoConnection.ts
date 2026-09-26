@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import config from './config';
 import logger from './logger';
 import { getAgenda, stopAgenda } from './agenda';
+import { resolveMongooseDebug } from './mongooseDebug';
 
 // Agenda has its own connection and is started by src/server.ts (see configs/agenda.ts).
 // Re-exported here so existing imports (gbpPostSchedular.service) keep working.
@@ -21,8 +22,10 @@ mongoose.connect(`${config.databases.mongodb.url}`, {
   family: 4,
   serverSelectionTimeoutMS: 300000,
 });
-// Enable query logging
-mongoose.set('debug', true);
+// Query logging: opt-in with MONGOOSE_DEBUG=true, development only.
+const mongooseDebug = resolveMongooseDebug(config.essentials.env, config.databases.mongodb.debug);
+if (mongooseDebug.warning) logger.warn(mongooseDebug.warning);
+mongoose.set('debug', mongooseDebug.enabled);
 
 // MongoDB connection event handlers
 mongoose.connection.on('connected', () => {
