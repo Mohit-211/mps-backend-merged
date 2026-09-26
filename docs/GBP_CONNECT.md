@@ -50,15 +50,15 @@ The frontend uses the Google Identity Services **code client** in popup mode. Go
 ```js
 // 1. When the connect screen opens (the state is valid for 10 minutes and works once):
 const cfg = (await api.get('/api/v1/user/auth/google/gbp/popup')).data.data;
-// cfg = { client_id, scope: "openid email …/business.manage", state, ux_mode: "popup",
-//         select_account: true, prompt: "select_account consent", access_type: "offline" }
+// cfg = { client_id, scope: "openid email …/business.manage", state, ux_mode: "popup", select_account: true }
 
 const codeClient = google.accounts.oauth2.initCodeClient({
   ...cfg,
   callback: async ({ code, state, error }) => {
     if (error) return showError(error);                 // e.g. the user closed the popup
     const res = await api.post('/api/v1/user/auth/google/gbp/code', { code, state });
-    showConnected(res.data.data.google_email);          // "Connected as x@gmail.com"
+    const { google_email, google_sub } = res.data.data;
+    showConnected(google_email);                        // "Connected as x@gmail.com"; keep google_sub for bind/disconnect
   },
 });
 
@@ -69,14 +69,19 @@ connectButton.onclick = () => codeClient.requestCode();
 **Notes for the frontend:**
 - Fetch a new config if the screen stays open for more than 10 minutes, or after a failed attempt (each state works once).
 - `POST /code` needs the user's MyPageSEO token, and the state must belong to that user.
-- **Refresh token check.** I have not confirmed that the GIS code client accepts `prompt: "select_account consent"`; its documented options include `select_account`. After integrating, reconnect the same account once and confirm it still works.
-  - If Google omits the refresh token on a same-account reconnect, the stored one is kept.
+- **Settings:** `select_account: true` shows the account chooser. GIS's code client has no `prompt` / `access_type` options.
+  - The code flow returns a refresh token on the first consent.
+  - If Google omits it on a same-account reconnect, the stored one is kept.
   - For a new account without one, the API returns 400 asking the user to remove access at myaccount.google.com/permissions and retry.
-- **Switching Google account** while locations are bound returns **409** "Connected as a@… with N bound location(s). Disconnect first to switch Google accounts."
+- **Several Google accounts** (agencies): the same button connects another account.
+  - Each Google account is its own *connection* (`google_sub`, shown as "Connected as …"). Connecting the same account again just updates it.
+  - Pass `google_sub` when binding (`select-profile`, `bind-with-user`) or disconnecting once more than one account is connected.
+  - Disconnect (`POST /user/auth/google/gbp/revoke { google_sub }`) removes only that account and its bound profiles; the others keep working.
 
 After connecting, the onboarding screens call, in order:
-1. `GET /onboarding/gbp-profiles`
-2. `POST /onboarding/select-profile`
+1. `GET /onboarding/gbp-profiles` (grouped per Google account)
+2. `POST /onboarding/select-profile` (with the profile's `google_sub`)
+   - **If the response says `center_needed: true`** (a service-area business with no address), ask for a city or ZIP: `PUT /locations/:id/center { query }`. That is 2 Places calls, resolved once.
 3. `PUT /locations/:id/tracking` (keywords)
 4. `GET /locations/:id/competitor-suggestions` (and optionally `GET /places/search`)
 5. `PUT /locations/:id/tracking` (competitors)
@@ -104,7 +109,7 @@ After connecting, the onboarding screens call, in order:
    - The consent screen asks to **"See, edit, create and delete your Google business listings"**, plus your email address. Allow it.
 5. Google redirects to the callback. The browser shows:
    ```json
-   {"success":true,"status":200,"message":"Connected with GBP successfully.","data":{"connected":true,"google_email":"you@gmail.com"}}
+   {"success":true,"status":200,"message":"Connected with GBP successfully.","data":{"connected":true,"google_email":"you@gmail.com","google_sub":"…"}}
    ```
    The callback stores the tokens (encrypted) and makes no Business Profile calls.
 6. **Preflight** (you run it; read-only):
@@ -143,8 +148,8 @@ After connecting, the onboarding screens call, in order:
 
 | Action | Endpoint |
 |---|---|
-| Unbind one location | `POST /api/v1/gbp/unbind {"location_id": "…"}`. Removes the binding and cancels its scheduled jobs. Deletes the tokens if it was your last binding. |
-| Disconnect entirely | `POST /api/v1/user/auth/google/gbp/revoke`. Revokes at Google, then removes all bindings and tokens. |
+| Unbind one location | `POST /api/v1/gbp/unbind {"location_id": "…"}`. Removes the binding and cancels its scheduled jobs. Deletes that Google account's tokens if it was that account's last binding. |
+| Disconnect one Google account | `POST /api/v1/user/auth/google/gbp/revoke {"google_sub": "…"}` (`google_sub` is optional with a single account). Revokes that account at Google, then removes only its bindings, their jobs and its tokens. |
 | Remove access from the Google side | [myaccount.google.com/permissions](https://myaccount.google.com/permissions) |
 
 ## Existing connections (servers with old data)

@@ -512,7 +512,10 @@ Branch `claude/phase-7a-connect-onboarding`, from `claude/rebuild` @ `4e4d556`. 
 | `fa3b08e` | Connect: the GIS popup (`GET /google/gbp/popup`, `POST /google/gbp/code`, exchanged with `postmessage`); scopes `openid email business.manage`; `prompt=select_account consent`; id_token verification (`services/gbp/idToken.ts`: RS256 signature, issuer, audience, expiry, `email_verified`); `google_email` and `google_sub` stored; `OAuthState.flow` (popup and redirect states can't be swapped; a popup state must belong to the caller); account switch while bound gives 409; missing refresh token rules. `PLACES_USER_DAILY_LIMIT` config. Tests use locally signed id_tokens. |
 | `5fa41bf` | Places: `searchTextForSuggestions` (Enterprise mask with rating and `userRatingCount`, 1 page) and `searchTextNamesAddresses` (Pro, 10 results), each with an exact-mask guard and its own SKU counter. The IDs-only ranking mask is unchanged (tested). Fixtures. |
 | `7c0230f` | Onboarding: `Location.onboarding` / `gbp_sync` / `competitor_suggestions`; `places_usage` (atomic daily cap, TTL); `/onboarding/{state,gbp-profiles,select-profile,complete}`; `GET /locations/:id/competitor-suggestions` (merge, dedupe, self excluded incl. moved listings, best position, top 10, 24 h cache per `keywords_version`, dev keyword cap); `GET /places/search`; the tracking PUT advances the onboarding step; bind accepts a pre-fetched profile (1 GBP call per select); `serviceArea` added to the discovery `readMask` (service-area country). Tests. |
-| this commit | Docs: API.md (onboarding section + screen map), GBP_CONNECT.md (popup + frontend snippet), ROUTES (172 routes), OPERATIONS, CLAUDE.md §11 (the 7a/7b/7c split, 7a as built, the `GBP_V4_ENABLED` plan), STATUS, this entry. |
+| `fd0663e` | Docs: API.md (onboarding section + screen map), GBP_CONNECT.md (popup + frontend snippet), ROUTES, OPERATIONS, CLAUDE.md §11 (the 7a/7b/7c split, 7a as built, the `GBP_V4_ENABLED` plan), STATUS, this entry. |
+| `52b4d17`, `1695187` | CLAUDE.md environment and repo map brought up to date; `docs/ENDPOINTS.md` (one-page list of every rebuilt endpoint). |
+| `8af1b19` | **Review fixes (Mohit):** (1) popup settings are `select_account: true` only (GIS has no `prompt`); (2) **several Google accounts per user**: connections keyed by id_token `sub` (`UserAuth` index `user_id + token_type + google_sub`, `UserGBP.google_sub`, `gbpClient` `ConnectionRef`), discovery grouped per account, bind and disconnect take `google_sub`, per-account unbind and disconnect, the 409 rule removed, pre-7a rows still work and are upgraded on reconnect; (3) **service-area center step**: `PUT /locations/:id/center { query }` (1 IDs-only Text Search without location bias + 1 Details `location`, `center_source: 'manual'`, daily cap), steps `center_needed` / `center_set`, `/complete` requires a center; `Location.center_source` (`gbp` / `place_details` / `manual`), `center_label`. Places `searchText` bias is now optional (ranking always sets it). Tests: two-account scenario (disconnect A, B keeps working, with real agenda jobs), center service and flow, route checks. |
+| this commit | Docs for the fixes: API.md, GBP_CONNECT.md, ENDPOINTS.md, ROUTES (173), CLAUDE §11, STATUS ("Decide before launch (Maps ToS)"), this entry. |
 
 ### Checks
 
@@ -520,7 +523,7 @@ Branch `claude/phase-7a-connect-onboarding`, from `claude/rebuild` @ `4e4d556`. 
 |---|---|
 | `npm run build` | **0 TypeScript errors.** |
 | `npm run lint` | 98 (unchanged baseline). All new files are lint-clean. |
-| `npm test` (no key) | **402/402 pass** in 33 suites (55 new). |
+| `npm test` (no key) | **414/414 pass** in 35 suites (67 new in 7a, including the review fixes). |
 | Local, no Google calls | `GET /google/gbp/popup` returns the config (only `openid email business.manage`, `select_account consent`, a 43-character state). `POST /google/gbp/code` with a bogus state gives 400. `GET /onboarding/state` for the live-test user gives not connected with no locations. `/places/search` without a token gives 401. The server log shows 0 Places or GBP calls. |
 
 **API calls consumed: 0.**
@@ -534,13 +537,15 @@ Branch `claude/phase-7a-connect-onboarding`, from `claude/rebuild` @ `4e4d556`. 
 6. **`/onboarding/complete` records `gbp_sync.requested_at`**; the 7b scheduler picks it up.
 7. **The suggestions cache holds names, addresses and ratings for 24 hours:** part of the Maps ToS decision before production.
 - **Also:** a service-area business can be onboarded (country from `serviceArea.regionCode`). Competitor suggestions need coordinates, so for it they work only after its first ranking run resolves the center.
-- **GIS caveat:** I haven't confirmed the code client honours `prompt: "select_account consent"`. The frontend should verify a same-account reconnect; the backend keeps the stored refresh token for the same account.
+- **Popup settings (after review):** `select_account: true` only; no `prompt`. A same-account reconnect without a refresh token reuses the stored one.
+- **Several Google accounts per user (after review):** replaces the earlier 409 "switch account" rule.
+- **Service-area center (after review):** geocoded with Places (IDs-only search + Details `location`) instead of the Geocoding API (not enabled) or Nominatim (1 request/second policy, different data source).
 
 ### Shared or out-of-scope files touched
 `services/user/userAuth.service.ts`, `controllers/user/userAuth.controller.ts` and `routes/v1/user/userAuth.route.ts` (the two popup routes only); `routes/v1/common/index.ts` (two mounts); `models/location.model.ts` (additions only); `models/index.ts`.
 
 ### Your live steps (when you say so; in order)
-1. **Popup connect** for MyPageSEO (frontend, or a small test page with the GBP_CONNECT.md snippet). Calls: 1 OAuth token exchange + 1 certificate fetch.
+1. **Popup connect** for MyPageSEO (frontend, or a small test page with the GBP_CONNECT.md snippet). Calls: 1 OAuth token exchange + 1 certificate fetch. Connecting another Google account later adds a second connection.
 2. **`npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`**. Calls: 1 accounts page + 1 locations page per account.
 3. **select-profile.** 1 GBP call.
 4. **Competitor suggestions.** 2 Enterprise Text Search calls in development (1 per keyword, first 2 keywords).
