@@ -119,7 +119,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
 - Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` (`defineAllJobs`) and agenda is started from `src/server.ts` after `listen`. New jobs use `src/jobs/defineJob.ts` (`defineJob` / `scheduleJob`, IDs-only data). The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
-- Ranking API (Phase 5): `/api/v1/locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}` (see `docs/ENDPOINTS.md`, examples in `docs/API.md`). Jobs `rank-run`, `gbp-sync` and `monthly-refresh` (7b; `rank-scheduler` removed). Model `RankRun` (`rank_runs`) and `Location.tracking`.
+- Ranking API (Phase 5): `/api/v1/locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}` (see `docs/ENDPOINTS.md`, examples in `docs/API.md`). Jobs `rank-run`, `gbp-sync`, `gbp-report` (7c) and `monthly-refresh` (7b; `rank-scheduler` removed). Model `RankRun` (`rank_runs`) and `Location.tracking`.
 - **Clients:**
   - `src/clients/http.ts`: transport, 15 s timeout, 1 retry, safe errors with ErrorInfo `reason` and `quota_limit_value`.
   - `src/clients/placesClient.ts`: Places API (New). Each search has a guarded field mask: IDs-only for ranking, Pro names for Map Ranking, Enterprise for competitor suggestions, Pro names and addresses for manual search. Plus Place Details. `createPlacesClient()` is for tests; `placesClient` is the default instance.
@@ -516,7 +516,14 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
   - When false, no v4 calls are made: reviews, media and posts are marked `not_available` (not an error).
   - All v4 code is still built and tested on fixtures, so going live means setting `GBP_V4_ENABLED=true` with no code changes.
   - Sample data only in `seed:gbp-demo` and tests, never in live responses.
-- **7c: scoring + report + competitors** (7.2–7.4 below, extended by Mohit's 7c brief: GBP Score with 5 pillars and rescaling when a pillar is `not_available`, a Public Score, `seed:gbp-demo`). Without a GBP binding, the private sections return `{ available: false, reason: "gbp_not_connected" }` and the Public Score and competitor comparison still work. Milestone **M3**.
+- **7c: scoring + report + competitors.** **Built** on `claude/phase-7c-scoring-report` (milestone **M3**):
+  - **Code:** `src/gbp/scoring.config.ts` (every weight and threshold), `src/gbp/score/{gbpScore,publicScore,holidays}`, `src/gbp/report/{performance,keywords,reviews,competitors,insights,generate}`, `src/services/gbp/report.service.ts`, job `gbp-report`, model `GbpReport` (**one per location, overwritten**; only own scores kept in `score_history`), `Location.gbp_report`.
+  - **GBP Score** (private): 5 pillars (completeness 25, activity 20 v4, reviews 25 v4, visibility 20, engagement 10). A check without data is `not_available`; a pillar with none is excluded and the rest rescaled (`partial`, `excluded_pillars`). Grades A ≥ 85 … F. Top 5 fixes. It **supersedes 7.2's health score** below.
+  - **Public Score**: one formula for client and competitors, from Place Details + center ranks from the latest `mapList`. `editorialSummary` (Atmosphere tier) only with `COMPETITOR_DETAILS_ATMOSPHERE=true`.
+  - **Competitors:** client + `tracking.competitors` + top 3 of the first keyword's map list (max 5). Place Details at most once per monthly cycle per business, or on a manual refresh when older than 24 h; failures keep old facts (`stale`).
+  - **Generation:** after each gbp-sync and each done/partial rank run, a tracked-competitor change and an unbind; debounced (`REPORT_DEBOUNCE_SECONDS`, compare-and-set on `gbp_report.scheduled_for`) and skipped while a run or sync is active, so a monthly refresh gives one report.
+  - **API:** `GET /locations/:id/gbp/report?range=28d|90d|12m` (#28). §7.4's `POST …/gbp/sync` is `POST /refresh {types:["gbp"]}` (7b), and `…/competitors/refresh` is `POST /refresh` (it sets the competitor refetch flag). Without a GBP binding the private sections return `{ available: false, reason: "gbp_not_connected" }`; v4 sections `v4_access_pending`.
+  - **Demo:** `npm run seed:gbp-demo [-- --v4-off]`. Calibration against real data once GBP access is approved: PROGRESS.md "Scoring calibration".
 
 ### 7.1 Sync job `gbp-sync` (per bound location; **monthly** via the `monthly-refresh` scheduler, plus manual refresh)
 Never fetch GBP data on a page view. Store everything; pages read from DB.
@@ -533,7 +540,7 @@ Never fetch GBP data on a page view. Store everything; pages read from DB.
 
 Respect quotas: ≤ 5 requests/second per job, exponential backoff on 429. Record `last_synced_at` and errors per data type; a failure in one data type must not abort the others.
 
-### 7.2 Profile health score (`src/gbp/healthScore.ts`, pure, unit-tested)
+### 7.2 Profile health score (superseded in 7c by the 5-pillar GBP Score, see above)
 Each check returns `{ id, label, passed, weight, detail }`; score = weighted % (0–100).
 - verified (20), description present ≥ 250 chars (8), ≥ 1 additional category (8), regular hours set (8), special hours set for upcoming holidays in next 60 days (4), website set (6), phone set (6), photo uploaded by owner in last 30 days (8), post in last 7 days (10), review reply rate last 90 days ≥ 80% (10), median reply time ≤ 48h (6), attributes set ≥ 5 (6).
 - NAP check (informational, not scored): compare `Location.name/mobile` with profile title/primary phone (normalized) and show mismatches.

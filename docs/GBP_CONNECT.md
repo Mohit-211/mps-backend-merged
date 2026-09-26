@@ -195,6 +195,17 @@ curl -s http://localhost:5055/api/v1/locations/<location id>/gbp/sync -H "Author
 
 The live-test location is `frequency: manual_only`, so it never refreshes by itself.
 
+## 6. GBP report (Phase 7c)
+
+About 2 minutes after the sync finishes, the `gbp-report` job generates the location's report (and fetches Place Details for the client and up to 5 competitors: about 6 Places calls the first time).
+
+```sh
+curl -s http://localhost:5055/api/v1/locations/<location id>/refresh -H "Authorization: Bearer $TOKEN"        # report.pending, last_generated_at
+curl -s "http://localhost:5055/api/v1/locations/<location id>/gbp/report?range=28d" -H "Authorization: Bearer $TOKEN"
+```
+
+Then run the scoring calibration against the real numbers ([PROGRESS.md](PROGRESS.md), Phase 7c "Scoring calibration").
+
 ## Undo
 
 | Action | Endpoint |

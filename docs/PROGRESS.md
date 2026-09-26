@@ -686,3 +686,46 @@ No push: M3 comes after 7c.
 - **Google calls:** 1 OAuth code exchange, 1 `accounts.list` (429). Places: 0.
 - **Not run yet:** preflight, bind, first sync. They resume once Google approves access (quota > 0).
 - **Found:** `mongoose.set('debug', true)` in `src/configs/mongoConnection.ts` is unconditional, so every query is logged in every environment, including user emails, OAuth-state hashes and the (encrypted) token documents.
+
+## On `claude/rebuild` after the live test (2026-09-26)
+
+- `4184c23` **Mongoose query logging** is opt-in: `MONGOOSE_DEBUG` (default false), honoured only with `NODE_ENV=development`, ignored with a startup warning elsewhere (`src/configs/mongooseDebug.ts`, tests). Before, every query and document (emails, OAuth-state hashes, encrypted tokens) was logged in every environment.
+- `0a55d15` STATUS "Blocked on Google": GBP API access (quota 0; resume at `gbp:preflight` when Mohit says "GBP access approved"), v4 access, OAuth app verification.
+
+## Phase 7c: GBP Score, Public Score, competitor comparison and the GBP report
+
+Branch `claude/phase-7c-scoring-report` (from `claude/rebuild`). Built and tested only on fixtures and `seed:gbp-demo`: **0 GBP calls, 0 Places calls.**
+
+**Commits**
+- `dab1780` pure layer: `scoring.config.ts`, GBP Score, Public Score, US/CA holidays, performance / keywords / reviews sections, competitor set + freshness rule, gap insights, with tests.
+- `cf1e07c` report: `GbpReport` model, generation, `gbp-report` job with debounced requests, `GET /locations/:id/gbp/report` (#28), `/refresh` report state and competitor refetch flag, demo data builder, config; ENDPOINTS.md and API.md in the same commit; the `check:endpoints` parser now handles escaped pipes.
+- `9b8f53d` `npm run seed:gbp-demo [-- --v4-off]`.
+- docs commit: FRONTEND_BACKEND_MAP, OPERATIONS, GBP_CONNECT §6, CLAUDE.md as built, STATUS, PROGRESS.
+
+**What changed**
+- **GBP Score** (private, 0–100): completeness 25, activity 20 (v4), reviews 25 (v4), visibility 20, engagement 10; 26 checks. Missing data → `not_available` → excluded and rescaled (`partial`). Today (v4 off) the score runs on completeness + visibility + engagement.
+- **Public Score** (client and competitors alike): rating 25, review count 20, center rank 20, center top-3 10, public profile 25.
+- **Competitor comparison:** client + tracked competitors + top 3 of the map list (max 5), Place Details at most once per monthly cycle (or on a manual refresh after 24 h), gap insights (max 5).
+- **Report sections:** performance per range (28 d / 90 d / 12 m, previous period, same period last year, coverage), keywords (thresholds kept), reviews / media / posts (v4), pending Google edits, verification, sync status, score history.
+- **Generation:** after each GBP sync and rank run (and competitor change, unbind), debounced 120 s and skipped while a run or sync is active: a monthly refresh gives one report.
+- **Unbound locations** (Places search): private sections `gbp_not_connected`; Public Score and comparison work.
+
+**Files touched (shared, called out):** `src/models/location.model.ts` (`gbp_report`), `src/jobs/rankRun.job.ts` (report hook), `src/services/gbp/binding.service.ts` (unbind requests a report), `src/controllers/ranking/ranking.controller.ts` (competitor change), `src/services/refresh/refresh.service.ts`.
+
+**Decisions (approved in the plan):** thresholds as in `scoring.config.ts` (starting values); Public Score ranks from the map list for everyone; `editorialSummary` off by default (Atmosphere tier); no separate competitor-refresh endpoint; one report per location (no Places history); 120 s debounce; competitor change requests a report.
+
+**Tests:** 547 pass (was 467 before 7c); build 0 errors; lint baseline 32 unchanged. Dev server check with the Places key empty: `gbp-report` job registered; report for all 3 ranges, `gbp_not_connected` for the unbound demo location, 400 for a bad range, `/refresh` report state; 0 Google calls.
+
+**API calls consumed:** 0.
+
+### Scoring calibration (after "GBP access approved")
+
+Run after the first real sync and report for MyPageSEO (GBP_CONNECT.md §5–6). Compare each against the real data and propose threshold changes in `scoring.config.ts` for approval:
+1. **Coverage and lag:** latest metric date vs today; days with data in 28 / 90 / 365; does the 80 % coverage rule blank out a small profile?
+2. **Engagement:** real actions per 1,000 impressions vs the 5 / 15 / 30 / 50 bands.
+3. **Impressions trend:** the real month-to-month swing vs the ±10 % bands.
+4. **Completeness vs the real profile:** description length, categories, attribute count (≥ 5), service items, pending edits, verification. Any false fails?
+5. **Visibility:** MyPageSEO's real `overallAvgRank` and top-3 rate (Phase 5.5 runs) vs the rank bands.
+6. **Public Score:** client vs 3–5 real Fredericton competitors. Does the ordering match intuition? Do the review-count bands suit a small market?
+7. **Keywords:** share of threshold-only keywords; are the `not_tracked` suggestions useful?
+8. **Place Details calls** per generation vs the estimate (≈ 6).

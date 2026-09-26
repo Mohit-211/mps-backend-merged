@@ -113,12 +113,26 @@ npm run seed:rank-demo
 - **Re-running:** deletes and recreates only the demo user's data, with a new password and token.
 - Endpoint reference: [API.md](API.md). First real run with a key: [LIVE_TEST.md](LIVE_TEST.md).
 
+## Demo GBP report data (frontend work, no API key)
+
+```sh
+npm run seed:gbp-demo              # reviews, media and posts filled (as with GBP_V4_ENABLED=true)
+npm run seed:gbp-demo -- --v4-off  # the report as it looks before v4 access (GBP Score partial)
+```
+
+- **Creates:** a demo user (`gbp-demo@mypageseo.test`) with two Toronto plumber locations in `mps_rebuild`:
+  - **bound:** a fake GBP binding, a finished sync, 18 months of daily metrics (with a few gaps), 6 months of search keywords (some only "fewer than 15"), a profile snapshot (with a pending Google edit), about 60 reviews, 3 rank runs and a generated report;
+  - **unbound** (as if added via Places search): 1 rank run and a report whose private sections say `gbp_not_connected`.
+- **How:** the real rank-run and report code with **offline** Places clients (`src/ranking/demo/demoPlaces.ts`, `src/gbp/demo/demoGbp.ts`): **0 Google calls**.
+- **Output:** a login, an access token, both location ids and `curl` examples. Same guards as `seed:rank-demo` (development + `mps_rebuild`; only the demo user's data is replaced).
+
 ## Ranking jobs
 
 | Job | When | What |
 |---|---|---|
 | `rank-run` | Queued by a refresh (`POST /locations/:id/refresh`, "run now"), onboarding completion, or the monthly refresh. Job data is `{ run_id }` only. Concurrency 2 per process, 35-minute lock. | Runs one RankRun: center, then tracker and grid searches, then the map list, metrics, change, and save. Logs `rank-run <id>: <status> ids_only=… pro=… details=…`. |
 | `gbp-sync` (7b) | Queued by a refresh, onboarding completion, or the monthly refresh. Job data `{ sync_id }`. Concurrency 2 per process, 20-minute lock. | Fetches performance, keywords, profile (+ attributes, Google edits), verification, and (with `GBP_V4_ENABLED`) reviews, media, posts; each type independently; upserts; one dated profile snapshot. Logs `gbp-sync <id>: <status> calls=… performance=ok …`. |
+| `gbp-report` (7c) | Requested after a rank run (done/partial) or a GBP sync finishes, after a change of tracked competitors, and after an unbind; runs `REPORT_DEBOUNCE_SECONDS` (120) later. Job data `{ location_id, trigger }`. Concurrency 2, 10-minute lock. | Regenerates the location's single GBP report from stored data. Requests are claimed with a compare-and-set on `Location.gbp_report.scheduled_for`, so close triggers give one job; the job skips while a rank run or sync is still active (its finish requests again), so a monthly refresh gives one report. Fetches competitor Place Details only when stale (below). Logs `gbp-report: location <id> generated (<trigger>) … places_details=…`. |
 | `monthly-refresh` (7b) | Every 15 minutes (`agenda.every`), one process at a time. Replaces the Phase 5 `rank-scheduler`, whose old job document is cancelled at startup. | Fails rank runs and GBP syncs stuck for more than 30 minutes. For each due `auto_monthly` location with keywords (`refresh.next_refresh_at <= now`, claimed with a compare-and-set): queues a rank run and, if GBP-connected, a GBP sync, and moves `next_refresh_at` to the next month's anchor day (~03:00 local; zone = `Location.timezone`, else estimated from longitude, else UTC). `manual_only` locations are never scheduled. |
 
 **Limits**
@@ -129,6 +143,11 @@ npm run seed:rank-demo
 - **Manual refresh:** at most once per `REFRESH_MIN_INTERVAL_HOURS` (24) per location per type (rankings, gbp); "run now" shares the rankings limit.
 
 **Migration (7b):** `npm run migrate:refresh` maps `tracking.frequency` weekly/monthly → `auto_monthly`, manual → `manual_only`, and gives every set-up location its monthly schedule. It is idempotent and makes no Google calls. It refuses a database other than `mps_rebuild` unless `--confirm` is passed; back up `locations` first. Run it once when deploying 7b.
+
+**GBP report (7c):**
+- **Place Details for the competitor comparison** (Enterprise SKU; client + up to 5 competitors): a business is fetched when it has no stored facts, when its facts predate the location's last automatic refresh (so at most once per monthly cycle), or after a manual `POST /refresh` when its facts are older than 24 h. So about 6 calls per location per month, plus at most 6 per manual refresh. The count is stored on the report (`api_calls.places_details`).
+- `COMPETITOR_DETAILS_ATMOSPHERE` (default false) also requests `editorialSummary`, which moves the call to the more expensive Atmosphere tier.
+- The report is one document per location (`gbp_reports`), overwritten each time; weights and thresholds are in `src/gbp/scoring.config.ts`.
 
 **GBP sync settings:** `GBP_V4_ENABLED` (false until Google approves v4: reviews, media and posts are then `not_available`), `GBP_BACKFILL_MONTHS` (18), `GBP_ROLLING_DAYS` (40), `GBP_KEYWORD_BACKFILL_MONTHS` (6), `GBP_KEYWORD_ROLLING_MONTHS` (2), `REFRESH_LOCAL_HOUR` (3). **Going live with v4:** set `GBP_V4_ENABLED=true` and restart; no code changes.
 
