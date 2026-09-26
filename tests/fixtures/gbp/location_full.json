@@ -1,0 +1,132 @@
+{
+  "name": "locations/200000000000000000001",
+  "title": "Example Plumbing Co",
+  "storefrontAddress": {
+    "regionCode": "US",
+    "postalCode": "75201",
+    "administrativeArea": "TX",
+    "locality": "Dallas",
+    "addressLines": [
+      "100 Example St",
+      "Suite 5"
+    ]
+  },
+  "phoneNumbers": {
+    "primaryPhone": "(214) 555-0100",
+    "additionalPhones": [
+      "(214) 555-0101"
+    ]
+  },
+  "websiteUri": "https://example-plumbing.test/",
+  "regularHours": {
+    "periods": [
+      {
+        "openDay": "MONDAY",
+        "openTime": {
+          "hours": 8
+        },
+        "closeDay": "MONDAY",
+        "closeTime": {
+          "hours": 18
+        }
+      },
+      {
+        "openDay": "TUESDAY",
+        "openTime": {
+          "hours": 8,
+          "minutes": 30
+        },
+        "closeDay": "TUESDAY",
+        "closeTime": {
+          "hours": 18
+        }
+      }
+    ]
+  },
+  "specialHours": {
+    "specialHourPeriods": [
+      {
+        "startDate": {
+          "year": 2026,
+          "month": 12,
+          "day": 25
+        },
+        "closed": true
+      },
+      {
+        "startDate": {
+          "year": 2027,
+          "month": 1,
+          "day": 1
+        },
+        "closed": true
+      }
+    ]
+  },
+  "moreHours": [
+    {
+      "hoursTypeId": "DRIVE_THROUGH",
+      "periods": []
+    }
+  ],
+  "serviceArea": {
+    "businessType": "CUSTOMER_AND_BUSINESS_LOCATION",
+    "places": {
+      "placeInfos": [
+        {
+          "placeName": "Dallas, TX",
+          "placeId": "ChIJfakeCity00000000000001"
+        },
+        {
+          "placeName": "Irving, TX",
+          "placeId": "ChIJfakeCity00000000000002"
+        }
+      ]
+    },
+    "regionCode": "US"
+  },
+  "categories": {
+    "primaryCategory": {
+      "name": "categories/gcid:plumber",
+      "displayName": "Plumber"
+    },
+    "additionalCategories": [
+      {
+        "name": "categories/gcid:drainage_service",
+        "displayName": "Drainage service"
+      }
+    ]
+  },
+  "profile": {
+    "description": "Family-run plumbers serving Dallas since 1998. Emergency repairs, drain cleaning and water heaters."
+  },
+  "openInfo": {
+    "status": "OPEN"
+  },
+  "metadata": {
+    "placeId": "ChIJfakeGbpPlace000000001",
+    "mapsUri": "https://maps.google.com/maps?cid=1",
+    "newReviewUri": "https://search.google.com/local/writereview?placeid=ChIJfakeGbpPlace000000001"
+  },
+  "labels": [
+    "dallas"
+  ],
+  "serviceItems": [
+    {
+      "structuredServiceItem": {
+        "serviceTypeId": "job_type_id:drain_cleaning"
+      }
+    },
+    {
+      "freeFormServiceItem": {
+        "label": {
+          "displayName": "Water heater install"
+        }
+      }
+    }
+  ],
+  "latlng": {
+    "latitude": 32.7801,
+    "longitude": -96.8005
+  }
+}

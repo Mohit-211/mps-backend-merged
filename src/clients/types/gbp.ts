@@ -94,3 +94,102 @@ export interface RawTokenResponse {
 	token_type?: string;
 	id_token?: string;
 }
+
+// ---- Phase 7b: sync endpoints (raw shapes, boundary only) ----
+
+export interface GoogleDate {
+	year?: number;
+	month?: number;
+	day?: number;
+}
+
+export interface RawDailyMetricsResponse {
+	multiDailyMetricTimeSeries?: {
+		dailyMetricTimeSeries?: {
+			dailyMetric?: string;
+			timeSeries?: { datedValues?: { date?: GoogleDate; value?: string }[] };
+		}[];
+	}[];
+}
+
+export interface RawSearchKeywordsPage {
+	searchKeywordsCounts?: { searchKeyword?: string; insightsValue?: { value?: string; threshold?: string } }[];
+	nextPageToken?: string;
+}
+
+export interface RawAttributes {
+	name?: string;
+	attributes?: { name?: string; valueType?: string; values?: unknown[]; repeatedEnumValue?: { setValues?: string[] }; uriValues?: { uri?: string }[] }[];
+}
+
+export interface RawGoogleUpdated {
+	location?: Record<string, unknown>;
+	diffMask?: string;
+	pendingMask?: string;
+}
+
+export interface RawVoiceOfMerchantState {
+	hasVoiceOfMerchant?: boolean;
+	hasBusinessAuthority?: boolean;
+	waitForVoiceOfMerchant?: Record<string, unknown>;
+	verify?: { hasPendingVerification?: boolean };
+	resolveOwnershipConflict?: Record<string, unknown>;
+	complyWithGuidelines?: { recommendationReason?: string };
+}
+
+export interface RawReview {
+	name?: string;
+	reviewer?: { displayName?: string; isAnonymous?: boolean };
+	starRating?: string;
+	comment?: string;
+	createTime?: string;
+	updateTime?: string;
+	reviewReply?: { comment?: string; updateTime?: string };
+}
+
+export interface RawReviewsPage {
+	reviews?: RawReview[];
+	averageRating?: number;
+	totalReviewCount?: number;
+	nextPageToken?: string;
+}
+
+export interface RawMediaItem {
+	name?: string;
+	mediaFormat?: string;
+	createTime?: string;
+	locationAssociation?: { category?: string };
+}
+
+export interface RawMediaPage {
+	mediaItems?: RawMediaItem[];
+	totalMediaItemCount?: number;
+	nextPageToken?: string;
+}
+
+export interface RawLocalPost {
+	name?: string;
+	createTime?: string;
+	updateTime?: string;
+	state?: string;
+	topicType?: string;
+	searchUrl?: string;
+}
+
+export interface RawLocalPostsPage {
+	localPosts?: RawLocalPost[];
+	nextPageToken?: string;
+}
+
+/** A calendar date range (inclusive) for the Performance API. */
+export interface DateRange {
+	start: { year: number; month: number; day: number };
+	end: { year: number; month: number; day: number };
+}
+
+/** v4 lists: every item across pages, plus the list-level fields of the first page. */
+export interface PagedList<T> {
+	items: T[];
+	pages: number;
+	truncated: boolean;
+}

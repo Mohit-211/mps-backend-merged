@@ -1,0 +1,16 @@
+{
+  "localPosts": [
+    {
+      "name": "accounts/1/locations/2/localPosts/p1",
+      "createTime": "2026-09-20T12:00:00Z",
+      "state": "LIVE",
+      "topicType": "STANDARD"
+    },
+    {
+      "name": "accounts/1/locations/2/localPosts/p2",
+      "createTime": "2026-07-01T12:00:00Z",
+      "state": "LIVE",
+      "topicType": "OFFER"
+    }
+  ]
+}

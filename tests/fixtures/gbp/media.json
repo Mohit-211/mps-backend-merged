@@ -1,0 +1,21 @@
+{
+  "mediaItems": [
+    {
+      "name": "accounts/1/locations/2/media/m1",
+      "mediaFormat": "PHOTO",
+      "createTime": "2026-09-10T10:00:00Z",
+      "locationAssociation": {
+        "category": "EXTERIOR"
+      }
+    },
+    {
+      "name": "accounts/1/locations/2/media/m2",
+      "mediaFormat": "PHOTO",
+      "createTime": "2026-08-02T10:00:00Z",
+      "locationAssociation": {
+        "category": "TEAMS"
+      }
+    }
+  ],
+  "totalMediaItemCount": 2
+}

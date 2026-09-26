@@ -36,6 +36,8 @@ export * from "./campaign.model";
 export * from "./rankRun.model";
 export * from "./oauthState.model";
 export * from "./placesUsage.model";
+export * from "./gbpSync.model";
+export * from "./gbpData.model";
 
 
 // location service — citations

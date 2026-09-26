@@ -15,9 +15,22 @@ import {
 	toHttpRequestError,
 } from './http';
 import {
+	DateRange,
 	GbpAccount,
 	GbpLocation,
 	OAuthTokens,
+	PagedList,
+	RawAttributes,
+	RawDailyMetricsResponse,
+	RawGoogleUpdated,
+	RawLocalPost,
+	RawLocalPostsPage,
+	RawMediaItem,
+	RawMediaPage,
+	RawReview,
+	RawReviewsPage,
+	RawSearchKeywordsPage,
+	RawVoiceOfMerchantState,
 	RawAccount,
 	RawAccountsPage,
 	RawLocation,
@@ -34,8 +47,32 @@ import {
 
 export const ACCOUNT_MANAGEMENT_URL = 'https://mybusinessaccountmanagement.googleapis.com/v1';
 export const BUSINESS_INFORMATION_URL = 'https://mybusinessbusinessinformation.googleapis.com/v1';
+export const PERFORMANCE_URL = 'https://businessprofileperformance.googleapis.com/v1';
+export const VERIFICATIONS_URL = 'https://mybusinessverifications.googleapis.com/v1';
+export const V4_URL = 'https://mybusiness.googleapis.com/v4';
 export const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const OAUTH_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
+
+/** Full profile for the sync (CLAUDE.md §11 7.1). */
+export const PROFILE_READ_MASK =
+	'name,title,storefrontAddress,phoneNumbers,websiteUri,regularHours,specialHours,moreHours,serviceArea,categories,profile,openInfo,metadata,labels,serviceItems,latlng';
+
+/** The daily performance metrics stored per location (CLAUDE.md §11 7.1). */
+export const DAILY_METRICS = [
+	'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
+	'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+	'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
+	'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
+	'CALL_CLICKS',
+	'WEBSITE_CLICKS',
+	'BUSINESS_DIRECTION_REQUESTS',
+	'BUSINESS_CONVERSATIONS',
+	'BUSINESS_BOOKINGS',
+	'BUSINESS_FOOD_ORDERS',
+	'BUSINESS_FOOD_MENU_CLICKS',
+] as const;
+
+const MAX_LIST_PAGES = 40;
 
 export const DISCOVERY_READ_MASK =
 	'name,title,storefrontAddress,serviceArea,phoneNumbers,websiteUri,categories,latlng,metadata,languageCode,profile';
@@ -411,9 +448,144 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		return location;
 	};
 
+	// ---- Phase 7b: sync reads ----
+
+	/** Daily values for several metrics over an inclusive date range (one call). */
+	const fetchDailyMetrics = async (
+		conn: ConnectionRef,
+		locationName: string,
+		metrics: readonly string[],
+		range: DateRange,
+	): Promise<RawDailyMetricsResponse> => {
+		const params = new URLSearchParams();
+		for (const metric of metrics) params.append('dailyMetrics', metric);
+		params.set('dailyRange.startDate.year', String(range.start.year));
+		params.set('dailyRange.startDate.month', String(range.start.month));
+		params.set('dailyRange.startDate.day', String(range.start.day));
+		params.set('dailyRange.endDate.year', String(range.end.year));
+		params.set('dailyRange.endDate.month', String(range.end.month));
+		params.set('dailyRange.endDate.day', String(range.end.day));
+		return authedGet<RawDailyMetricsResponse>(
+			conn,
+			'performance.dailyMetrics',
+			`${PERFORMANCE_URL}/${locationName}:fetchMultiDailyMetricsTimeSeries?${params.toString()}`,
+		);
+	};
+
+	/**
+	 * Search-keyword impressions for ONE month (all pages). The API sums over the requested range, so
+	 * the sync asks month by month to store per-month values.
+	 */
+	const listSearchKeywords = async (
+		conn: ConnectionRef,
+		locationName: string,
+		month: { year: number; month: number },
+	): Promise<PagedList<NonNullable<RawSearchKeywordsPage['searchKeywordsCounts']>[number]>> => {
+		const items: NonNullable<RawSearchKeywordsPage['searchKeywordsCounts']> = [];
+		let pageToken: string | undefined;
+		let pages = 0;
+		do {
+			const url = withQuery(`${PERFORMANCE_URL}/${locationName}/searchkeywords/impressions/monthly`, {
+				'monthlyRange.startMonth.year': String(month.year),
+				'monthlyRange.startMonth.month': String(month.month),
+				'monthlyRange.endMonth.year': String(month.year),
+				'monthlyRange.endMonth.month': String(month.month),
+				pageSize: '100',
+				pageToken,
+			});
+			const data = await authedGet<RawSearchKeywordsPage>(conn, 'performance.searchKeywords', url);
+			items.push(...(data.searchKeywordsCounts ?? []));
+			pageToken = data.nextPageToken;
+			pages += 1;
+		} while (pageToken && pages < MAX_LIST_PAGES);
+		return { items, pages, truncated: Boolean(pageToken) };
+	};
+
+	/** The full profile (Business Information, PROFILE_READ_MASK), raw. */
+	const getLocationFull = async (conn: ConnectionRef, locationName: string): Promise<Record<string, unknown>> =>
+		authedGet<Record<string, unknown>>(conn, 'locations.getFull', withQuery(`${BUSINESS_INFORMATION_URL}/${locationName}`, { readMask: PROFILE_READ_MASK }));
+
+	const getAttributes = async (conn: ConnectionRef, locationName: string): Promise<RawAttributes> =>
+		authedGet<RawAttributes>(conn, 'locations.attributes', `${BUSINESS_INFORMATION_URL}/${locationName}/attributes`);
+
+	/** Google's version of the profile, with diffMask (Google-changed fields) and pendingMask (edits under review). */
+	const getGoogleUpdated = async (conn: ConnectionRef, locationName: string): Promise<RawGoogleUpdated> =>
+		authedGet<RawGoogleUpdated>(
+			conn,
+			'locations.googleUpdated',
+			withQuery(`${BUSINESS_INFORMATION_URL}/${locationName}:getGoogleUpdated`, { readMask: PROFILE_READ_MASK }),
+		);
+
+	const getVoiceOfMerchantState = async (conn: ConnectionRef, locationName: string): Promise<RawVoiceOfMerchantState> =>
+		authedGet<RawVoiceOfMerchantState>(conn, 'verifications.voiceOfMerchant', `${VERIFICATIONS_URL}/${locationName}/VoiceOfMerchantState`);
+
+	/** "accounts/A" + "locations/L" → the v4 resource "accounts/A/locations/L". */
+	const v4Location = (accountName: string, locationName: string): string => `${V4_URL}/${accountName}/${locationName}`;
+
+	const v4List = async <P extends { nextPageToken?: string }, T>(
+		conn: ConnectionRef,
+		label: string,
+		base: string,
+		pageSize: number,
+		pick: (page: P) => T[],
+	): Promise<PagedList<T> & { first: P | null }> => {
+		const items: T[] = [];
+		let first: P | null = null;
+		let pageToken: string | undefined;
+		let pages = 0;
+		do {
+			const data = await authedGet<P>(conn, label, withQuery(base, { pageSize: String(pageSize), pageToken }));
+			first ??= data;
+			items.push(...pick(data));
+			pageToken = data.nextPageToken;
+			pages += 1;
+		} while (pageToken && pages < MAX_LIST_PAGES);
+		return { items, pages, truncated: Boolean(pageToken), first };
+	};
+
+	/** v4 reviews (all pages) with averageRating / totalReviewCount from the first page. */
+	const listReviews = async (conn: ConnectionRef, accountName: string, locationName: string) => {
+		const list = await v4List<RawReviewsPage, RawReview>(conn, 'v4.reviews', `${v4Location(accountName, locationName)}/reviews`, 50, (p) => p.reviews ?? []);
+		return { ...list, averageRating: list.first?.averageRating ?? null, totalReviewCount: list.first?.totalReviewCount ?? null };
+	};
+
+	/** v4 owner media (all pages) with totalMediaItemCount. */
+	const listMedia = async (conn: ConnectionRef, accountName: string, locationName: string) => {
+		const list = await v4List<RawMediaPage, RawMediaItem>(conn, 'v4.media', `${v4Location(accountName, locationName)}/media`, 100, (p) => p.mediaItems ?? []);
+		return { ...list, total: list.first?.totalMediaItemCount ?? list.items.length };
+	};
+
+	/** v4 customer media: only the count is needed (1 page). */
+	const countCustomerMedia = async (conn: ConnectionRef, accountName: string, locationName: string): Promise<number> => {
+		const data = await authedGet<RawMediaPage>(conn, 'v4.customerMedia', withQuery(`${v4Location(accountName, locationName)}/media/customers`, { pageSize: '1' }));
+		return data.totalMediaItemCount ?? (data.mediaItems ?? []).length;
+	};
+
+	/** v4 local posts (all pages). */
+	const listLocalPosts = async (conn: ConnectionRef, accountName: string, locationName: string) =>
+		v4List<RawLocalPostsPage, RawLocalPost>(conn, 'v4.localPosts', `${v4Location(accountName, locationName)}/localPosts`, 100, (p) => p.localPosts ?? []);
+
 	const getStats = () => ({ calls: stats.calls, byEndpoint: { ...stats.byEndpoint } });
 
-	return { exchangeCode, revoke, getAccessToken, listAccounts, listLocations, getLocation, getStats };
+	return {
+		exchangeCode,
+		revoke,
+		getAccessToken,
+		listAccounts,
+		listLocations,
+		getLocation,
+		fetchDailyMetrics,
+		listSearchKeywords,
+		getLocationFull,
+		getAttributes,
+		getGoogleUpdated,
+		getVoiceOfMerchantState,
+		listReviews,
+		listMedia,
+		countCustomerMedia,
+		listLocalPosts,
+		getStats,
+	};
 };
 
 export type GbpClient = ReturnType<typeof createGbpClient>;

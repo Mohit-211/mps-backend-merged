@@ -1,0 +1,31 @@
+{
+  "name": "locations/200000000000000000001/attributes",
+  "attributes": [
+    {
+      "name": "attributes/has_wheelchair_accessible_entrance",
+      "valueType": "BOOL",
+      "values": [
+        true
+      ]
+    },
+    {
+      "name": "attributes/pay_credit_card_types_accepted",
+      "valueType": "REPEATED_ENUM",
+      "repeatedEnumValue": {
+        "setValues": [
+          "visa",
+          "mastercard"
+        ]
+      }
+    },
+    {
+      "name": "attributes/url_appointment",
+      "valueType": "URL",
+      "uriValues": [
+        {
+          "uri": "https://example-plumbing.test/book"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "location": {
+    "name": "locations/200000000000000000001",
+    "title": "Example Plumbing Company"
+  },
+  "diffMask": "title",
+  "pendingMask": "profile.description"
+}
