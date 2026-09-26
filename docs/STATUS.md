@@ -24,7 +24,7 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 6 GBP connection | Done | `claude/phase-6-gbp-connection` | yes (`4e4d556`) | M3 |
 | **7a Connect + onboarding** | **Done (review fixes in), awaiting merge** | `claude/phase-7a-connect-onboarding` | not yet | M3 |
 | **9a Legacy cleanup** (early Phase 9) | **Done, awaiting merge after 7a** | `claude/phase-9a-legacy-cleanup` | not yet | M3 |
-| **7b GBP sync (monthly cadence)** | **In progress** (context docs committed first) | `claude/phase-7b-gbp-sync` (from 9a) | not yet | M3 |
+| **7b GBP sync (monthly cadence)** | **Done, awaiting merge (after 7a, 9a)** | `claude/phase-7b-gbp-sync` (from 9a) | not yet | M3 |
 | Live test with MyPageSEO | After 7b | — | — | — |
 | 7c Scoring + report + competitors | Not started | — | — | **M3** |
 | 8 Auth, Organization, Onboarding & Locations | Not started (plan mode + data-model diagram first) | — | — | M4 (to be agreed) |
@@ -65,7 +65,11 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
   - onboarding screens: pick a profile (creates or links our Location and binds it), keywords, **competitor suggestions** (top 10 across keywords, 24 h cache) or manual search, complete (first rank run + GBP sync request)
   - a daily cap on user-triggered Places calls
 - **Legacy cleanup (9a):** the old ranking reports, GBP audit, Reputation Manager, white-label report links, Search Console connect and every unused config and env variable are removed (about 7,300 lines). How to rebuild the Reputation Manager and white-label links properly: [LEGACY_FEATURES.md](LEGACY_FEATURES.md). Unused collections and env vars: [MIGRATION.md](MIGRATION.md).
-- **Tests:** 414 pass with no API key and no network. Lint baseline is 32 (was 98).
+- **GBP sync + monthly cadence (7b), offline so far:**
+  - **Sync:** the `gbp-sync` job stores performance (18-month backfill, then 40 days rolling), search keywords (6 months, then 2), the full profile, attributes, pending Google edits and verification, each type with its own status. Reviews, media and posts are built but behind `GBP_V4_ENABLED`.
+  - **Refresh:** one `monthly-refresh` scheduler (per location, on its setup day at about 03:00 local) replaced the 15-minute rank scheduler. `POST/GET /locations/:id/refresh` (manual, 24 h per type). `GET /locations/:id/gbp/sync`.
+  - **Settings:** `tracking.frequency` is `auto_monthly | manual_only`, with `npm run migrate:refresh`.
+- **Tests:** 453 pass with no API key and no network. Lint baseline is 32.
 
 ## Key decisions
 
@@ -119,24 +123,16 @@ All three store or show Google Maps content. Confirm each against the Google Map
 
 ## Next up
 
-1. **Phase 7b, GBP sync on the monthly cadence** (branch `claude/phase-7b-gbp-sync`, built on 9a). Plan mode first.
-   - **Sync:** the `gbp-sync` job.
-     - Performance: an 18-month backfill, then a rolling 40 days.
-     - Search keywords: 6 months, then the last 2.
-     - Profile, attributes, service items, pending Google edits, verification.
-     - v4 reviews, media and posts behind `GBP_V4_ENABLED`.
-     - A status per data type.
-   - **Scheduling and refresh:**
-     - the `monthly-refresh` scheduler (staggered)
-     - `POST /locations/:id/refresh` with a 24 h limit and `next_allowed_at`
-     - `tracking.frequency` `auto_monthly | manual_only`, with migration
-2. **Live test with MyPageSEO** (you trigger it): popup connect → `gbp:preflight` → select-profile → suggestions → first sync.
-3. **7c** (scoring, report, competitors, `seed:gbp-demo`) → **M3 push**.
-4. **Phase 8: Auth, Organization, Onboarding & Locations**, in plan mode with a data-model diagram:
-   - Business/Agency signup and the organization
-   - plan limits and agency clients
-   - the unified add-location flow (GBP or Places search)
-   - the locations list and location overview
+1. **Merge 7a → 9a → 7b** (commands in PROGRESS.md), then run `npm run migrate:refresh` on any database with existing locations.
+2. **Live test with MyPageSEO** (you trigger it; order in [GBP_CONNECT.md](GBP_CONNECT.md)):
+   1. popup connect
+   2. `gbp:preflight`
+   3. select-profile (links the existing MyPageSEO location by `place_id`)
+   4. competitor suggestions (2 Enterprise Places calls)
+   5. first GBP sync with `POST /locations/:id/refresh {"types":["gbp"]}` (about 11 free GBP calls)
+   6. read `GET /locations/:id/gbp/sync`
+3. **7c** (scoring, GBP report, competitors, `seed:gbp-demo`) in plan mode → **M3 push**.
+4. **Phase 8: Auth, Organization, Onboarding & Locations**, in plan mode with a data-model diagram.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
 

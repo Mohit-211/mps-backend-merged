@@ -6,7 +6,7 @@ For the frontend team (Lovable). Every screen in the roadmap's **§16 Master Scr
 
 Endpoint shapes are in [ENDPOINTS.md](ENDPOINTS.md) (rebuilt endpoints) and [API.md](API.md). Legacy endpoints are in [ROUTES.md](ROUTES.md).
 
-Status as of 2026-09-26, with 7a and 9a built and awaiting merge.
+Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 ## Auth
 
@@ -26,7 +26,7 @@ Status as of 2026-09-26, with 7a and 9a built and awaiting merge.
 | Business onboarding | `GET /onboarding/state`, `POST /onboarding/select-profile`, `PUT /locations/:id/center`, `PUT /locations/:id/tracking`, `GET /locations/:id/competitor-suggestions`, `GET /places/search`, `POST /onboarding/complete` | **partial**: the location part is available (7a); the organization step and the Places-search "add location" path are **planned (Phase 8)** |
 | Agency onboarding | as above + clients | **partial**: the location part is available; agency info, the first client and the reporting brand are **planned (Phase 8)** |
 | Google/GBP connection | `GET /user/auth/google/gbp/popup` + `POST /user/auth/google/gbp/code` (popup), `GET /user/auth/google/gbp` (redirect), `POST /user/auth/google/gbp/revoke` | available (several Google accounts per user) |
-| Setup completion | `POST /onboarding/complete` | available (queues the first rank run; the first GBP sync arrives with 7b) |
+| Setup completion | `POST /onboarding/complete` | available (queues the first rank run and the first GBP sync; sets the monthly refresh) |
 
 ## Dashboard
 
@@ -42,8 +42,9 @@ Status as of 2026-09-26, with 7a and 9a built and awaiting merge.
 | Location list (`/locations`) | legacy `GET /locations` (basic fields) | **partial**: the table with client, rank summary, GBP score, rating/reviews and status is **planned (Phase 8)** |
 | Add location | (a) GBP: `GET /onboarding/gbp-profiles` → `POST /onboarding/select-profile`; (b) Places search → pick | (a) available; (b) **planned (Phase 8)**. No manual entry, by design. |
 | Location overview (`/locations/:id`) | – | **planned (Phase 8)**: header (name, city, rating, reviews) + latest summaries |
-| Location settings | `PUT/GET /locations/:id/tracking` (keywords, competitors, grid) | **partial**: tracking is available; `frequency` becomes `auto_monthly \| manual_only` in 7b; other settings in Phase 8 |
-| Refresh button | `POST /locations/:id/refresh` | **planned (7b)** |
+| Location settings | `PUT/GET /locations/:id/tracking` (keywords, competitors, grid, `frequency: auto_monthly \| manual_only`) | **partial**: tracking is available; other settings in Phase 8 |
+| Refresh button | `POST /locations/:id/refresh`, `GET /locations/:id/refresh` (`next_allowed_at`, monthly schedule) | available (7b): once per 24 h per type |
+| GBP data freshness | `GET /locations/:id/gbp/sync` (status per data type, last synced) | available (7b); the GBP report itself is 7c |
 
 ## Rankings
 

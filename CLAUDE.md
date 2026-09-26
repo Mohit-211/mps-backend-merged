@@ -111,7 +111,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
 - Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` (`defineAllJobs`) and agenda is started from `src/server.ts` after `listen`. New jobs use `src/jobs/defineJob.ts` (`defineJob` / `scheduleJob`, IDs-only data). The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
-- Ranking API (Phase 5): `/api/v1/locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}` (see `docs/API.md`). Jobs `rank-run` and `rank-scheduler`. Model `RankRun` (`rank_runs`) and `Location.tracking`.
+- Ranking API (Phase 5): `/api/v1/locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}` (see `docs/API.md`). Jobs `rank-run`, `gbp-sync` and `monthly-refresh` (7b; `rank-scheduler` removed). Model `RankRun` (`rank_runs`) and `Location.tracking`.
 - **Clients:**
   - `src/clients/http.ts`: transport, 15 s timeout, 1 retry, safe errors with ErrorInfo `reason` and `quota_limit_value`.
   - `src/clients/placesClient.ts`: Places API (New). Each search has a guarded field mask: IDs-only for ranking, Pro names for Map Ranking, Enterprise for competitor suggestions, Pro names and addresses for manual search. Plus Place Details. `createPlacesClient()` is for tests; `placesClient` is the default instance.
@@ -369,7 +369,7 @@ Unit tests: points geometry (distances within 1%), metrics edge cases (all not_f
   - **422** when `estimateCalls().idsOnly.max` exceeds `RANK_MAX_CALLS_PER_RUN` (default 3200).
   - An active run is returned with `existing: true`.
 - **Scheduling note (7b):** the 15-minute `rank-scheduler` and weekly/monthly frequencies are replaced by the location-level `monthly-refresh` scheduler (§4 "Refresh cadence").
-- **Stuck guard** (in `rank-scheduler`): runs `running` for more than 30 minutes, or `queued` for more than 30 minutes, are marked `failed`. Scheduler claims are a compare-and-set on `next_run_at`.
+- **Stuck guard** (in `rank-scheduler`, since 7b in `monthly-refresh`): runs `running` for more than 30 minutes, or `queued` for more than 30 minutes, are marked `failed`. Scheduler claims are a compare-and-set on `next_run_at`.
 - **Extra endpoint:** `GET /api/v1/locations/:locationId/rank-runs` (paginated history). The page endpoints accept `?runId=`, return 404 before the first completed run and 409 for an unfinished run. Ownership is checked on every route; another user's location gives 404.
 - **Names:** `STORE_PLACE_NAMES` (default true). When false, names are null, and `GET map-ranking?resolveNames=true` resolves them live with Place Details (see §15). This is **pending Mohit's ToS decision**.
 - **Demo data:** `npm run seed:rank-demo` (development + `mps_rebuild` only, offline client). Endpoint reference: `docs/API.md`; first live run: `docs/LIVE_TEST.md`.
@@ -497,7 +497,14 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
   - `PLACES_USER_DAILY_LIMIT` (default 50) caps user-triggered Places calls per user per day.
   - `Location.onboarding` holds the step: `profile_selected` → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`. A service-area profile without coordinates adds the center step: `PUT /locations/:id/center { query }` (1 IDs-only search + 1 Details `location`; `center_source: 'manual'`). `/complete` requires a center, queues the first rank run and sets `gbp_sync.requested_at` for 7b.
   - Frontend flow: `docs/GBP_CONNECT.md`, `docs/API.md`.
-- **7b: the `gbp-sync` job** (7.1 below) on the **monthly cadence** (§4 "Refresh cadence"): the `monthly-refresh` scheduler, `POST /locations/:id/refresh`, `tracking.frequency` `auto_monthly | manual_only`. Global switch **`GBP_V4_ENABLED`** (default false).
+- **7b: the `gbp-sync` job** (7.1 below) on the **monthly cadence** (§4 "Refresh cadence"). Global switch **`GBP_V4_ENABLED`** (default false). **Built** on `claude/phase-7b-gbp-sync`:
+  - **Code:** `src/gbp/{sync.executor, windows, mappers, hooks}`, `src/services/gbp/sync.service.ts` (enqueue, one active sync per location, estimate), `src/services/refresh/{cadence, scheduler.service, refresh.service, migrate}`.
+  - **Models:** `GbpSync`, `GbpMetricDaily`, `GbpKeywordMonthly`, `GbpProfileSnapshot`, `GbpReview`. Location gets `refresh`, `timezone` and the `gbp_sync` fields.
+  - **Jobs:** `gbp-sync` and `monthly-refresh`. The latter replaced `rank-scheduler`, whose old agenda document is cancelled at startup.
+  - **API:** `POST/GET /locations/:id/refresh` (24 h per type; "run now" shares the rankings limit) and `GET /locations/:id/gbp/sync`.
+  - **About 03:00 local:** `Location.timezone` if set, otherwise an offset estimated from longitude, otherwise UTC.
+  - **Migration:** `npm run migrate:refresh`.
+  - **7c hook:** `onGbpSyncFinished` (it only logs until 7c).
   - When false, no v4 calls are made: reviews, media and posts are marked `not_available` (not an error).
   - All v4 code is still built and tested on fixtures, so going live means setting `GBP_V4_ENABLED=true` with no code changes.
   - Sample data only in `seed:gbp-demo` and tests, never in live responses.

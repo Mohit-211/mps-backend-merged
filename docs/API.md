@@ -97,8 +97,7 @@ Returns the location's ranking settings, with defaults filled in, and what a run
         "size": 5,
         "spacing_km": 1
       },
-      "frequency": "weekly",
-      "next_run_at": "2026-10-02T20:41:45.960Z",
+      "frequency": "auto_monthly",
       "last_run_at": "2026-09-25T20:43:20.960Z",
       "last_error": null
     },
@@ -141,8 +140,7 @@ Partial update: only the fields you send change.
   "keywords": ["Emergency Plumber", "Drain Cleaning", "Water Heater Repair"],
   "competitors": ["ChIJdemoQueenWestPlumbing02", "ChIJdemoDanforthDrainPros03"],
   "grid": { "size": 5, "spacing_km": 1 },
-  "frequency": "weekly",
-  "next_run_at": "2026-10-02T20:41:45.960Z"
+  "frequency": "auto_monthly"
 }
 ```
 
@@ -151,9 +149,7 @@ Partial update: only the fields you send change.
 - **`keywords_version`:** goes up **only when the set of keywords changes**. Reordering or re-casing does not bump it. Changes are never compared across versions.
 - **`competitors`:** up to 5 Google place IDs, never the location's own `place_id`.
 - **`grid.size`:** 3, 5 or 7. **`grid.spacing_km`:** 0.25–5.
-- **`frequency`:** `weekly`, `monthly` or `manual`.
-  - `weekly` / `monthly`: `next_run_at` becomes now (the next scheduler tick), unless you send it.
-  - `manual`: `next_run_at` becomes `null`, and the location is never scheduled.
+- **`frequency`** (7b): `auto_monthly` (default: the location refreshes automatically once a month, on the day it completed setup, at about 03:00 local) or `manual_only` (only `POST /refresh` or "run now"). `next_run_at` is no longer accepted (400).
 
 **Response 200**
 
@@ -190,8 +186,7 @@ Partial update: only the fields you send change.
         "size": 5,
         "spacing_km": 1
       },
-      "frequency": "weekly",
-      "next_run_at": "2026-10-02T20:41:45.960Z",
+      "frequency": "auto_monthly",
       "last_run_at": "2026-09-25T20:43:20.960Z",
       "last_error": null
     },
@@ -1355,4 +1350,73 @@ Body: `{ "location_id" }`. It requires a bound profile, a center (lat/lng; 400 "
 - It queues the first rank run (dev limits apply) and records a GBP sync request. The sync job arrives in Phase 7b and picks up requested locations.
 - Calling it again returns the same state without queuing another run.
 - **422:** the run would exceed `RANK_MAX_CALLS_PER_RUN`.
+
+---
+
+## Refresh and GBP sync (Phase 7b)
+
+The data cadence (Mohit, 2026-09-26):
+- **Monthly automatic refresh** per location: a rank run and, if the location is GBP-connected, a GBP sync. It is staggered on the day of the month the location completed setup (clamped to 28), at about 03:00 local.
+- **Manual refresh** at most once per 24 h per type (`REFRESH_MIN_INTERVAL_HOURS`).
+- **Pages never call Google.** Rankings come from `RankRun`; GBP data from the stored sync (the GBP report arrives in 7c).
+
+### `POST /api/v1/locations/:locationId/refresh`
+
+Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when the location is connected.
+
+```json
+{
+  "rankings": { "run_id": "66f6…", "status": "queued", "existing": false, "estimate": { "idsOnly": { "min": 26, "max": 78, "maxWithRetries": 156 }, "…": "…" },
+                "dev_capped": true, "next_allowed_at": "2026-09-27T13:00:00.000Z" },
+  "gbp": { "sync_id": "66f6…", "status": "queued", "existing": false, "estimated_calls": 8, "next_allowed_at": "2026-09-27T13:00:00.000Z" }
+}
+```
+
+- **Inside the 24 h window a type is skipped:** `{ "skipped": "rate_limited", "next_allowed_at": "…" }`.
+- An unconnected location gets `"gbp": { "skipped": "gbp_not_connected", "next_allowed_at": null }` (only when gbp was requested explicitly).
+- **429** when every requested type is rate-limited (the same body shape). **202** otherwise.
+- `estimated_calls` counts GBP API calls (free, quota-limited): performance 1, keywords 1 per month (6 on the first sync, 2 later), profile + attributes + Google edits + verification 4, one possible token refresh; with v4 also reviews, media, customer media, posts. Extra pages add more.
+
+`POST /locations/:id/rank-runs` ("run now") is the same as a rankings refresh: it shares the limit and returns **429** `{ next_allowed_at }` inside the window.
+
+### `GET /api/v1/locations/:locationId/refresh`
+
+```json
+{ "frequency": "auto_monthly", "gbp_connected": true,
+  "next_refresh_at": "2026-10-26T09:00:00.000Z", "last_auto_refresh_at": null,
+  "rankings": { "next_allowed_at": "2026-09-27T13:00:00.000Z", "active_run": { "run_id": "66f6…", "status": "running" } },
+  "gbp": { "next_allowed_at": null, "active_sync": null, "last_synced_at": "2026-09-26T09:02:11.000Z" } }
+```
+
+`next_allowed_at: null` means the type can be refreshed now.
+
+### `GET /api/v1/locations/:locationId/gbp/sync[?syncId=]`
+
+The latest (or the given) GBP sync:
+
+```json
+{
+  "gbp_connected": true,
+  "sync": {
+    "sync_id": "66f6…", "status": "done", "trigger": "onboarding", "backfill": true,
+    "run_at": "2026-09-26T09:00:00.000Z", "started_at": "…", "finished_at": "…", "duration_ms": 4210,
+    "types": {
+      "performance":  { "status": "ok", "message": null, "rows": 6039, "range": { "from": "2025-03-26", "to": "2026-09-25" } },
+      "keywords":     { "status": "ok", "message": null, "rows": 214, "range": { "from": "2026-03", "to": "2026-08" } },
+      "profile":      { "status": "ok", "message": null, "rows": 1, "range": null },
+      "verification": { "status": "ok", "message": null, "rows": 1, "range": null },
+      "reviews":      { "status": "not_available", "message": "v4_access_pending", "rows": 0, "range": null },
+      "media":        { "status": "not_available", "message": "v4_access_pending", "rows": 0, "range": null },
+      "posts":        { "status": "not_available", "message": "v4_access_pending", "rows": 0, "range": null }
+    },
+    "api_calls": { "total": 11, "by_endpoint": { "performance.dailyMetrics": 1, "performance.searchKeywords": 6, "…": "…" } },
+    "failure_reason": null
+  },
+  "last_synced_at": "2026-09-26T09:00:04.000Z"
+}
+```
+
+- **Windows:** the first sync backfills 18 months of daily performance and 6 months of search keywords. Later (monthly) syncs fetch a rolling 40 days of performance and the last 2 complete months of keywords. Everything is upserted.
+- **Per type:** one failing type makes the sync `partial`; the others are still stored. "Reconnect needed" or "API access not approved (quota 0)" stops the remaining calls and marks them `error` with that message.
+- **Before any sync:** `{ "gbp_connected": false, "sync": null, "last_synced_at": null }`.
 
