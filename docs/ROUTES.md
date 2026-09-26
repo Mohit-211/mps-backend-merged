@@ -1,7 +1,7 @@
 # Route inventory
 
-- **Baseline:** commit `62240ac`, plus the Phase 5 ranking routes and the Phase 6 GBP unbind route (marked **new**).
-- **Totals:** 164 live routes. 95 unauthenticated, 65 user token, 2 refresh token, 2 admin token.
+- **Baseline:** commit `62240ac`, plus the Phase 5 ranking routes, the Phase 6 GBP unbind route and the Phase 7a connect and onboarding routes (marked **new**).
+- **Totals:** 172 live routes. 95 unauthenticated, 73 user token, 2 refresh token, 2 admin token.
 - **Details:** request and response shapes for the new ranking routes are in [API.md](API.md).
 - **Findings column:** IDs point to [AUDIT.md](AUDIT.md) (S = security, C = correctness).
 - **Middleware order, services and models:** see AUDIT.md §1.
@@ -61,6 +61,8 @@ Keep this file in sync when routes are added or removed. New Phase 5+ endpoints 
 | GET | `/api/v1/user/auth/google/gbp` | user | Get GBP Auth Url |  |
 | GET | `/api/v1/user/auth/google/gbp/callback` | **none** (one-time `state`) | GBP Auth Callback. Phase 6: hashed one-time state, encrypted tokens | S11, C17 fixed |
 | POST | `/api/v1/user/auth/google/gbp/revoke` | user | Disconnect GBP: revoke, remove all bindings, jobs and tokens (Phase 6) | S29 fixed |
+| GET | `/api/v1/user/auth/google/gbp/popup` | user | **new** (7a): GIS popup config with a one-time state |  |
+| POST | `/api/v1/user/auth/google/gbp/code` | user | **new** (7a): exchange the popup code (`postmessage`), verify id_token |  |
 | POST | `/api/v1/user/auth/employee/add` | user | Add Employee |  |
 | DELETE | `/api/v1/user/auth/employee/remove` | user | Delete Employee |  |
 | GET | `/api/v1/user/auth/employee/all` | user | Get All Employee By Owner |  |
@@ -121,6 +123,17 @@ Every route also checks **location ownership**: another user's location returns 
 | GET | `/api/v1/gbp` | user | List every GBP location across all accounts (Phase 6: no Places calls; response is `{accounts, locations, errors}`) | S20, C9 and C22 fixed |
 | POST | `/api/v1/gbp/bind-with-user` | user | Bind a GBP location to a Location (Phase 6: read from Google, `place_id` rules) |  |
 | POST | `/api/v1/gbp/unbind` | user | **new** (Phase 6): unbind a Location | C12 fixed |
+
+### Onboarding (Phase 7a)
+
+| Method | Path | Auth | Purpose | Findings |
+|---|---|---|---|---|
+| GET | `/api/v1/onboarding/state` | user | **new**: connection + onboarding locations (resume) |  |
+| GET | `/api/v1/onboarding/gbp-profiles` | user | **new**: every accessible profile, `supported` flag |  |
+| POST | `/api/v1/onboarding/select-profile` | user | **new**: create or link a Location from a profile and bind |  |
+| POST | `/api/v1/onboarding/complete` | user | **new**: first rank run + GBP sync request |  |
+| GET | `/api/v1/locations/:locationId/competitor-suggestions` | user + owner | **new**: top 10 competitors across keywords (Places Enterprise, 24 h cache, daily cap) |  |
+| GET | `/api/v1/places/search` | user + owner (`locationId`) | **new**: manual competitor search (Places Pro, 10 results, daily cap) |  |
 | POST | `/api/v1/gbp/post/add` | user | Add Post To GBP | C14, C15 |
 | GET | `/api/v1/gbp/post/all/:location_id/:type` | user | Get All Post By Location Id |  |
 | DELETE | `/api/v1/gbp/post/remove` | user | Delete Post | S25, C16 |

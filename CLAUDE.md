@@ -458,6 +458,21 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
 
 ## 11. PHASE 7 — GBP data sync + GBP Report
 
+**Split into three sub-phases** (Mohit, 2026-09-26). Each has its own branch from `claude/rebuild`, plan mode, approval and merge. M3 comes after 7c.
+- **7a: connect + onboarding.** **Built** on `claude/phase-7a-connect-onboarding`:
+  - Google Identity Services popup (`GET /user/auth/google/gbp/popup`, `POST /user/auth/google/gbp/code` with `redirect_uri=postmessage`); any Google account.
+  - Scopes `openid email business.manage` with `prompt=select_account consent`; the id_token is verified and `google_email` stored.
+  - Switching account while locations are bound gives 409. The redirect flow is kept as a fallback.
+  - Onboarding: `/onboarding/{state,gbp-profiles,select-profile,complete}`, `GET /locations/:id/competitor-suggestions` (Text Search **Enterprise** mask, 24 h cache, top 10) and `GET /places/search?q=&locationId=` (Pro, 10 results).
+  - `PLACES_USER_DAILY_LIMIT` (default 50) caps user-triggered Places calls per user per day.
+  - `Location.onboarding` holds the step; `/complete` queues the first rank run and sets `gbp_sync.requested_at` for 7b.
+  - Frontend flow: `docs/GBP_CONNECT.md`, `docs/API.md`.
+- **7b: the `gbp-sync` job** (7.1 below), with a global switch **`GBP_V4_ENABLED`** (default false).
+  - When false, no v4 calls are made: reviews, media and posts are marked `not_available` (not an error).
+  - All v4 code is still built and tested on fixtures, so going live means setting `GBP_V4_ENABLED=true` with no code changes.
+  - Sample data only in `seed:gbp-demo` and tests, never in live responses.
+- **7c: scoring + report + competitors** (7.2–7.4 below, extended by Mohit's 7c brief: GBP Score with 5 pillars and rescaling when a pillar is `not_available`, a Public Score, `seed:gbp-demo`). Milestone **M3**.
+
 ### 7.1 Sync job `gbp-sync` (per bound location; daily at 03:00 location timezone; also "sync now")
 Never fetch GBP data on a page view. Store everything; pages read from DB.
 

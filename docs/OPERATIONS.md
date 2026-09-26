@@ -148,6 +148,7 @@ Setup and connection walkthrough: [GBP_CONNECT.md](GBP_CONNECT.md).
 | `npm run setup:live-test -- --token-only --token-file <path>` | Fresh login token for the live-test user; prints its user id and locations. | None | Anyone (development) |
 
 - **`TOKEN_ENCRYPTION_KEY`** (`openssl rand -hex 32`) is required in production. Losing or changing it means users must reconnect GBP.
+- **`PLACES_USER_DAILY_LIMIT`** (default 50, Phase 7a) caps user-triggered Places calls (competitor suggestions + manual search) per user per UTC day. It is counted in the `places_usage` collection (TTL), so it holds across pm2 processes.
 - **`GBP_MAX_RPS`** (default 5) caps GBP calls per process. Under pm2 cluster mode each process has its own limiter, so the cluster-wide rate can be higher. Phase 7 sync jobs run through agenda, where a job runs on one process at a time.
 
 ## Build
