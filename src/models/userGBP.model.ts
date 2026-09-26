@@ -14,6 +14,8 @@ export interface IUserGBP extends Document {
 	gbpLocationId: string;
 	/** Google place ID from the profile's metadata.placeId (null if Google has none). */
 	place_id?: string | null;
+	/** The connection (Google account, id_token sub) that bound this profile; null before Phase 7a. */
+	google_sub?: string | null;
 	bound_at?: Date | null;
 	title?: string;
 	websiteUri?: string;
@@ -56,6 +58,7 @@ const userGBPSchema = new Schema<IUserGBP>(
 			required: true,
 		},
 		place_id: { type: String, trim: true, default: null },
+		google_sub: { type: String, default: null },
 		bound_at: { type: Date, default: null },
 		title: {
 			type: String,

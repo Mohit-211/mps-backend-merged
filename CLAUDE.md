@@ -472,11 +472,11 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
 **Split into three sub-phases** (Mohit, 2026-09-26). Each has its own branch from `claude/rebuild`, plan mode, approval and merge. M3 comes after 7c.
 - **7a: connect + onboarding.** **Built** on `claude/phase-7a-connect-onboarding`:
   - Google Identity Services popup (`GET /user/auth/google/gbp/popup`, `POST /user/auth/google/gbp/code` with `redirect_uri=postmessage`); any Google account.
-  - Scopes `openid email business.manage` with `prompt=select_account consent`; the id_token is verified and `google_email` stored.
-  - Switching account while locations are bound gives 409. The redirect flow is kept as a fallback.
+  - Scopes `openid email business.manage`; the id_token is verified and `google_email` stored. Popup settings: `select_account: true` only (GIS has no `prompt`). The redirect fallback sends `prompt=select_account consent`.
+  - **Several Google accounts per user** (agencies): one *connection* per Google account, keyed by the id_token `sub`. Token rows are keyed by `user_id + token_type + google_sub`; each `UserGBP` binding stores the `google_sub` it was made with, and `gbpClient` acts through a `ConnectionRef { userId, googleSub }`. Discovery is grouped per account. Bind and disconnect take `google_sub` (required with several). Disconnect and unbind are per account.
   - Onboarding: `/onboarding/{state,gbp-profiles,select-profile,complete}`, `GET /locations/:id/competitor-suggestions` (Text Search **Enterprise** mask, 24 h cache, top 10) and `GET /places/search?q=&locationId=` (Pro, 10 results).
   - `PLACES_USER_DAILY_LIMIT` (default 50) caps user-triggered Places calls per user per day.
-  - `Location.onboarding` holds the step; `/complete` queues the first rank run and sets `gbp_sync.requested_at` for 7b.
+  - `Location.onboarding` holds the step: `profile_selected` → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`. A service-area profile without coordinates adds the center step: `PUT /locations/:id/center { query }` (1 IDs-only search + 1 Details `location`; `center_source: 'manual'`). `/complete` requires a center, queues the first rank run and sets `gbp_sync.requested_at` for 7b.
   - Frontend flow: `docs/GBP_CONNECT.md`, `docs/API.md`.
 - **7b: the `gbp-sync` job** (7.1 below), with a global switch **`GBP_V4_ENABLED`** (default false).
   - When false, no v4 calls are made: reviews, media and posts are marked `not_available` (not an error).

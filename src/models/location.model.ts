@@ -22,8 +22,13 @@ export interface ILocationTracking {
   last_error: string | null;
 }
 
-export type OnboardingStep = 'profile_selected' | 'keywords_set' | 'competitors_set' | 'completed';
-export const ONBOARDING_STEPS: OnboardingStep[] = ['profile_selected', 'keywords_set', 'competitors_set', 'completed'];
+/** In order. center_needed / center_set only occur for profiles without coordinates (service-area). */
+export type OnboardingStep = 'profile_selected' | 'center_needed' | 'center_set' | 'keywords_set' | 'competitors_set' | 'completed';
+export const ONBOARDING_STEPS: OnboardingStep[] = ['profile_selected', 'center_needed', 'center_set', 'keywords_set', 'competitors_set', 'completed'];
+
+/** Where the location's lat/lng came from: the GBP profile, a Place Details lookup, or the user (city/ZIP). */
+export type CenterSource = 'gbp' | 'place_details' | 'manual';
+export const CENTER_SOURCES: CenterSource[] = ['gbp', 'place_details', 'manual'];
 
 /** First-run state for locations created or linked through onboarding (Phase 7a). */
 export interface ILocationOnboarding {
@@ -73,6 +78,9 @@ export interface ILocation extends Document {
   deleted_at?: Date;
   deleted_by?: Schema.Types.ObjectId;
   tracking?: ILocationTracking;
+  center_source?: CenterSource | null;
+  /** What the user typed for a manual center (e.g. "Fredericton, NB"). */
+  center_label?: string | null;
   onboarding?: ILocationOnboarding;
   /** Set by POST /onboarding/complete; the gbp-sync scheduler (Phase 7b) picks it up. */
   gbp_sync?: { requested_at: Date | null };
@@ -202,6 +210,8 @@ const locationSchema = new Schema<ILocation>(
       type: trackingSchema,
       default: undefined,
     },
+    center_source: { type: String, enum: [...CENTER_SOURCES, null], default: null },
+    center_label: { type: String, default: null },
     onboarding: {
       type: new Schema<ILocationOnboarding>(
         {

@@ -96,10 +96,11 @@ const UserAuthSchema = new Schema<IUserAuth>(
 	},
 );
 
-// C17: one active token row per user and token type (GBP must never overwrite Search Console).
+// C17 + Phase 7a: one active token row per user, token type and Google account (google_sub).
+// GBP never overwrites Search Console, and a user may connect several Google accounts.
 UserAuthSchema.index(
-	{ user_id: 1, token_type: 1 },
-	{ unique: true, partialFilterExpression: { is_active: true }, name: 'user_token_type_active_unique' },
+	{ user_id: 1, token_type: 1, google_sub: 1 },
+	{ unique: true, partialFilterExpression: { is_active: true }, name: 'user_token_type_account_active_unique' },
 );
 
 UserAuthSchema.plugin(globalQueryFilters);

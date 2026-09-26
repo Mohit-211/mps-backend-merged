@@ -13,7 +13,8 @@ const rank = (step: OnboardingStep): number => ONBOARDING_STEPS.indexOf(step);
 
 /** The step after a tracking update, or null when it does not change. */
 export const nextOnboardingStep = (current: OnboardingStep | undefined, change: TrackingChange): OnboardingStep | null => {
-	if (!current || current === 'completed' || change.keywordCount === 0) return null;
+	// The center must be set before keywords move the flow on (service-area businesses).
+	if (!current || current === 'completed' || current === 'center_needed' || change.keywordCount === 0) return null;
 	const target: OnboardingStep = change.competitorsSent ? 'competitors_set' : 'keywords_set';
 	return rank(target) > rank(current) ? target : null;
 };

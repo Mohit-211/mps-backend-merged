@@ -1,5 +1,5 @@
 import { ILocation } from '../../models/location.model';
-import { onboardingService, placesSearchService, suggestionsService } from '../../services/onboarding';
+import { centerService, onboardingService, placesSearchService, suggestionsService } from '../../services/onboarding';
 import { catchAsync, responseWrapper } from '../../utils';
 
 // Onboarding (Phase 7a). Auth and validation ran in the route middlewares.
@@ -31,3 +31,9 @@ export const searchPlaces = catchAsync(async (req, res) => {
 	const result = await placesSearchService.search(res.locals.location as ILocation, res.locals.userId as string, res.locals.q as string);
 	return responseWrapper(res, result);
 });
+
+export const setCenter = catchAsync(async (req, res) => {
+	const result = await centerService.setCenter(res.locals.location as ILocation, res.locals.userId as string, res.locals.centerQuery as string);
+	return responseWrapper(res, result, 'Business center saved.');
+});
+

@@ -55,6 +55,8 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
   - Setup and connection: [GBP_CONNECT.md](GBP_CONNECT.md).
 - **Connect + onboarding (Phase 7a), offline so far:**
   - Google account-chooser **popup** (any account, verified email shown as "Connected as …"), with the redirect flow as a fallback
+  - **several Google accounts per user** (agencies): each is its own connection; profiles grouped per account; per-account bind, unbind and disconnect
+  - **service-area businesses**: a center step (city or ZIP resolved once) before keywords
   - onboarding screens: pick a profile (creates or links our Location and binds it), keywords, **competitor suggestions** (top 10 across keywords, 24 h cache) or manual search, complete (first rank run + GBP sync request)
   - a daily cap on user-triggered Places calls
 - **Tests:** 402 pass with no API key and no network.
@@ -74,7 +76,7 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 2026-09-26 | Phase 5.5 calibration: **informal pass** on one small market; formal scoring and a big-market test are in the backlog. |
 | 2026-09-26 | Phase 6: tokens belong to the user's Google account. Unbind deletes them only with the last binding; disconnect removes everything. Search Console tokens stay plaintext until Phase 10. `GET /gbp` returns `{accounts, locations, errors}`. |
 | 2026-09-26 | Phase 7 split into 7a (connect + onboarding), 7b (sync) and 7c (scoring + report, M3). `GBP_V4_ENABLED` (default false) switches reviews, media and posts; the v4 API access is pending. |
-| 2026-09-26 | 7a: any Google account; switching account while bound gives 409; competitor suggestions on the Enterprise SKU (cached 24 h); `PLACES_USER_DAILY_LIMIT` 50; US/CA only. |
+| 2026-09-26 | 7a: any Google account, **several per user** (one connection per Google account; the earlier 409 rule was dropped after review); competitor suggestions on the Enterprise SKU (cached 24 h); `PLACES_USER_DAILY_LIMIT` 50; US/CA only; service-area center from a city or ZIP (Places IDs-only search + Details `location`). |
 | 2026-09-26 | Phases 6–7 live GBP calls: free but quota-limited, max 5 requests/second, only against the account Mohit connects, and nothing live until Mohit says so (first step: `gbp:preflight`, triggered by Mohit). |
 
 ## Open items (owner: Mohit)
@@ -86,9 +88,17 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 3. **Live steps, when you say so** (PROGRESS.md, Phase 7a): popup connect → `gbp:preflight` → select-profile → competitor suggestions. Then the 7b first sync and the 7c report.
 4. **Google My Business API (v4)** access is pending. Until then `GBP_V4_ENABLED=false` (7b).
 5. **Frontend:** the onboarding screens (API.md "Onboarding"), plus the Phase 6 changes to `GET /gbp`, bind and unbind.
-6. **ToS decision before production launch:** `STORE_PLACE_NAMES`, the 24 h competitor-suggestion cache, and competitor Place Details (7c).
+6. **Maps ToS decisions before launch:** see "Decide before launch (Maps ToS)" below.
 7. **Rotate the DataForSEO credential** (AUDIT S13).
 8. **Security Phase 10:** deferred (includes S30 and the Search Console parts of S11, S12 and S29).
+
+## Decide before launch (Maps ToS)
+
+All three store or show Google Maps content. Confirm each against the Google Maps Platform terms before production:
+
+1. **`STORE_PLACE_NAMES`** (default true in development): business names stored in `RankRun.mapList`. The alternative is to resolve them live with `?resolveNames=true`.
+2. **The 24 h competitor-suggestion cache** (`Location.competitor_suggestions`): names, addresses, ratings and review counts from Text Search, kept for 24 hours per keyword set.
+3. **Competitor Place Details** in the GBP report (7c): the latest comparison only, overwritten on each generation.
 
 ## Backlog (not now)
 

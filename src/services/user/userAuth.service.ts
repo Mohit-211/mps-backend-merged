@@ -537,11 +537,11 @@ export const gBPAuthCallback = async (query: QueryDefinition) =>
     error: typeof query.error === "string" ? query.error : undefined,
   });
 
-// Disconnect GBP: revoke at Google (best effort), remove every binding and its scheduled jobs,
-// delete the stored tokens (services/gbp/binding.service.ts).
+// Disconnect one connected Google account (body.google_sub; optional with a single connection):
+// revoke it at Google (best effort), unbind only its profiles, cancel their jobs, delete its tokens.
 export const gBPConnectionRevoke = async (body: BodyDefinition) => {
-  const { user } = body;
-  return bindingService.disconnect(user._id);
+  const { user, google_sub } = body;
+  return bindingService.disconnect(user._id, typeof google_sub === "string" ? google_sub : undefined);
 };
 
 export const addEmployee = async (body: BodyDefinition) => {

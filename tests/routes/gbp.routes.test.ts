@@ -48,9 +48,9 @@ jest.mock('../../src/clients/gbpClient', () => {
 				idToken: 'fake.id.token',
 			}),
 			// Like the real client: no stored GBP token means "not connected".
-			listAccounts: async (userId: unknown) => {
+			listAccounts: async (conn: { userId: unknown }) => {
 				const { UserAuth: tokensModel } = jest.requireActual('../../src/models');
-				if (!(await tokensModel.exists({ user_id: userId, token_type: 'GBP' }))) throw new actual.GbpNotConnectedError();
+				if (!(await tokensModel.exists({ user_id: conn.userId, token_type: 'GBP' }))) throw new actual.GbpNotConnectedError();
 				return fake.accounts;
 			},
 			listLocations: async () => fake.locations,
@@ -149,10 +149,11 @@ describe('GBP routes: discovery, bind, unbind, disconnect', () => {
 		await connect(token);
 		const res = await request(app).get('/api/v1/gbp').set(auth(token));
 		expect(res.status).toBe(200);
-		expect(res.body.data.accounts).toBe(2);
-		expect(res.body.data.errors).toEqual([]);
-		expect(res.body.data.locations).toHaveLength(2); // same 2 locations under both accounts, listed once
-		expect(res.body.data.locations[0]).toMatchObject({
+		expect(res.body.data.connections).toHaveLength(1);
+		const group = res.body.data.connections[0];
+		expect(group).toMatchObject({ google_email: 'owner@example.test', label: 'Connected as owner@example.test', status: 'ok', accounts: 2, errors: [] });
+		expect(group.locations).toHaveLength(2); // same 2 locations under both accounts, listed once
+		expect(group.locations[0]).toMatchObject({
 			address: '100 Example St, Suite 5, Dallas, TX 75201',
 			place_id: 'ChIJfakeGbpPlace000000001',
 		});
@@ -199,7 +200,7 @@ describe('GBP routes: discovery, bind, unbind, disconnect', () => {
 		await connect(token);
 		const res = await request(app).post('/api/v1/user/auth/google/gbp/revoke').set(auth(token));
 		expect(res.status).toBe(200);
-		expect(res.body.data).toEqual({ revoked: true, bindings_removed: 0 });
+		expect(res.body.data).toEqual({ revoked: true, bindings_removed: 0, google_email: 'owner@example.test' });
 		expect(fake.revoked).toEqual(['1//FAKE-route']);
 		expect(await UserAuth.countDocuments({ user_id: user._id })).toBe(0);
 	});

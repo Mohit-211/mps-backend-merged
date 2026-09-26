@@ -4,13 +4,14 @@ import httpStatus from 'http-status';
 import logger from '../../configs/logger';
 import { getAgenda } from '../../configs/agenda';
 import { postPublishStatus, tokenTypes } from '../../configs/constantTypes';
-import { GbpClient, gbpClient } from '../../clients/gbpClient';
+import { ConnectionRef, GbpClient, gbpClient } from '../../clients/gbpClient';
 import { GbpLocation } from '../../clients/types/gbp';
 import { JOB_NAMES } from '../../jobs/jobNames';
-import { GBPPost, Location, User, UserGBP } from '../../models';
+import { GBPPost, Location, UserGBP } from '../../models';
 import { ApiError } from '../../utils';
 import { toGbpApiError } from './errors';
 import { TokenStore, tokenStore } from './tokenStore';
+import { resolveConnection } from './connections';
 
 // Binding a GBP location to one of our Locations, unbinding it (AUDIT C12), and disconnecting GBP.
 // - Bind reads the profile from Google (never trusts client-sent title/metadata) and takes place_id
@@ -30,6 +31,8 @@ export interface BindInput {
 	location_id: string;
 	gbpAccountId: string;
 	gbpLocationId: string;
+	/** Which connected Google account to bind through; required when the user has several. */
+	google_sub?: string | null;
 	/** Internal: a profile already fetched from Google for gbpLocationId (onboarding), to avoid a second call. */
 	profile?: GbpLocation;
 }
@@ -56,7 +59,7 @@ export interface UnbindResult {
 
 export interface BindingDeps {
 	client?: Pick<GbpClient, 'getLocation' | 'revoke'>;
-	tokens?: Pick<TokenStore, 'load' | 'remove'>;
+	tokens?: Pick<TokenStore, 'load' | 'remove' | 'listConnections'>;
 	agenda?: Agenda;
 }
 
@@ -90,12 +93,18 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 			);
 		}
 
+		let conn: ConnectionRef;
+		try {
+			conn = await resolveConnection(userId, input.google_sub, tokens);
+		} catch (err) {
+			throw toGbpApiError(err);
+		}
 		let gbp: GbpLocation;
 		if (input.profile && input.profile.name === input.gbpLocationId) {
 			gbp = input.profile;
 		} else {
 			try {
-				gbp = await client.getLocation(userId, input.gbpLocationId);
+				gbp = await client.getLocation(conn, input.gbpLocationId);
 			} catch (err) {
 				throw toGbpApiError(err, { forbiddenMessage: 'The connected Google account cannot access this Business Profile location.' });
 			}
@@ -108,6 +117,7 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 			gbpAccountId: input.gbpAccountId,
 			gbpLocationId: gbp.name,
 			place_id: gbp.placeId,
+			google_sub: conn.googleSub ?? null,
 			title: gbp.title,
 			websiteUri: gbp.websiteUri,
 			languageCode: gbp.languageCode,
@@ -140,7 +150,7 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 			else {
 				await Location.updateOne(
 					{ _id: location._id, lat: null, lng: null },
-					{ $set: { lat: gbp.latlng.latitude, lng: gbp.latlng.longitude } },
+					{ $set: { lat: gbp.latlng.latitude, lng: gbp.latlng.longitude, center_source: 'gbp' } },
 				);
 				coordinates = 'set';
 			}
@@ -185,11 +195,20 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		return { gbp_sync: gbpSync, scheduled_posts: posts.length };
 	};
 
-	const deleteTokensIfUnbound = async (userId: UserId): Promise<boolean> => {
-		if ((await UserGBP.countDocuments({ user_id: userId, is_active: true })) > 0) return false;
-		const removed = await tokens.remove(userId, tokenTypes.GBP);
-		await User.updateOne({ _id: userId }, { $set: { is_gbp_connected: false } });
-		return removed;
+	/**
+	 * Bindings made through a connection. Pre-7a bindings (google_sub null) belong to the user's only
+	 * connection, so they are included when there is just one.
+	 */
+	const bindingsOf = async (userId: UserId, googleSub: string | null) => {
+		const connections = await tokens.listConnections(userId, tokenTypes.GBP);
+		const subs: (string | null)[] = connections.length <= 1 ? [googleSub, null] : [googleSub];
+		return UserGBP.find({ user_id: userId, is_active: true, google_sub: { $in: [...new Set(subs)] } });
+	};
+
+	/** Deletes a connection's tokens once none of its profiles is bound any more. */
+	const deleteTokensIfUnbound = async (userId: UserId, googleSub: string | null): Promise<boolean> => {
+		if ((await bindingsOf(userId, googleSub)).length > 0) return false;
+		return tokens.remove(userId, tokenTypes.GBP, googleSub);
 	};
 
 	const unbindLocation = async (userId: UserId, locationId: string): Promise<UnbindResult> => {
@@ -197,18 +216,39 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		const binding = await UserGBP.findOne({ user_id: userId, location_id: location._id, is_active: true });
 		if (!binding) throw new ApiError(httpStatus.NOT_FOUND, 'This location is not bound to a Google Business Profile');
 
+		let googleSub = binding.google_sub ?? null;
+		if (googleSub === null) {
+			// Pre-7a binding: it belongs to the only connection, if there is exactly one.
+			const connections = await tokens.listConnections(userId, tokenTypes.GBP);
+			if (connections.length === 1) googleSub = connections[0].googleSub;
+		}
 		const jobs = await cancelLocationJobs(userId, location._id as Types.ObjectId, binding.gbpLocationId);
 		await UserGBP.deleteOne({ _id: binding._id });
-		const tokensDeleted = await deleteTokensIfUnbound(userId);
+		const tokensDeleted = await deleteTokensIfUnbound(userId, googleSub);
 		logger.info(`gbp unbind: location ${String(location._id)} (tokens_deleted=${tokensDeleted})`);
 		return { unbound: true, jobs_cancelled: jobs, tokens_deleted: tokensDeleted };
 	};
 
-	/** Full disconnect: revoke at Google (best effort), remove every binding, jobs and the tokens. */
-	const disconnect = async (userId: UserId): Promise<{ revoked: boolean; bindings_removed: number }> => {
-		let revoked = false;
+	/**
+	 * Disconnect one Google account: revoke it at Google (best effort), unbind only its profiles
+	 * (cancelling their jobs) and delete that connection. Other connections are untouched.
+	 */
+	const disconnect = async (
+		userId: UserId,
+		googleSub?: string | null,
+	): Promise<{ revoked: boolean; bindings_removed: number; google_email: string | null }> => {
+		let conn: ConnectionRef;
 		try {
-			const stored = await tokens.load(userId, tokenTypes.GBP);
+			conn = await resolveConnection(userId, googleSub, tokens);
+		} catch (err) {
+			throw toGbpApiError(err);
+		}
+		const sub = conn.googleSub ?? null;
+		let revoked = false;
+		let email: string | null = null;
+		try {
+			const stored = await tokens.load(userId, tokenTypes.GBP, sub);
+			email = stored?.googleEmail ?? null;
 			if (stored) {
 				await client.revoke(stored.refreshToken);
 				revoked = true;
@@ -216,14 +256,13 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		} catch (err) {
 			logger.warn(`gbp disconnect: revoke at Google failed (${err instanceof Error ? err.name : 'error'}); removing local tokens anyway`);
 		}
-		const bindings = await UserGBP.find({ user_id: userId, is_active: true });
+		const bindings = await bindingsOf(userId, sub);
 		for (const binding of bindings) {
 			await cancelLocationJobs(userId, binding.location_id as unknown as Types.ObjectId, binding.gbpLocationId);
 			await UserGBP.deleteOne({ _id: binding._id });
 		}
-		await tokens.remove(userId, tokenTypes.GBP);
-		await User.updateOne({ _id: userId }, { $set: { is_gbp_connected: false } });
-		return { revoked, bindings_removed: bindings.length };
+		await tokens.remove(userId, tokenTypes.GBP, sub);
+		return { revoked, bindings_removed: bindings.length, google_email: email };
 	};
 
 	return { bindLocation, unbindLocation, disconnect };

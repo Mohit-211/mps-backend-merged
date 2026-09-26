@@ -11,8 +11,11 @@ export interface SearchTextParams {
 	textQuery: string;
 	/** CLDR region code, e.g. 'us' or 'ca'. */
 	regionCode: string;
-	/** Center of the locationBias circle (the sample point). */
-	center: LatLng;
+	/**
+	 * Center of the locationBias circle (the sample point). Ranking always sets it; only the
+	 * city/ZIP center lookup (no known location yet) omits it, which sends no locationBias.
+	 */
+	center?: LatLng;
 	/** Circle radius in metres; defaults to PLACES_SEARCH_RADIUS_M. */
 	radiusM?: number;
 }

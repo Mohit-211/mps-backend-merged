@@ -27,6 +27,8 @@ describe('nextOnboardingStep', () => {
 		['profile_selected', 2, true, 'competitors_set'],
 		['keywords_set', 2, true, 'competitors_set'],
 		['competitors_set', 2, false, null], // never backwards
+		['center_needed', 2, true, null], // the center must be set first (service-area)
+		['center_set', 2, false, 'keywords_set'],
 		['keywords_set', 0, true, null], // keywords required
 		['completed', 3, true, null],
 		[undefined, 3, true, null], // not an onboarding location
@@ -90,7 +92,7 @@ describe('onboarding service', () => {
 			client,
 			tokens,
 			binding: createBindingService({ client, tokens, agenda: {} as Agenda }),
-			discovery: { listAllLocations: async () => ({ accounts: 0, locations: [], errors: [] }) },
+			discovery: { listAllLocations: async () => ({ connections: [] }) },
 			enqueue: async (location: ILocation): Promise<EnqueueResult> => {
 				enqueued.push(String(location._id));
 				return { run_id: 'run-1', status: 'queued', existing: false, estimate: {} as EnqueueResult['estimate'], dev_capped: false };
@@ -211,11 +213,11 @@ describe('onboarding service', () => {
 		await Location.create({ ...locationFieldsFromProfile(PROFILE), place_id: 'ChIJother00000000000001', name: 'Done Co', created_by: user._id, onboarding: { step: 'completed', started_at: new Date(), completed_at: new Date() } });
 		await createLocation(user._id as Types.ObjectId); // legacy location: not listed
 		const state = await service.getState(user._id);
-		expect(state.gbp).toEqual({ connected: true, google_email: 'owner@example.test', status: 'active' });
+		expect(state.gbp).toEqual({ connected: true, connections: [{ google_sub: '1', google_email: 'owner@example.test', status: 'active' }] });
 		expect(state.locations.map((l) => l.name)).toEqual(['Example Plumbing Co', 'Done Co']);
 		expect(state.locations[0]).toMatchObject({ location_id: location.location_id, onboarding: { step: 'profile_selected' } });
 
 		const { user: fresh } = await createUser('fresh@test.dev');
-		expect((await service.getState(fresh._id)).gbp).toEqual({ connected: false, google_email: null, status: 'none' });
+		expect((await service.getState(fresh._id)).gbp).toEqual({ connected: false, connections: [] });
 	});
 });

@@ -44,6 +44,11 @@ jest.mock('../../src/clients/placesClient', () => {
 				fake.suggestCalls += 1;
 				return { places: [1, 2, 3].map(place), apiCalls: 1 };
 			},
+			searchTextIds: async () => {
+				fake.searchCalls += 1;
+				return { places: [{ id: 'ChIJrouteCity0000000001' }], pagesFetched: 1, apiCalls: 1, stoppedEarly: false };
+			},
+			getPlaceDetails: async () => ({ details: { location: { latitude: 45.96, longitude: -66.64 } }, apiCalls: 1 }),
 			searchTextNamesAddresses: async () => {
 				fake.searchCalls += 1;
 				return { places: [{ id: 'ChIJrouteSearch000000001', name: 'Rival Search', address: '9 Elm St' }], apiCalls: 1 };
@@ -104,6 +109,7 @@ describe('auth on every 7a route', () => {
 			request(app).post('/api/v1/onboarding/complete').send({}),
 			request(app).get(`/api/v1/locations/${id}/competitor-suggestions`),
 			request(app).get(`/api/v1/places/search?q=abc&locationId=${id}`),
+			request(app).put(`/api/v1/locations/${id}/center`).send({ query: 'Fredericton' }),
 		];
 		for (const res of await Promise.all(calls)) expect(res.status).toBe(401);
 	});
@@ -114,10 +120,13 @@ describe('popup connect', () => {
 		const { token } = await createUser('a@test.dev');
 		const res = await connectViaPopup(token);
 		expect(res.status).toBe(200);
-		expect(res.body.data).toEqual({ connected: true, google_email: 'owner@example.test' });
+		expect(res.body.data).toEqual({ connected: true, google_email: 'owner@example.test', google_sub: '100000000000000000001' });
 		expect(fake.exchangeRedirects).toEqual(['postmessage']);
 		const state = await request(app).get('/api/v1/onboarding/state').set(auth(token));
-		expect(state.body.data.gbp).toEqual({ connected: true, google_email: 'owner@example.test', status: 'active' });
+		expect(state.body.data.gbp).toEqual({
+			connected: true,
+			connections: [{ google_sub: '100000000000000000001', google_email: 'owner@example.test', status: 'active' }],
+		});
 	});
 
 	it("rejects a bogus state and another user's state", async () => {
@@ -191,5 +200,19 @@ describe('onboarding flow over HTTP', () => {
 		expect((await request(app).post('/api/v1/onboarding/select-profile').set(auth(token)).send({ gbpAccountId: 'x', gbpLocationId: 'locations/1' })).status).toBe(400);
 		expect((await request(app).post('/api/v1/onboarding/complete').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
 		expect((await request(app).post('/api/v1/onboarding/complete').set(auth(token)).send({ location_id: String(theirs._id) })).status).toBe(404);
+	});
+
+	it('PUT /center saves a manual center (2 Places calls) and validates input', async () => {
+		const { user, token } = await createUser('center@test.dev');
+		const { user: other } = await createUser('other@test.dev');
+		const mine = await createLocation(user._id as Types.ObjectId, { lat: null, lng: null });
+		const theirs = await createLocation(other._id as Types.ObjectId);
+		expect((await request(app).put(`/api/v1/locations/${mine._id}/center`).set(auth(token)).send({ query: 'x' })).status).toBe(400);
+		expect((await request(app).put(`/api/v1/locations/${theirs._id}/center`).set(auth(token)).send({ query: 'Fredericton' })).status).toBe(404);
+		const res = await request(app).put(`/api/v1/locations/${mine._id}/center`).set(auth(token)).send({ query: 'Fredericton, NB' });
+		expect(res.status).toBe(200);
+		expect(res.body.data).toEqual({ lat: 45.96, lng: -66.64, center_source: 'manual', center_label: 'Fredericton, NB', api_calls: 2 });
+		expect(fake.searchCalls).toBe(1);
+		expect(await PlacesUsage.findOne({ user_id: user._id }).lean()).toMatchObject({ calls: 2 });
 	});
 });

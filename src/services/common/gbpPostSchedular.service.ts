@@ -6,20 +6,27 @@ import { DateTime } from 'luxon'
 
 import { ApiError } from '../../utils';
 import { BodyDefinition, FilesDefinition, ParamsDefinition } from '../../types/RouteDefinition';
-import { GBPPost } from '../../models';
+import { GBPPost, UserGBP } from '../../models';
 import { postPublishStatus } from '../../configs/constantTypes';
 import { gbpClient } from '../../clients/gbpClient';
 import { agenda } from '../../configs/mongoConnection';
-import { BindResult, DiscoveryResult, UnbindResult, bindingService, discoveryService, toGbpApiError } from '../gbp';
+import { BindResult, DiscoveryResult, UnbindResult, bindingService, connectionForBinding, discoveryService, toGbpApiError } from '../gbp';
 
-/** Access token for the posting calls (encrypted at rest, refreshed and persisted by gbpClient). */
-const gbpAccessToken = async (userId: string): Promise<string> => {
+/**
+ * Access token for the posting calls, from the connection (Google account) that bound this GBP
+ * location (encrypted at rest, refreshed and persisted by gbpClient).
+ */
+const gbpAccessToken = async (userId: string, gbpLocationId: string | undefined): Promise<string> => {
 	try {
-		return await gbpClient.getAccessToken(userId);
+		const binding = gbpLocationId ? await UserGBP.findOne({ user_id: userId, gbpLocationId, is_active: true }).lean() : null;
+		return await gbpClient.getAccessToken(binding ? connectionForBinding(binding) : { userId });
 	} catch (err) {
 		throw toGbpApiError(err);
 	}
 };
+
+/** "accounts/1/locations/2/localPosts/3" → "locations/2". */
+const locationOfPost = (gbpPostId: string): string | undefined => /(locations\/[^/]+)/.exec(gbpPostId)?.[1];
 
 
 // Phase 6: discovery across all accounts with no Places calls (C9, C22), and server-side binding.
@@ -29,8 +36,13 @@ export const getRegisteredGoogleBusinessProfile = async (body: BodyDefinition): 
 };
 
 export const bindGoogleBusinessProfileWithUser = async (body: BodyDefinition): Promise<BindResult> => {
-	const { user, gbpAccountId, gbpLocationId, location_id } = body;
-	return bindingService.bindLocation(user._id, { location_id, gbpAccountId, gbpLocationId });
+	const { user, gbpAccountId, gbpLocationId, location_id, google_sub } = body;
+	return bindingService.bindLocation(user._id, {
+		location_id,
+		gbpAccountId,
+		gbpLocationId,
+		google_sub: typeof google_sub === 'string' ? google_sub : undefined,
+	});
 };
 
 export const addPostToGBP = async (body: BodyDefinition): Promise<any> => {
@@ -120,7 +132,7 @@ export const publishPostToGBP = async (body: BodyDefinition): Promise<{ status: 
 		let { user, gbpPostData, gbpPostObj, savedPost } = body;
 
 		// Phase 6: decrypted, refreshed (and persisted) token from the GBP client.
-		const accessToken = await gbpAccessToken(user._id);
+		const accessToken = await gbpAccessToken(user._id, gbpPostObj.gbpLocationId);
 
 		const addPostUrl = `https://mybusiness.googleapis.com/v4/${gbpPostObj.gbpAccountId}/${gbpPostObj.gbpLocationId}/localPosts`;
 
@@ -266,7 +278,7 @@ export const deletePost = async (body: BodyDefinition): Promise<any> => {
 
 export const deleteGBPPost = async (userId: string, gbpPostId: string): Promise<boolean> => {
 	try {
-		const accessToken = await gbpAccessToken(userId);
+		const accessToken = await gbpAccessToken(userId, locationOfPost(gbpPostId));
 
 		const deleteUrl = `https://mybusiness.googleapis.com/v4/${gbpPostId}`;
 

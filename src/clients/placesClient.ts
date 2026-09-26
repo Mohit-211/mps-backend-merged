@@ -104,6 +104,7 @@ export const normalisePlaceId = (value: string | undefined): string | undefined 
 const assertSearchParams = (params: SearchTextParams): void => {
 	if (!params.textQuery || !params.textQuery.trim()) throw new Error('textQuery is required');
 	if (!/^[a-z]{2}$/i.test(params.regionCode)) throw new Error(`Invalid regionCode "${params.regionCode}"`);
+	if (!params.center) return;
 	const { latitude, longitude } = params.center;
 	if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) {
 		throw new Error('center must be a valid latitude/longitude');
@@ -203,12 +204,16 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 		textQuery: params.textQuery,
 		regionCode: params.regionCode.toLowerCase(),
 		pageSize,
-		locationBias: {
-			circle: {
-				center: { latitude: params.center.latitude, longitude: params.center.longitude },
-				radius: params.radiusM ?? defaultRadiusM,
-			},
-		},
+		...(params.center
+			? {
+					locationBias: {
+						circle: {
+							center: { latitude: params.center.latitude, longitude: params.center.longitude },
+							radius: params.radiusM ?? defaultRadiusM,
+						},
+					},
+				}
+			: {}),
 		...(pageToken ? { pageToken } : {}),
 	});
 
