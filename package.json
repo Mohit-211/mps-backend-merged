@@ -22,7 +22,8 @@
     "calibrate": "ts-node --transpile-only src/scripts/calibrate.ts",
     "calibrate:score": "ts-node --transpile-only src/scripts/calibrateScore.ts",
     "find:place": "ts-node --transpile-only src/scripts/findPlace.ts",
-    "setup:live-test": "ts-node --transpile-only src/scripts/setupLiveTest.ts"
+    "setup:live-test": "ts-node --transpile-only src/scripts/setupLiveTest.ts",
+    "gbp:encrypt-tokens": "ts-node --transpile-only src/scripts/encryptExistingTokens.ts"
   },
   "keywords": [
     "Node",

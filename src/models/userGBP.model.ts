@@ -11,7 +11,10 @@ export interface IUserGBP extends Document {
 	user_id: Schema.Types.ObjectId;
 	location_id: Schema.Types.ObjectId;
 	gbpAccountId: string;
-	gbpLocationId: string;	
+	gbpLocationId: string;
+	/** Google place ID from the profile's metadata.placeId (null if Google has none). */
+	place_id?: string | null;
+	bound_at?: Date | null;
 	title?: string;
 	websiteUri?: string;
 	languageCode?: string;
@@ -52,20 +55,22 @@ const userGBPSchema = new Schema<IUserGBP>(
 			trim: true,
 			required: true,
 		},
+		place_id: { type: String, trim: true, default: null },
+		bound_at: { type: Date, default: null },
 		title: {
 			type: String,
 			trim: true,
-			required: true,
+			default: null,
 		},
 		websiteUri: {
 			type: String,
 			trim: true,
-			required: true,
+			default: null,
 		},
 		languageCode: {
 			type: String,
 			trim: true,
-			required: true,
+			default: null,
 		},
 		metadata: {
 			type: Object,
@@ -107,6 +112,16 @@ const userGBPSchema = new Schema<IUserGBP>(
 	{
 		collection: 'userGBPs',
 	},
+);
+
+// One active binding per Location, and a user binds each GBP location at most once.
+userGBPSchema.index(
+	{ location_id: 1 },
+	{ unique: true, partialFilterExpression: { is_active: true }, name: 'location_active_binding_unique' },
+);
+userGBPSchema.index(
+	{ user_id: 1, gbpLocationId: 1 },
+	{ unique: true, partialFilterExpression: { is_active: true }, name: 'user_gbp_location_active_unique' },
 );
 
 userGBPSchema.plugin(globalQueryFilters);
