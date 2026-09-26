@@ -218,3 +218,17 @@ Cluster-mode caveats, since every instance runs these:
 - the agenda poller (Mongo-locked, so safe)
 - the in-memory rate-limit store
 - `node-cache`
+
+## Deploy checklist
+
+On any database that already has data, in this order, **before the new version serves requests**:
+
+1. **Back up** `users`, `locations`, `clients` and `user_auths`.
+2. **`.env`:** set the new settings (see `.env.example`). In production `TOKEN_ENCRYPTION_KEY` is required; losing or changing it forces every user to reconnect GBP.
+3. **Install and build:** `npm ci` (the migration scripts run with ts-node, a dev dependency, so don't install with `--omit=dev` / `NODE_ENV=production`), then `npm run build`.
+4. **`npm run migrate:refresh -- --confirm`** (7b): tracking frequencies → `auto_monthly | manual_only`, plus the monthly refresh schedule. Idempotent.
+5. **`npm run migrate:organizations -- --confirm`** (Phase 8): every account gets an organization; locations and clients get theirs. **Required**: until it has run, existing locations can't be reached. Exit code 3 means duplicate `place_id`s within an organization: delete one of each pair it lists, then run it again (it syncs the unique index only when there are none). Idempotent.
+6. **`npm run gbp:encrypt-tokens`**, only on a database with GBP connections from before Phase 6. Idempotent.
+7. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` and `Recurring job scheduled: monthly-refresh`.
+
+`--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.
