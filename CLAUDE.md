@@ -64,7 +64,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
   - **M1:** after Phase 3 (Foundations).
   - **M2:** after Phase 5 (Ranking reports: all three pages working).
   - **M3:** after Phase 7c (GBP sync + report).
-  - **M4:** to be agreed with Mohit (previously "after cleanup"; the phase order changed on 2026-09-26).
+  - **M4:** after Phase 11 (Dashboards + team), agreed 2026-09-27.
 - At a milestone, give Mohit one push command covering `claude/rebuild` and every phase branch since the last milestone, plus a short summary for his developers.
 - Small commits, one concern each. Message format: `<phase>: <area>: <what>` e.g. `p4: ranking: add IDs-only text search client`.
 - Never rewrite history on shared branches. Never force-push `claude/rebuild`.
@@ -96,7 +96,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-26): 1 → 1.5 → 1.6 → 3 Foundations → 4 Ranking engine → 5 Ranking reports → 6 GBP connection → 7a Connect + onboarding → 9a Legacy cleanup (done early) → **7b GBP sync (monthly)** → live test with MyPageSEO → **7c Scoring + report + competitors (M3)** → **8 Auth, Organization, Onboarding & Locations** → 9 GBP posting (needs v4) → 9b Remaining cleanup → 10 Security (gated). After Phase 8 the next feature is chosen with Mohit; don't plan beyond Phase 8. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-26): 1 → 1.5 → 1.6 → 3 Foundations → 4 Ranking engine → 5 Ranking reports → 6 GBP connection → 7a Connect + onboarding → 9a Legacy cleanup (done early) → **7b GBP sync (monthly)** → live test with MyPageSEO → **7c Scoring + report + competitors (M3)** → **8 Auth, Organization, Onboarding & Locations** → **11 Dashboards + team (M4)** → 9 GBP posting (needs v4) → 9b Remaining cleanup → 10 Security (gated). After Phase 11 the next feature is chosen with Mohit; don't plan beyond it. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 At the end of every phase:
 1. Stop.
@@ -599,6 +599,22 @@ Original scope from Mohit (2026-09-26), aligned with the roadmap PDF §2, §5, �
 **Gate.**
 
 ---
+
+## 12b. PHASE 11 — Dashboards + team (M4)
+
+**Built** on `claude/phase-11-dashboards-team`. As built:
+- **Dashboard:** `GET /dashboard` (`src/services/dashboard/`), with a Business or Agency shape (a client_user gets the agency shape for its clients). It reads only `Location.summary`, which Phase 11 extends:
+  - rank-run fields: `top3_rate`, `rank_trend` (6), `movement`, `declines`, `key_competitor`
+  - report fields: `gbp_score_change`, `top_fixes` (weighted), `gbp_issues`, `reviews_available`, `unreplied`
+  - Written on the write path by `updateSummaryFromRuns` / `updateSummaryFromReport`; `npm run summaries:rebuild` backfills them.
+  - Recommended actions are pure (`actions.ts`): reconnect, setup, dropped keywords, declines, competitor ahead, GBP fixes; top 5 by impact.
+- **Team:** `Invitation` model and `src/services/team/`.
+  - Owner-only invite / list / revoke, change role, remove. The owner is protected; no ownership transfer.
+  - Public `POST /auth/invitations/{inspect,accept}` with the token in the body. SHA-256 hash stored, `INVITATION_TTL_DAYS` (7), single use.
+  - A new email creates a verified account and logs in; an existing account gets the membership with `login_required`.
+  - `sendInvitationEmail` (a shared email.service addition). In development the link is logged with the email masked.
+- **`npm run db:sync-indexes`:** syncs the rebuilt collections' indexes. It found and dropped the stale Phase 6 `user_auths` index (one Google account per user) that blocked multi-account connections on older databases; it's in the deploy checklist.
+- **Seeds:** `seed:demo-orgs` gives both dashboards data: rank movement both ways, GBP Score trends, an unverified profile on a revoked connection (`reconnect_required`), and a pending invitation.
 
 ## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)
 

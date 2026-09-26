@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, end of Phase 8 (Auth, Organization, Onboarding & Locations), awaiting merge._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, end of Phase 11 (Dashboards + team), awaiting merge and the M4 push._
 
 ## Product goal
 
@@ -27,7 +27,8 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 7b GBP sync (monthly cadence) | Done | `claude/phase-7b-gbp-sync` (from 9a) | yes (`e74b079`) | M3 |
 | **Live test with MyPageSEO** | **Paused: connect passed; blocked on Google (GBP API access), see "Blocked on Google"** | — (on `claude/rebuild`) | — | — |
 | 7c Scoring + report + competitors | Done | `claude/phase-7c-scoring-report` | yes (`fb5af9f`) | **M3** (2026-09-26) |
-| **8 Auth, Organization, Onboarding & Locations** | **Done, awaiting merge** | `claude/phase-8-org-onboarding` | not yet | next milestone (to be agreed) |
+| 8 Auth, Organization, Onboarding & Locations | Done | `claude/phase-8-org-onboarding` | yes (`819dfd8`) | M4 |
+| **11 Dashboards + team** | **Done, awaiting merge** | `claude/phase-11-dashboards-team` | not yet | **M4** (after the merge) |
 | 9 GBP posting (was 8; needs v4) | Not started | — | — | — |
 | 9b Remaining cleanup (was 9) | Not started | — | — | — |
 | 10 Security (gated) | Deferred | — | — | — |
@@ -83,7 +84,11 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
   - **Add location** by GBP profile or Places search only; one place per organization; optional client (agency). The **locations table**, **location overview**, soft delete, and **agency clients** with assignment.
   - **Onboarding** resumable per organization (Business and Agency steps) and per location.
   - `npm run migrate:organizations` (run once on deploy) and `npm run seed:demo-orgs` (demo Business + Agency).
-- **Tests:** 573 pass with no API key and no network. Lint baseline is 32.
+- **Dashboards + team (Phase 11), offline:**
+  - `GET /dashboard`: Business (visibility, GBP Score + trend, reviews, keyword movement, key competitor, recommended actions) and Agency (portfolio averages, statuses, declines, GBP issues, portfolio table). It reads stored per-location summaries only.
+  - Team invitations by email (member or client user), accept, revoke, role change, removal (owner-managed).
+  - `db:sync-indexes` and `summaries:rebuild` added to the deploy checklist.
+- **Tests:** 590 pass with no API key and no network. Lint baseline is 32.
 
 ## Key decisions
 
@@ -108,6 +113,7 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 2026-09-26 | Phases 6–7 live GBP calls: free but quota-limited, max 5 requests/second, only against the account Mohit connects, and nothing live until Mohit says so (first step: `gbp:preflight`, triggered by Mohit). |
 | 2026-09-26 | **7c:** GBP Score 5 pillars (completeness 25, activity 20, reviews 25, visibility 20, engagement 10) with rescaling; Public Score from Place Details + map-list center ranks for everyone; `editorialSummary` off (Atmosphere tier); one report per location (no Places history); report after each sync and rank run, debounced 120 s; competitor Place Details once per monthly cycle, or on a manual refresh after 24 h. Thresholds are starting values until calibrated on real data. |
 | 2026-09-27 | **Phase 8:** organizations own locations and clients (roles owner / member / client_user); plan limits from optional `location_limit` / `keyword_limit` on the subscription plan (default 1 location); the legacy location routes replaced at the same paths and the unauthenticated `google-locations` proxies deleted; new `/auth` endpoints beside the deprecated `/user/auth` ones; a bind to a location with a different place is refused. |
+| 2026-09-27 | **Phase 11 / M4:** dashboards read stored per-location summaries only (`Location.summary`, written after runs and reports); team management is owner-only; accepting an invitation as an existing account doesn't log in; invitation tokens travel in the body and are stored hashed; in development the invitation link is logged with the email masked. |
 
 ## Open items (owner: Mohit)
 
@@ -147,8 +153,8 @@ All three store or show Google Maps content. Confirm each against the Google Map
 
 ## Next up
 
-1. **Merge Phase 8** into `claude/rebuild` (command in the Phase 8 summary). No push until the next milestone we agree on. On any database with data: `npm run migrate:organizations` before serving requests.
-2. **Pick the next feature together** (Phase 9 GBP posting needs v4 access; other candidates: the dashboards, the reports center, team invitations).
+1. **Merge Phase 11**, then the **M4 push** (commands in the Phase 11 summary). On any database with data, follow the deploy checklist in OPERATIONS.md.
+2. **Pick the next feature together** (Phase 9 GBP posting needs v4 access; other candidates: the reports center, automations).
 3. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
