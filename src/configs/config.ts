@@ -14,11 +14,6 @@ const envVarsSchema = Joi.object({
 		.valid('production', 'development', 'test')
 		.required(),
 	PORT: Joi.number().default(5000),
-	APPLY_ENCRYPTION: Joi.boolean()
-		.required()
-		.valid(true, false)
-		.default(false),
-	SECRET_KEY: Joi.string().required(),
 
 	MONGODB_URL: Joi.string().required().description('Mongo DB url'),
 	MONGODB_USER: Joi.string().required(),
@@ -35,27 +30,10 @@ const envVarsSchema = Joi.object({
 		'the from field in the emails sent by the app',
 	),
 
-	STRIPE_PUBLISHABLE_KEY: Joi.string().description(
-		'Stripe Secret Credential',
-	),
-	STRIPE_SECRET_KEY: Joi.string().description('Stripe Secret Credential'),
-	STRIPE_WEBHOOK_SECRET_INTENT_CHARGE: Joi.string().description(
-		'Stripe Secret Credential',
-	),
-	STRIPE_WEBHOOK_SECRET_CUSTOMER_INVOICE_PRICE: Joi.string().description(
-		'Stripe Secret Credential',
-	),
-
-	RAZORPAY_KEY_ID: Joi.string(),
-	RAZORPAY_KEY_SECRET: Joi.string(),
-
-	SQUARE_APPLICATION_ID: Joi.string(),
 	SQUARE_ACCESS_TOKEN: Joi.string(),
 	SQUARE_LOCATION_ID: Joi.string(),
-	SQUARE_ENV: Joi.string(),
 
 	GOOGLE_PLACE_API_KEY: Joi.string().allow('').description('Places API key; optional until live testing'),
-	GOOGLE_PLACE_API_URL: Joi.string(),
 
 	PLACES_SEARCH_RADIUS_M: Joi.number().integer().min(1).max(50000).default(5000),
 	RANK_MAX_KEYWORDS: Joi.number().integer().min(1).max(50).default(20),
@@ -75,23 +53,6 @@ const envVarsSchema = Joi.object({
 		.when('NODE_ENV', { is: 'production', then: Joi.required().invalid('') })
 		.description('32-byte hex key (AES-256-GCM) for stored OAuth tokens'),
 
-	SERP_API_KEY: Joi.string(),
-	SERP_API_TIMEOUT: Joi.number(),
-
-	DATAFORSEO_LOGIN: Joi.string().allow('').description('DataForSEO API login (optional)'),
-	DATAFORSEO_PASSWORD: Joi.string().allow('').description('DataForSEO API password (optional)'),
-
-	SEO_MOZ_API_USERNAME: Joi.string(),
-	SEO_MOZ_API_PASSWORD: Joi.string(),
-	SEO_MOZ_API_KEY: Joi.string(),
-
-	COMPANY_SUPPORT_EMAIL: Joi.string().required(),
-	COMPANY_NAME: Joi.string().required(),
-	COMPANY_CITY: Joi.string().required(),
-	COMPANY_STATE: Joi.string().required(),
-	COMPANY_COUNTRY: Joi.string().required(),
-	COMAPNY_ADDRESS: Joi.string().required(),
-
 	JWT_SECRET: Joi.string().required().description('JWT secret key'),
 	JWT_ACCESS_EXPIRATION_DAYS: Joi.number()
 		.default(7)
@@ -99,12 +60,6 @@ const envVarsSchema = Joi.object({
 	JWT_REFRESH_EXPIRATION_DAYS: Joi.number()
 		.default(30)
 		.description('days after which refresh tokens expire'),
-	JWT_RESET_PASSWORD_EXPIRATION_MINUTES: Joi.number()
-		.default(10)
-		.description('minutes after which reset password token expires'),
-	JWT_VERIFY_EMAIL_EXPIRATION_MINUTES: Joi.number()
-		.default(10)
-		.description('minutes after which verify email token expires'),
 
 	DEFAULT_API_DATA_LIMIT: Joi.number().default(15),
 	DEFAULT_ORDERING: Joi.string().valid('asc', 'desc').required(),
@@ -113,19 +68,13 @@ const envVarsSchema = Joi.object({
 		'All allow origin URL comma-separated',
 	),
 	API_BASE_URL: Joi.string().description('Base URL for APIs'),
-	ADMIN_BASE_URL: Joi.string().description('Base URL for Admin APIs'),
 	DEFAULT_TIMEZONE: Joi.string()
 		.default('UTC')
 		.description('Default Timezone for application'),
 
 	SUP_ADM_ROLE_ID: Joi.number().description('Super Admin Role ID'),
 	ADM_ROLE_ID: Joi.number().description('Admin Role ID'),
-	ENG_ROLE_ID: Joi.number(),
 	EDTR_ROLE_ID: Joi.number().description('Editor Role ID'),
-	FIN_ROLE_ID: Joi.number(),
-	MRK_ROLE_ID: Joi.number(),
-	HR_ROLE_ID: Joi.number(),
-	SALES_ROLE_ID: Joi.number(),
 	USR_ROLE_ID: Joi.number().description('User Role ID'),
 
 	SUPER_ADMIN_PASSWORD: Joi.string(),
@@ -149,8 +98,6 @@ interface Config {
 		sslPath: string;
 		env: string;
 		port: number;
-		applyEncryption: boolean;
-		secretCode: string;
 	};
 
 	databases: {
@@ -176,44 +123,18 @@ interface Config {
 		from?: string;
 	};
 
-	stripe: {
-		publishableKey?: string;
-		secretKey?: string;
-		webhookSecretIntentCharge?: string;
-		webhookSecretCustomerInvoicePrice?: string;
-	};
 
 	square: {
-		squareApplicationId?: string;
 		squareAccessToken?: string;
 		squareLocationId?: string;
-		squareEnv?: string;
 	};
 
-	razorpay: {
-		keyId?: string;
-		keySecret?: string;
-	};
 
-	dataForSeo: {
-		login?: string;
-		password?: string;
-	};
 
-	seoMOZApis: {
-		username?: string;
-		password?: string;
-		keySecret?: string;
-	};
 
-	serpApis: {
-		keySecret?: string;
-		timeout?: number;
-	};
 
 	googleApis: {
 		placeApi: {
-			url?: string;
 			keySecret?: string;
 		};
 	};
@@ -241,41 +162,25 @@ interface Config {
 		tokenEncryptionKey: string;
 	};
 
-	company: {
-		email: string;
-		name: string;
-		city: string;
-		state: string;
-		country: string;
-		address: string;
-	};
 
 	constants: {
 		jwt: {
 			secret: string;
 			accessExpirationDays: number;
 			refreshExpirationDays: number;
-			resetPasswordExpirationMinutes: number;
-			verifyEmailExpirationMinutes: number;
 		};
 		accessDomains?: string;
 		defaultLimit: number;
 		defaultDataOrder: string;
 		defaultPageNo: number;
 		apiBaseUrl?: string;
-		adminBaseUrl?: string;
 		defaultTimezone: string;
 	};
 
 	roles: {
 		superAdmin: number;
 		admin: number;
-		engineer: number;
 		editor: number;
-		finance: number;
-		marketing: number;
-		hr: number;
-		sales: number;
 		user: number;
 	};
 
@@ -293,8 +198,6 @@ const config: Config = {
 		sslPath: envVars.SSL_PATH,
 		env: envVars.NODE_ENV,
 		port: envVars.PORT,
-		applyEncryption: envVars.APPLY_ENCRYPTION,
-		secretCode: envVars.SECRET_KEY,
 	},
 
 	databases: {
@@ -320,29 +223,15 @@ const config: Config = {
 		from: envVars.EMAIL_FROM,
 	},
 
-	stripe: {
-		publishableKey: envVars.STRIPE_PUBLISHABLE_KEY,
-		secretKey: envVars.STRIPE_SECRET_KEY,
-		webhookSecretIntentCharge: envVars.STRIPE_WEBHOOK_SECRET_INTENT_CHARGE,
-		webhookSecretCustomerInvoicePrice:
-			envVars.STRIPE_WEBHOOK_SECRET_CUSTOMER_INVOICE_PRICE,
-	},
 
 	square: {
-		squareApplicationId: envVars.SQUARE_APPLICATION_ID,
 		squareAccessToken: envVars.SQUARE_ACCESS_TOKEN,
 		squareLocationId: envVars.SQUARE_LOCATION_ID,
-		squareEnv: envVars.SQUARE_ENV,
 	},
 
-	razorpay: {
-		keyId: envVars.RAZORPAY_KEY_ID,
-		keySecret: envVars.RAZORPAY_KEY_SECRET,
-	},
 
 	googleApis: {
 		placeApi: {
-			url: envVars.GOOGLE_PLACE_API_URL,
 			keySecret: envVars.GOOGLE_PLACE_API_KEY,
 		},
 	},
@@ -368,59 +257,28 @@ const config: Config = {
 		tokenEncryptionKey: envVars.TOKEN_ENCRYPTION_KEY ?? '',
 	},
 
-	dataForSeo: {
-		login: envVars.DATAFORSEO_LOGIN,
-		password: envVars.DATAFORSEO_PASSWORD,
-	},
 
-	seoMOZApis: {
-		username: envVars.SEO_MOZ_API_USERNAME,
-		password: envVars.SEO_MOZ_API_PASSWORD,
-		keySecret: envVars.SEO_MOZ_API_KEY,
-	},
 
-	serpApis: {
-		keySecret: envVars.SERP_API_KEY,
-		timeout: envVars.SERP_API_TIMEOUT,
-	},
 
-	company: {
-		email: envVars.COMPANY_SUPPORT_EMAIL,
-		name: envVars.COMPANY_NAME,
-		city: envVars.COMPANY_CITY,
-		state: envVars.COMPANY_STATE,
-		country: envVars.COMPANY_COUNTRY,
-		address: envVars.COMAPNY_ADDRESS,
-	},
 
 	constants: {
 		jwt: {
 			secret: envVars.JWT_SECRET,
 			accessExpirationDays: envVars.JWT_ACCESS_EXPIRATION_DAYS,
 			refreshExpirationDays: envVars.JWT_REFRESH_EXPIRATION_DAYS,
-			resetPasswordExpirationMinutes:
-				envVars.JWT_RESET_PASSWORD_EXPIRATION_MINUTES,
-			verifyEmailExpirationMinutes:
-				envVars.JWT_VERIFY_EMAIL_EXPIRATION_MINUTES,
 		},
 		accessDomains: envVars.ACCESSDOMAINS,
 		defaultLimit: envVars.DEFAULT_API_DATA_LIMIT,
 		defaultDataOrder: envVars.DEFAULT_ORDERING,
 		defaultPageNo: envVars.DEFAULT_PAGE_NO,
 		apiBaseUrl: envVars.API_BASE_URL,
-		adminBaseUrl: envVars.ADMIN_BASE_URL,
 		defaultTimezone: envVars.DEFAULT_TIMEZONE,
 	},
 
 	roles: {
 		superAdmin: envVars.SUP_ADM_ROLE_ID,
 		admin: envVars.ADM_ROLE_ID,
-		engineer: envVars.ENG_ROLE_ID,
 		editor: envVars.EDTR_ROLE_ID,
-		finance: envVars.FIN_ROLE_ID,
-		marketing: envVars.MRK_ROLE_ID,
-		hr: envVars.HR_ROLE_ID,
-		sales: envVars.SALES_ROLE_ID,
 		user: envVars.USR_ROLE_ID,
 	},
 

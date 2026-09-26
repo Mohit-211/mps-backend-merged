@@ -20,7 +20,8 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 5 Ranking reports | Done | `claude/phase-5-ranking-reports` | yes (`2bb4cf8`) | M2 (2026-09-26) |
 | 5.5 Live validation | Done: **informal pass, one market, formal scoring pending** | `claude/phase-5.5-live-validation` | yes (`5735bad`) | M3 |
 | 6 GBP connection | Done | `claude/phase-6-gbp-connection` | yes (`4e4d556`) | M3 |
-| **7a Connect + onboarding** | **Done, awaiting approval** | `claude/phase-7a-connect-onboarding` | not yet | M3 |
+| **7a Connect + onboarding** | **Done (review fixes in), awaiting merge** | `claude/phase-7a-connect-onboarding` | not yet | M3 |
+| **9a Legacy cleanup** (early Phase 9) | **Done, awaiting merge after 7a** | `claude/phase-9a-legacy-cleanup` | not yet | M3 |
 | 7b GBP sync | Not started | — | — | M3 |
 | 7c Scoring + report + competitors | Not started | — | — | **M3** |
 | 8 GBP posting | Not started | — | — | M4 |
@@ -59,7 +60,8 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
   - **service-area businesses**: a center step (city or ZIP resolved once) before keywords
   - onboarding screens: pick a profile (creates or links our Location and binds it), keywords, **competitor suggestions** (top 10 across keywords, 24 h cache) or manual search, complete (first rank run + GBP sync request)
   - a daily cap on user-triggered Places calls
-- **Tests:** 402 pass with no API key and no network.
+- **Legacy cleanup (9a):** the old ranking reports, GBP audit, Reputation Manager, white-label report links, Search Console connect and every unused config and env variable are removed (about 7,300 lines). How to rebuild the Reputation Manager and white-label links properly: [LEGACY_FEATURES.md](LEGACY_FEATURES.md). Unused collections and env vars: [MIGRATION.md](MIGRATION.md).
+- **Tests:** 414 pass with no API key and no network. Lint baseline is 32 (was 98).
 
 ## Key decisions
 
@@ -77,11 +79,12 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 2026-09-26 | Phase 6: tokens belong to the user's Google account. Unbind deletes them only with the last binding; disconnect removes everything. Search Console tokens stay plaintext until Phase 10. `GET /gbp` returns `{accounts, locations, errors}`. |
 | 2026-09-26 | Phase 7 split into 7a (connect + onboarding), 7b (sync) and 7c (scoring + report, M3). `GBP_V4_ENABLED` (default false) switches reviews, media and posts; the v4 API access is pending. |
 | 2026-09-26 | 7a: any Google account, **several per user** (one connection per Google account; the earlier 409 rule was dropped after review); competitor suggestions on the Enterprise SKU (cached 24 h); `PLACES_USER_DAILY_LIMIT` 50; US/CA only; service-area center from a city or ZIP (Places IDs-only search + Details `location`). |
+| 2026-09-26 | Legacy cleanup brought forward (9a): old report endpoints deleted (the frontend moves to the new ones); the Reputation Manager and white-label report links are removed, with a rebuild reference in LEGACY_FEATURES.md; unused env vars removed; no collections dropped. |
 | 2026-09-26 | Phases 6–7 live GBP calls: free but quota-limited, max 5 requests/second, only against the account Mohit connects, and nothing live until Mohit says so (first step: `gbp:preflight`, triggered by Mohit). |
 
 ## Open items (owner: Mohit)
 
-1. **Approve Phase 7a and merge** (command in the phase summary). No push: M3 comes after 7c.
+1. **Merge 7a, then 9a** (commands in the summary). No push: M3 comes after 7c.
 2. **Google Cloud:**
    - Add the frontend's **Authorised JavaScript origin** to the OAuth client (needed for the popup).
    - `.env`: `TOKEN_ENCRYPTION_KEY` and the redirect URI on port 5055 (Phase 6).
@@ -129,6 +132,7 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 - `npm run seed:rank-demo` (demo data, no key)
 - the ranking jobs
 - the smoke scripts: `smoke:agenda` (free), and `smoke:places` (1 Places call; Mohit only)
+- removed legacy features and data: [LEGACY_FEATURES.md](LEGACY_FEATURES.md), [MIGRATION.md](MIGRATION.md)
 - live validation: [LIVE_TEST.md](LIVE_TEST.md) (`find:place`, `setup:live-test`, `calibrate`, `calibrate:score`)
 - GBP: [GBP_CONNECT.md](GBP_CONNECT.md) (Google Cloud setup, popup and redirect connect, `gbp:preflight`, `gbp:encrypt-tokens`, `setup:live-test --token-only`)
 - API reference: [ENDPOINTS.md](ENDPOINTS.md) (one-page list of every rebuilt endpoint) and [API.md](API.md) (full examples)

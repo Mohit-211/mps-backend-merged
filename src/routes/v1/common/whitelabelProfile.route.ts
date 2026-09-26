@@ -10,10 +10,7 @@ router.get('/:whiteLevelProfileId', whitelabelProfileController.getWhiteLabelPro
 router.delete('/:whiteLevelProfileId', [userAuthMiddleware.verifyAuthJWTToken], whitelabelProfileController.deleteWhiteLevelProfile);
 
 
-// Reports
-router.get('/rank-tracker-report/:whiteLevelProfileId', [WhiteLabelProfileMiddleware.validateWLPReportParams], whitelabelProfileController.getRankTrackerReportForWLP);
-router.get('/reputation-manager-report/:whiteLevelProfileId', [WhiteLabelProfileMiddleware.validateWLPReportParams], whitelabelProfileController.getReputationManagerReportForWLP);
-router.get('/gbp-audit-report/:whiteLevelProfileId', [WhiteLabelProfileMiddleware.validateWLPReportParams], whitelabelProfileController.getGBPAuditReportForWLP);
-
+// The public report links (rank-tracker, reputation-manager, gbp-audit) were removed with the
+// legacy report code; see docs/LEGACY_FEATURES.md to rebuild them on the new data.
 
 export default router;

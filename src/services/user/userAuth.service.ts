@@ -41,7 +41,6 @@ import {
   generateAuthTokens,
 } from "../common/token.service";
 import { TokenDefination } from "../../types/interfaces";
-import { oAuth2Client } from "../../configs/oAuth2Client";
 import config from "../../configs/config";
 import { gbpOAuthService } from "../gbp/oauth.service";
 import { bindingService } from "../gbp/binding.service";
@@ -512,102 +511,6 @@ export const deactivateAccount = async (body: BodyDefinition) => {
   }
 };
 
-// Analytics
-
-export const getAnalyticsAuthUrl = async (body: BodyDefinition) => {
-  try {
-    const { user } = body;
-    let oAuthInstance = oAuth2Client(tokenTypes.ANALYTICS);
-    const authUrl = await oAuthInstance.generateAuthUrl({
-      access_type: "offline",
-      prompt: "consent",
-      scope: ["https://www.googleapis.com/auth/webmasters.readonly"],
-      state: JSON.stringify({
-        user_id: user._id,
-        user_type: user.user_type,
-        role_id: user.role_id,
-      }),
-    });
-    return authUrl;
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-};
-
-export const analyticsAuthCallback = async (query: QueryDefinition) => {
-  try {
-    let { code, state } = query;
-
-    if (!code || !state) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "Invalid Flow : failed to obtain code and state."
-      );
-    }
-    state = await JSON.parse(state);
-    if (!state.user_id) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "user_id missing from state");
-    }
-    let userDoc = await User.findOne({ _id: state.user_id, is_active: true });
-    if (!userDoc) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "Invalid user_id from state.");
-    }
-
-    let a = await storeToken(code, userDoc, tokenTypes.ANALYTICS);
-
-    return a;
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-};
-
-export const analyticsConnectionRevoke = async (body: BodyDefinition) => {
-  try {
-    let { user } = body;
-
-    const authTokenDoc: IUserAuth = await UserAuth.findOne({
-      user_id: user._id,
-      is_active: true,
-      token_type: tokenTypes.ANALYTICS,
-    });
-
-    if (!authTokenDoc || !authTokenDoc.refresh_token) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "No Token Found!");
-    }
-    let isRevoked = await revokeToken(authTokenDoc.refresh_token);
-
-    if (!isRevoked) {
-      throw new ApiError(
-        httpStatus.INTERNAL_SERVER_ERROR,
-        "Failed to revoke google analutics access"
-      );
-    }
-
-    await UserAuth.deleteOne({
-      user_id: user._id,
-      token_type: tokenTypes.ANALYTICS,
-    });
-
-    await User.findOneAndUpdate(
-      { _id: user._id },
-      { is_analytics_connected: false }
-    );
-
-    return "";
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-};
-
 // GBP (Phase 6): one-time random state + business.manage only; see services/gbp/oauth.service.ts.
 export const getGBPAuthUrl = async (body: BodyDefinition) => {
   const { user } = body;
@@ -639,57 +542,6 @@ export const gBPAuthCallback = async (query: QueryDefinition) =>
 export const gBPConnectionRevoke = async (body: BodyDefinition) => {
   const { user, google_sub } = body;
   return bindingService.disconnect(user._id, typeof google_sub === "string" ? google_sub : undefined);
-};
-
-// Utility for store and revoke token
-async function revokeToken(refreshToken: string) {
-  try {
-    // Revoke the refresh token
-    const revokeUrl = `https://oauth2.googleapis.com/revoke?token=${refreshToken}`;
-    await fetch(revokeUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-
-    return true;
-  } catch (error) {
-    console.error("Error revoking token:", error);
-    return error;
-  }
-}
-
-// Search Console ("analytics") connect. C17: tokens are saved per token type with expiry_date
-// (services/gbp/tokenStore.ts), so this no longer overwrites the GBP row. GBP uses gbpOAuthService.
-const storeToken = async (code: string, userDoc: IUser, tokenType: string) => {
-  try {
-    let oAuthInstance = oAuth2Client(tokenType);
-    const { tokens } = await oAuthInstance.getToken(code);
-    const { access_token, refresh_token, expiry_date, scope } = tokens;
-    if (!access_token || !expiry_date) {
-      throw new ApiError(
-        httpStatus.INTERNAL_SERVER_ERROR,
-        "Failed to fetch tokens."
-      );
-    }
-    await tokenStore.save(userDoc._id, tokenType, {
-      accessToken: access_token,
-      refreshToken: refresh_token ?? null,
-      expiryDate: new Date(expiry_date),
-      scope: scope ?? null,
-    });
-    if (tokenType === tokenTypes.ANALYTICS) {
-      userDoc.is_analytics_connected = true;
-    } else if (tokenType === tokenTypes.GBP) {
-      userDoc.is_gbp_connected = true;
-    }
-    await userDoc.save();
-    return true;
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
 };
 
 export const addEmployee = async (body: BodyDefinition) => {

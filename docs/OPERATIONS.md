@@ -179,9 +179,3 @@ Cluster-mode caveats, since every instance runs these:
 - the agenda poller (Mongo-locked, so safe)
 - the in-memory rate-limit store
 - `node-cache`
-
-## Optional third-party credentials
-
-| Variable | Used by | If unset |
-|---|---|---|
-| `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` | legacy rank tracker search volume (`helpers/rankTrackerReport.ts`) | `getKeywordSearchVolume` returns `null` and keyword volumes are reported as 0 |

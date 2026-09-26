@@ -1,4 +1,4 @@
-import { generateGrid } from '../../src/helpers/localSearchGridReport';
+import legacyGrid from '../fixtures/ranking/legacy_generateGrid_toronto_5x5_750m.json';
 import { gridPoints, offsetPoint, trackerPoints } from '../../src/ranking/points';
 import { GeoPoint } from '../../src/ranking/types';
 import { haversineKm } from '../helpers/geo';
@@ -64,13 +64,11 @@ describe('gridPoints', () => {
 		}
 	});
 
-	it('matches the legacy generateGrid() math (port regression)', () => {
-		const size = 5;
-		const spacingKm = 0.75;
-		const legacy = generateGrid(String(TORONTO.lat), String(TORONTO.lng), size, spacingKm * 1000, 'meters') as {
-			lat: number;
-			long: number;
-		}[];
+	it('matches the legacy generateGrid() math (port regression, recorded output)', () => {
+		const size = legacyGrid.size;
+		const spacingKm = legacyGrid.spacing_m / 1000;
+		expect(legacyGrid.center).toEqual(TORONTO);
+		const legacy = legacyGrid.points;
 		const points = gridPoints(TORONTO, size, spacingKm);
 		for (const p of points) {
 			// legacy index i runs south→north, ours runs north→south

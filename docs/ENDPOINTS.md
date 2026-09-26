@@ -113,8 +113,8 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 
 ---
 
-## Not listed here (still legacy)
+## Not listed here
 
-- **GBP posting** (`/gbp/post/*`): only its token lookup changed (Phase 6); it is rebuilt in Phase 8.
-- **GBP audit** (`/gbp-audit/*`) and the old ranking routes (`/rank-tracker`, `/local-search-grid`, `/local-map-ranking`): replaced by the endpoints above and deleted in Phase 9.
+- **GBP posting** (`/gbp/post/*`): still legacy. Only its token lookup changed (it now uses the binding's Google account); it is rebuilt in Phase 8.
+- **Removed** in the legacy cleanup: the old ranking routes (`/rank-tracker`, `/local-search-grid`, `/local-map-ranking`), `/gbp-audit`, `/reputation-manager`, the white-label report links and the Search Console connect. See [LEGACY_FEATURES.md](LEGACY_FEATURES.md).
 - **Everything else** (auth, locations CRUD, payments, citations, …): unchanged. See [ROUTES.md](ROUTES.md).

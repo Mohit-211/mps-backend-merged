@@ -4,12 +4,12 @@ import mongoose from 'mongoose';
 import fs from 'fs/promises'
 import path from 'path'
 
-import { Client, GBPAuditReport, GBPPost, IWhitelabelProfile, LocalMapRankingReport, LocalSearchGridReport, Location, Profile, RankTrackerReport, User, UserGBP, WhitelabelProfile } from '../../models';
+import { Client, GBPPost, IWhitelabelProfile, Location, Profile, User, UserGBP, WhitelabelProfile } from '../../models';
 import { ApiError, isValidMongoObjectId, mongoFunctions } from '../../utils';
 import { mongoOperationsTypes, userTypes } from '../../configs/constantTypes';
 import { BodyDefinition, ParamsDefinition, QueryDefinition } from '../../types/RouteDefinition';
 import { locationSelect } from '../../constants';
-import { fetchNAPDatFromGoogle } from '../../helpers';
+import { placesClient } from '../../clients/placesClient';
 
 export const createLocation = async (body: BodyDefinition): Promise<any> => {
 	try {
@@ -44,10 +44,15 @@ export const createLocation = async (body: BodyDefinition): Promise<any> => {
 		};
 
 		if (place_id) {
-			const locationDetails = await fetchNAPDatFromGoogle(place_id)
-			if (locationDetails) {
-				locationObj['lat'] = locationDetails?.geometry?.location?.lat;
-				locationObj['lng'] = locationDetails?.geometry?.location?.lng;
+			// Places API (New) Place Details, `location` field only (was a legacy all-fields call, AUDIT C23).
+			try {
+				const { details } = await placesClient.getPlaceDetails(place_id, ['location']);
+				if (details.location) {
+					locationObj['lat'] = details.location.latitude;
+					locationObj['lng'] = details.location.longitude;
+				}
+			} catch {
+				// Coordinates stay empty; the first rank run resolves them (Phase 5).
 			}
 			locationObj['place_id'] = place_id;
 		}
@@ -364,37 +369,9 @@ export const deleteLocation = async (
 			}
 		}
 
-		// Rank Tracker Reports
-		const rankTrackerReportDocs = await RankTrackerReport.find({ location_id: locationId, is_active: true })
-		if (rankTrackerReportDocs) {
-			for (let rankTrackerReport of rankTrackerReportDocs) {
-				await RankTrackerReport.deleteOne({ _id: rankTrackerReport._id })
-			}
-		}
-
-		// Local Search Grid Report
-		const localSearchGridReportDocs = await LocalSearchGridReport.find({ location_id: locationId, is_active: true })
-		if (localSearchGridReportDocs) {
-			for (let localSearchGridReport of localSearchGridReportDocs) {
-				await LocalSearchGridReport.deleteOne({ _id: localSearchGridReport._id })
-			}
-		}
-
-		// GBP Audit Report
-		const gbpAuditReportDocs = await GBPAuditReport.find({ location_id: locationId, is_active: true })
-		if (gbpAuditReportDocs) {
-			for (let gbpAuditReport of gbpAuditReportDocs) {
-				await GBPAuditReport.deleteOne({ _id: gbpAuditReport._id })
-			}
-		}
-
-		// Local Map Ranking Report 
-		const LocalMapReportDocs = await LocalMapRankingReport.find({ location_id: locationId, is_active: true })
-		if (LocalMapReportDocs) {
-			for (let LocalMapReport of LocalMapReportDocs) {
-				await LocalMapRankingReport.deleteOne({ _id: LocalMapReport._id })
-			}
-		}
+		// Legacy report collections (rank_tracker_reports, local_search_grid_reports, gbp_audit_reports,
+		// local_map_ranking_reports) are no longer written; see docs/MIGRATION.md. Rank runs are history
+		// and are kept (CLAUDE.md §9.2).
 
 		// GBP Posts
 		const gbpPostDocs = await GBPPost.find({ location_id: locationId, is_active: true })

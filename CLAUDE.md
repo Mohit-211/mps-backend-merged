@@ -115,8 +115,8 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - Config: `src/configs/config.ts` (Joi-validated env, loaded from `ENV_FILE` if set, else `./.env` in the working directory; see `docs/OPERATIONS.md`). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
 - OAuth (Phases 6–7a): GBP connect is `src/services/gbp/oauth.service.ts`. It has a GIS popup flow plus a redirect fallback, a one-time hashed state in `OAuthState` (`flow` popup/redirect), scopes `openid email business.manage`, and a verified id_token whose `google_email` is stored. All GBP calls go through `src/clients/gbpClient.ts` (≤ `GBP_MAX_RPS`, refresh + rotation persisted). Tokens live in `UserAuth`, one active row per `(user_id, token_type)`, via `src/services/gbp/tokenStore.ts`: **GBP tokens are AES-256-GCM encrypted** (`TOKEN_ENCRYPTION_KEY`), Search Console tokens are still plaintext. `src/configs/oAuth2Client.ts` is used only by the Search Console flow; `configs/gbpOauthClinet.ts` is unused (Phase 9). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`, `place_id`), via `src/services/gbp/binding.service.ts`.
 - Location model (`src/models/location.model.ts`): `name, address, city, state, country, zip_code, lat, lng, mobile, place_id, website_URL, business_category, client_id, created_by, is_active`.
-- Old ranking: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (`generateGrid()` math is correct and reusable), `helpers/localMapRankingReport.ts`, `services/common/{rankTracker,localSearchGrid,localMapRankingReport}.service.ts`, matching middlewares/models/routes (all deleted in Phase 9; `serp.ts` was already deleted in Phase 1.5).
-- Old GBP: `helpers/gbpAudit.ts` (legacy Places API; its organic-rank and Moz helpers were deleted in Phase 1.5), `services/common/gbpAudit.service.ts` (recomputes on every GET), `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda, keep). `helpers/gbpPs.ts` was deleted in Phase 1.5.
+- Old ranking, GBP audit, Reputation Manager, white-label report links and the Search Console connect were **removed** in the legacy cleanup (branch `claude/phase-9a-legacy-cleanup`); see `docs/LEGACY_FEATURES.md` (last commit with that code: `1695187`) and `docs/MIGRATION.md` (unused collections, removed env vars).
+- GBP posting (legacy, kept until Phase 8): `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda). Its token comes from `gbpClient` through the binding's connection.
 
 ---
 
@@ -549,6 +549,11 @@ Tests: validation per topic type, idempotent publish, recurrence mapping.
 ---
 
 ## 13. PHASE 9 — Cleanup & documentation
+
+**Partly done early (9a, Mohit, 2026-09-26)** on `claude/phase-9a-legacy-cleanup`, because the frontend moves to the new endpoints:
+- Deleted: old ranking code, the GBP audit, the Reputation Manager, the white-label report links, the Search Console connect, SerpAPI / Moz / DataForSEO config and helpers, unused config and env vars (Stripe, Razorpay, …), and the `googleapis` package.
+- Written: `docs/LEGACY_FEATURES.md` (how to rebuild Reputation Manager and white-label links properly) and `docs/MIGRATION.md`.
+- **Left for Phase 9 proper:** swagger.json, ARCHITECTURE.md, the final OPERATIONS/API pass, `serpapi` (still imported by citations, out of scope).
 
 Only after Mohit confirms the frontend has switched to the new endpoints:
 - Delete old ranking code: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (after `generateGrid` is ported), `helpers/localMapRankingReport.ts`, `helpers/getSerpCountryCode.ts` (unused since Phase 1.5), old ranking services/controllers/middlewares/routes/models, `configs/serpConfig.ts`, `constants/serpCountryCode.ts` if unused.

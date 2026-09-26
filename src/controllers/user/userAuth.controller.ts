@@ -111,32 +111,6 @@ export const refreshAuth = catchAsync(async (req, res) => {
   return responseWrapper(res, response);
 });
 
-export const getAnalyticsAuthUrl = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["user"]);
-  const response = await userAuthService.getAnalyticsAuthUrl(body);
-  return responseWrapper(res, response);
-});
-
-export const analyticsConnectionRevoke = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["user"]);
-  let response = await userAuthService.analyticsConnectionRevoke(body);
-  return responseWrapper(
-    res,
-    response,
-    "Google Analytics disconnected successfully"
-  );
-});
-
-export const analyticsAuthCallback = catchAsync(async (req, res) => {
-  const query = pick(req.query, ["code", "state"]);
-  const response = await userAuthService.analyticsAuthCallback(query);
-  return responseWrapper(
-    res,
-    response,
-    "Connected with analytics successfully."
-  );
-});
-
 export const getGBPAuthUrl = catchAsync(async (req, res) => {
   const body = pick(req.body, ["user"]);
   const response = await userAuthService.getGBPAuthUrl(body);
