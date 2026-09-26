@@ -25,7 +25,7 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 7a Connect + onboarding | Done | `claude/phase-7a-connect-onboarding` | yes (`1273e2b`) | M3 |
 | 9a Legacy cleanup (early Phase 9) | Done | `claude/phase-9a-legacy-cleanup` | yes (`73e4fe9`) | M3 |
 | 7b GBP sync (monthly cadence) | Done | `claude/phase-7b-gbp-sync` (from 9a) | yes (`e74b079`) | M3 |
-| **Live test with MyPageSEO** | **Connect passed; blocked at discovery: GBP API quota 0 (access not approved)** | — (on `claude/rebuild`) | — | — |
+| **Live test with MyPageSEO** | **Paused: connect passed; blocked on Google (GBP API access), see "Blocked on Google"** | — (on `claude/rebuild`) | — | — |
 | 7c Scoring + report + competitors | Not started | — | — | **M3** |
 | 8 Auth, Organization, Onboarding & Locations | Not started (plan mode + data-model diagram first) | — | — | M4 (to be agreed) |
 | 9 GBP posting (was 8; needs v4) | Not started | — | — | — |
@@ -101,11 +101,19 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
    - Add the **Authorised JavaScript origins** to the OAuth client: the frontend's, and `http://localhost:5055` for the dev test page.
    - `.env`: `TOKEN_ENCRYPTION_KEY` (currently empty, so connecting would fail) and, for the redirect fallback only, `GOOGLE_GBP_REDIRECT_URI` on port 5055 (currently 5000).
 3. **Live test, when you say so:** see "Next up".
-4. **GBP API access (all Business Profile APIs) is not approved** for Cloud project 1010247538246: live test attempt 1 got quota 0 on Account Management. Request access and wait for a non-zero quota; the live test resumes at preflight. **Google My Business API (v4)** access is pending too. Until then `GBP_V4_ENABLED=false` (7b).
+4. **Google approvals:** see "Blocked on Google" below.
 5. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 6. **Maps ToS decisions before launch:** see "Decide before launch (Maps ToS)" below.
 7. **Rotate the DataForSEO credential** (AUDIT S13).
 8. **Security Phase 10:** deferred (includes S30 and the Search Console parts of S11, S12 and S29).
+
+## Blocked on Google
+
+| Item | State | What unblocks it | Then |
+|---|---|---|---|
+| **Business Profile API access** (Account Management, Business Information, Performance, Verifications) for Cloud project `1010247538246` | Not approved: quota 0 (live test attempt 1, 2026-09-26). Mohit is submitting the access request. | Mohit says **"GBP access approved"** (the Account Management "Requests per minute" quota is above 0). | Resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, then the 7c scoring calibration. The Google connection (`mohit@mypageseo.com`) is saved; no reconnect is needed. |
+| **Google My Business API v4** (reviews, media, posts) | Pending | Access approved | Set `GBP_V4_ENABLED=true` (no code change); Phase 9 posting becomes possible. |
+| **OAuth app verification** (the "Google hasn't verified this app" screen, and the test-user limit while in testing mode) | Not started | Google verifies the OAuth consent screen (`business.manage` is a sensitive scope) | Needed before real customers connect. |
 
 ## Decide before launch (Maps ToS)
 
