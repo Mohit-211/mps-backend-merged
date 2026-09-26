@@ -2,13 +2,14 @@ import { Types } from 'mongoose';
 import httpStatus from 'http-status';
 import logger from '../../configs/logger';
 import { tokenTypes } from '../../configs/constantTypes';
-import { GbpClient, gbpClient } from '../../clients/gbpClient';
+import { ConnectionRef, GbpClient, gbpClient } from '../../clients/gbpClient';
 import { GbpLocation } from '../../clients/types/gbp';
 import { ILocation, Location, Profile, RankRun, UserGBP } from '../../models';
 import { ApiError } from '../../utils';
 import { BindResult, bindingService } from '../gbp/binding.service';
 import { DiscoveredLocation, countryName, discoveryService, formatAddress } from '../gbp/discovery.service';
 import { toGbpApiError } from '../gbp/errors';
+import { resolveConnection } from '../gbp/connections';
 import { TokenStore, tokenStore } from '../gbp/tokenStore';
 import { EnqueueResult, RunOverCapError, enqueueRankRun } from '../ranking/rankRun.service';
 import { withDefaults } from '../ranking/trackingSettings';
@@ -22,7 +23,11 @@ const NOT_AVAILABLE = 'n/a';
 type UserId = Types.ObjectId | string;
 
 export interface OnboardingState {
-	gbp: { connected: boolean; google_email: string | null; status: 'active' | 'revoked' | 'none' | 'unreadable' };
+	gbp: {
+		connected: boolean;
+		/** Every connected Google account ("Connected as …"); a user may connect several. */
+		connections: { google_sub: string | null; google_email: string | null; status: 'active' | 'revoked' }[];
+	};
 	locations: { location_id: string; name: string; onboarding: ILocation['onboarding'] }[];
 }
 
@@ -30,11 +35,15 @@ export interface SelectProfileInput {
 	gbpAccountId: string;
 	gbpLocationId: string;
 	location_id?: string;
+	/** Which connected Google account the profile was listed under; required with several. */
+	google_sub?: string;
 }
 
 export interface SelectProfileResult {
 	location: { location_id: string; name: string; address: string; place_id: string | null; lat: number | null; lng: number | null };
 	created: boolean;
+	/** True when the profile had no coordinates: the next step is PUT /locations/:id/center. */
+	center_needed: boolean;
 	binding: BindResult;
 }
 
@@ -47,7 +56,7 @@ export interface CompleteResult {
 
 export interface OnboardingDeps {
 	client?: Pick<GbpClient, 'getLocation'>;
-	tokens?: Pick<TokenStore, 'load'>;
+	tokens?: Pick<TokenStore, 'listConnections'>;
 	discovery?: { listAllLocations: typeof discoveryService.listAllLocations };
 	binding?: { bindLocation: typeof bindingService.bindLocation };
 	enqueue?: (location: ILocation, userId: UserId) => Promise<EnqueueResult>;
@@ -84,13 +93,12 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 	const now = deps.now ?? (() => new Date());
 
 	const getState = async (userId: UserId): Promise<OnboardingState> => {
-		let gbp: OnboardingState['gbp'] = { connected: false, google_email: null, status: 'none' };
-		try {
-			const stored = await tokens.load(userId, tokenTypes.GBP);
-			if (stored) gbp = { connected: stored.status === 'active', google_email: stored.googleEmail, status: stored.status };
-		} catch {
-			gbp = { connected: false, google_email: null, status: 'unreadable' };
-		}
+		const connections = (await tokens.listConnections(userId, tokenTypes.GBP)).map((c) => ({
+			google_sub: c.googleSub,
+			google_email: c.googleEmail,
+			status: c.status,
+		}));
+		const gbp: OnboardingState['gbp'] = { connected: connections.some((c) => c.status === 'active'), connections };
 		const locations = await Location.find({ created_by: userId, is_active: true, onboarding: { $exists: true } })
 			.select({ name: 1, onboarding: 1 })
 			.lean<ILocation[]>();
@@ -100,14 +108,16 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 		return { gbp, locations: rows };
 	};
 
-	/** Every profile the connected account can access, with whether we can onboard it. */
+	/** Every profile from every connected Google account (grouped), with whether we can onboard it. */
 	const listProfiles = async (userId: UserId) => {
 		const result = await discovery.listAllLocations(userId);
 		return {
-			...result,
-			locations: result.locations.map((l: DiscoveredLocation) => ({
-				...l,
-				supported: l.region_code !== null && SUPPORTED_REGIONS.includes(l.region_code),
+			connections: result.connections.map((group) => ({
+				...group,
+				locations: group.locations.map((l: DiscoveredLocation) => ({
+					...l,
+					supported: l.region_code !== null && SUPPORTED_REGIONS.includes(l.region_code),
+				})),
 			})),
 		};
 	};
@@ -121,8 +131,10 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 
 	const selectProfile = async (userId: UserId, input: SelectProfileInput): Promise<SelectProfileResult> => {
 		let profile: GbpLocation;
+		let conn: ConnectionRef;
 		try {
-			profile = await client.getLocation(userId, input.gbpLocationId);
+			conn = await resolveConnection(userId, input.google_sub, tokens);
+			profile = await client.getLocation(conn, input.gbpLocationId);
 		} catch (err) {
 			throw toGbpApiError(err, { forbiddenMessage: 'The connected Google account cannot access this Business Profile location.' });
 		}
@@ -139,7 +151,8 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 			location = await Location.findOne({ created_by: userId, is_active: true, place_id: profile.placeId });
 		}
 		if (!location) {
-			location = await Location.create({ ...locationFieldsFromProfile(profile), created_by: userId });
+			const fields = locationFieldsFromProfile(profile);
+			location = await Location.create({ ...fields, center_source: fields.lat !== null ? 'gbp' : null, created_by: userId });
 			created = true;
 			await Profile.updateOne({ user_id: userId, is_active: true }, { $inc: { no_of_locations: 1 } });
 		}
@@ -148,12 +161,23 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 			location_id: String(location._id),
 			gbpAccountId: input.gbpAccountId,
 			gbpLocationId: input.gbpLocationId,
+			google_sub: conn.googleSub,
 			profile,
 		});
+		const afterBind = (await Location.findById(location._id).lean<ILocation>()) as ILocation;
+		const centerNeeded = typeof afterBind.lat !== 'number' || typeof afterBind.lng !== 'number';
 		if (!location.onboarding || location.onboarding.step !== 'completed') {
 			await Location.updateOne(
 				{ _id: location._id },
-				{ $set: { onboarding: { step: 'profile_selected', started_at: location.onboarding?.started_at ?? now(), completed_at: null } } },
+				{
+					$set: {
+						onboarding: {
+							step: centerNeeded ? 'center_needed' : 'profile_selected',
+							started_at: location.onboarding?.started_at ?? now(),
+							completed_at: null,
+						},
+					},
+				},
 			);
 		}
 		const saved = (await Location.findById(location._id).lean<ILocation>()) as ILocation;
@@ -168,6 +192,7 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 				lng: typeof saved.lng === 'number' ? saved.lng : null,
 			},
 			created,
+			center_needed: centerNeeded,
 			binding: bound,
 		};
 	};
@@ -185,6 +210,9 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 		}
 		if (!(await UserGBP.exists({ user_id: userId, location_id: location._id, is_active: true }))) {
 			throw new ApiError(httpStatus.BAD_REQUEST, 'Select a Business Profile for this location first.');
+		}
+		if (typeof location.lat !== 'number' || typeof location.lng !== 'number') {
+			throw new ApiError(httpStatus.BAD_REQUEST, 'Set the business center first (city or ZIP).');
 		}
 		if (withDefaults(location.tracking).keywords.length === 0) {
 			throw new ApiError(httpStatus.BAD_REQUEST, 'Add at least one keyword first.');

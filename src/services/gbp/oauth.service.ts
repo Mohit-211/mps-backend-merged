@@ -5,7 +5,7 @@ import config from '../../configs/config';
 import logger from '../../configs/logger';
 import { tokenTypes } from '../../configs/constantTypes';
 import { GbpApiError, GbpClient, GbpConfigError, gbpClient } from '../../clients/gbpClient';
-import { OAuthFlow, OAuthState, User, UserGBP } from '../../models';
+import { OAuthFlow, OAuthState, User } from '../../models';
 import { ApiError } from '../../utils';
 import { IdTokenError, IdTokenVerifier, verifyGoogleIdToken } from './idToken';
 import { TokenStore, tokenStore } from './tokenStore';
@@ -16,8 +16,8 @@ import { TokenStore, tokenStore } from './tokenStore';
 //   The popup flow also requires the state to belong to the logged-in user.
 // - Scopes: openid, email, business.manage. The id_token is verified (signature, issuer, audience,
 //   expiry, email_verified) and the Google email is stored for "Connected as …".
-// - Any Google account may connect. Switching to a different Google account while locations are
-//   bound is refused (409): those bindings belong to the old account.
+// - Any Google account may connect, and a user may connect several (agencies): one connection per
+//   Google account (id_token sub). Connecting the same account again updates its connection.
 
 export const GBP_SCOPE = 'https://www.googleapis.com/auth/business.manage';
 export const GBP_SCOPES = ['openid', 'email', GBP_SCOPE];
@@ -34,20 +34,24 @@ export interface CallbackQuery {
 	error?: string;
 }
 
-/** What the frontend passes to google.accounts.oauth2.initCodeClient (popup mode). */
+/**
+ * What the frontend passes to google.accounts.oauth2.initCodeClient (popup mode). The GIS code client
+ * has no `prompt` / `access_type` options: `select_account: true` shows the account chooser, and the
+ * code flow returns a refresh token on first consent (a same-account reconnect reuses the stored one).
+ */
 export interface PopupConfig {
 	client_id: string;
 	scope: string;
 	state: string;
 	ux_mode: 'popup';
 	select_account: true;
-	prompt: string;
-	access_type: 'offline';
 }
 
 export interface ConnectResult {
 	connected: true;
 	google_email: string;
+	/** The connection id (Google account); pass it when binding or disconnecting with several accounts. */
+	google_sub: string;
 }
 
 export interface GbpOAuthDeps {
@@ -114,8 +118,6 @@ export const createGbpOAuthService = (deps: GbpOAuthDeps = {}) => {
 		state: await newState(userId, 'popup'),
 		ux_mode: 'popup',
 		select_account: true,
-		prompt: CONNECT_PROMPT,
-		access_type: 'offline',
 	});
 
 	/** Atomic one-time consume: unknown, expired, used, wrong-flow (and, for popup, wrong-user) states fail. */
@@ -163,18 +165,9 @@ export const createGbpOAuthService = (deps: GbpOAuthDeps = {}) => {
 			throw err;
 		}
 
-		const existing = await tokens.load(user._id, tokenTypes.GBP).catch(() => null);
-		const switching = existing !== null && existing.googleSub !== null && existing.googleSub !== identity.sub;
-		if (switching) {
-			const bound = await UserGBP.countDocuments({ user_id: user._id, is_active: true });
-			if (bound > 0) {
-				throw new ApiError(
-					httpStatus.CONFLICT,
-					`Connected as ${existing.googleEmail ?? 'another Google account'} with ${bound} bound location(s). Disconnect first to switch Google accounts.`,
-				);
-			}
-		}
-		if (!exchanged.refreshToken && (existing === null || switching)) {
+		// One connection per Google account (sub): the same account again updates it, a new one adds one.
+		const existing = await tokens.load(user._id, tokenTypes.GBP, identity.sub).catch(() => null);
+		if (!exchanged.refreshToken && existing === null) {
 			throw new ApiError(
 				httpStatus.BAD_REQUEST,
 				'Google did not return a refresh token. Remove MyPageSEO at myaccount.google.com/permissions and connect again.',
@@ -190,8 +183,8 @@ export const createGbpOAuthService = (deps: GbpOAuthDeps = {}) => {
 			googleSub: identity.sub,
 		});
 		await User.updateOne({ _id: user._id }, { $set: { is_gbp_connected: true } });
-		logger.info(`gbp oauth: user ${String(user._id)} connected`);
-		return { connected: true, google_email: identity.email };
+		logger.info(`gbp oauth: user ${String(user._id)} connected a Google account (${existing ? 'updated' : 'new'})`);
+		return { connected: true, google_email: identity.email, google_sub: identity.sub };
 	};
 
 	/** Redirect flow callback (Google calls it; no MyPageSEO session). */

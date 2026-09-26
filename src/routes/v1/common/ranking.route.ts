@@ -3,7 +3,7 @@ import * as rankingController from '../../../controllers/ranking/ranking.control
 import { userAuthMiddleware } from '../../../middlewares';
 import { loadOwnedLocation, validateReportQuery, validateTrackingUpdate } from '../../../middlewares/ranking/ranking.middleware';
 import * as onboardingController from '../../../controllers/onboarding/onboarding.controller';
-import { validateSuggestionsQuery } from '../../../middlewares/onboarding/onboarding.middleware';
+import { validateCenter, validateSuggestionsQuery } from '../../../middlewares/onboarding/onboarding.middleware';
 
 // Ranking reports (CLAUDE.md §9.4), mounted at /api/v1/locations next to the location routes.
 // Every route: user auth, then location ownership (404 for someone else's location).
@@ -20,5 +20,7 @@ router.get('/:locationId/grid', [...owned, validateReportQuery], rankingControll
 router.get('/:locationId/map-ranking', [...owned, validateReportQuery], rankingController.getMapRanking);
 // Phase 7a onboarding: competitor suggestions (paid Places calls, 24 h cache, daily per-user limit).
 router.get('/:locationId/competitor-suggestions', [...owned, validateSuggestionsQuery], onboardingController.competitorSuggestions);
+// Phase 7a onboarding: manual business center (city / ZIP) for service-area businesses (2 Places calls).
+router.put('/:locationId/center', [...owned, validateCenter], onboardingController.setCenter);
 
 export default router;

@@ -87,7 +87,7 @@ describe('redirect flow', () => {
 		const { user } = await createUser('u@test.dev');
 		const { service, exchanged } = setup();
 		const state = stateOf(await service.createAuthUrl(user._id));
-		expect(await service.handleCallback({ code: '4/code', state })).toEqual({ connected: true, google_email: 'owner@example.test' });
+		expect(await service.handleCallback({ code: '4/code', state })).toEqual({ connected: true, google_email: 'owner@example.test', google_sub: OWNER_SUB });
 		expect(exchanged).toEqual([{ code: '4/code', redirectUri: undefined }]);
 		expect(await tokens.load(user._id, tokenTypes.GBP)).toMatchObject({
 			accessToken: 'ya29.FAKE',
@@ -143,9 +143,9 @@ describe('popup flow', () => {
 			scope: 'openid email https://www.googleapis.com/auth/business.manage',
 			ux_mode: 'popup',
 			select_account: true,
-			prompt: 'select_account consent',
-			access_type: 'offline',
 		});
+		expect(popup).not.toHaveProperty('prompt');
+		expect(popup).not.toHaveProperty('access_type');
 		expect(await OAuthState.findOne({ token_hash: hashState(popup.state) }).lean()).toMatchObject({ flow: 'popup' });
 	});
 
@@ -153,7 +153,7 @@ describe('popup flow', () => {
 		const { user } = await createUser('u@test.dev');
 		const { service, exchanged } = setup();
 		const { state } = await service.createPopupConfig(user._id);
-		expect(await service.handlePopupCode(user._id, { code: '4/popup', state })).toEqual({ connected: true, google_email: 'owner@example.test' });
+		expect(await service.handlePopupCode(user._id, { code: '4/popup', state })).toEqual({ connected: true, google_email: 'owner@example.test', google_sub: OWNER_SUB });
 		expect(exchanged).toEqual([{ code: '4/popup', redirectUri: 'postmessage' }]);
 	});
 
@@ -180,30 +180,34 @@ describe('popup flow', () => {
 	});
 });
 
-describe('switching Google accounts and missing refresh tokens', () => {
+describe('several Google accounts and missing refresh tokens', () => {
 	const connectAs = async (userId: Types.ObjectId, over: Parameters<typeof googleTokens>[0]) => {
 		const { service } = setup({ exchange: () => googleTokens(over) });
 		const { state } = await service.createPopupConfig(userId);
 		return service.handlePopupCode(userId, { code: '4/code', state });
 	};
 
-	it('refuses a different Google account while locations are bound (409)', async () => {
+	it('adds a second Google account as its own connection, even with bound locations (no 409)', async () => {
 		const { user } = await createUser('u@test.dev');
 		await connectAs(user._id as Types.ObjectId, {});
 		const location = await createLocation(user._id as Types.ObjectId);
-		await UserGBP.create({ user_id: user._id, location_id: location._id, gbpAccountId: 'accounts/1', gbpLocationId: 'locations/1' });
-		await expect(connectAs(user._id as Types.ObjectId, { sub: OTHER_SUB, email: 'other@example.test' })).rejects.toMatchObject({
-			statusCode: 409,
-			message: 'Connected as owner@example.test with 1 bound location(s). Disconnect first to switch Google accounts.',
+		await UserGBP.create({ user_id: user._id, location_id: location._id, gbpAccountId: 'accounts/1', gbpLocationId: 'locations/1', google_sub: OWNER_SUB });
+		await expect(connectAs(user._id as Types.ObjectId, { sub: OTHER_SUB, email: 'other@example.test', refreshToken: '1//OTHER' })).resolves.toEqual({
+			connected: true,
+			google_email: 'other@example.test',
+			google_sub: OTHER_SUB,
 		});
-		expect((await tokens.load(user._id, tokenTypes.GBP))?.googleSub).toBe(OWNER_SUB);
+		expect((await tokens.listConnections(user._id, tokenTypes.GBP)).map((c) => c.googleEmail)).toEqual(['owner@example.test', 'other@example.test']);
+		expect(await tokens.load(user._id, tokenTypes.GBP, OWNER_SUB)).toMatchObject({ refreshToken: '1//FAKE' });
+		expect(await tokens.load(user._id, tokenTypes.GBP, OTHER_SUB)).toMatchObject({ refreshToken: '1//OTHER' });
 	});
 
-	it('replaces the tokens for a different account when nothing is bound', async () => {
+	it('updates the same Google account instead of duplicating it', async () => {
 		const { user } = await createUser('u@test.dev');
 		await connectAs(user._id as Types.ObjectId, {});
-		await connectAs(user._id as Types.ObjectId, { sub: OTHER_SUB, email: 'other@example.test', refreshToken: '1//OTHER' });
-		expect(await tokens.load(user._id, tokenTypes.GBP)).toMatchObject({ googleEmail: 'other@example.test', refreshToken: '1//OTHER' });
+		await connectAs(user._id as Types.ObjectId, { accessToken: 'ya29.SECOND', refreshToken: '1//SECOND' });
+		expect(await UserAuth.countDocuments({ user_id: user._id })).toBe(1);
+		expect(await tokens.load(user._id, tokenTypes.GBP, OWNER_SUB)).toMatchObject({ accessToken: 'ya29.SECOND', refreshToken: '1//SECOND' });
 	});
 
 	it('keeps the stored refresh token on a same-account reconnect without one', async () => {

@@ -11,7 +11,7 @@ import {
 import { StoredTokens, TokenUpdate } from '../../src/services/gbp/tokenStore';
 import { FakeStep, createFakeTransport } from '../helpers/fakeTransport';
 
-const USER = 'user-1';
+const USER = { userId: 'user-1' };
 const T0 = Date.parse('2026-09-26T10:00:00Z');
 
 /** In-memory token store + fake clock, so the client can be tested without Mongo or real time. */

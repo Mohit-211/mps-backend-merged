@@ -144,7 +144,7 @@ export const getGBPAuthUrl = catchAsync(async (req, res) => {
 });
 
 export const gBPConnectionRevoke = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["user"]);
+  const body = pick(req.body, ["user", "google_sub"]);
   let response = await userAuthService.gBPConnectionRevoke(body);
   return responseWrapper(
     res,

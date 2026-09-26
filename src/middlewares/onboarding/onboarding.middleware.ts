@@ -9,10 +9,11 @@ const selectProfileSchema = Joi.object({
 	gbpAccountId: Joi.string().pattern(/^accounts\/[A-Za-z0-9_-]{1,64}$/).required(),
 	gbpLocationId: Joi.string().pattern(/^locations\/[A-Za-z0-9_-]{1,64}$/).required(),
 	location_id: Joi.string().hex().length(24),
+	google_sub: Joi.string().trim().min(1).max(255),
 });
 
 export const validateSelectProfile = catchAsync(async (req, res, next) => {
-	const { value, error } = selectProfileSchema.validate(pick(req.body, ['gbpAccountId', 'gbpLocationId', 'location_id']));
+	const { value, error } = selectProfileSchema.validate(pick(req.body, ['gbpAccountId', 'gbpLocationId', 'location_id', 'google_sub']));
 	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
 	res.locals.selectProfile = value;
 	next();
@@ -47,3 +48,12 @@ export const validatePlacesSearch = catchAsync(async (req, res, next) => {
 	res.locals.q = value.q;
 	next();
 });
+
+/** PUT /locations/:locationId/center { query }: a city or ZIP / postal code, 2–100 characters. */
+export const validateCenter = catchAsync(async (req, res, next) => {
+	const { value, error } = Joi.object({ query: Joi.string().trim().min(2).max(100).required() }).validate(pick(req.body, ['query']));
+	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
+	res.locals.centerQuery = value.query;
+	next();
+});
+
