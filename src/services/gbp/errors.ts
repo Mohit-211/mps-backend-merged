@@ -35,3 +35,19 @@ export const toGbpApiError = (err: unknown, context?: { forbiddenMessage?: strin
 	}
 	return err;
 };
+
+/** One actionable sentence per known failure (used by `npm run gbp:preflight`). */
+export const explainGbpError = (err: unknown): string => {
+	if (err instanceof GbpAccessNotApprovedError) {
+		return 'GBP API access not approved (quota 0). Apply for GBP API access for this Cloud project; nothing else can fix this.';
+	}
+	if (err instanceof GbpApiDisabledError) return `API not enabled: ${err.message}`;
+	if (err instanceof GbpNotConnectedError) {
+		return 'Not connected: this user has no GBP authorisation. Connect via GET /api/v1/user/auth/google/gbp.';
+	}
+	if (err instanceof GbpReauthRequiredError || err instanceof TokenDecryptError) {
+		return 'Reconnect needed: Google rejected the stored authorisation (or it cannot be decrypted). Connect again.';
+	}
+	if (err instanceof GbpConfigError || err instanceof TokenCryptoConfigError) return `Server not configured: ${err.message}`;
+	return `Failed: ${err instanceof Error ? err.message : String(err)}`;
+};
