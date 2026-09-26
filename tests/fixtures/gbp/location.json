@@ -1,0 +1,18 @@
+{
+  "name": "locations/200000000000000000001",
+  "title": "Example Plumbing Co",
+  "languageCode": "en",
+  "storefrontAddress": {
+    "regionCode": "US",
+    "postalCode": "75201",
+    "administrativeArea": "TX",
+    "locality": "Dallas",
+    "addressLines": ["100 Example St", "Suite 5"]
+  },
+  "phoneNumbers": { "primaryPhone": "(214) 555-0100" },
+  "websiteUri": "https://example-plumbing.test/",
+  "categories": { "primaryCategory": { "displayName": "Plumber" } },
+  "latlng": { "latitude": 32.7801, "longitude": -96.8005 },
+  "metadata": { "placeId": "ChIJfakeGbpPlace000000001" },
+  "profile": { "description": "Family-run plumbers." }
+}

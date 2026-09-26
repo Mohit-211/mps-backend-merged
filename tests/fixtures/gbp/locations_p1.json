@@ -1,0 +1,39 @@
+{
+  "locations": [
+    {
+      "name": "locations/200000000000000000001",
+      "title": "Example Plumbing Co",
+      "languageCode": "en",
+      "storefrontAddress": {
+        "regionCode": "US",
+        "languageCode": "en",
+        "postalCode": "75201",
+        "administrativeArea": "TX",
+        "locality": "Dallas",
+        "addressLines": ["100 Example St", "Suite 5"]
+      },
+      "phoneNumbers": { "primaryPhone": "(214) 555-0100" },
+      "websiteUri": "https://example-plumbing.test/",
+      "categories": { "primaryCategory": { "name": "categories/gcid:plumber", "displayName": "Plumber" } },
+      "latlng": { "latitude": 32.7801, "longitude": -96.8005 },
+      "metadata": { "placeId": "ChIJfakeGbpPlace000000001", "mapsUri": "https://maps.google.com/maps?cid=1", "hasVoiceOfMerchant": true },
+      "profile": { "description": "Family-run plumbers." }
+    },
+    {
+      "name": "locations/200000000000000000002",
+      "title": "Example Drains",
+      "languageCode": "en",
+      "storefrontAddress": {
+        "regionCode": "CA",
+        "postalCode": "E3B 1A1",
+        "administrativeArea": "NB",
+        "locality": "Fredericton",
+        "addressLines": ["1 Sample Ave"]
+      },
+      "categories": { "primaryCategory": { "displayName": "Drainage service" } },
+      "latlng": { "latitude": 45.9636, "longitude": -66.6431 },
+      "metadata": { "placeId": "ChIJfakeGbpPlace000000002" }
+    }
+  ],
+  "nextPageToken": "loc-page-2"
+}

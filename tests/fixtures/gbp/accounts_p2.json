@@ -1,0 +1,5 @@
+{
+  "accounts": [
+    { "name": "accounts/100000000000000000003", "accountName": "Example Second Group", "type": "USER_GROUP", "role": "OWNER" }
+  ]
+}

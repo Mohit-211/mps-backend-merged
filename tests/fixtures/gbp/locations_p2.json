@@ -1,0 +1,12 @@
+{
+  "locations": [
+    {
+      "name": "locations/200000000000000000003",
+      "title": "Example Mobile Repairs",
+      "languageCode": "en",
+      "phoneNumbers": { "primaryPhone": "+1 506-555-0199" },
+      "categories": { "primaryCategory": { "displayName": "Handyman" } },
+      "metadata": {}
+    }
+  ]
+}
