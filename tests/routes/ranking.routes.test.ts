@@ -3,7 +3,7 @@ import request from 'supertest';
 import { Types } from 'mongoose';
 import config from '../../src/configs/config';
 import { queryTypesArr } from '../../src/configs/constantTypes';
-import { RankRun } from '../../src/models';
+import { Location, RankRun } from '../../src/models';
 import { createScriptedPlaces, PlacesScript } from '../../src/ranking/demo/scriptedPlaces';
 import { executeRankRun } from '../../src/services/ranking/rankRunExecutor';
 import { resolveNames } from '../../src/services/ranking/resolveNames';
@@ -38,6 +38,9 @@ let otherToken: string;
 let locationId: string;
 const base = (path = '') => `/api/v1/locations/${locationId}${path}`;
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+/** "A day later": clears the 24 h manual-refresh limit so the next run-now is allowed (7b). */
+const allowNextManualRun = () => Location.updateOne({ _id: locationId }, { $unset: { 'refresh.last_manual': '' } });
 
 const executeLatestQueued = async (runAt?: Date) => {
 	const run = await RankRun.findOne({ location_id: locationId, status: 'queued' });
@@ -93,8 +96,7 @@ describe('tracking settings', () => {
 			keywords_version: 1,
 			competitors: [],
 			grid: { size: 5, spacing_km: 1 },
-			frequency: 'manual',
-			next_run_at: null,
+			frequency: 'auto_monthly',
 		});
 		expect(res.body.data.estimate.keywords).toBe(0);
 	});
@@ -106,6 +108,8 @@ describe('tracking settings', () => {
 			[{ competitors: [SELF_PLACE_ID] }, /own place_id/],
 			[{ keywords: ['a'] }, /2-80 characters/],
 			[{ frequency: 'daily' }, /frequency/],
+			[{ frequency: 'weekly' }, /frequency/],
+			[{ keywords: ['plumber'], next_run_at: '2026-10-01T00:00:00Z' }, /next_run_at is no longer supported/],
 		];
 		for (const [body, message] of cases) {
 			const res = await request(app).put(base('/tracking')).set(auth(ownerToken)).send(body);
@@ -122,7 +126,7 @@ describe('tracking settings', () => {
 				keywords: ['Emergency Plumber', 'Drain Cleaning', 'emergency plumber'],
 				competitors: [COMPETITOR_1],
 				grid: { size: 3, spacing_km: 1 },
-				frequency: 'weekly',
+				frequency: 'manual_only',
 			});
 		expect(put.status).toBe(200);
 		expect(put.body.data).toMatchObject({ keywords_version_bumped: false, dev_capped: false });
@@ -130,12 +134,11 @@ describe('tracking settings', () => {
 			{ text: 'Emergency Plumber', normalized: 'emergency plumber' },
 			{ text: 'Drain Cleaning', normalized: 'drain cleaning' },
 		]);
-		expect(put.body.data.tracking.next_run_at).not.toBeNull();
 		expect(put.body.data.estimate.idsOnly).toEqual({ min: 26, max: 78, maxWithRetries: 156 });
 
 		const get = await request(app).get(base('/tracking')).set(auth(ownerToken));
 		expect(get.body.data.tracking.competitors).toEqual([COMPETITOR_1]);
-		expect(get.body.data.tracking.frequency).toBe('weekly');
+		expect(get.body.data.tracking.frequency).toBe('manual_only');
 	});
 });
 
@@ -229,6 +232,7 @@ describe('rank runs and reports', () => {
 	});
 
 	it('?runId= shows an older run; trend and history list both runs', async () => {
+		await allowNextManualRun();
 		await request(app).post(base('/rank-runs')).set(auth(ownerToken)).send({});
 		const secondRunId = await executeLatestQueued(new Date('2026-09-26T10:00:00Z'));
 		const first = (await RankRun.findOne({ location_id: locationId, _id: { $ne: secondRunId } }))?._id;
@@ -251,6 +255,7 @@ describe('rank runs and reports', () => {
 		const original = config.ranking.maxCallsPerRun;
 		config.ranking.maxCallsPerRun = 10;
 		try {
+			await allowNextManualRun();
 			const res = await request(app).post(base('/rank-runs')).set(auth(ownerToken)).send({});
 			expect(res.status).toBe(422);
 			expect(res.body.data).toMatchObject({ cap: 10, estimate: { idsOnly: { max: 78 } } });
@@ -280,6 +285,7 @@ describe('names at view time (STORE_PLACE_NAMES=false)', () => {
 		const original = config.ranking.storePlaceNames;
 		config.ranking.storePlaceNames = false;
 		try {
+			await allowNextManualRun();
 			await request(app).post(base('/rank-runs')).set(auth(ownerToken)).send({});
 			await executeLatestQueued(new Date('2026-09-27T10:00:00Z'));
 			const plain = await request(app).get(base('/map-ranking')).set(auth(ownerToken));
@@ -293,3 +299,14 @@ describe('names at view time (STORE_PLACE_NAMES=false)', () => {
 		}
 	});
 });
+
+describe('manual refresh limit (7b)', () => {
+	it('run now shares the 24 h rankings refresh limit: 429 with next_allowed_at inside the window', async () => {
+		await RankRun.updateMany({ location_id: locationId, active: true }, { $set: { active: false, status: 'failed' } });
+		await Location.updateOne({ _id: locationId }, { $set: { 'refresh.last_manual.rankings': new Date() } });
+		const limited = await request(app).post(base('/rank-runs')).set(auth(ownerToken)).send({});
+		expect(limited.status).toBe(429);
+		expect(new Date(limited.body.data.next_allowed_at).getTime()).toBeGreaterThan(Date.now());
+	});
+});
+

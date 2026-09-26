@@ -6,7 +6,7 @@
  *     --keywords "seo company,digital marketing agency" --token-file <path>
  *
  * The location gets place_id and lat/lng directly (avoiding the legacy POST /locations, which makes an
- * all-fields Place Details call) and tracking: the keywords, a 3×3 grid at 1 km, frequency manual.
+ * all-fields Place Details call) and tracking: the keywords, a 3×3 grid at 1 km, frequency manual_only.
  * The access token is written to --token-file (mode 600), never printed.
  *
  *   npm run setup:live-test -- --token-only --token-file <path>
@@ -125,7 +125,7 @@ const main = async (): Promise<void> => {
 			keywords_updated_at: new Date(),
 			competitors: [],
 			grid: { size: 3, spacing_km: 1 },
-			frequency: 'manual',
+			frequency: 'manual_only',
 			next_run_at: null,
 			last_run_at: null,
 			last_error: null,
@@ -140,7 +140,7 @@ const main = async (): Promise<void> => {
 			`Location id:     ${String(location._id)}`,
 			`Place ID:        ${placeId}`,
 			`Center:          ${lat}, ${lng}`,
-			`Tracking:        ${keywords.join(' / ')}; grid 3x3 @ 1 km; frequency manual`,
+			`Tracking:        ${keywords.join(' / ')}; grid 3x3 @ 1 km; frequency manual_only`,
 		].join('\n') + '\n',
 	);
 	await mongoose.disconnect();

@@ -4,7 +4,7 @@ import logger from '../../configs/logger';
 import { tokenTypes } from '../../configs/constantTypes';
 import { ConnectionRef, GbpClient, gbpClient } from '../../clients/gbpClient';
 import { GbpLocation } from '../../clients/types/gbp';
-import { ILocation, Location, Profile, RankRun, UserGBP } from '../../models';
+import { GbpSync, ILocation, Location, Profile, RankRun, UserGBP } from '../../models';
 import { ApiError } from '../../utils';
 import { BindResult, bindingService } from '../gbp/binding.service';
 import { DiscoveredLocation, countryName, discoveryService, formatAddress } from '../gbp/discovery.service';
@@ -12,6 +12,8 @@ import { toGbpApiError } from '../gbp/errors';
 import { resolveConnection } from '../gbp/connections';
 import { TokenStore, tokenStore } from '../gbp/tokenStore';
 import { EnqueueResult, RunOverCapError, enqueueRankRun } from '../ranking/rankRun.service';
+import { SyncEnqueueResult, enqueueGbpSync } from '../gbp/sync.service';
+import { initialSchedule } from '../refresh/cadence';
 import { withDefaults } from '../ranking/trackingSettings';
 
 // Onboarding (Phase 7a): connect Google → pick a Business Profile (creates or links our Location and
@@ -51,7 +53,10 @@ export interface CompleteResult {
 	completed: true;
 	completed_at: Date;
 	rank_run: { run_id: string; status: string; existing: boolean } | null;
-	gbp_sync: { requested_at: Date | null };
+	/** The first GBP sync (queued now), or its error if it could not be queued. */
+	gbp_sync: { sync_id: string; status: string; existing: boolean } | { error: string } | null;
+	/** Monthly refresh schedule: the anchor day and the next automatic refresh. */
+	refresh: { anchor_day: number; next_refresh_at: Date | null } | null;
 }
 
 export interface OnboardingDeps {
@@ -60,6 +65,7 @@ export interface OnboardingDeps {
 	discovery?: { listAllLocations: typeof discoveryService.listAllLocations };
 	binding?: { bindLocation: typeof bindingService.bindLocation };
 	enqueue?: (location: ILocation, userId: UserId) => Promise<EnqueueResult>;
+	enqueueSync?: (location: ILocation, userId: UserId) => Promise<SyncEnqueueResult>;
 	now?: () => Date;
 }
 
@@ -90,6 +96,7 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 	const discovery = deps.discovery ?? discoveryService;
 	const binding = deps.binding ?? bindingService;
 	const enqueue = deps.enqueue ?? ((location: ILocation, userId: UserId) => enqueueRankRun(location, userId, 'manual'));
+	const enqueueSync = deps.enqueueSync ?? ((location: ILocation, userId: UserId) => enqueueGbpSync(location, userId, 'onboarding'));
 	const now = deps.now ?? (() => new Date());
 
 	const getState = async (userId: UserId): Promise<OnboardingState> => {
@@ -201,11 +208,13 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 		const location = await ownedLocation(userId, locationId);
 		if (location.onboarding?.step === 'completed' && location.onboarding.completed_at) {
 			const last = await RankRun.findOne({ location_id: location._id }).sort({ run_at: -1 }).lean();
+			const lastSync = await GbpSync.findOne({ location_id: location._id }).sort({ run_at: -1 }).lean();
 			return {
 				completed: true,
 				completed_at: location.onboarding.completed_at,
 				rank_run: last ? { run_id: String(last._id), status: last.status, existing: true } : null,
-				gbp_sync: { requested_at: location.gbp_sync?.requested_at ?? null },
+				gbp_sync: lastSync ? { sync_id: String(lastSync._id), status: lastSync.status, existing: true } : null,
+				refresh: location.refresh ? { anchor_day: location.refresh.anchor_day, next_refresh_at: location.refresh.next_refresh_at } : null,
 			};
 		}
 		if (!(await UserGBP.exists({ user_id: userId, location_id: location._id, is_active: true }))) {
@@ -225,22 +234,33 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 			if (err instanceof RunOverCapError) throw new ApiError(httpStatus.UNPROCESSABLE_ENTITY, err.message);
 			throw err;
 		}
+		// First GBP sync now (the location is bound); a failure here doesn't block completion.
+		let gbpSync: CompleteResult['gbp_sync'];
+		try {
+			const sync = await enqueueSync(location, userId);
+			gbpSync = { sync_id: sync.sync_id, status: sync.status, existing: sync.existing };
+		} catch (err) {
+			gbpSync = { error: err instanceof Error ? err.message : 'GBP sync could not be queued' };
+		}
 		const at = now();
+		const schedule = initialSchedule(location, at);
 		await Location.updateOne(
 			{ _id: location._id },
 			{
 				$set: {
 					onboarding: { step: 'completed', started_at: location.onboarding?.started_at ?? at, completed_at: at },
-					'gbp_sync.requested_at': at,
+					'refresh.anchor_day': schedule.anchor_day,
+					'refresh.next_refresh_at': schedule.next_refresh_at,
 				},
 			},
 		);
-		logger.info(`onboarding: location ${String(location._id)} completed (rank run ${run.run_id}, gbp sync requested)`);
+		logger.info(`onboarding: location ${String(location._id)} completed (rank run ${run.run_id}, next refresh ${schedule.next_refresh_at.toISOString()})`);
 		return {
 			completed: true,
 			completed_at: at,
 			rank_run: { run_id: run.run_id, status: run.status, existing: run.existing },
-			gbp_sync: { requested_at: at },
+			gbp_sync: gbpSync,
+			refresh: schedule,
 		};
 	};
 

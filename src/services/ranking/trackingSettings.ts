@@ -1,9 +1,9 @@
 import httpStatus from 'http-status';
-import { DateTime } from 'luxon';
 import { normalisePlaceId } from '../../clients/placesClient';
 import { ILocationTracking, TrackingFrequency } from '../../models/location.model';
 import { normaliseKeyword } from '../../ranking/engine';
 import { ApiError } from '../../utils';
+import { normaliseFrequency } from '../refresh/cadence';
 
 // Pure rules for Location.tracking (CLAUDE.md §4 "Keywords"/"Competitors", §9.1, §9.4 validation).
 
@@ -17,7 +17,6 @@ export interface TrackingUpdate {
 	competitors?: string[];
 	grid?: { size: number; spacing_km: number };
 	frequency?: TrackingFrequency;
-	next_run_at?: Date | null;
 }
 
 export const defaultTracking = (): ILocationTracking => ({
@@ -26,7 +25,7 @@ export const defaultTracking = (): ILocationTracking => ({
 	keywords_updated_at: null,
 	competitors: [],
 	grid: { size: 5, spacing_km: 1 },
-	frequency: 'manual',
+	frequency: 'auto_monthly',
 	next_run_at: null,
 	last_run_at: null,
 	last_error: null,
@@ -45,7 +44,8 @@ export const withDefaults = (tracking?: Partial<ILocationTracking> | null): ILoc
 			size: tracking.grid?.size ?? base.grid.size,
 			spacing_km: tracking.grid?.spacing_km ?? base.grid.spacing_km,
 		},
-		frequency: tracking.frequency ?? base.frequency,
+		// Pre-7b values (weekly / monthly / manual) are mapped to auto_monthly / manual_only.
+		frequency: tracking.frequency ? normaliseFrequency(tracking.frequency) : base.frequency,
 		next_run_at: tracking.next_run_at ?? null,
 		last_run_at: tracking.last_run_at ?? null,
 		last_error: tracking.last_error ?? null,
@@ -97,16 +97,6 @@ export const validateCompetitors = (ids: string[], ownPlaceId?: string | null): 
 	return result;
 };
 
-/** Next scheduled run after `from`, stepping by the frequency until it is after `now` (no catch-up bursts). */
-export const nextRunAfter = (frequency: Exclude<TrackingFrequency, 'manual'>, from: Date, now: Date): Date => {
-	let next = DateTime.fromJSDate(from);
-	const step = frequency === 'weekly' ? { weeks: 1 } : { months: 1 };
-	do {
-		next = next.plus(step);
-	} while (next.toMillis() <= now.getTime());
-	return next.toJSDate();
-};
-
 /**
  * Applies a partial update. Only the fields present change. keywords_version is bumped only when
  * the SET of normalized keywords changes (order-insensitive).
@@ -143,17 +133,9 @@ export const applyTrackingUpdate = (
 		tracking.grid = { size: update.grid.size, spacing_km: update.grid.spacing_km };
 	}
 
-	if (update.frequency !== undefined || update.next_run_at !== undefined) {
-		const frequency = update.frequency ?? tracking.frequency;
-		if (frequency === 'manual') {
-			if (update.next_run_at) throw invalid('next_run_at requires a weekly or monthly frequency');
-			tracking.next_run_at = null;
-		} else if (update.next_run_at) {
-			tracking.next_run_at = update.next_run_at;
-		} else if (update.frequency !== undefined && (update.frequency !== tracking.frequency || !tracking.next_run_at)) {
-			tracking.next_run_at = now; // picked up by the next scheduler tick
-		}
-		tracking.frequency = frequency;
+	if (update.frequency !== undefined) {
+		// auto_monthly: the monthly-refresh scheduler runs it (refresh.next_refresh_at); manual_only: refresh only.
+		tracking.frequency = update.frequency;
 	}
 
 	return { tracking, keywordsVersionBumped };

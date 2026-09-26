@@ -174,8 +174,10 @@ describe('onboarding flow over HTTP', () => {
 		const done = await request(app).post('/api/v1/onboarding/complete').set(auth(token)).send({ location_id: locationId });
 		expect(done.status).toBe(200);
 		expect(done.body.data.rank_run.status).toBe('queued');
-		expect(scheduleMock).toHaveBeenCalledTimes(1);
-		expect((await Location.findById(locationId))?.gbp_sync?.requested_at).toBeInstanceOf(Date);
+		// The first rank run and the first GBP sync are queued; the monthly schedule is set.
+		expect(scheduleMock.mock.calls.map((c) => (c as unknown[])[1]).sort()).toEqual(['gbp-sync', 'rank-run']);
+		expect(done.body.data.gbp_sync).toMatchObject({ status: 'queued', existing: false });
+		expect((await Location.findById(locationId))?.refresh?.next_refresh_at).toBeInstanceOf(Date);
 		expect(fake.suggestCalls).toBe(2); // 2 keywords, then served from cache
 		expect(fake.searchCalls).toBe(1);
 	});

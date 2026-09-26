@@ -1,7 +1,6 @@
 import {
 	applyTrackingUpdate,
 	defaultTracking,
-	nextRunAfter,
 	normaliseKeywords,
 	sameKeywordSet,
 	validateCompetitors,
@@ -62,17 +61,6 @@ describe('validateCompetitors', () => {
 	});
 });
 
-describe('nextRunAfter', () => {
-	it('adds one week / one month', () => {
-		expect(nextRunAfter('weekly', NOW, NOW).toISOString()).toBe('2026-10-03T10:00:00.000Z');
-		expect(nextRunAfter('monthly', NOW, NOW).toISOString()).toBe('2026-10-26T10:00:00.000Z');
-	});
-	it('steps past `now` after an outage instead of scheduling a burst', () => {
-		const overdue = new Date('2026-09-01T10:00:00Z');
-		expect(nextRunAfter('weekly', overdue, NOW).toISOString()).toBe('2026-09-29T10:00:00.000Z');
-	});
-});
-
 describe('applyTrackingUpdate', () => {
 	const base = withDefaults(null);
 
@@ -101,21 +89,18 @@ describe('applyTrackingUpdate', () => {
 		expect(next.grid).toEqual({ size: 7, spacing_km: 2 });
 	});
 
-	it('weekly/monthly schedule the next run now (unless given); manual clears it', () => {
-		const weekly = applyTrackingUpdate(base, { frequency: 'weekly' }, OWN, NOW, 20).tracking;
-		expect(weekly).toMatchObject({ frequency: 'weekly', next_run_at: NOW });
-		const later = new Date('2026-10-01T00:00:00Z');
-		const explicit = applyTrackingUpdate(base, { frequency: 'monthly', next_run_at: later }, OWN, NOW, 20).tracking;
-		expect(explicit.next_run_at).toEqual(later);
-		const manual = applyTrackingUpdate(weekly, { frequency: 'manual' }, OWN, NOW, 20).tracking;
-		expect(manual).toMatchObject({ frequency: 'manual', next_run_at: null });
-		expect(() => applyTrackingUpdate(base, { next_run_at: later }, OWN, NOW, 20)).toThrow('weekly or monthly');
+	it('frequency is auto_monthly by default; manual_only can be set and back', () => {
+		expect(defaultTracking().frequency).toBe('auto_monthly');
+		const manual = applyTrackingUpdate(base, { frequency: 'manual_only' }, OWN, NOW, 20).tracking;
+		expect(manual.frequency).toBe('manual_only');
+		expect(applyTrackingUpdate(manual, { frequency: 'auto_monthly' }, OWN, NOW, 20).tracking.frequency).toBe('auto_monthly');
 	});
 
-	it('keeps an existing next_run_at when the frequency is re-sent unchanged', () => {
-		const weekly = applyTrackingUpdate(base, { frequency: 'weekly' }, OWN, NOW, 20).tracking;
-		const again = applyTrackingUpdate(weekly, { frequency: 'weekly' }, OWN, new Date('2026-09-27T00:00:00Z'), 20);
-		expect(again.tracking.next_run_at).toEqual(NOW);
+	it('maps pre-7b stored frequencies on read', () => {
+		type Stored = Parameters<typeof withDefaults>[0];
+		expect(withDefaults({ frequency: 'weekly' } as unknown as Stored).frequency).toBe('auto_monthly');
+		expect(withDefaults({ frequency: 'monthly' } as unknown as Stored).frequency).toBe('auto_monthly');
+		expect(withDefaults({ frequency: 'manual' } as unknown as Stored).frequency).toBe('manual_only');
 	});
 });
 

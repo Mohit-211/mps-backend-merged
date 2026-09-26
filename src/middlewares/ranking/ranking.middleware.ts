@@ -28,13 +28,20 @@ const trackingUpdateSchema = Joi.object({
 		size: Joi.number().valid(3, 5, 7).required(),
 		spacing_km: Joi.number().min(0.25).max(5).required(),
 	}),
-	frequency: Joi.string().valid('weekly', 'monthly', 'manual'),
-	next_run_at: Joi.date().iso().allow(null),
+	frequency: Joi.string().valid('auto_monthly', 'manual_only'),
 }).min(1);
 
-const TRACKING_FIELDS = ['keywords', 'competitors', 'grid', 'frequency', 'next_run_at'];
+const TRACKING_FIELDS = ['keywords', 'competitors', 'grid', 'frequency'];
 
 export const validateTrackingUpdate = catchAsync(async (req, res, next) => {
+	if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'next_run_at')) {
+		return responseWrapper(
+			res,
+			'',
+			'next_run_at is no longer supported: refresh is monthly (frequency "auto_monthly") or on demand ("manual_only").',
+			httpStatus.BAD_REQUEST,
+		);
+	}
 	const { value, error } = trackingUpdateSchema.validate(pick(req.body, TRACKING_FIELDS), { abortEarly: true });
 	if (error) {
 		const message = error.details[0]?.type === 'object.min' ? 'Provide at least one tracking field to update' : error.message;

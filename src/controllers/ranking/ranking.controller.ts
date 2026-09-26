@@ -1,6 +1,7 @@
 import httpStatus from 'http-status';
 import { ILocation } from '../../models/location.model';
-import { RunOverCapError, enqueueRankRun, getRunForLocation, listRuns, runStatusView } from '../../services/ranking/rankRun.service';
+import { RunOverCapError, getRunForLocation, listRuns, runStatusView } from '../../services/ranking/rankRun.service';
+import { refreshLocation } from '../../services/refresh/refresh.service';
 import { gridView, mapRankingView, rankTrackerView } from '../../services/ranking/rankReports.service';
 import { getTracking, updateTracking } from '../../services/ranking/tracking.service';
 import { TrackingUpdate } from '../../services/ranking/trackingSettings';
@@ -25,13 +26,22 @@ export const updateTrackingSettings = catchAsync(async (req, res) => {
 	return responseWrapper(res, result, 'Tracking settings saved.');
 });
 
+// "Run now" = a rankings refresh: it shares the 24 h manual-refresh limit (7b).
 export const createRankRun = catchAsync(async (req, res) => {
 	try {
-		const result = await enqueueRankRun(location(res), res.locals.userId as string, 'manual');
+		const { rankings } = await refreshLocation(location(res), res.locals.userId as string, ['rankings']);
+		if (!rankings || 'skipped' in rankings) {
+			return responseWrapper(
+				res,
+				{ next_allowed_at: rankings?.next_allowed_at ?? null },
+				'Refresh is limited to once per 24 hours per type.',
+				httpStatus.TOO_MANY_REQUESTS,
+			);
+		}
 		return responseWrapper(
 			res,
-			result,
-			result.existing ? 'A run is already in progress for this location.' : 'Rank run queued.',
+			rankings,
+			rankings.existing ? 'A run is already in progress for this location.' : 'Rank run queued.',
 			httpStatus.ACCEPTED,
 		);
 	} catch (err) {

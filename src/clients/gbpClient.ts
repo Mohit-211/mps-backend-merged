@@ -219,6 +219,15 @@ export const createRateLimiter = (maxRps: number, now: () => number, sleep: Slee
 	return { acquire };
 };
 
+export type RateLimiter = ReturnType<typeof createRateLimiter>;
+
+let processLimiter: RateLimiter | undefined;
+/** The process-wide GBP limiter (≤ GBP_MAX_RPS for every client in this process). */
+export const sharedGbpLimiter = (): RateLimiter => {
+	processLimiter ??= createRateLimiter(config.gbp.maxRps, Date.now, defaultSleep);
+	return processLimiter;
+};
+
 // ---- client ----
 
 export interface GbpClientOptions {
@@ -228,6 +237,8 @@ export interface GbpClientOptions {
 	clientSecret?: string;
 	redirectUri?: string;
 	maxRps?: number;
+	/** Share one limiter between clients (per-sync clients keep their own call counts, one process-wide rate). */
+	limiter?: RateLimiter;
 	now?: () => number;
 	sleep?: Sleep;
 }
@@ -248,7 +259,7 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 	const tokens = options.tokens ?? defaultTokenStore;
 	const now = options.now ?? Date.now;
 	const sleep = options.sleep ?? defaultSleep;
-	const limiter = createRateLimiter(options.maxRps ?? config.gbp.maxRps, now, sleep);
+	const limiter = options.limiter ?? createRateLimiter(options.maxRps ?? config.gbp.maxRps, now, sleep);
 	const stats = { calls: 0, byEndpoint: {} as Record<string, number> };
 
 	const oauthConfig = () => {
@@ -590,4 +601,4 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 
 export type GbpClient = ReturnType<typeof createGbpClient>;
 
-export const gbpClient: GbpClient = createGbpClient();
+export const gbpClient: GbpClient = createGbpClient({ limiter: sharedGbpLimiter() });
