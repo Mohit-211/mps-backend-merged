@@ -22,6 +22,8 @@ export interface StoredTokens {
 	expiryDate: Date | null;
 	scope: string | null;
 	status: 'active' | 'revoked';
+	googleEmail: string | null;
+	googleSub: string | null;
 }
 
 export interface TokenUpdate {
@@ -30,6 +32,9 @@ export interface TokenUpdate {
 	refreshToken?: string | null;
 	expiryDate: Date | null;
 	scope?: string | null;
+	/** Connected Google identity from the verified id_token (connect only). */
+	googleEmail?: string | null;
+	googleSub?: string | null;
 }
 
 type UserId = Types.ObjectId | string;
@@ -68,6 +73,8 @@ export const createTokenStore = (crypto: TokenCrypto = tokenCrypto) => {
 			expiryDate: row.expiry_date ?? null,
 			scope: row.scope ?? null,
 			status: row.status ?? 'active',
+			googleEmail: row.google_email ?? null,
+			googleSub: row.google_sub ?? null,
 		};
 	};
 
@@ -89,6 +96,8 @@ export const createTokenStore = (crypto: TokenCrypto = tokenCrypto) => {
 		};
 		if (update.refreshToken) set.refresh_token = seal(type, update.refreshToken);
 		if (update.scope !== undefined) set.scope = update.scope;
+		if (update.googleEmail !== undefined) set.google_email = update.googleEmail;
+		if (update.googleSub !== undefined) set.google_sub = update.googleSub;
 		if (existing) {
 			await UserAuth.updateOne({ _id: existing._id }, { $set: set });
 		} else {

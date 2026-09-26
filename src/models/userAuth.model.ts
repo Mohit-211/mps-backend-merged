@@ -18,6 +18,9 @@ export interface IUserAuth extends Document {
 	status?: 'active' | 'revoked';
 	last_error?: string | null;
 	last_refreshed_at?: Date | null;
+	/** Connected Google account (from the verified id_token), for display and account-switch checks. */
+	google_email?: string | null;
+	google_sub?: string | null;
 	is_active: boolean;
 	created_at: Date;
 	created_by?: Schema.Types.ObjectId;
@@ -57,6 +60,8 @@ const UserAuthSchema = new Schema<IUserAuth>(
 		status: { type: String, enum: ['active', 'revoked'], default: 'active' },
 		last_error: { type: String, default: null },
 		last_refreshed_at: { type: Date, default: null },
+		google_email: { type: String, default: null },
+		google_sub: { type: String, default: null },
 		is_active: {
 			type: Boolean,
 			default: true,

@@ -614,6 +614,19 @@ export const getGBPAuthUrl = async (body: BodyDefinition) => {
   return gbpOAuthService.createAuthUrl(user._id);
 };
 
+export const getGBPPopupConfig = async (body: BodyDefinition) => {
+  const { user } = body;
+  return gbpOAuthService.createPopupConfig(user._id);
+};
+
+export const gBPPopupCode = async (body: BodyDefinition) => {
+  const { user, code, state } = body;
+  return gbpOAuthService.handlePopupCode(user._id, {
+    code: typeof code === "string" ? code : undefined,
+    state: typeof state === "string" ? state : undefined,
+  });
+};
+
 export const gBPAuthCallback = async (query: QueryDefinition) =>
   gbpOAuthService.handleCallback({
     code: typeof query.code === "string" ? query.code : undefined,

@@ -153,6 +153,18 @@ export const gBPConnectionRevoke = catchAsync(async (req, res) => {
   );
 });
 
+export const getGBPPopupConfig = catchAsync(async (req, res) => {
+  const body = pick(req.body, ["user"]);
+  const response = await userAuthService.getGBPPopupConfig(body);
+  return responseWrapper(res, response);
+});
+
+export const gBPPopupCode = catchAsync(async (req, res) => {
+  const body = pick(req.body, ["user", "code", "state"]);
+  const response = await userAuthService.gBPPopupCode(body);
+  return responseWrapper(res, response, "Connected with GBP successfully.");
+});
+
 export const gBPAuthCallback = catchAsync(async (req, res) => {
   const query = pick(req.query, ["code", "state", "error"]);
   const response = await userAuthService.gBPAuthCallback(query);

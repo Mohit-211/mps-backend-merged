@@ -40,6 +40,8 @@ export interface OAuthTokens {
 	refreshToken: string | null;
 	expiryDate: Date;
 	scope: string | null;
+	/** OpenID Connect id_token (present when the openid scope was granted). Verify before use. */
+	idToken: string | null;
 }
 
 // ---- raw API response shapes (boundary only) ----
@@ -87,4 +89,5 @@ export interface RawTokenResponse {
 	expires_in?: number;
 	scope?: string;
 	token_type?: string;
+	id_token?: string;
 }

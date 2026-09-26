@@ -153,6 +153,7 @@ const mapTokens = (raw: RawTokenResponse, nowMs: number): OAuthTokens => {
 		refreshToken: str(raw.refresh_token),
 		expiryDate: new Date(nowMs + (raw.expires_in ?? 3600) * 1000),
 		scope: str(raw.scope),
+		idToken: str(raw.id_token),
 	};
 };
 
@@ -264,11 +265,20 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		return data;
 	};
 
-	/** Exchanges the OAuth callback code for tokens. */
-	const exchangeCode = async (code: string): Promise<OAuthTokens> => {
+	/**
+	 * Exchanges an authorisation code for tokens. The redirect flow uses the configured redirect URI;
+	 * the Google Identity Services popup flow must use "postmessage".
+	 */
+	const exchangeCode = async (code: string, redirectUriOverride?: string): Promise<OAuthTokens> => {
 		const { clientId, clientSecret, redirectUri } = oauthConfig();
 		const raw = await tokenRequest(
-			{ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' },
+			{
+				code,
+				client_id: clientId,
+				client_secret: clientSecret,
+				redirect_uri: redirectUriOverride ?? redirectUri,
+				grant_type: 'authorization_code',
+			},
 			'oauth.exchange',
 		);
 		return mapTokens(raw, now());

@@ -23,6 +23,12 @@ jest.mock('../../src/clients/placesClient', () => {
 	return { ...actual, placesClient: new Proxy({}, { get: () => placesCalls }) };
 });
 
+// id_token verification would fetch Google's certificates: replace it (it has its own tests).
+jest.mock('../../src/services/gbp/idToken', () => ({
+	...jest.requireActual('../../src/services/gbp/idToken'),
+	verifyGoogleIdToken: async () => ({ sub: '100000000000000000001', email: 'owner@example.test' }),
+}));
+
 // The Google side of GBP, faked at the client boundary (no network).
 const fake = {
 	accounts: [] as GbpAccount[],
@@ -39,7 +45,8 @@ jest.mock('../../src/clients/gbpClient', () => {
 				accessToken: 'ya29.FAKE-route',
 				refreshToken: '1//FAKE-route',
 				expiryDate: new Date(Date.now() + 3600_000),
-				scope: 'https://www.googleapis.com/auth/business.manage',
+				scope: 'openid email https://www.googleapis.com/auth/business.manage',
+				idToken: 'fake.id.token',
 			}),
 			// Like the real client: no stored GBP token means "not connected".
 			listAccounts: async (userId: unknown) => {
@@ -108,12 +115,12 @@ describe('GBP routes: auth', () => {
 });
 
 describe('GBP routes: connect', () => {
-	it('returns a consent URL with business.manage only and a stored state', async () => {
+	it('returns a consent URL with openid, email and business.manage and a stored state', async () => {
 		const { token } = await createUser('a@test.dev');
 		const res = await request(app).get('/api/v1/user/auth/google/gbp').set(auth(token));
 		expect(res.status).toBe(200);
 		const url = new URL(res.body.data);
-		expect(url.searchParams.get('scope')).toBe('https://www.googleapis.com/auth/business.manage');
+		expect(url.searchParams.get('scope')).toBe('openid email https://www.googleapis.com/auth/business.manage');
 		expect(await OAuthState.countDocuments({})).toBe(1);
 	});
 
