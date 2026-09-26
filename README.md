@@ -47,10 +47,6 @@ Our main purpose with this Skeleton is to start server application with node js 
 - Start the application `npm run start`
 - Before starting make sure to update your `.env` values for your refrence just check `.env.example`
 
-## Encryption
-
-Set the `APPLY_ENCRYPTION` environment variable to `true` to enable encryption.
-
 ## Swagger API Documentation
 
 The swagger documentation is available at the following url `${host}/docs`:  

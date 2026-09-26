@@ -130,15 +130,10 @@ interface Config {
 		from?: string;
 	};
 
-
 	square: {
 		squareAccessToken?: string;
 		squareLocationId?: string;
 	};
-
-
-
-
 
 	googleApis: {
 		placeApi: {
@@ -181,7 +176,6 @@ interface Config {
 		/** Empty when unset (development/test): token encryption then throws on use. */
 		tokenEncryptionKey: string;
 	};
-
 
 	constants: {
 		jwt: {
@@ -243,12 +237,10 @@ const config: Config = {
 		from: envVars.EMAIL_FROM,
 	},
 
-
 	square: {
 		squareAccessToken: envVars.SQUARE_ACCESS_TOKEN,
 		squareLocationId: envVars.SQUARE_LOCATION_ID,
 	},
-
 
 	googleApis: {
 		placeApi: {
@@ -286,10 +278,6 @@ const config: Config = {
 	security: {
 		tokenEncryptionKey: envVars.TOKEN_ENCRYPTION_KEY ?? '',
 	},
-
-
-
-
 
 	constants: {
 		jwt: {
