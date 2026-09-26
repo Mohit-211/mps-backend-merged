@@ -103,7 +103,7 @@ const main = async (): Promise<void> => {
 			keywords_updated_at: new Date(now - 21 * DAY),
 			competitors: [DEMO_PLACE_IDS.competitor_1, DEMO_PLACE_IDS.competitor_2],
 			grid: { size: 5, spacing_km: 1 },
-			frequency: 'weekly',
+			frequency: 'auto_monthly',
 			next_run_at: new Date(now + 7 * DAY),
 			last_run_at: null,
 			last_error: null,

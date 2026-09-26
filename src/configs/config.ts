@@ -47,6 +47,13 @@ const envVarsSchema = Joi.object({
 	GOOGLE_GBP_REDIRECT_URI: Joi.string().allow(''),
 	GBP_MAX_RPS: Joi.number().integer().min(1).max(10).default(5),
 	PLACES_USER_DAILY_LIMIT: Joi.number().integer().min(0).default(50).description('User-triggered Places calls per user per UTC day'),
+	REFRESH_MIN_INTERVAL_HOURS: Joi.number().min(0).default(24).description('Manual refresh: minimum hours between refreshes per location per type'),
+	REFRESH_LOCAL_HOUR: Joi.number().integer().min(0).max(23).default(3).description('Local hour of the monthly automatic refresh'),
+	GBP_V4_ENABLED: Joi.boolean().default(false).description('Google My Business v4 (reviews, media, posts) access approved'),
+	GBP_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(18),
+	GBP_ROLLING_DAYS: Joi.number().integer().min(7).max(90).default(40),
+	GBP_KEYWORD_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(6),
+	GBP_KEYWORD_ROLLING_MONTHS: Joi.number().integer().min(1).max(6).default(2),
 	TOKEN_ENCRYPTION_KEY: Joi.string()
 		.allow('')
 		.pattern(/^[0-9a-fA-F]{64}$/)
@@ -155,6 +162,19 @@ interface Config {
 		clientSecret?: string;
 		redirectUri?: string;
 		maxRps: number;
+		/** v4 (reviews, media, posts): false until Google approves access; those types are then not_available. */
+		v4Enabled: boolean;
+		backfillMonths: number;
+		rollingDays: number;
+		keywordBackfillMonths: number;
+		keywordRollingMonths: number;
+	};
+
+	refresh: {
+		/** Manual refresh: minimum hours between refreshes per location per type. */
+		minIntervalHours: number;
+		/** Local hour of the monthly automatic refresh. */
+		localHour: number;
 	};
 
 	security: {
@@ -251,6 +271,16 @@ const config: Config = {
 		clientSecret: envVars.GOOGLE_GBP_CLIENT_SECRET,
 		redirectUri: envVars.GOOGLE_GBP_REDIRECT_URI,
 		maxRps: envVars.GBP_MAX_RPS,
+		v4Enabled: envVars.GBP_V4_ENABLED,
+		backfillMonths: envVars.GBP_BACKFILL_MONTHS,
+		rollingDays: envVars.GBP_ROLLING_DAYS,
+		keywordBackfillMonths: envVars.GBP_KEYWORD_BACKFILL_MONTHS,
+		keywordRollingMonths: envVars.GBP_KEYWORD_ROLLING_MONTHS,
+	},
+
+	refresh: {
+		minIntervalHours: envVars.REFRESH_MIN_INTERVAL_HOURS,
+		localHour: envVars.REFRESH_LOCAL_HOUR,
 	},
 
 	security: {

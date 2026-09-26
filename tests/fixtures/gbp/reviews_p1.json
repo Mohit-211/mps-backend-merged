@@ -1,0 +1,35 @@
+{
+  "reviews": [
+    {
+      "name": "accounts/100000000000000000001/locations/200000000000000000001/reviews/r1",
+      "reviewId": "r1",
+      "reviewer": {
+        "displayName": "Sam K.",
+        "profilePhotoUrl": "https://lh3.example/p.jpg",
+        "isAnonymous": false
+      },
+      "starRating": "FIVE",
+      "comment": "Fast and fair.",
+      "createTime": "2026-09-01T15:00:00Z",
+      "updateTime": "2026-09-01T15:00:00Z",
+      "reviewReply": {
+        "comment": "Thanks Sam!",
+        "updateTime": "2026-09-02T10:00:00Z"
+      }
+    },
+    {
+      "name": "accounts/100000000000000000001/locations/200000000000000000001/reviews/r2",
+      "reviewId": "r2",
+      "reviewer": {
+        "displayName": "A Google User",
+        "isAnonymous": true
+      },
+      "starRating": "TWO",
+      "createTime": "2026-08-15T12:00:00Z",
+      "updateTime": "2026-08-15T12:00:00Z"
+    }
+  ],
+  "averageRating": 4.6,
+  "totalReviewCount": 3,
+  "nextPageToken": "rev-page-2"
+}

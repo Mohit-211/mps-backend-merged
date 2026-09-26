@@ -20,6 +20,7 @@ const PROFILE = mapLocation(loadGbpFixture<RawLocation>('location')) as GbpLocat
 const PLACE_ID = 'ChIJfakeGbpPlace000000001';
 const ACCOUNT = 'accounts/100000000000000000001';
 const tokens = createTokenStore(createTokenCrypto('f'.repeat(64)));
+const syncs: string[] = [];
 
 describe('nextOnboardingStep', () => {
 	it.each([
@@ -80,6 +81,7 @@ describe('onboarding service', () => {
 	const setup = (profile: GbpLocation = PROFILE, opts: { getLocationFails?: boolean } = {}) => {
 		const gbpCalls: string[] = [];
 		const enqueued: string[] = [];
+		syncs.length = 0;
 		const client = {
 			getLocation: async (_u: unknown, name: string) => {
 				gbpCalls.push(name);
@@ -96,6 +98,10 @@ describe('onboarding service', () => {
 			enqueue: async (location: ILocation): Promise<EnqueueResult> => {
 				enqueued.push(String(location._id));
 				return { run_id: 'run-1', status: 'queued', existing: false, estimate: {} as EnqueueResult['estimate'], dev_capped: false };
+			},
+			enqueueSync: async (location: ILocation) => {
+				syncs.push(String(location._id));
+				return { sync_id: 'sync-1', status: 'queued', existing: false, estimated_calls: 7 };
 			},
 		});
 		return { service, gbpCalls, enqueued };
@@ -183,11 +189,14 @@ describe('onboarding service', () => {
 
 		const done = await service.complete(user._id, location.location_id);
 		expect(done).toMatchObject({ completed: true, rank_run: { run_id: 'run-1', status: 'queued' } });
-		expect(done.gbp_sync.requested_at).toBeInstanceOf(Date);
+		expect(done.gbp_sync).toEqual({ sync_id: 'sync-1', status: 'queued', existing: false });
+		expect(done.refresh?.anchor_day).toBeGreaterThanOrEqual(1);
+		expect(done.refresh?.next_refresh_at).toBeInstanceOf(Date);
 		const saved = await reload();
 		expect(saved.onboarding).toMatchObject({ step: 'completed' });
 		expect(saved.onboarding?.completed_at).toBeInstanceOf(Date);
-		expect(saved.gbp_sync?.requested_at).toBeInstanceOf(Date);
+		expect(saved.refresh).toMatchObject({ anchor_day: done.refresh?.anchor_day });
+		expect(syncs).toHaveLength(1);
 
 		const again = await service.complete(user._id, location.location_id);
 		expect(again.completed).toBe(true);

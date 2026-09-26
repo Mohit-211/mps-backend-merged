@@ -7,7 +7,33 @@ import {
 import httpStatus from "http-status";
 import { ApiError } from "../utils";
 
-export type TrackingFrequency = 'weekly' | 'monthly' | 'manual';
+/**
+ * Refresh cadence (Mohit, 2026-09-26): 'auto_monthly' (default) = the monthly-refresh scheduler runs
+ * this location; 'manual_only' = only POST /locations/:id/refresh. Legacy 'weekly'/'monthly'/'manual'
+ * are mapped on read (withDefaults) and rewritten by `npm run migrate:refresh`.
+ */
+export type TrackingFrequency = 'auto_monthly' | 'manual_only';
+export const TRACKING_FREQUENCIES: TrackingFrequency[] = ['auto_monthly', 'manual_only'];
+export type RefreshType = 'rankings' | 'gbp';
+
+/** Monthly automatic refresh + manual refresh limits (Phase 7b). */
+export interface ILocationRefresh {
+  /** Day of month (1–28) the location completed setup: the monthly refresh day. */
+  anchor_day: number;
+  next_refresh_at: Date | null;
+  last_auto_refresh_at: Date | null;
+  last_manual: { rankings: Date | null; gbp: Date | null };
+}
+
+/** GBP sync bookkeeping (7a: requested_at; 7b: the rest). */
+export interface ILocationGbpSync {
+  requested_at: Date | null;
+  last_synced_at: Date | null;
+  last_status: string | null;
+  last_sync_id: string | null;
+  /** Set after the first successful sync: later syncs fetch rolling windows instead of the backfill. */
+  backfilled_at: Date | null;
+}
 
 /** Ranking settings for one location (CLAUDE.md §9.1). One fixed keyword set, versioned. */
 export interface ILocationTracking {
@@ -17,6 +43,7 @@ export interface ILocationTracking {
   competitors: string[];
   grid: { size: number; spacing_km: number };
   frequency: TrackingFrequency;
+  /** @deprecated since 7b (ignored): refresh.next_refresh_at schedules the location. */
   next_run_at: Date | null;
   last_run_at: Date | null;
   last_error: string | null;
@@ -82,8 +109,10 @@ export interface ILocation extends Document {
   /** What the user typed for a manual center (e.g. "Fredericton, NB"). */
   center_label?: string | null;
   onboarding?: ILocationOnboarding;
-  /** Set by POST /onboarding/complete; the gbp-sync scheduler (Phase 7b) picks it up. */
-  gbp_sync?: { requested_at: Date | null };
+  gbp_sync?: ILocationGbpSync;
+  refresh?: ILocationRefresh;
+  /** IANA timezone (e.g. "America/Moncton"); optional. Used for the ~03:00 local monthly refresh. */
+  timezone?: string | null;
   competitor_suggestions?: ILocationCompetitorSuggestions;
 }
 
@@ -104,7 +133,7 @@ const trackingSchema = new Schema<ILocationTracking>(
       size: { type: Number, enum: [3, 5, 7], default: 5 },
       spacing_km: { type: Number, min: 0.25, max: 5, default: 1 },
     },
-    frequency: { type: String, enum: ['weekly', 'monthly', 'manual'], default: 'manual' },
+    frequency: { type: String, enum: TRACKING_FREQUENCIES, default: 'auto_monthly' },
     next_run_at: { type: Date, default: null },
     last_run_at: { type: Date, default: null },
     last_error: { type: String, default: null },
@@ -224,9 +253,34 @@ const locationSchema = new Schema<ILocation>(
       default: undefined,
     },
     gbp_sync: {
-      type: new Schema({ requested_at: { type: Date, default: null } }, { _id: false }),
+      type: new Schema<ILocationGbpSync>(
+        {
+          requested_at: { type: Date, default: null },
+          last_synced_at: { type: Date, default: null },
+          last_status: { type: String, default: null },
+          last_sync_id: { type: String, default: null },
+          backfilled_at: { type: Date, default: null },
+        },
+        { _id: false },
+      ),
       default: undefined,
     },
+    refresh: {
+      type: new Schema<ILocationRefresh>(
+        {
+          anchor_day: { type: Number, min: 1, max: 28, required: true },
+          next_refresh_at: { type: Date, default: null },
+          last_auto_refresh_at: { type: Date, default: null },
+          last_manual: {
+            rankings: { type: Date, default: null },
+            gbp: { type: Date, default: null },
+          },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    timezone: { type: String, default: null },
     competitor_suggestions: {
       type: new Schema<ILocationCompetitorSuggestions>(
         {
@@ -263,7 +317,8 @@ const locationSchema = new Schema<ILocation>(
 );
 
 // Rank scheduler: due weekly/monthly locations.
-locationSchema.index({ "tracking.frequency": 1, "tracking.next_run_at": 1 });
+// monthly-refresh scheduler: due auto_monthly locations.
+locationSchema.index({ "tracking.frequency": 1, "refresh.next_refresh_at": 1 });
 
 locationSchema.plugin(globalQueryFilters);
 locationSchema.plugin(toJSON);

@@ -20,6 +20,9 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 7b: GBP sync | — | Not started |
 | 7c: Scoring + report + competitors (M3) | — | Not started |
 | 9a: Legacy cleanup (early part of Phase 9) | `claude/phase-9a-legacy-cleanup` | Done, **awaiting merge after 7a**. |
+| 7b: GBP sync (monthly cadence) | `claude/phase-7b-gbp-sync` (from 9a) | Done, **awaiting merge after 7a and 9a**. Offline: 0 Google calls. |
+| 8: Auth, Organization, Onboarding & Locations | — | Not started (was "GBP posting") |
+| 9: GBP posting (was 8) / 9b: remaining cleanup | — | Not started |
 | 8: GBP posting | — | Not started |
 | 9: Cleanup and docs | — | Not started |
 | 10: Security hardening (gated) | — | Deferred; needs explicit approval |
@@ -593,4 +596,74 @@ Branch `claude/phase-9a-legacy-cleanup`, from the 7a branch (so it merges after 
 ### Merge order (Mohit)
 1. 7a: `claude/phase-7a-connect-onboarding`
 2. then 9a: `claude/phase-9a-legacy-cleanup`
+
+---
+
+## Decisions 2026-09-26: roadmap, monthly cadence, add-location paths, phase order
+
+Recorded on `claude/phase-7b-gbp-sync` before 7b work (docs-only commit).
+
+- **Target product:** `docs/product/frontend-roadmap.pdf` (25 pages, Business vs Agency, screen inventory). Summarised for the backend in `docs/PRODUCT.md`. Every §16 screen is mapped to endpoints and a status in `docs/FRONTEND_BACKEND_MAP.md`, including an explicit "not supported" list: organic Google ranks, search volume, competitor citations/links/authority, competitor photo counts, Q&A, duplicates, Analytics/Search Console, social login.
+- **Decision 1: monthly auto + manual refresh.**
+  - Per-location monthly refresh (rank run → GBP sync → GBP report), staggered on the setup day (≤ 28) at about 03:00 local time.
+  - `POST /locations/:id/refresh` (24 h per type, `next_allowed_at`).
+  - `tracking.frequency` becomes `auto_monthly | manual_only` (migrated).
+  - One `monthly-refresh` scheduler.
+  - 7b sync windows: performance a rolling 40 days, keywords the last 2 months.
+- **Decision 2: two ways to add a location, no manual entry.**
+  - (a) GBP profile or (b) Places search (one minimal Place Details call).
+  - Every location has a `place_id`, plus `source` and `gbp_connected`.
+  - A later GBP bind is matched by `place_id`.
+  - `gbp_not_connected` sections.
+  - A per-organization duplicate guard.
+- **New phase order:** 7b → live test → 7c (M3) → **8 Auth, Organization, Onboarding & Locations** → 9 GBP posting → 9b cleanup → 10 security. Nothing is planned beyond Phase 8. M4 is to be agreed.
+- **CLAUDE.md** updated: product intent, the "Refresh cadence" in §4, the phase order and milestones, §11 7b/7c, §12 new Phase 8, §12a posting as Phase 9, §13 cleanup as 9b.
+
+---
+
+## Phase 7b: GBP sync on the monthly cadence
+
+Branch `claude/phase-7b-gbp-sync`, from `claude/phase-9a-legacy-cleanup` (merge order 7a → 9a → 7b). It follows CLAUDE.md §11 7.1, Mohit's Decision 1 (monthly cadence + manual refresh) and the approved plan. **Offline:** fixtures and mocks, **0 Google or Places calls**.
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `7869fca` | Context docs (the roadmap PDF, PRODUCT.md, FRONTEND_BACKEND_MAP.md, CLAUDE.md, STATUS, PROGRESS): decisions and the new phase order. |
+| `ebb81bb` | GBP sync data layer.<br>• **Models:** `GbpSync` (one active per location), `GbpMetricDaily`, `GbpKeywordMonthly` (values vs thresholds), `GbpProfileSnapshot` (dated history, `is_latest`), `GbpReview` (display name only).<br>• **`gbpClient`:** Performance daily metrics, search keywords (one month per request: the API sums over a range), full profile, attributes, `getGoogleUpdated`, Voice of Merchant, and v4 reviews/media/customer media/posts, all paginated.<br>• Pure `windows.ts` and `mappers.ts`.<br>• Fixtures and tests. |
+| `0d1f5e2` | Cadence and sync.<br>• **`cadence.ts`:** the anchor day (≤ 28), the next date at about 03:00 local (IANA zone, else longitude offset, else UTC), no drift or bursts.<br>• **`monthly-refresh` scheduler:** replaces `rank-scheduler` and cancels its old document; stuck guards for runs and syncs; compare-and-set claim; rank run + GBP sync (if bound).<br>• **Manual refresh:** `POST/GET /locations/:id/refresh` (24 h per type, compare-and-set claim, released on failure, 429 when everything is limited); "run now" shares the rankings limit.<br>• **`gbp-sync` executor/job:** backfill 18 m / 6 m, then rolling 40 d / 2 m; per-type status; connection-wide abort; v4 behind `GBP_V4_ENABLED`; upserts; snapshot; `onGbpSyncFinished` hook for 7c.<br>• `GET /locations/:id/gbp/sync`.<br>• `tracking.frequency` becomes `auto_monthly \| manual_only` (mapped on read, `next_run_at` rejected) + `npm run migrate:refresh`.<br>• Onboarding `/complete` queues the first sync and sets the anchor.<br>• The shared process-wide GBP limiter.<br>• Tests. |
+| this commit | Docs: API.md (refresh, sync), ENDPOINTS (#25–27, updated #2/#3/#22), FRONTEND_BACKEND_MAP, OPERATIONS (jobs, migration, v4 go-live), ROUTES (161), GBP_CONNECT (first sync), CLAUDE §3/§9/§11 as built, STATUS, this entry. |
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm run build` | **0 TypeScript errors.** |
+| `npm run lint` | 32 (baseline). New files lint-clean. |
+| `npm test` (no key) | **453/453 pass** in 43 suites (+29 new; the jest hook timeout was raised to 30 s because more suites now start an in-memory MongoDB in parallel). |
+| Local, no Google calls | `migrate:refresh` on `mps_rebuild`: 1 → `auto_monthly`, 1 → `manual_only`, 2 schedules set. `npm run dev` (with the Places key forced empty): "Agenda jobs defined: post-to-gbp, rank-run, gbp-sync, monthly-refresh"; "Cancelled 1 old rank-scheduler job document(s)"; the first tick ran in 13 ms. `GET /refresh` and `GET /gbp/sync` for the live-test location answer correctly (`manual_only`, not connected). 0 Places/GBP calls. |
+
+**API calls consumed: 0.**
+
+### Decisions (approved with the plan)
+1. **About 03:00 local:** `Location.timezone` if set, else an offset estimated from longitude (±1 h), else UTC. There is no timezone-database dependency; Phase 8 can fill `timezone`.
+2. **"Run now" (`POST /rank-runs`) shares the 24 h rankings limit** with `/refresh`.
+3. **`rank-scheduler` removed.** `monthly-refresh` takes over the stuck guard (runs and syncs).
+4. **Onboarding `/complete` queues the first GBP sync directly** and sets the monthly anchor.
+5. **`GbpReview` keeps the reviewer display name only.**
+6. **The raw Business Information location** is kept on each snapshot (the owner's own data) for 7c.
+- **Also:**
+  - Search keywords are fetched **one month per request**, because the Performance API sums over the requested range.
+  - The first sync counts as backfilled once performance is stored.
+  - Each sync gets its own client (own call counts) that shares one process-wide ≤ 5 rps limiter.
+
+### Merge order (Mohit)
+```sh
+git switch claude/rebuild
+git merge --no-ff claude/phase-7a-connect-onboarding -m "Phase 7a — Google connect (popup) + onboarding"
+git merge --no-ff claude/phase-9a-legacy-cleanup -m "Phase 9a — legacy cleanup (early)"
+git merge --no-ff claude/phase-7b-gbp-sync -m "Phase 7b — GBP sync on the monthly cadence"
+npm run migrate:refresh   # local mps_rebuild (already run once; idempotent)
+```
+No push: M3 comes after 7c.
 

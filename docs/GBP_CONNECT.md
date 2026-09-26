@@ -144,6 +144,36 @@ After connecting, the onboarding screens call, in order:
    ```
    `data.place_id.status` should be `match`: the location already has `ChIJneho2koPp0wRIbUtaCCIReA` from Phase 5.5. A `conflict` means Google's place ID differs; it is reported and never overwritten.
 
+## 5. First GBP sync (Phase 7b)
+
+Once a location is bound, its GBP data is fetched in a job (pages never call Google).
+
+**For a new location (onboarding):** `POST /onboarding/complete` queues the first rank run **and** the first GBP sync, and sets the monthly refresh.
+
+**For MyPageSEO (the live-test location, already set up):** to fetch GBP data only (no Places calls), queue a GBP-only refresh:
+
+```sh
+curl -s -X POST http://localhost:5055/api/v1/locations/<location id>/refresh -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"types":["gbp"]}'
+curl -s http://localhost:5055/api/v1/locations/<location id>/gbp/sync -H "Authorization: Bearer $TOKEN"   # repeat until done / partial / failed
+```
+
+**What the first sync fetches** (the backfill):
+
+| Data type | Content | Calls |
+|---|---|---|
+| performance | 18 months of daily metrics (impressions by surface and device, calls, website clicks, directions, …) | 1 |
+| keywords | search keywords for the last 6 complete months (values or "< N" thresholds) | 1 per month (+ pages) |
+| profile | full profile, attributes, pending Google edits | 3 |
+| verification | Voice of Merchant state | 1 |
+
+- **Total:** about **11 GBP calls** (free, quota-limited, ≤ 5/s), plus 1 token refresh if needed.
+- **Reviews, media and posts** show `not_available` (`v4_access_pending`) until Google approves v4 access and `GBP_V4_ENABLED=true` is set.
+- **Later syncs** (monthly, or a manual refresh at most once per 24 h) fetch a rolling 40 days of performance and the last 2 months of keywords.
+- **"Reconnect needed"** in a type's `message` means the Google authorisation was revoked. **"GBP API access not approved (quota 0)"** means the Cloud project is not approved yet.
+
+The live-test location is `frequency: manual_only`, so it never refreshes by itself.
+
 ## Undo
 
 | Action | Endpoint |

@@ -1,0 +1,23 @@
+{
+  "searchKeywordsCounts": [
+    {
+      "searchKeyword": "plumber near me",
+      "insightsValue": {
+        "value": "312"
+      }
+    },
+    {
+      "searchKeyword": "emergency plumber",
+      "insightsValue": {
+        "value": "87"
+      }
+    },
+    {
+      "searchKeyword": "example plumbing co",
+      "insightsValue": {
+        "threshold": "15"
+      }
+    }
+  ],
+  "nextPageToken": "kw-page-2"
+}
