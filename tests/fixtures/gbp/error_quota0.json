@@ -1,0 +1,21 @@
+{
+  "error": {
+    "code": 429,
+    "message": "Quota exceeded for quota metric 'Requests' and limit 'Requests per minute' of service 'mybusinessaccountmanagement.googleapis.com' for consumer 'project_number:000000000000'.",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "RATE_LIMIT_EXCEEDED",
+        "domain": "googleapis.com",
+        "metadata": {
+          "quota_limit_value": "0",
+          "quota_metric": "mybusinessaccountmanagement.googleapis.com/default_requests",
+          "service": "mybusinessaccountmanagement.googleapis.com",
+          "consumer": "projects/000000000000",
+          "quota_limit": "DefaultRequestsPerMinutePerProject"
+        }
+      }
+    ]
+  }
+}

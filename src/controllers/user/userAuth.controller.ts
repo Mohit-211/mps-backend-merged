@@ -154,7 +154,7 @@ export const gBPConnectionRevoke = catchAsync(async (req, res) => {
 });
 
 export const gBPAuthCallback = catchAsync(async (req, res) => {
-  const query = pick(req.query, ["code", "state"]);
+  const query = pick(req.query, ["code", "state", "error"]);
   const response = await userAuthService.gBPAuthCallback(query);
   return responseWrapper(res, response, "Connected with GBP successfully.");
 });

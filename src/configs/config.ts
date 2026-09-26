@@ -64,6 +64,16 @@ const envVarsSchema = Joi.object({
 	RANK_MAX_CALLS_PER_RUN: Joi.number().integer().min(1).default(3200),
 	STORE_PLACE_NAMES: Joi.boolean().default(true),
 
+	GOOGLE_GBP_CLIENT_ID: Joi.string().allow(''),
+	GOOGLE_GBP_CLIENT_SECRET: Joi.string().allow(''),
+	GOOGLE_GBP_REDIRECT_URI: Joi.string().allow(''),
+	GBP_MAX_RPS: Joi.number().integer().min(1).max(10).default(5),
+	TOKEN_ENCRYPTION_KEY: Joi.string()
+		.allow('')
+		.pattern(/^[0-9a-fA-F]{64}$/)
+		.when('NODE_ENV', { is: 'production', then: Joi.required().invalid('') })
+		.description('32-byte hex key (AES-256-GCM) for stored OAuth tokens'),
+
 	SERP_API_KEY: Joi.string(),
 	SERP_API_TIMEOUT: Joi.number(),
 
@@ -216,6 +226,18 @@ interface Config {
 		storePlaceNames: boolean;
 	};
 
+	gbp: {
+		clientId?: string;
+		clientSecret?: string;
+		redirectUri?: string;
+		maxRps: number;
+	};
+
+	security: {
+		/** Empty when unset (development/test): token encryption then throws on use. */
+		tokenEncryptionKey: string;
+	};
+
 	company: {
 		email: string;
 		name: string;
@@ -329,6 +351,17 @@ const config: Config = {
 		devMaxKeywords: envVars.RANK_DEV_MAX_KEYWORDS,
 		maxCallsPerRun: envVars.RANK_MAX_CALLS_PER_RUN,
 		storePlaceNames: envVars.STORE_PLACE_NAMES,
+	},
+
+	gbp: {
+		clientId: envVars.GOOGLE_GBP_CLIENT_ID,
+		clientSecret: envVars.GOOGLE_GBP_CLIENT_SECRET,
+		redirectUri: envVars.GOOGLE_GBP_REDIRECT_URI,
+		maxRps: envVars.GBP_MAX_RPS,
+	},
+
+	security: {
+		tokenEncryptionKey: envVars.TOKEN_ENCRYPTION_KEY ?? '',
 	},
 
 	dataForSeo: {

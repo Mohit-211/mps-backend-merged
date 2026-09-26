@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-26, end of Phase 5 (milestone M2)._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-26, end of Phase 6 (GBP connection)._
 
 ## Product goal
 
@@ -16,9 +16,10 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 1.5 Repo hygiene | Done | `claude/phase-1.5-hygiene` | yes (`e4a7419`) | yes, before M1 |
 | 1.6 Build green | Done | `claude/phase-1.6-build-green` | yes, via `53986e0` | M1 |
 | 3 Foundations | Done | `claude/phase-3-foundations` | yes (`53986e0`) | M1 (2026-09-26) |
-| 4 Ranking engine | Done | `claude/phase-4-ranking-engine` | yes (`3da12ed`) | M2 (pending) |
-| **5 Ranking reports** | **Done, awaiting approval** | `claude/phase-5-ranking-reports` | not yet | **M2 (pending)** |
-| 6 GBP connection | Next | — | — | M3 |
+| 4 Ranking engine | Done | `claude/phase-4-ranking-engine` | yes (`3da12ed`) | M2 (2026-09-26) |
+| 5 Ranking reports | Done | `claude/phase-5-ranking-reports` | yes (`2bb4cf8`) | M2 (2026-09-26) |
+| 5.5 Live validation | Done: **informal pass, one market, formal scoring pending** | `claude/phase-5.5-live-validation` | yes (`5735bad`) | M3 |
+| **6 GBP connection** | **Done, awaiting approval** | `claude/phase-6-gbp-connection` | not yet | M3 |
 | 7 GBP sync + report | Not started | — | — | M3 |
 | 8 GBP posting | Not started | — | — | M4 |
 | 9 Cleanup | Not started | — | — | M4 |
@@ -40,7 +41,17 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
   - **8 endpoints** (tracking, runs, rank-tracker, grid, map-ranking), all with auth and an ownership check
 - **Demo data:** `npm run seed:rank-demo` gives the frontend real endpoints with no key. The data covers improved and declined ranks, `entered_top_60` / `dropped_out_of_top_60`, 60+ cells and an error cell.
 - **Docs:** [API.md](API.md) (every ranking endpoint with real example responses) and [LIVE_TEST.md](LIVE_TEST.md) (the first real run, step by step).
-- **Tests:** 239 pass with no API key and no network.
+- **Live validation (Phase 5.5):** the first real Places runs, on MyPageSEO in Fredericton (2 runs, 106 IDs-only + 7 Pro + 3 Details calls in total, no errors or retries, both runs within their estimates). **Informal pass, one market, formal scoring pending:** Mohit's manual Maps checks are close to the API ranks (e.g. "digital marketing agency fredericton": Maps #9 vs API #7–9). Calibration tooling: `find:place`, `setup:live-test`, `calibrate`, `calibrate:score` (see [LIVE_TEST.md](LIVE_TEST.md)); sheets in `docs/calibration/`.
+- **GBP connection (Phase 6), offline so far:**
+  - one-time hashed OAuth state and the `business.manage` scope only
+  - GBP tokens encrypted (AES-256-GCM) and stored per token type (C17)
+  - `gbpClient`: ≤ 5 requests/second, 429 backoff, and clear "quota 0" / "API disabled" / "reconnect" errors
+  - discovery across **all** accounts with no Places calls (C22)
+  - bind with `place_id` rules (set if empty, never overwrite)
+  - a real unbind (C12) and disconnect
+  - `npm run gbp:preflight`
+  - Setup and connection: [GBP_CONNECT.md](GBP_CONNECT.md).
+- **Tests:** 347 pass with no API key and no network.
 
 ## Key decisions
 
@@ -53,25 +64,38 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 2026-09-26 | One **fixed keyword set per location** (max 20), versioned; no change is shown across keyword versions. Keyword-level entered/dropped labels come from `foundRate` 0 ↔ >0 (CLAUDE.md §4). |
 | 2026-09-26 | One active run per location. In development: 2 keywords and 3×3. Runs above `RANK_MAX_CALLS_PER_RUN` (3200 IDs-only calls) are rejected. |
 | 2026-09-26 | **Push only at milestones** M1–M4. **No real Google API calls until Mohit says so.** |
+| 2026-09-26 | `STORE_PLACE_NAMES=true` for development. **Must decide before production launch (Maps ToS).** |
+| 2026-09-26 | Phase 5.5 calibration: **informal pass** on one small market; formal scoring and a big-market test are in the backlog. |
+| 2026-09-26 | Phase 6: tokens belong to the user's Google account. Unbind deletes them only with the last binding; disconnect removes everything. Search Console tokens stay plaintext until Phase 10. `GET /gbp` returns `{accounts, locations, errors}`. |
+| 2026-09-26 | Phases 6–7 live GBP calls: free but quota-limited, max 5 requests/second, only against the account Mohit connects, and nothing live until Mohit says so (first step: `gbp:preflight`, triggered by Mohit). |
 
 ## Open items (owner: Mohit)
 
-1. **Approve Phase 5, merge, and push M2.** The commands are in PROGRESS.md.
-2. **Add `GOOGLE_PLACE_API_KEY`** (Places API New, restricted, with a budget cap), then follow [LIVE_TEST.md](LIVE_TEST.md): step 1 is `smoke:places` (1 call); step 2 is 1 location × 2 keywords × 3×3 (26–78 IDs-only, 2 Pro, 0–1 Details calls).
-3. **ToS decision on business names:** `STORE_PLACE_NAMES` (store them, the current default, or resolve them live with `?resolveNames=true`). The same question applies to competitor Place Details in Phase 7.
-4. **Rotate the DataForSEO credential** (it is in git history on GitHub, AUDIT S13).
-5. **GBP API access approval** (quota > 0) before Phase 6.
-6. **Security Phase 10:** deferred. The new ranking endpoints already check ownership; the legacy ones do not (S15).
+1. **Approve Phase 6 and merge** (command in the phase summary). No push: the next push is M3, after Phase 7.
+2. **GBP setup** ([GBP_CONNECT.md](GBP_CONNECT.md)):
+   - Change `.env` `GOOGLE_GBP_REDIRECT_URI` to port **5055**.
+   - Add `TOKEN_ENCRYPTION_KEY` (`openssl rand -hex 32`).
+   - Create the OAuth client and consent screen (testing mode, you as test user) and enable the two APIs.
+3. **GBP API access approval** (quota > 0). Then connect MyPageSEO and run `npm run gbp:preflight -- <userId>` (you trigger it).
+4. **Frontend:** `GET /gbp` response shape changed, the bind body is 3 fields, and `POST /gbp/unbind` is new (API.md).
+5. **ToS decision on business names before production launch:** `STORE_PLACE_NAMES` (store them, the current default, or resolve them live with `?resolveNames=true`). The same question applies to competitor Place Details in Phase 7.
+6. **Rotate the DataForSEO credential** (it is in git history on GitHub, AUDIT S13).
+7. **Security Phase 10:** deferred. It now includes S30 (the OAuth `code` in request logs) and the Search Console parts of S11, S12 and S29.
+
+## Backlog (not now)
+
+- **Big-market test (Dallas):** Workman Plumbing (`ChIJjcMu_6CZToYRXut5OjLd6V4`, 2310 N Henderson Ave #522, 32.814438, -96.777703; the "#522" may be a mailbox suite, so confirm the storefront first). Keywords "plumber", "emergency plumber", "plumber dallas", 3×3 at 1.5 km (9 unique points per keyword; about 27–81 IDs-only + 3 Pro).
+- **Variance test:** repeat identical searches at the same point and measure the rank spread. Round 1 vs Round 2 showed 5 → 1 at one grid point and a competitor moving #8 → #2 in the Pro list.
+- **Formal `calibrate:score`:** fill in the manual columns (tracker rows are enough: `--tracker-only`) and record the verdict.
+- **Overall-average UX:** when one keyword is 60+ everywhere it counts as 61 and dominates `overallAvgRank` (Round 1: 31.2 from 1.4 and 61). Decide how the page explains or presents it.
 
 ## Next up
 
-**Phase 6, GBP connection** (CLAUDE.md §10). It starts in plan mode and needs GBP API access approval first.
-- Signed, one-time OAuth `state` in an `OAuthState` model; the `business.manage` scope only.
-- `tokenCrypto` (AES-256-GCM) and encrypted token storage, moved here from Phase 3.
-- `gbpClient` on `src/clients/http.ts`, with token refresh.
-- Account and location discovery across **all** accounts, with pagination.
-- Binding to our Location, including `place_id` from `metadata.placeId`.
-- C12: a real unbind.
+**Phase 7, GBP sync + report** (CLAUDE.md §11), in plan mode first, after Phase 6 is merged.
+- The `gbp-sync` job: daily metrics (18-month backfill), search keywords, profile snapshot, verification, reviews, media and posts. Everything stored; pages never call Google.
+- Health score, competitor comparison (Place Details, ToS flag), insights.
+- The GBP report API.
+- Live GBP calls only after `gbp:preflight` succeeds and you say so.
 
 **Frontend (can start now):** build the three ranking pages against `docs/API.md`, using `npm run seed:rank-demo`.
 
@@ -83,3 +107,4 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 - `npm run seed:rank-demo` (demo data, no key)
 - the ranking jobs
 - the smoke scripts: `smoke:agenda` (free), and `smoke:places` (1 Places call; Mohit only)
+- live validation: [LIVE_TEST.md](LIVE_TEST.md) (`find:place`, `setup:live-test`, `calibrate`, `calibrate:score`)

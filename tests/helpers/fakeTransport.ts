@@ -1,18 +1,25 @@
 import fs from 'fs';
 import path from 'path';
-import { HttpRequest, HttpRequestError, HttpResponse, HttpTransport } from '../../src/clients/http';
+import { HttpRequest, HttpRequestError, HttpResponse, HttpTransport, httpErrorFromResponse } from '../../src/clients/http';
 
-const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/places');
+const FIXTURE_ROOT = path.resolve(__dirname, '../fixtures');
 
 export const loadPlacesFixture = <T = unknown>(name: string): T =>
-	JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, `${name}.json`), 'utf8')) as T;
+	JSON.parse(fs.readFileSync(path.join(FIXTURE_ROOT, 'places', `${name}.json`), 'utf8')) as T;
+
+export const loadGbpFixture = <T = unknown>(name: string): T =>
+	JSON.parse(fs.readFileSync(path.join(FIXTURE_ROOT, 'gbp', `${name}.json`), 'utf8')) as T;
+
+/** "gbp/<name>" loads from fixtures/gbp; a bare name loads from fixtures/places. */
+const loadFixture = (name: string): unknown =>
+	name.startsWith('gbp/') ? loadGbpFixture(name.slice(4)) : loadPlacesFixture(name);
 
 export const placeIds = loadPlacesFixture<{ target: string; competitor: string; movedFrom: string }>('ids');
 
 /** One scripted reply: an HTTP status plus a fixture name (or inline body), or a network failure. */
 export type FakeStep =
-	| { status: number; fixture: string }
-	| { status: number; body: unknown }
+	| { status: number; fixture: string; retryAfter?: string }
+	| { status: number; body: unknown; retryAfter?: string }
 	| { networkError: 'TIMEOUT' | 'NETWORK_ERROR' };
 
 export interface FakeTransport {
@@ -35,16 +42,8 @@ export const createFakeTransport = (steps: FakeStep[]): FakeTransport => {
 		if ('networkError' in step) {
 			throw new HttpRequestError({ code: step.networkError, message: `simulated ${step.networkError}` });
 		}
-		const body = 'fixture' in step ? loadPlacesFixture(step.fixture) : step.body;
-		if (step.status >= 400) {
-			const error = (body as { error?: { status?: string; message?: string } }).error;
-			throw new HttpRequestError({
-				code: 'HTTP_ERROR',
-				status: step.status,
-				apiStatus: error?.status,
-				message: error?.message ?? `status ${step.status}`,
-			});
-		}
+		const body = 'fixture' in step ? loadFixture(step.fixture) : step.body;
+		if (step.status >= 400) throw httpErrorFromResponse(step.status, body, step.retryAfter);
 		return { status: step.status, data: body as T };
 	};
 	return { transport, requests, remaining: () => queue.length };

@@ -1,0 +1,7 @@
+{
+  "accounts": [
+    { "name": "accounts/100000000000000000001", "accountName": "Example Owner", "type": "PERSONAL", "role": "PRIMARY_OWNER", "verificationState": "UNVERIFIED" },
+    { "name": "accounts/100000000000000000002", "accountName": "Example Agency Group", "type": "LOCATION_GROUP", "role": "MANAGER", "verificationState": "VERIFIED" }
+  ],
+  "nextPageToken": "acct-page-2"
+}

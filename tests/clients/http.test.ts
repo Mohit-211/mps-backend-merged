@@ -4,10 +4,13 @@ import { AxiosError, AxiosHeaders } from 'axios';
 import {
 	HttpRequestError,
 	createAxiosTransport,
+	formBody,
+	httpErrorFromResponse,
 	isRetryable,
 	toHttpRequestError,
 	withRetry,
 } from '../../src/clients/http';
+import { loadGbpFixture } from '../helpers/fakeTransport';
 
 const SENTINEL_KEY = 'TEST_KEY_SENTINEL_do_not_leak';
 const noSleep = async (): Promise<void> => undefined;
@@ -132,3 +135,40 @@ describe('withRetry and programming errors', () => {
 		expect(fn).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('httpErrorFromResponse', () => {
+	const load = (name: string): unknown => loadGbpFixture(name);
+
+	it('keeps the ErrorInfo reason and quota_limit_value of a quota-0 429', () => {
+		const err = httpErrorFromResponse(429, load('error_quota0'));
+		expect(err).toMatchObject({ status: 429, apiStatus: 'RESOURCE_EXHAUSTED', reason: 'RATE_LIMIT_EXCEEDED', quotaLimitValue: '0', retryable: true });
+		expect(err.message).toContain('Quota exceeded');
+	});
+
+	it('reads SERVICE_DISABLED from a 403', () => {
+		expect(httpErrorFromResponse(403, load('error_service_disabled'))).toMatchObject({
+			status: 403,
+			reason: 'SERVICE_DISABLED',
+			quotaLimitValue: undefined,
+			retryable: false,
+		});
+	});
+
+	it('understands the OAuth error shape', () => {
+		const err = httpErrorFromResponse(400, load('error_invalid_grant'));
+		expect(err).toMatchObject({ status: 400, reason: 'invalid_grant', apiStatus: undefined });
+		expect(err.message).toBe('invalid_grant: Token has been expired or revoked.');
+	});
+
+	it('survives an empty or non-JSON body', () => {
+		expect(httpErrorFromResponse(502, 'Bad Gateway').message).toBe('Request failed with status 502');
+		expect(httpErrorFromResponse(500, undefined).reason).toBeUndefined();
+	});
+});
+
+describe('formBody', () => {
+	it('url-encodes fields', () => {
+		expect(formBody({ grant_type: 'refresh_token', refresh_token: '1//a b&c' })).toBe('grant_type=refresh_token&refresh_token=1%2F%2Fa+b%26c');
+	});
+});
+

@@ -12,9 +12,10 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 1.5: Repo hygiene | `claude/phase-1.5-hygiene` | Done. Merged (`e4a7419`) and pushed. |
 | 1.6: Build green | `claude/phase-1.6-build-green` | Done. Merged into `claude/rebuild` through the Phase 3 merge `53986e0` (no separate merge commit). Pushed at M1. |
 | 3: Foundations | `claude/phase-3-foundations` | Done. Merged `53986e0`. **Pushed at M1 on 2026-09-26.** |
-| 4: Ranking engine | `claude/phase-4-ranking-engine` | Done. Merged `3da12ed`. Pushes at M2. |
-| 5: Ranking reports | `claude/phase-5-ranking-reports` | Done. **Milestone M2**: awaiting approval, merge and push. |
-| 6: GBP connection fixes | — | Not started (includes signed OAuth state, encrypted tokens, `gbpClient`, token crypto deferred from Phase 3, and C12) |
+| 4: Ranking engine | `claude/phase-4-ranking-engine` | Done. Merged `3da12ed`. Pushed at M2. |
+| 5: Ranking reports | `claude/phase-5-ranking-reports` | Done. Merged `2bb4cf8`. **Pushed at M2 on 2026-09-26.** |
+| 5.5: Live validation | `claude/phase-5.5-live-validation` | Done. Merged `5735bad` (not pushed; next push is M3). **Informal pass, one market; formal scoring pending.** |
+| 6: GBP connection fixes | `claude/phase-6-gbp-connection` | Done, **awaiting approval and merge**. Offline: 0 Google calls. The first live step (`gbp:preflight`) is Mohit's. |
 | 7: GBP data sync and report | — | Not started |
 | 8: GBP posting | — | Not started |
 | 9: Cleanup and docs | — | Not started |
@@ -377,3 +378,122 @@ git push -u origin claude/rebuild claude/phase-4-ranking-engine claude/phase-5-r
 > - **Frontend work without an API key:** set up `.env` and local MongoDB (`docs/OPERATIONS.md`), then run `npm run seed:rank-demo`. It creates a demo user, a location and 3 weekly runs, and prints a login, an access token and `curl` examples. Run `npm run dev`, then call the endpoints with `Authorization: Bearer <token>`. The data includes improving and declining ranks, "entered / dropped out of top 60", "60+" cells and one error cell. Re-run the seed any time for fresh data.
 > - **Checks:** `npm test` (239 tests, no key or network needed), `npm run build` (0 TypeScript errors).
 > - **Not yet:** no real Google searches have run. The first live test follows `docs/LIVE_TEST.md` once the API key is added. Legacy `/rank-tracker`, `/local-search-grid` and `/local-map-ranking` stay until the frontend switches (Phase 9).
+
+---
+
+## Phase 5.5: Live validation (Fredericton)
+
+Branch `claude/phase-5.5-live-validation`, from `claude/rebuild` @ `2bb4cf8`; merged by Mohit as `5735bad`. The first real Places API calls of the rebuild, approved by Mohit with hard call budgets.
+
+**Verdict: informal PASS, one market, formal scoring pending.** Mohit checked MyPageSEO (Fredericton, NB) on Google Maps and the API ranks are close. For example, for "digital marketing agency fredericton" Maps shows #9 and the API shows #7 at the center (#7–9 across the tracker points). For "digital marketing agency", MyPageSEO is not visible on Maps, which matches the API's 60+ at every point. `calibrate:score` has not been run: the manual columns in the CSVs are blank.
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `c38730a` | Engine, model and executor store the first 3 place IDs per sample point (free, from the existing result list). |
+| `0aa70dd` | `src/calibration`: RFC 4180 CSV, sheet rows (`maps_url`, names from the map lists), scoring maths (within-2, found/not-found mismatches both ways, top-3 overlap, PASS/FAIL, worst 5). Tests. |
+| `727f841` | Scripts: `calibrate` (reads a run, no API calls), `calibrate:score`, `find:place`, `setup:live-test` (development + `mps_rebuild` only; token written to a mode-600 file). |
+| `38235b7` | LIVE_TEST.md rewritten to the calibration flow. |
+| `28e4a7b` | Result count and early-stop flag per sample point (`result_count`, `more_results`). |
+| `3da433a` | `calibrate:score --tracker-only` and per keyword × point-type counts; `calibrate --suffix=`; `api_results` column. |
+| `e0f2d21` | `find:place --names` (1 Pro call, 20 names) and `--id=` (1 Details call). |
+| this commit (on `claude/phase-6-gbp-connection`) | Both Fredericton CSVs (manual columns blank), this entry, STATUS. |
+
+### Live calls and runs
+
+| Step | Estimate | Actual | Result |
+|---|---|---|---|
+| `find:place` "MyPageSEO Fredericton NB" | 1 IDs-only + 1 Details | 1 + 1 | Mypageseo, 82 Westmorland St, `ChIJneho2koPp0wRIbUtaCCIReA` |
+| `smoke:places` "seo company" | 1 IDs-only | 1 | rank 1; 17 results on page 1 |
+| Round 1 run `6ab76e48aee0841b42f15bbc` (2 keywords, 3×3 @ 1 km) | 26–78 IDs-only + 2 Pro + 0 Details | **52 + 2 + 0** | `done` in 6.6 s |
+| Round 2 run `6ab77383ab221fbd3de13c67` (4 keywords, 3×3 @ 1 km) | 52–156 IDs-only + 4 Pro + 0 Details | **52 + 4 + 0** | `done` in 8.3 s |
+| `find:place --names` "plumber Dallas TX", then `--id` (Dallas test, not run) | 1 Pro + 1 Details | 1 + 1 | Workman Plumbing picked; the Dallas run moved to the backlog |
+
+**Total: 106 IDs-only, 7 Pro, 3 Place Details.** Every call succeeded on the first attempt: no retries, no 4xx or 5xx. Both runs were within their estimates. Round 2 used `RANK_DEV_MAX_KEYWORDS=4` for that server process only (`.env` unchanged).
+
+| Keyword (tracker) | Round | avgRank | foundRate | top3Rate | C / N / S / E / W |
+|---|---|---|---|---|---|
+| seo company | 1 and 2 | 1.4 | 1.00 | 1.00 | 1 / 2 / 1 / 2 / 1 |
+| digital marketing agency | 1 | 61 | 0 | 0 | 60+ everywhere |
+| digital marketing agency fredericton | 2 | 8.0 | 1.00 | 0 | 7 / 8 / 8 / 9 / 8 |
+| seo fredericton | 2 | 2.2 | 1.00 | 0.80 | 1 / 2 / 4 / 2 / 2 |
+| marketing agency | 2 | 5.6 | 1.00 | 0 | 5 / 5 / 6 / 7 / 5 |
+
+### Surprises
+- **Shallow market.** Fredericton lists are short (16–20 on page 1), so mid-range ranks (10–60) could not be validated here. Page 1 can hold fewer than 20 results while more pages exist.
+- **Call-to-call variance.** At the same center, Round 1's Pro list put "Fredericton Local SEO" at #8 while the IDs-only list had it at #2; in Round 2 both had it at #2. The "seo company" grid NW corner went from 5 to 1 between rounds. This looks like Google varying between calls, not a difference between SKUs.
+- **IDs-only vs Pro at the center:** identical client rank for all 4 Round 2 keywords.
+- **Overall average:** a keyword that is 60+ everywhere counts as 61 and dominates `overallAvgRank` (Round 1: 31.2 from 1.4 and 61). This follows §4, but the page needs to explain it.
+- **Leftover jobs:** two stale `rank-run` agenda jobs from earlier local testing were picked up on startup and skipped ("not queued any more"), with no calls. The idempotency guard works.
+- **Dev server:** killing only the `ts-node` child left `nodemon` alive, and it restarted the server on the next file edit. Stop all three processes (`cross-env`, `nodemon`, `ts-node`).
+
+### Calibration files
+- `docs/calibration/2026-09-26-mypageseo-fredericton.csv` (Round 1, 28 rows)
+- `docs/calibration/2026-09-26-mypageseo-fredericton-r2.csv` (Round 2, 56 rows)
+
+Both are committed with the manual columns blank.
+
+### Checks
+`npm run build`: 0 TypeScript errors. New and changed files lint-clean. **273/273 tests pass** with no key and no network.
+
+---
+
+## Phase 6: GBP connection
+
+Branch `claude/phase-6-gbp-connection`, from `claude/rebuild` @ `5735bad`. Built per CLAUDE.md §10, Mohit's Phase 6 list and the approved plan. **Offline:** tests use fixtures and mocks, and **0 Google API calls** were made. The first live step, `gbp:preflight`, is Mohit's.
+
+### Commits
+
+| Commit | What it did |
+|---|---|
+| `f3b04f2` | (Phase 5.5 close-out: CSVs, STATUS, PROGRESS.) |
+| `022dadb` | Config: `TOKEN_ENCRYPTION_KEY` (64 hex, required in production), `GOOGLE_GBP_*` in Joi, `GBP_MAX_RPS`. `utils/tokenCrypto.ts` (AES-256-GCM, random IV, `enc:v1:` prefix). Tests. |
+| `2194ae1` | `http.ts`: DELETE, `formBody`, a shared `httpErrorFromResponse` (keeps the ErrorInfo `reason` and `quota_limit_value`, understands OAuth `{error, error_description}`). The fake transport uses the same parser. GBP error fixtures. |
+| `5aca9dd` | Models: `UserAuth` (`scope`, `status`, `last_error`, `last_refreshed_at`, and a unique active `(user_id, token_type)` index), `OAuthState` (hashed, TTL), `UserGBP` (`place_id`, `bound_at`, optional title/website/language, unique active indexes). `tokenStore` (C17, encrypted GBP tokens, legacy re-encrypt) and `encryptExistingTokens` (idempotent). Tests. |
+| `0b46e5b` | `gbpClient`: 5 rps limiter, 429 backoff (3 retries), quota-0 and disabled-API errors, refresh when < 60 s remain or on a 401, persisted refresh and rotation, `invalid_grant` marks revoked, paginated accounts and locations with `readMask`, `getLocation`, `exchangeCode`, `revoke` (token in the body). Fixtures and tests. |
+| `b6e572e` | OAuth (S11): one-time hashed state with 10-minute expiry, `business.manage` only, callback via `gbpClient`. `userAuth.service` delegates; `storeToken` is per token type (C17). Tests, including replay, expiry and forged state. |
+| `61063f7` | Discovery across all accounts with no Places calls (C9, C22); server-side bind with `place_id` rules; real unbind (C12) and disconnect; `POST /gbp/unbind`; `GBPPost.last_error`; `JOB_NAMES.GBP_SYNC`. Service and route tests. |
+| `4981953` | Posting (`publishPostToGBP`, `deleteGBPPost`) gets its token from `gbpClient.getAccessToken`. Posting logic is unchanged (Phase 8). |
+| `c5be35c` | `npm run gbp:preflight` (read-only; explains quota 0 / disabled API / reconnect / config), `setup:live-test --token-only`, `explainGbpError`. Tests. |
+| this commit | `docs/GBP_CONNECT.md`, API.md (GBP section), ROUTES, OPERATIONS, AUDIT (S11, S12, S29, C9, C12, C17, C22; new S30), CLAUDE.md §3, §10 and §13a, STATUS, this entry. |
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm run build` | **0 TypeScript errors.** |
+| `npm run lint` | 98 errors (unchanged baseline). All new files are lint-clean with no `any`. Touched shared files have no new errors (`userAuth.service` 14 → 9, `gbpPostSchedular.service` 14 → 10). |
+| `npm test` (no key) | **347/347 pass** in 27 suites (74 new). |
+| Required tests | State creation, validation, expiry and replay (plus a forged old-style JSON state); pagination with fixtures; token encryption, refresh and rotation; C17 regression (GBP never overwrites Search Console); quota-0 / disabled API / `invalid_grant`; limiter ≤ 5 requests per second; C22 (Places and the legacy helper asserted never called); bind `place_id` set / match / conflict; **C12: bind → unbind gives no binding, no tokens and no `gbp-sync` or scheduled-post jobs** (real agenda on the memory MongoDB); disconnect. |
+| Local, no Google calls | `npm run dev` then `GET /user/auth/google/gbp` gives a consent URL with only `business.manage`, `offline`, `consent` and a 43-character state. A bogus state and the old JSON state give 400. `GET /gbp` without a connection gives 400 "Please connect with Google Business Profile". |
+
+**API calls consumed: 0** (Google Business Profile and Places).
+
+### Decisions (approved with the plan)
+1. **Search Console tokens stay plaintext.** Only the C17 filter fix applies to them. S11, S12 and S29 for Search Console are Phase 10.
+2. **No `OAUTH_STATE_SECRET`.** A random one-time state stored as a hash replaces the HMAC.
+3. **Tokens are per user (Google account).** Unbind deletes them only with the last binding; disconnect removes everything.
+4. **Unbind cancels pending scheduled posts** for that GBP location (`REJECTED`, "GBP location unbound").
+5. **Bind fills `Location.lat/lng`** from GBP when both are empty.
+6. **`GET /gbp` returns `{ accounts, locations, errors }`** (a frontend change).
+7. **Legacy plaintext GBP tokens** are re-encrypted on first use; `gbp:encrypt-tokens` is written but **not run**. To run it on a server:
+   1. Back up `user_auths`.
+   2. Set `TOKEN_ENCRYPTION_KEY` and `MONGODB_*`.
+   3. Run `npm run gbp:encrypt-tokens`.
+   4. Run it again to confirm: it should report "0 encrypted now".
+- **Also:** "reconnect" is returned as 400, not 401, because a 401 would log the user out of MyPageSEO.
+
+### Shared or out-of-scope files touched
+- `services/user/userAuth.service.ts` and `controllers/user/userAuth.controller.ts`: only the GBP functions and `storeToken`.
+- `models/gbpPost.model.ts` (`last_error`), `models/index.ts` (export), `jobs/jobNames.ts` (`GBP_SYNC`).
+- `tests/helpers/fakeTransport.ts`.
+
+### Open items for Mohit
+- **Setup** (see [GBP_CONNECT.md](GBP_CONNECT.md)):
+  - Your `.env` `GOOGLE_GBP_REDIRECT_URI` uses port **5000**. Change it to `http://localhost:5055/api/v1/user/auth/google/gbp/callback` and register exactly that in Google Cloud.
+  - Add `TOKEN_ENCRYPTION_KEY` (`openssl rand -hex 32`).
+- **GBP API access approval** for the Cloud project. `gbp:preflight` reports quota 0 until then.
+- **Frontend:** `GET /gbp` now returns an object, the bind body needs only 3 fields, and `POST /gbp/unbind` is new.
+- **New finding S30 (Low, Phase 10):** the morgan request logger writes full URLs, so a failed OAuth callback logs its `code` and `state`.
+

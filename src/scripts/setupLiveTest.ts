@@ -8,6 +8,9 @@
  * The location gets place_id and lat/lng directly (avoiding the legacy POST /locations, which makes an
  * all-fields Place Details call) and tracking: the keywords, a 3×3 grid at 1 km, frequency manual.
  * The access token is written to --token-file (mode 600), never printed.
+ *
+ *   npm run setup:live-test -- --token-only --token-file <path>
+ *     Writes a fresh token for the existing live-test user; changes nothing else.
  * Refuses unless NODE_ENV=development AND the database is mps_rebuild. Recreates only its own user.
  */
 import fs from 'fs';
@@ -32,17 +35,7 @@ const fail = (message: string): never => {
 	process.exit(1);
 };
 
-const main = async (): Promise<void> => {
-	if (config.essentials.env !== 'development') fail(`NODE_ENV is "${config.essentials.env}", not "development"`);
-	const placeId = arg('place-id');
-	const lat = Number(arg('lat'));
-	const lng = Number(arg('lng'));
-	const tokenFile = arg('token-file');
-	const keywords = (arg('keywords') ?? '').split(',').map((k) => k.trim()).filter(Boolean);
-	if (!placeId || !Number.isFinite(lat) || !Number.isFinite(lng) || !tokenFile || keywords.length === 0) {
-		fail('required: --place-id --lat --lng --keywords --token-file');
-	}
-
+const connect = async (): Promise<void> => {
 	await mongoose.connect(config.databases.mongodb.url, {
 		user: config.databases.mongodb.user,
 		pass: config.databases.mongodb.password,
@@ -53,6 +46,46 @@ const main = async (): Promise<void> => {
 		await mongoose.disconnect();
 		fail(`connected database is "${mongoose.connection.db?.databaseName}", not "mps_rebuild"`);
 	}
+};
+
+/** Fresh access token for the existing live-test user (nothing else changes). */
+const tokenOnly = async (): Promise<void> => {
+	const tokenFile = arg('token-file');
+	if (!tokenFile) fail('required: --token-file');
+	await connect();
+	const user = await User.findOne({ email: EMAIL });
+	if (!user) {
+		await mongoose.disconnect();
+		fail(`no user ${EMAIL}; run setup:live-test without --token-only first`);
+		return;
+	}
+	const locations = await Location.find({ created_by: user._id }).select({ _id: 1, name: 1 }).lean();
+	const tokens = await generateAuthTokens(user);
+	fs.writeFileSync(tokenFile as string, tokens.access.token, { mode: 0o600 });
+	process.stdout.write(
+		[
+			`Live-test user:  ${EMAIL} (user id ${String(user._id)})`,
+			`Token:           written to ${tokenFile}`,
+			...locations.map((l) => `Location:        ${String(l._id)} ${l.name}`),
+		].join('\n') + '\n',
+	);
+	await mongoose.disconnect();
+	process.exit(0);
+};
+
+const main = async (): Promise<void> => {
+	if (config.essentials.env !== 'development') fail(`NODE_ENV is "${config.essentials.env}", not "development"`);
+	if (process.argv.includes('--token-only')) return tokenOnly();
+	const placeId = arg('place-id');
+	const lat = Number(arg('lat'));
+	const lng = Number(arg('lng'));
+	const tokenFile = arg('token-file');
+	const keywords = (arg('keywords') ?? '').split(',').map((k) => k.trim()).filter(Boolean);
+	if (!placeId || !Number.isFinite(lat) || !Number.isFinite(lng) || !tokenFile || keywords.length === 0) {
+		fail('required: --place-id --lat --lng --keywords --token-file');
+	}
+
+	await connect();
 
 	const previous = await User.findOne({ email: EMAIL });
 	if (previous) {
@@ -103,7 +136,7 @@ const main = async (): Promise<void> => {
 	fs.writeFileSync(tokenFile as string, tokens.access.token, { mode: 0o600 });
 	process.stdout.write(
 		[
-			`Live-test user:  ${EMAIL} (password not needed; token written to ${tokenFile})`,
+			`Live-test user:  ${EMAIL} (user id ${String(user._id)}; token written to ${tokenFile})`,
 			`Location id:     ${String(location._id)}`,
 			`Place ID:        ${placeId}`,
 			`Center:          ${lat}, ${lng}`,

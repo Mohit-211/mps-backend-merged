@@ -1,7 +1,7 @@
 # Route inventory
 
-- **Baseline:** commit `62240ac`, plus the Phase 5 ranking routes (marked **new**).
-- **Totals:** 163 live routes. 95 unauthenticated, 64 user token, 2 refresh token, 2 admin token.
+- **Baseline:** commit `62240ac`, plus the Phase 5 ranking routes and the Phase 6 GBP unbind route (marked **new**).
+- **Totals:** 164 live routes. 95 unauthenticated, 65 user token, 2 refresh token, 2 admin token.
 - **Details:** request and response shapes for the new ranking routes are in [API.md](API.md).
 - **Findings column:** IDs point to [AUDIT.md](AUDIT.md) (S = security, C = correctness).
 - **Middleware order, services and models:** see AUDIT.md §1.
@@ -59,8 +59,8 @@ Keep this file in sync when routes are added or removed. New Phase 5+ endpoints 
 | GET | `/api/v1/user/auth/google/analytics/callback` | **none** | Analytics Auth Callback | S11, C17 |
 | POST | `/api/v1/user/auth/google/analytics/revoke` | user | Analytics Connection Revoke |  |
 | GET | `/api/v1/user/auth/google/gbp` | user | Get GBP Auth Url |  |
-| GET | `/api/v1/user/auth/google/gbp/callback` | **none** | GBP Auth Callback | S11, C17 |
-| POST | `/api/v1/user/auth/google/gbp/revoke` | user | GBP Connection Revoke | S29 |
+| GET | `/api/v1/user/auth/google/gbp/callback` | **none** (one-time `state`) | GBP Auth Callback. Phase 6: hashed one-time state, encrypted tokens | S11, C17 fixed |
+| POST | `/api/v1/user/auth/google/gbp/revoke` | user | Disconnect GBP: revoke, remove all bindings, jobs and tokens (Phase 6) | S29 fixed |
 | POST | `/api/v1/user/auth/employee/add` | user | Add Employee |  |
 | DELETE | `/api/v1/user/auth/employee/remove` | user | Delete Employee |  |
 | GET | `/api/v1/user/auth/employee/all` | user | Get All Employee By Owner |  |
@@ -118,8 +118,9 @@ Every route also checks **location ownership**: another user's location returns 
 |---|---|---|---|---|
 | POST | `/api/v1/gbp-audit` | user | Generate GBP Audit Report |  |
 | GET | `/api/v1/gbp-audit/:locationId` | user | Get GBP Audit Report | S15, C8 |
-| GET | `/api/v1/gbp` | user | Get Registered Google Business Profile | S20, C22 |
-| POST | `/api/v1/gbp/bind-with-user` | user | Bind Google Business Profile With User |  |
+| GET | `/api/v1/gbp` | user | List every GBP location across all accounts (Phase 6: no Places calls; response is `{accounts, locations, errors}`) | S20, C9 and C22 fixed |
+| POST | `/api/v1/gbp/bind-with-user` | user | Bind a GBP location to a Location (Phase 6: read from Google, `place_id` rules) |  |
+| POST | `/api/v1/gbp/unbind` | user | **new** (Phase 6): unbind a Location | C12 fixed |
 | POST | `/api/v1/gbp/post/add` | user | Add Post To GBP | C14, C15 |
 | GET | `/api/v1/gbp/post/all/:location_id/:type` | user | Get All Post By Location Id |  |
 | DELETE | `/api/v1/gbp/post/remove` | user | Delete Post | S25, C16 |

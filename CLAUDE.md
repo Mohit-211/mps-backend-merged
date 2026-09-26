@@ -102,7 +102,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - Tests: `tests/` mirrors `src/`; fixtures in `tests/fixtures/`; helpers `tests/helpers/fakeTransport.ts` and `memoryMongo.ts`.
 - Production runs via pm2 with `instances: "max"` (cluster mode). Anything using in-memory state (node-cache, rate-limit memory store, node-cron) runs once **per instance**. Jobs must use agenda (Mongo-locked), never node-cron.
 - Config: `src/configs/config.ts` (Joi-validated env, loaded from `ENV_FILE` if set, else `./.env` in the working directory; see `docs/OPERATIONS.md`). Places key is `GOOGLE_PLACE_API_KEY` → `config.googleApis.placeApi.keySecret`.
-- OAuth: `src/configs/oAuth2Client.ts` exports a **function** `oAuth2Client(type)`; GBP and Analytics clients differ. Tokens stored in `UserAuth` model (`access_token`, `refresh_token`, plaintext). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`).
+- OAuth (Phase 6): GBP connect is `src/services/gbp/oauth.service.ts` (one-time hashed state in `OAuthState`, scope `business.manage`). All GBP calls go through `src/clients/gbpClient.ts` (≤ `GBP_MAX_RPS`, refresh + rotation persisted). Tokens live in `UserAuth`, one active row per `(user_id, token_type)`, via `src/services/gbp/tokenStore.ts`: **GBP tokens are AES-256-GCM encrypted** (`TOKEN_ENCRYPTION_KEY`), Search Console tokens are still plaintext. `src/configs/oAuth2Client.ts` is used only by the Search Console flow; `configs/gbpOauthClinet.ts` is unused (Phase 9). GBP binding in `UserGBP` (`gbpAccountId`, `gbpLocationId`, `place_id`), via `src/services/gbp/binding.service.ts`.
 - Location model (`src/models/location.model.ts`): `name, address, city, state, country, zip_code, lat, lng, mobile, place_id, website_URL, business_category, client_id, created_by, is_active`.
 - Old ranking: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (`generateGrid()` math is correct and reusable), `helpers/localMapRankingReport.ts`, `services/common/{rankTracker,localSearchGrid,localMapRankingReport}.service.ts`, matching middlewares/models/routes (all deleted in Phase 9; `serp.ts` was already deleted in Phase 1.5).
 - Old GBP: `helpers/gbpAudit.ts` (legacy Places API; its organic-rank and Moz helpers were deleted in Phase 1.5), `services/common/gbpAudit.service.ts` (recomputes on every GET), `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda, keep). `helpers/gbpPs.ts` was deleted in Phase 1.5.
@@ -412,6 +412,24 @@ Integration tests (mongodb-memory-server + mocked placesClient): full run for 2 
 
 ## 10. PHASE 6 — GBP connection fixes
 
+**Built** on `claude/phase-6-gbp-connection`. As built, where it differs from or adds to the spec below:
+- **No `OAUTH_STATE_SECRET`.** The state is 32 random bytes stored as a SHA-256 hash (`OAuthState`, TTL index), consumed atomically once, so no HMAC is needed.
+- **Tokens:** `TOKEN_ENCRYPTION_KEY` is required only in production. Legacy plaintext GBP rows are re-encrypted on first read; `npm run gbp:encrypt-tokens` does all of them. Search Console tokens stay plaintext (Phase 10).
+- **`gbpClient`:**
+  - Retries: 429 up to 3 times with backoff; 5xx and timeouts once.
+  - A quota-0 429 throws `GbpAccessNotApprovedError` immediately; a 403 `SERVICE_DISABLED` throws `GbpApiDisabledError`.
+  - `invalid_grant` marks the token row `revoked` and clears `is_gbp_connected`.
+  - API responses use 400 for "reconnect", not 401 (401 means the MyPageSEO session expired).
+- **Discovery:** `GET /gbp` returns `{ accounts, locations, errors }`. That is a frontend change: it used to be a bare array.
+- **Bind:** takes `{ location_id, gbpAccountId, gbpLocationId }` and reads the profile from Google. It also fills `Location.lat/lng` from GBP `latlng` when both are empty.
+- **Unbind** (`POST /gbp/unbind`, new):
+  - Cancels the location's `gbp-sync` jobs and its pending scheduled posts (marked `REJECTED`, `last_error`).
+  - Deletes the GBP tokens **only when it was the user's last binding**, because tokens belong to the Google account, not to a binding.
+- **Disconnect:** `POST /user/auth/google/gbp/revoke` revokes at Google, then removes everything.
+- **Preflight:** `npm run gbp:preflight -- <userId>` (read-only, Mohit runs it). Setup and connection steps: `docs/GBP_CONNECT.md`.
+
+Original spec:
+
 Prerequisite: Mohit confirms GBP API access is approved for the Cloud project (quota > 0). If calls return 429 with quota 0, stop and report; that is an access gate, not a rate limit.
 
 Carried over from Phase 3 (deferred 2026-09-26):
@@ -521,7 +539,7 @@ Only after Mohit confirms the frontend has switched to the new endpoints:
 
 Runs after Phase 9. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
 
-Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S29, see `docs/AUDIT.md`). Apply minimal, targeted fixes:
+Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S30, see `docs/AUDIT.md`). Apply minimal, targeted fixes:
 
 - Auth guards: add `adminAuthMiddleware.validateAdminJWTToken` (router-level `router.use(...)` where a whole router is admin-only; per-route otherwise). Admin creation additionally requires super-admin role.
 - `/api/v1/logs`: admin-only or removed. `/system/*`: admin-only.
