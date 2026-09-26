@@ -1,4 +1,6 @@
-# Route inventory
+# Route inventory (frozen snapshot)
+
+> **Frozen on 2026-09-26. Do not update this file.** It is the Phase 1 baseline route inventory with the audit findings, plus the routes added up to Phase 7b. The current list of endpoints is [ENDPOINTS.md](ENDPOINTS.md), which `npm run check:endpoints` keeps in sync with the code.
 
 - **Baseline:** commit `62240ac`, plus the Phase 5 ranking routes, the Phase 6 GBP unbind route and the Phase 7a connect and onboarding routes (marked **new**).
 - **Totals:** 161 live routes. 91 unauthenticated, 66 user token, 2 refresh token, 2 admin token.
@@ -19,7 +21,7 @@
 
 Some routes are public by design and are not flagged: login, register, OTP, the OAuth callbacks, reference lists, plan lists, contact-us submit, coupon validation, blog reads and health checks.
 
-Keep this file in sync when routes are added or removed. New Phase 5+ endpoints go in `docs/API.md`.
+Frozen: new and changed endpoints go in [ENDPOINTS.md](ENDPOINTS.md) (and [API.md](API.md) for request and response shapes).
 
 ### Admin
 

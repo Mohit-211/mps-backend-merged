@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-26, end of Phase 7a (connect + onboarding)._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-26, after the 7b merge (endpoint-docs rule and the live-test page added on `claude/rebuild`)._
 
 ## Product goal
 
@@ -22,17 +22,17 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 | 5 Ranking reports | Done | `claude/phase-5-ranking-reports` | yes (`2bb4cf8`) | M2 (2026-09-26) |
 | 5.5 Live validation | Done: **informal pass, one market, formal scoring pending** | `claude/phase-5.5-live-validation` | yes (`5735bad`) | M3 |
 | 6 GBP connection | Done | `claude/phase-6-gbp-connection` | yes (`4e4d556`) | M3 |
-| **7a Connect + onboarding** | **Done (review fixes in), awaiting merge** | `claude/phase-7a-connect-onboarding` | not yet | M3 |
-| **9a Legacy cleanup** (early Phase 9) | **Done, awaiting merge after 7a** | `claude/phase-9a-legacy-cleanup` | not yet | M3 |
-| **7b GBP sync (monthly cadence)** | **Done, awaiting merge (after 7a, 9a)** | `claude/phase-7b-gbp-sync` (from 9a) | not yet | M3 |
-| Live test with MyPageSEO | After 7b | — | — | — |
+| 7a Connect + onboarding | Done | `claude/phase-7a-connect-onboarding` | yes (`1273e2b`) | M3 |
+| 9a Legacy cleanup (early Phase 9) | Done | `claude/phase-9a-legacy-cleanup` | yes (`73e4fe9`) | M3 |
+| 7b GBP sync (monthly cadence) | Done | `claude/phase-7b-gbp-sync` (from 9a) | yes (`e74b079`) | M3 |
+| **Live test with MyPageSEO** | **Next: Mohit triggers each step** | — (on `claude/rebuild`) | — | — |
 | 7c Scoring + report + competitors | Not started | — | — | **M3** |
 | 8 Auth, Organization, Onboarding & Locations | Not started (plan mode + data-model diagram first) | — | — | M4 (to be agreed) |
 | 9 GBP posting (was 8; needs v4) | Not started | — | — | — |
 | 9b Remaining cleanup (was 9) | Not started | — | — | — |
 | 10 Security (gated) | Deferred | — | — | — |
 
-`main` is untouched (`62240ac`). There is no Phase 2; security moved to Phase 10. **Merge order:** 7a → 9a → 7b. After Phase 8 the next feature is chosen with Mohit (likely reports center, dashboards or citations).
+`main` is untouched (`62240ac`). There is no Phase 2; security moved to Phase 10. After Phase 8 the next feature is chosen with Mohit (likely reports center, dashboards or citations).
 
 ## Done so far
 
@@ -69,7 +69,8 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
   - **Sync:** the `gbp-sync` job stores performance (18-month backfill, then 40 days rolling), search keywords (6 months, then 2), the full profile, attributes, pending Google edits and verification, each type with its own status. Reviews, media and posts are built but behind `GBP_V4_ENABLED`.
   - **Refresh:** one `monthly-refresh` scheduler (per location, on its setup day at about 03:00 local) replaced the 15-minute rank scheduler. `POST/GET /locations/:id/refresh` (manual, 24 h per type). `GET /locations/:id/gbp/sync`.
   - **Settings:** `tracking.frequency` is `auto_monthly | manual_only`, with `npm run migrate:refresh`.
-- **Tests:** 453 pass with no API key and no network. Lint baseline is 32.
+- **Endpoint docs rule (2026-09-26):** [ENDPOINTS.md](ENDPOINTS.md) lists every current endpoint (161 + 1 dev-only) and `npm run check:endpoints` (part of `npm test`) fails when it drifts from the code. ROUTES.md is a frozen Phase 1 snapshot. A dev-only popup-connect page `GET /dev/gbp-connect` for the live test.
+- **Tests:** all pass with no API key and no network. Lint baseline is 32.
 
 ## Key decisions
 
@@ -95,11 +96,11 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 
 ## Open items (owner: Mohit)
 
-1. **Merge 7a, then 9a** (commands in the summary). No push: M3 comes after 7c.
+1. **No push until M3** (after 7c).
 2. **Google Cloud:**
-   - Add the frontend's **Authorised JavaScript origin** to the OAuth client (needed for the popup).
-   - `.env`: `TOKEN_ENCRYPTION_KEY` and the redirect URI on port 5055 (Phase 6).
-3. **Live steps, when you say so** (PROGRESS.md, Phase 7a): popup connect → `gbp:preflight` → select-profile → competitor suggestions. Then the 7b first sync and the 7c report.
+   - Add the **Authorised JavaScript origins** to the OAuth client: the frontend's, and `http://localhost:5055` for the dev test page.
+   - `.env`: `TOKEN_ENCRYPTION_KEY` (currently empty, so connecting would fail) and, for the redirect fallback only, `GOOGLE_GBP_REDIRECT_URI` on port 5055 (currently 5000).
+3. **Live test, when you say so:** see "Next up".
 4. **Google My Business API (v4)** access is pending. Until then `GBP_V4_ENABLED=false` (7b).
 5. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 6. **Maps ToS decisions before launch:** see "Decide before launch (Maps ToS)" below.
@@ -123,16 +124,15 @@ All three store or show Google Maps content. Confirm each against the Google Map
 
 ## Next up
 
-1. **Merge 7a → 9a → 7b** (commands in PROGRESS.md), then run `npm run migrate:refresh` on any database with existing locations.
-2. **Live test with MyPageSEO** (you trigger it; order in [GBP_CONNECT.md](GBP_CONNECT.md)):
-   1. popup connect
-   2. `gbp:preflight`
-   3. select-profile (links the existing MyPageSEO location by `place_id`)
-   4. competitor suggestions (2 Enterprise Places calls)
-   5. first GBP sync with `POST /locations/:id/refresh {"types":["gbp"]}` (about 11 free GBP calls)
-   6. read `GET /locations/:id/gbp/sync`
-3. **7c** (scoring, GBP report, competitors, `seed:gbp-demo`) in plan mode → **M3 push**.
-4. **Phase 8: Auth, Organization, Onboarding & Locations**, in plan mode with a data-model diagram.
+1. **Live test with MyPageSEO** (you trigger each step; [GBP_CONNECT.md](GBP_CONNECT.md) §3a, §4.6–4.7, §5):
+   1. popup connect on the dev page `http://localhost:5055/dev/gbp-connect` (0 GBP calls)
+   2. `gbp:preflight` (2 GBP calls)
+   3. bind the existing MyPageSEO location with `POST /gbp/bind-with-user` (1 GBP call)
+   4. first GBP sync with `POST /locations/:id/refresh {"types":["gbp"]}` (about 11 free GBP calls)
+   5. read `GET /locations/:id/gbp/sync`
+   6. optional: competitor suggestions (2 Enterprise Places calls)
+2. **7c** (scoring, GBP report, competitors, `seed:gbp-demo`) in plan mode → **M3 push**.
+3. **Phase 8: Auth, Organization, Onboarding & Locations**, in plan mode with a data-model diagram.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
 
@@ -147,7 +147,7 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 - removed legacy features and data: [LEGACY_FEATURES.md](LEGACY_FEATURES.md), [MIGRATION.md](MIGRATION.md)
 - live validation: [LIVE_TEST.md](LIVE_TEST.md) (`find:place`, `setup:live-test`, `calibrate`, `calibrate:score`)
 - GBP: [GBP_CONNECT.md](GBP_CONNECT.md) (Google Cloud setup, popup and redirect connect, `gbp:preflight`, `gbp:encrypt-tokens`, `setup:live-test --token-only`)
-- API reference: [ENDPOINTS.md](ENDPOINTS.md) (one-page list of every rebuilt endpoint) and [API.md](API.md) (full examples)
+- API reference: [ENDPOINTS.md](ENDPOINTS.md) (every current endpoint; checked by `npm run check:endpoints`) and [API.md](API.md) (full examples)
 
 **Where each fact lives:**
 
@@ -156,5 +156,5 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 | Current state and next step | this file |
 | History and commit hashes | [PROGRESS.md](PROGRESS.md) |
 | Findings and their status | [AUDIT.md](AUDIT.md) |
-| Routes | [ROUTES.md](ROUTES.md) |
+| Endpoints (current) | [ENDPOINTS.md](ENDPOINTS.md); [ROUTES.md](ROUTES.md) is the frozen Phase 1 snapshot |
 | Rules and phase specs ("as built" notes) | [CLAUDE.md](../CLAUDE.md) |

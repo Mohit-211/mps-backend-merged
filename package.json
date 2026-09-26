@@ -18,6 +18,7 @@
     "smoke:places": "ts-node --transpile-only src/scripts/smokePlaces.ts",
     "smoke:agenda": "ts-node --transpile-only src/scripts/smokeAgenda.ts",
     "test:types": "tsc -p tests/tsconfig.json",
+    "check:endpoints": "jest tests/docs/endpoints.test.ts",
     "seed:rank-demo": "ts-node --transpile-only src/scripts/seedRankDemo.ts",
     "calibrate": "ts-node --transpile-only src/scripts/calibrate.ts",
     "calibrate:score": "ts-node --transpile-only src/scripts/calibrateScore.ts",

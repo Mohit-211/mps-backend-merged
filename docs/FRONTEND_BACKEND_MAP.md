@@ -4,7 +4,7 @@ For the frontend team (Lovable). Every screen in the roadmap's **§16 Master Scr
 
 **Rule:** build a screen (or a section of one) only when it says **available**. **partial** means part of the data exists; the other parts are listed. **planned (phase N)** means the backend is coming; show an empty state or hide it. **not supported** means **don't build it**: the data won't exist.
 
-Endpoint shapes are in [ENDPOINTS.md](ENDPOINTS.md) (rebuilt endpoints) and [API.md](API.md). Legacy endpoints are in [ROUTES.md](ROUTES.md).
+Every current endpoint (legacy included) is in [ENDPOINTS.md](ENDPOINTS.md); request and response shapes are in [API.md](API.md).
 
 Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 

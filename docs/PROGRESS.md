@@ -667,3 +667,13 @@ npm run migrate:refresh   # local mps_rebuild (already run once; idempotent)
 ```
 No push: M3 comes after 7c.
 
+
+## On `claude/rebuild` after the 7b merge (2026-09-26)
+
+- **`dumps/cities.json`:** Mohit's intentional reduction to the supported countries (US, AU, UK, IN, CA, IE), committed on its own.
+- **Endpoint docs rule** (Mohit): [ENDPOINTS.md](ENDPOINTS.md) is the single source of truth for every current endpoint (161 routes + 1 dev-only), with auth, purpose, phase and status (`live | behind flag | deprecated | dev only`).
+  - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, helper `tests/helpers/endpoints.ts`) loads the Express app without MongoDB, agenda or cron, lists every route (nested routers expanded; a path-mounted middleware such as swagger `/docs` counts as GET) and fails on drift in either direction, on a bad status, and on a detail row (`#`) not in the catalogue. It runs inside `npm test`.
+  - ROUTES.md is now a frozen snapshot. The rule is in CLAUDE.md §2 and the end-of-phase checklist.
+- **Live-test page:** `GET /dev/gbp-connect` (`src/routes/dev/devConnect.route.ts`), mounted in `app.ts` only when `NODE_ENV=development`. It runs the GIS popup flow against `/user/auth/google/gbp/popup` and `/code`, with its own CSP (helmet's blocks the GIS script). GBP_CONNECT.md §3a; the preflight example updated to the multi-account output.
+- **Shared-file edit (called out):** `src/app.ts`, 5 lines to mount the dev router.
+- **API calls:** 0.

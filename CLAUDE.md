@@ -88,13 +88,21 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - New pure logic (ranking math, matching, change calculation, health score, grid generation) has unit tests.
 - External API calls are wrapped in a client module that can be mocked; unit tests never hit the network.
 
+### Endpoint docs never go stale (Mohit, 2026-09-26)
+- `docs/ENDPOINTS.md` is the single source of truth for every **current** endpoint: method, path, auth, purpose, phase added, status (`live | behind flag | deprecated | dev only`).
+- `docs/API.md` keeps the request/response examples for the new endpoints.
+- `docs/ROUTES.md` is a frozen Phase 1 snapshot. Don't update it.
+- **Every commit that adds, changes or removes an endpoint updates ENDPOINTS.md in the same commit**, and API.md too when a request or response shape changes.
+- `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
+
 ### Phase gates
 Phase order (revised by Mohit, 2026-09-26): 1 → 1.5 → 1.6 → 3 Foundations → 4 Ranking engine → 5 Ranking reports → 6 GBP connection → 7a Connect + onboarding → 9a Legacy cleanup (done early) → **7b GBP sync (monthly)** → live test with MyPageSEO → **7c Scoring + report + competitors (M3)** → **8 Auth, Organization, Onboarding & Locations** → 9 GBP posting (needs v4) → 9b Remaining cleanup → 10 Security (gated). After Phase 8 the next feature is chosen with Mohit; don't plan beyond Phase 8. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 At the end of every phase:
 1. Stop.
 2. Write/update `docs/PROGRESS.md` with: what changed, files touched, decisions made, open questions, API calls consumed.
-3. Summarise to Mohit and **wait for approval** before starting the next phase.
+3. Check that `docs/ENDPOINTS.md` (and `docs/API.md`) match every endpoint added, changed or removed in the phase, and that `npm run check:endpoints` passes.
+4. Summarise to Mohit and **wait for approval** before starting the next phase.
 
 Use plan mode before each phase: show the plan and the list of files to create/modify/delete, and wait for approval.
 
@@ -111,7 +119,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 
 - Entry: `index.ts` → `src/server.ts` → `src/app.ts`. Routes mounted at `/api/v1` from `src/routes/v1/index.ts` (common, admin, user route groups).
 - Mongo + agenda: agenda lives in `src/configs/agenda.ts` (own MongoDB connection, processEvery 1 minute) and is re-exported by `src/configs/mongoConnection.ts`. Jobs are registered in `src/jobs/index.ts` (`defineAllJobs`) and agenda is started from `src/server.ts` after `listen`. New jobs use `src/jobs/defineJob.ts` (`defineJob` / `scheduleJob`, IDs-only data). The only job before Phase 5 is `post-to-gbp` (`src/jobs/postToGbp.ts`). Local database: `mps_rebuild` (see `docs/OPERATIONS.md`).
-- Ranking API (Phase 5): `/api/v1/locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}` (see `docs/API.md`). Jobs `rank-run`, `gbp-sync` and `monthly-refresh` (7b; `rank-scheduler` removed). Model `RankRun` (`rank_runs`) and `Location.tracking`.
+- Ranking API (Phase 5): `/api/v1/locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}` (see `docs/ENDPOINTS.md`, examples in `docs/API.md`). Jobs `rank-run`, `gbp-sync` and `monthly-refresh` (7b; `rank-scheduler` removed). Model `RankRun` (`rank_runs`) and `Location.tracking`.
 - **Clients:**
   - `src/clients/http.ts`: transport, 15 s timeout, 1 retry, safe errors with ErrorInfo `reason` and `quota_limit_value`.
   - `src/clients/placesClient.ts`: Places API (New). Each search has a guarded field mask: IDs-only for ranking, Pro names for Map Ranking, Enterprise for competitor suggestions, Pro names and addresses for manual search. Plus Place Details. `createPlacesClient()` is for tests; `placesClient` is the default instance.

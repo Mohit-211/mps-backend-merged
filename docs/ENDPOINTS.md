@@ -1,6 +1,21 @@
-# Endpoints (rebuilt or new)
+# Endpoints
 
-Every endpoint built or fixed in the rebuild so far (Phases 5, 6 and 7a). Legacy endpoints that haven't been rebuilt are not listed; they are in [ROUTES.md](ROUTES.md). Full request and response examples are in [API.md](API.md).
+**The single source of truth for every current endpoint** (method, path, auth, purpose, phase added, status). Request and response examples for the rebuilt endpoints are in [API.md](API.md). [ROUTES.md](ROUTES.md) is a frozen Phase 1 snapshot (with the audit findings) and is no longer updated.
+
+**Rule (Mohit, 2026-09-26):**
+- Every commit that adds, changes or removes an endpoint updates this file in the **same commit**, and [API.md](API.md) too when a request or response shape changes.
+- `npm run check:endpoints` loads the Express app, lists every registered route and compares it with the catalogue below. It fails on a route missing here, on an entry here with no route, on a bad status, and on a detail-table row (`#`) that isn't in the catalogue. It runs as part of `npm test`.
+
+**Status values:**
+
+| Status | Meaning |
+|---|---|
+| live | Registered in every environment |
+| behind flag | Registered, but answers only when a config flag enables it (the flag is named in the purpose) |
+| deprecated | Still registered; will be removed (the replacement is named in the purpose) |
+| dev only | Registered only when `NODE_ENV=development`; never in test or production |
+
+**Phase:** `legacy` = from the old codebase and not rebuilt; `legacy, rebuilt N` = old path, rebuilt in phase N; otherwise the phase that added it.
 
 ## Conventions
 
@@ -28,7 +43,253 @@ Every endpoint built or fixed in the rebuild so far (Phases 5, 6 and 7a). Legacy
 
 ---
 
-## Ranking: tracking settings and runs (Phase 5)
+## Catalogue: all current endpoints
+
+Paths are full paths. Auth: `none`, `user` (user access token), `user + owner` (also owns the location, otherwise 404), `refresh token`, `admin`. The security findings for legacy routes (S1–S30) are in [AUDIT.md](AUDIT.md) and the [ROUTES.md](ROUTES.md) snapshot.
+
+### Admin
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/admin/auth/register` | none | Create Admin User | legacy | live |
+| POST | `/api/v1/admin/auth/login` | none | Login Admin User | legacy | live |
+| POST | `/api/v1/admin/auth/sendOTP` | none | Send OTP | legacy | live |
+| POST | `/api/v1/admin/auth/verifyOTP` | none | Verify OTP | legacy | live |
+| POST | `/api/v1/admin/auth/resetPassword` | admin | Reset Admin Password | legacy | live |
+| POST | `/api/v1/admin/auth/forgotPassword` | none | Forgot Admin Password | legacy | live |
+| GET | `/api/v1/admin/auth/getAllAdmins` | none | Get All Admins | legacy | live |
+| GET | `/api/v1/admin/auth/getAdminById/:id` | none | Find Admin By Id | legacy | live |
+| GET | `/api/v1/admin/auth/getProfile` | admin | Get Profile | legacy | live |
+| PUT | `/api/v1/admin/auth/updateAdmin` | none | Update Admin | legacy | live |
+| DELETE | `/api/v1/admin/auth/deleteAdmin` | none | Delete Admin | legacy | live |
+| GET | `/api/v1/admin/operations/getAllAgencies` | none | Get All Agencies | legacy | live |
+| GET | `/api/v1/admin/operations/getAgencyById/:id` | none | Get Agency By Id | legacy | live |
+| PUT | `/api/v1/admin/operations/updateAgencyStatus` | none | Update Agency Status | legacy | live |
+| GET | `/api/v1/admin/operations/getAllBusinesses` | none | Get All Businesses | legacy | live |
+| GET | `/api/v1/admin/operations/getBusinessesById/:id` | none | Get Businesses By Id | legacy | live |
+| GET | `/api/v1/admin/operations/getAllClients` | none | Get All Clients | legacy | live |
+
+### User auth & account
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/user/auth/register` | none | Register | legacy | live |
+| POST | `/api/v1/user/auth/otp` | none | Send OTP | legacy | live |
+| POST | `/api/v1/user/auth/verify-otp` | none | Verify OTP | legacy | live |
+| POST | `/api/v1/user/auth/login` | none | Login | legacy | live |
+| POST | `/api/v1/user/auth/reset-password` | user | Reset Password | legacy | live |
+| POST | `/api/v1/user/auth/forgot-password` | none | Forgot Password | legacy | live |
+| POST | `/api/v1/user/auth/refresh-auth` | refresh token | Refresh Auth | legacy | live |
+| POST | `/api/v1/user/auth/logout` | refresh token | Logout | legacy | live |
+| GET | `/api/v1/user/auth/deactivate` | user | Deactivate Account | legacy | live |
+| POST | `/api/v1/user/auth/employee/add` | user | Add Employee | legacy | live |
+| DELETE | `/api/v1/user/auth/employee/remove` | user | Delete Employee | legacy | live |
+| GET | `/api/v1/user/auth/employee/all` | user | Get All Employee By Owner | legacy | live |
+| GET | `/api/v1/user/auth/employee/details/:employee_id` | user | Employee Details | legacy | live |
+| GET | `/api/v1/user/profile` | user | Get Profile | legacy | live |
+| POST | `/api/v1/user/notifications` | user | Notification Toogle | legacy | live |
+| PUT | `/api/v1/user/profile` | user | Update Profile | legacy | live |
+| POST | `/api/v1/user/clients` | user | Create Client | legacy | live |
+| GET | `/api/v1/user/clients` | user | Get All Client | legacy | live |
+| GET | `/api/v1/user/clients/:client_id` | user | Get Client Details | legacy | live |
+| PUT | `/api/v1/user/clients` | user | Update Client | legacy | live |
+| DELETE | `/api/v1/user/clients/:client_id` | user | Delete Client | legacy | live |
+
+### Locations
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/locations` | user | Create Location | legacy | live |
+| GET | `/api/v1/locations/:locationId` | none | Get Location Details | legacy | live |
+| DELETE | `/api/v1/locations/:locationId` | user | Delete Location | legacy | live |
+| PUT | `/api/v1/locations` | user | Update Location | legacy | live |
+| GET | `/api/v1/locations` | user | Get Location By User | legacy | live |
+| GET | `/api/v1/locations/google-locations/:name` | none | Get Google Locations | legacy | live |
+| GET | `/api/v1/locations/google-locations/details/:placeId` | none | Get Google Location Details | legacy | live |
+
+### Ranking
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/locations/:locationId/tracking` | user + owner | Ranking settings (keywords, competitors, grid, frequency) and the cost estimate | 5 | live |
+| PUT | `/api/v1/locations/:locationId/tracking` | user + owner | Update ranking settings (bumps `keywords_version` when the keyword set changes) | 5 | live |
+| POST | `/api/v1/locations/:locationId/rank-runs` | user + owner | "Run now": queue a rank run (one active run per location; 422 over the call cap; 7b: shares the 24 h rankings refresh limit, 429) | 5 | live |
+| GET | `/api/v1/locations/:locationId/rank-runs` | user + owner | Run history (paginated) | 5 | live |
+| GET | `/api/v1/locations/:locationId/rank-runs/:runId` | user + owner | Run status, API calls, errors | 5 | live |
+| GET | `/api/v1/locations/:locationId/rank-tracker` | user + owner | Rank Tracker page (`?runId=`) | 5 | live |
+| GET | `/api/v1/locations/:locationId/grid` | user + owner | Local Search Grid page (`?keyword=&runId=`) | 5 | live |
+| GET | `/api/v1/locations/:locationId/map-ranking` | user + owner | Local Map Ranking page (`?keyword=&runId=&resolveNames=`) | 5 | live |
+
+### GBP connection
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/user/auth/google/gbp` | user | Google consent URL (redirect fallback flow) | legacy, rebuilt 6 | live |
+| GET | `/api/v1/user/auth/google/gbp/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens | legacy, rebuilt 6 | live |
+| POST | `/api/v1/user/auth/google/gbp/revoke` | user | Disconnect one Google account (`google_sub`): revoke it, remove its bindings, jobs and tokens | legacy, rebuilt 6 | live |
+| GET | `/api/v1/user/auth/google/gbp/popup` | user | GIS popup config with a one-time state | 7a | live |
+| POST | `/api/v1/user/auth/google/gbp/code` | user | Exchange the popup code (`postmessage`), verify id_token | 7a | live |
+| GET | `/api/v1/gbp` | user | Every GBP profile from every connected Google account, grouped (`{ connections: [...] }`; no Places calls) | legacy, rebuilt 6 | live |
+| POST | `/api/v1/gbp/bind-with-user` | user | Bind a GBP location to a Location (read from Google, `place_id` rules; `google_sub` with several accounts) | legacy, rebuilt 6 | live |
+| POST | `/api/v1/gbp/unbind` | user | Unbind a Location | 6 | live |
+
+### Onboarding
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/onboarding/state` | user | Connection + onboarding locations (resume) | 7a | live |
+| GET | `/api/v1/onboarding/gbp-profiles` | user | Every accessible profile, `supported` flag | 7a | live |
+| POST | `/api/v1/onboarding/select-profile` | user | Create or link a Location from a profile and bind | 7a | live |
+| POST | `/api/v1/onboarding/complete` | user | First rank run + GBP sync request | 7a | live |
+| GET | `/api/v1/locations/:locationId/competitor-suggestions` | user + owner | Top 10 competitors across keywords (Places Enterprise, 24 h cache, daily cap) | 7a | live |
+| GET | `/api/v1/places/search` | user + owner (`locationId`) | Manual competitor search (Places Pro, 10 results, daily cap) | 7a | live |
+| PUT | `/api/v1/locations/:locationId/center` | user + owner | Manual business center from a city or ZIP (service-area businesses; 1 IDs-only search + 1 Details `location`) | 7a | live |
+
+### Refresh and GBP sync
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/locations/:locationId/refresh` | user + owner | Manual refresh `{ types? }` (24 h per type) | 7b | live |
+| GET | `/api/v1/locations/:locationId/refresh` | user + owner | Refresh button state and monthly schedule | 7b | live |
+| GET | `/api/v1/locations/:locationId/gbp/sync` | user + owner | Latest (or `?syncId=`) GBP sync, status per data type | 7b | live |
+
+### GBP posting (legacy, rebuilt in Phase 9)
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/gbp/post/add` | user | Add Post To GBP | legacy | live |
+| GET | `/api/v1/gbp/post/all/:location_id/:type` | user | Get All Post By Location Id | legacy | live |
+| DELETE | `/api/v1/gbp/post/remove` | user | Delete Post | legacy | live |
+
+### White label
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/white-label-profiles` | user | Create New Profile | legacy | live |
+| PATCH | `/api/v1/white-label-profiles` | user | Update White Label Profile | legacy | live |
+| GET | `/api/v1/white-label-profiles` | user | Get White Label Profile | legacy | live |
+| GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | none | Get White Label Profile Detail | legacy | live |
+| DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile | legacy | live |
+
+### Citations
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/citation/manual/listings/pricings` | user | Get Manual Submission Prices | legacy | live |
+| GET | `/api/v1/citation/aggregators/list` | user | Get Aggregators Details | legacy | live |
+| GET | `/api/v1/citation/remove/prices/list` | user | Get Citatio Remove Prices | legacy | live |
+| GET | `/api/v1/citation/lists/:location_id` | user | Get Citatio List | legacy | live |
+| POST | `/api/v1/citation/campaign/add/new` | user | Add Citation Campaign | legacy | live |
+| POST | `/api/v1/citation/campaign/add/busines/info` | user | Add Citation Campaign Busines Info | legacy | live |
+| GET | `/api/v1/citation/:location_id/campaign/:campaign_id/details` | user | Get Campaign Details | legacy | live |
+| GET | `/api/v1/citation/:location_id/campaign/all` | user | Get All Campaign | legacy | live |
+| GET | `/api/v1/citation/locations/campaigns/list/all` | user | Get All Citation By Token | legacy | live |
+| POST | `/api/v1/citation/tracker` | user | Generate Citation Tracker Report | legacy | live |
+| GET | `/api/v1/citation/tracker` | user | Get Citation Tracker Report | legacy | live |
+| POST | `/api/v1/citation/builder` | user | Citation Builder | legacy | live |
+| GET | `/api/v1/citation/getAllCitatioList` | none | Get All Citatio List | legacy | live |
+
+### Payments & subscriptions
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/subscription` | none | Create Plan | legacy | live |
+| GET | `/api/v1/subscription` | none | Get All Plans | legacy | live |
+| GET | `/api/v1/subscription/plans/country/:country` | none | Get Plans By Country | legacy | live |
+| PUT | `/api/v1/subscription/:plan_id` | none | Update Plan | legacy | live |
+| DELETE | `/api/v1/subscription/:plan_id` | none | Delete Plan | legacy | live |
+| POST | `/api/v1/subscription/create-subscription` | none | Create Subscription | legacy | live |
+| POST | `/api/v1/subscription/paypal/webhook` | none | Paypal Webhook | legacy | live |
+| GET | `/api/v1/subscription/payment-status` | none | Get Payment Status | legacy | live |
+| POST | `/api/v1/subscription/coupon/generate` | none | Generate Coupon | legacy | live |
+| POST | `/api/v1/subscription/coupon/validate` | none | Validate Coupon | legacy | live |
+| GET | `/api/v1/subscription/coupons` | none | Get All Coupons | legacy | live |
+| GET | `/api/v1/subscription/payments/all` | none | Get All Payment History | legacy | live |
+| POST | `/api/v1/subscription/send-subscription-welcome-mail` | none | Send Subscription Welcome Mail Controller | legacy | live |
+| POST | `/api/v1/payments/process-payment` | user | Make Square Payment | legacy | live |
+| GET | `/api/v1/payments/plans/list` | none | Get Plans | legacy | live |
+| GET | `/api/v1/payments/getAllPayments` | none | Get All Payments | legacy | live |
+
+### Reference data
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/countries` | none | Get All Country | legacy | live |
+| GET | `/api/v1/countries/states/:countryId` | none | Get All State By Country Id | legacy | live |
+| GET | `/api/v1/countries/cities/:stateId` | none | Get All City By State Id | legacy | live |
+| POST | `/api/v1/roles` | none | Create Role | legacy | live |
+| GET | `/api/v1/roles/:roleId` | none | Find Role By Id | legacy | live |
+| GET | `/api/v1/roles` | none | Get All Roles | legacy | live |
+| PUT | `/api/v1/roles/:roleId` | none | Update Role | legacy | live |
+| DELETE | `/api/v1/roles/:roleId` | none | Delete Role | legacy | live |
+| GET | `/api/v1/languages` | none | Get All Language | legacy | live |
+| GET | `/api/v1/timezones` | none | Get All Timezone | legacy | live |
+| POST | `/api/v1/business-categories` | none | Create Business Category | legacy | live |
+| GET | `/api/v1/business-categories` | none | Get All Business Category | legacy | live |
+| PUT | `/api/v1/business-categories/:businessCategoryId` | none | Update Business Category | legacy | live |
+
+### Content & support
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/faqs` | none | Get All Faq | legacy | live |
+| POST | `/api/v1/faqs` | none | Create Faq | legacy | live |
+| PUT | `/api/v1/faqs/:faqId` | none | Update Faq | legacy | live |
+| DELETE | `/api/v1/faqs/:faqId` | none | Delete Faq | legacy | live |
+| POST | `/api/v1/supports` | user | Create Support | legacy | live |
+| GET | `/api/v1/supports` | user | Get All Support | legacy | live |
+| DELETE | `/api/v1/supports/:supportId` | user | Delete Support | legacy | live |
+| GET | `/api/v1/supports/getAllSupportByAdmin` | none | Get All Support Tickets By Admin | legacy | live |
+| PUT | `/api/v1/supports/updateSupportTicketStatus` | none | Update Support Ticket Status | legacy | live |
+| GET | `/api/v1/supports/getSupportTicketStatusCounts` | none | Get Support Ticket Status Counts | legacy | live |
+| POST | `/api/v1/contact-us` | none | Create Contact Us | legacy | live |
+| GET | `/api/v1/contact-us/get` | none | Get All Contact Us | legacy | live |
+| GET | `/api/v1/contact-us/:contactId` | none | Get Contact Us By Id | legacy | live |
+| PUT | `/api/v1/contact-us/:contactId/status` | none | Update Contact Us Status | legacy | live |
+| DELETE | `/api/v1/contact-us/:contactId` | none | Delete Contact Us | legacy | live |
+| POST | `/api/v1/blog` | none | Create Blog | legacy | live |
+| GET | `/api/v1/blog/get` | none | Get All Blogs | legacy | live |
+| GET | `/api/v1/blog/slug/:slug` | none | Get Blog By Slug | legacy | live |
+| GET | `/api/v1/blog/:blogId` | none | Get Blog By Id | legacy | live |
+| PUT | `/api/v1/blog/:blogId` | none | Update Blog | legacy | live |
+| DELETE | `/api/v1/blog/:blogId` | none | Delete Blog | legacy | live |
+| POST | `/api/v1/blog-category` | none | Create Blog Category | legacy | live |
+| GET | `/api/v1/blog-category/get` | none | Get All Blog Categories | legacy | live |
+| GET | `/api/v1/blog-category/:categoryId` | none | Get Blog Category By Id | legacy | live |
+| PUT | `/api/v1/blog-category/:categoryId` | none | Update Blog Category | legacy | live |
+| DELETE | `/api/v1/blog-category/:categoryId` | none | Delete Blog Category | legacy | live |
+
+### System & infrastructure
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/system/info` | none | Get System Info | legacy | live |
+| GET | `/api/v1/system/time` | none | Get Server Time | legacy | live |
+| GET | `/api/v1/system/usage` | none | Get Resource Usage | legacy | live |
+| GET | `/api/v1/system/process` | none | Get Process Info | legacy | live |
+| GET | `/api/v1/logs` | none | Read today's log file | legacy | live |
+| DELETE | `/api/v1/logs` | none | Delete all log files | legacy | live |
+| GET | `/images/:filename` | none | Serve an uploaded file (`public/uploads/images`) | legacy | live |
+| GET | `/videos/:filename` | none | Serve an uploaded file (`public/uploads/videos`) | legacy | live |
+| GET | `/gifs/:filename` | none | Serve an uploaded file (`public/uploads/gifs`) | legacy | live |
+| GET | `/docs/:filename` | none | Serve an uploaded file (`public/uploads/docs`) | legacy | live |
+| GET | `/songs/:filename` | none | Serve an uploaded file (`public/uploads/songs`) | legacy | live |
+| GET | `/api/healthcheck` | none | Health check | legacy | live |
+| GET | `/ping` | none | Ping | legacy | live |
+| GET | `/docs` | none | Swagger UI | legacy | live |
+### Development only
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/dev/gbp-connect` | none (the page asks for a MyPageSEO token) | Test page for the Google popup connect (GIS code client) without the real frontend; calls #11 and #12, then optionally #18. See [GBP_CONNECT.md](GBP_CONNECT.md) §3a | after 7b | dev only |
+
+---
+
+## Details: rebuilt endpoints
+
+The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
+
+### Ranking: tracking settings and runs (Phase 5)
 
 | # | Method | Path | Auth | Path params | Query params | Body | Returns |
 |---|---|---|---|---|---|---|---|
@@ -51,7 +312,7 @@ Every endpoint built or fixed in the rebuild so far (Phases 5, 6 and 7a). Legacy
 - **#3:** "run now" is a rankings refresh: it shares the **24 h manual-refresh limit** with #25 and returns **429** `{ next_allowed_at }` inside the window. Returns **400** without a `place_id`, without keywords, or when the country is not US/CA; **422** when over `RANK_MAX_CALLS_PER_RUN`. If a run is already active it returns that run with `existing: true` (no limit used). In development the run is capped at 2 keywords and a 3×3 grid.
 - **#5:** returns **404** for an unknown run.
 
-## Ranking: report pages (Phase 5)
+### Ranking: report pages (Phase 5)
 
 All three read the latest `done` or `partial` run, or the run given by `runId`.
 
@@ -63,7 +324,7 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 
 **404** means there is no completed run yet, an unknown `runId`, or a keyword not in the run. **409** means the `runId` isn't finished.
 
-## GBP connection (Phase 6, updated in 7a)
+### GBP connection (Phase 6, updated in 7a)
 
 | # | Method | Path | Auth | Query params | Body | Returns |
 |---|---|---|---|---|---|---|
@@ -86,7 +347,7 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 - **#15:** you must own the location, and it needs 1 GBP call. `google_sub` is required when several Google accounts are connected. `place_id` is set only if empty (never overwritten; a conflict is reported). lat/lng are filled only if both are empty. Returns **409** if that GBP location is bound to another of your locations.
 - **#16:** cancels the location's sync jobs and pending scheduled posts. Deletes that Google account's tokens only if it was that account's last binding. Returns **404** if the location is not bound.
 
-## Onboarding (Phase 7a)
+### Onboarding (Phase 7a)
 
 | # | Method | Path | Auth | Path / query params | Body | Returns |
 |---|---|---|---|---|---|---|
@@ -112,7 +373,7 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 
 ---
 
-## Refresh and GBP sync (Phase 7b)
+### Refresh and GBP sync (Phase 7b)
 
 Every location refreshes **automatically once a month** (rankings, then the GBP sync if connected). Users can also refresh on demand, at most once per 24 h per type.
 
@@ -127,8 +388,6 @@ Every location refreshes **automatically once a month** (rankings, then the GBP 
 - **#26:** `next_allowed_at` is `null` when the type can be refreshed now.
 - **#27:** `types` has one entry per data type (`performance`, `keywords`, `profile`, `verification`, `reviews`, `media`, `posts`), each `{ status: pending | ok | error | not_available | skipped, message, rows, range }`. Reviews, media and posts are `not_available` (`v4_access_pending`) until Google approves v4 access. Sync `status`: `queued`, `running`, `done`, `partial` (some types failed) or `failed`.
 
-## Not listed here
+## Removed endpoints
 
-- **GBP posting** (`/gbp/post/*`): still legacy. Only its token lookup changed (it now uses the binding's Google account); it is rebuilt in Phase 8.
-- **Removed** in the legacy cleanup: the old ranking routes (`/rank-tracker`, `/local-search-grid`, `/local-map-ranking`), `/gbp-audit`, `/reputation-manager`, the white-label report links and the Search Console connect. See [LEGACY_FEATURES.md](LEGACY_FEATURES.md).
-- **Everything else** (auth, locations CRUD, payments, citations, …): unchanged. See [ROUTES.md](ROUTES.md).
+Removed in the legacy cleanup (Phase 9a): the old ranking routes (`/rank-tracker`, `/local-search-grid`, `/local-map-ranking`), `/gbp-audit`, `/reputation-manager`, the white-label report links and the Search Console connect. See [LEGACY_FEATURES.md](LEGACY_FEATURES.md).

@@ -89,6 +89,23 @@ After connecting, the onboarding screens call, in order:
 
 `GET /onboarding/state` lets the app resume at the right step. See [API.md](API.md#onboarding-phase-7a).
 
+## 3a. Popup connect without the frontend (development test page)
+
+`GET /dev/gbp-connect` is a minimal page that runs the same popup flow as §3. It is mounted **only when `NODE_ENV=development`** (never in test or production) and listed in [ENDPOINTS.md](ENDPOINTS.md) as `dev only`.
+
+**One-time setup:**
+- In Google Cloud → the OAuth client → **Authorised JavaScript origins**, add `http://localhost:<PORT>` (e.g. `http://localhost:5055`). Without it the popup shows `origin_mismatch` / `redirect_uri_mismatch`.
+- `.env` has `TOKEN_ENCRYPTION_KEY` (64 hex characters, e.g. from `openssl rand -hex 32`); the connect fails without it because tokens are stored encrypted.
+- The popup flow doesn't use `GOOGLE_GBP_REDIRECT_URI` (the code is exchanged with `postmessage`); only the redirect fallback (§4) does.
+
+**Use:**
+1. `npm run dev`, then `npm run setup:live-test -- --token-only --token-file <scratch dir>/live_token`.
+2. Open `http://localhost:<PORT>/dev/gbp-connect` and paste the token (kept in the page's memory only).
+3. **1. Prepare** calls `GET /user/auth/google/gbp/popup` (no Google calls). **2. Connect** opens Google's account chooser and consent; the page then calls `POST /user/auth/google/gbp/code` and shows `{ connected: true, google_email, google_sub }`.
+4. **3. List profiles** (optional) calls `GET /onboarding/gbp-profiles`: 1 accounts call + 1 locations call per account.
+
+Each state works once and lasts 10 minutes: click **Prepare** again before connecting another account.
+
 ## 4. Connect MyPageSEO locally (redirect fallback)
 
 
@@ -119,11 +136,14 @@ After connecting, the onboarding screens call, in order:
    Expected output, names and IDs only:
    ```
    User:       live-test@mypageseo.test (is_gbp_connected=true)
-   Token:      stored, status=active, expires 2026-…
+
+   === Connected as you@gmail.com  status=active  expires 2026-…
    Accounts:   1
+
    accounts/…  <account name>  type=PERSONAL role=PRIMARY_OWNER
       locations/…  Mypageseo  place_id=ChIJneho2koPp0wRIbUtaCCIReA
-   Result:     OK: 1 accounts, 1 locations
+
+   Result:     OK: 1 Google account(s), 1 locations
    API calls:  2 {"accounts.list":1,"locations.list":1}
    ```
    Other results:
