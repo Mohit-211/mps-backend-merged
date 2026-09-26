@@ -120,3 +120,15 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 - the ranking jobs
 - the smoke scripts: `smoke:agenda` (free), and `smoke:places` (1 Places call; Mohit only)
 - live validation: [LIVE_TEST.md](LIVE_TEST.md) (`find:place`, `setup:live-test`, `calibrate`, `calibrate:score`)
+- GBP: [GBP_CONNECT.md](GBP_CONNECT.md) (Google Cloud setup, popup and redirect connect, `gbp:preflight`, `gbp:encrypt-tokens`, `setup:live-test --token-only`)
+- API reference: [API.md](API.md) (ranking, GBP connection, onboarding)
+
+**Where each fact lives:**
+
+| Topic | File |
+|---|---|
+| Current state and next step | this file |
+| History and commit hashes | [PROGRESS.md](PROGRESS.md) |
+| Findings and their status | [AUDIT.md](AUDIT.md) |
+| Routes | [ROUTES.md](ROUTES.md) |
+| Rules and phase specs ("as built" notes) | [CLAUDE.md](../CLAUDE.md) |
