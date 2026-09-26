@@ -96,6 +96,7 @@ After connecting, the onboarding screens call, in order:
 **One-time setup:**
 - In Google Cloud → the OAuth client → **Authorised JavaScript origins**, add `http://localhost:<PORT>` (e.g. `http://localhost:5055`). Without it the popup shows `origin_mismatch` / `redirect_uri_mismatch`.
 - `.env` has `TOKEN_ENCRYPTION_KEY` (64 hex characters, e.g. from `openssl rand -hex 32`); the connect fails without it because tokens are stored encrypted.
+- `.env` `ACCESSDOMAINS` includes `http://localhost:<PORT>` (comma-separated, e.g. `http://localhost:3000,http://localhost:5055`). Browsers send an `Origin` header on the page's POST, and an unlisted origin is rejected with "Origin not allowed by CORS".
 - The popup flow doesn't use `GOOGLE_GBP_REDIRECT_URI` (the code is exchanged with `postmessage`); only the redirect fallback (§4) does.
 
 **Use:**
