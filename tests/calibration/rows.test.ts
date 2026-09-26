@@ -1,4 +1,10 @@
-import { CALIBRATION_HEADER, buildCalibrationRows, calibrationFileName, mapsUrl } from '../../src/calibration/rows';
+import {
+	CALIBRATION_HEADER,
+	buildCalibrationRows,
+	calibrationFileName,
+	mapsUrl,
+	resultsLabel,
+} from '../../src/calibration/rows';
 import { LeanRankRun } from '../../src/models/rankRun.model';
 
 type RunPart = Pick<LeanRankRun, 'tracker' | 'grid' | 'mapList'>;
@@ -11,8 +17,8 @@ const run = {
 		{
 			keyword: 'seo company',
 			cells: [
-				{ point: { label: 'C', lat: 45.9636, lng: -66.6431 }, byTarget: { self: ok(2) }, top3: ['p1', 'self', 'p3'] },
-				{ point: { label: 'N', lat: 45.977, lng: -66.6431 }, byTarget: { self: notFound }, top3: ['p1', 'px'] },
+				{ point: { label: 'C', lat: 45.9636, lng: -66.6431 }, byTarget: { self: ok(2) }, top3: ['p1', 'self', 'p3'], result_count: 20, more_results: true },
+				{ point: { label: 'N', lat: 45.977, lng: -66.6431 }, byTarget: { self: notFound }, top3: ['p1', 'px'], result_count: 17, more_results: false },
 			],
 			summary: {},
 		},
@@ -59,16 +65,26 @@ describe('calibration rows', () => {
 			'2',
 			'Alpha SEO | MyPageSEO | Gamma, Inc',
 		]);
+		expect(rows[0][8]).toBe('20+');
+		expect(rows[1][8]).toBe('17');
+		expect(rows[2][8]).toBe('');
 		expect(rows[1][6]).toBe('60+');
 		expect(rows[1][7]).toBe('Alpha SEO | (unknown: px)');
 		expect(rows[2].slice(1, 4)).toEqual(['grid', 0, 1]);
 		expect(rows[2][6]).toBe('error');
-		expect(rows[2].slice(9)).toEqual(['', '', '']);
+		expect(rows[2].slice(10)).toEqual(['', '', '']);
 	});
 
-	it('names the file by run date and location', () => {
-		expect(calibrationFileName(new Date('2026-09-26T10:00:00Z'), 'MyPageSEO', 'Fredericton')).toBe(
-			'2026-09-26-mypageseo-fredericton.csv',
-		);
+	it('names the file by run date and location, with an optional suffix', () => {
+		const at = new Date('2026-09-26T10:00:00Z');
+		expect(calibrationFileName(at, 'MyPageSEO', 'Fredericton')).toBe('2026-09-26-mypageseo-fredericton.csv');
+		expect(calibrationFileName(at, 'MyPageSEO', 'Fredericton', 'r2')).toBe('2026-09-26-mypageseo-fredericton-r2.csv');
+	});
+
+	it('labels search depth', () => {
+		expect(resultsLabel(17, false)).toBe('17');
+		expect(resultsLabel(20, true)).toBe('20+');
+		expect(resultsLabel(null, false)).toBe('');
+		expect(resultsLabel(undefined, undefined)).toBe('');
 	});
 });

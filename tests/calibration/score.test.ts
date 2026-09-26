@@ -114,7 +114,7 @@ describe('scoreSheet', () => {
 			row('3', ''),
 		]);
 		expect(s.scored).toBe(1);
-		expect(s.skipped).toEqual({ noManual: 1, apiError: 1, duplicate: 1 });
+		expect(s.skipped).toEqual({ noManual: 1, apiError: 1, duplicate: 1, excluded: 0 });
 	});
 
 	it('skips top-3 rows with unnamed API places', () => {
@@ -135,5 +135,37 @@ describe('scoreSheet', () => {
 		]);
 		expect(s.worst.map((w) => w.gap)).toEqual([60, 20, 10, 4, 3]);
 		expect(s.worst[0]).toMatchObject({ api_rank: '60+', manual_rank: '1' });
+	});
+
+	it('counts scored rows per keyword and point type, skipping blank manual ranks', () => {
+		const s = scoreSheet([
+			row('1', '1', { point_type: 'tracker', row: 'C' }),
+			row('2', '', { point_type: 'tracker', row: 'N' }),
+			row('3', '4'),
+			row('5', '', { keyword: 'plumber', point_type: 'tracker', row: 'C' }),
+		]);
+		expect(s.scored).toBe(2);
+		expect(s.skipped.noManual).toBe(2);
+		expect(s.byGroup).toEqual([
+			{ keyword: 'seo company', point_type: 'tracker', scored: 1, total: 2 },
+			{ keyword: 'seo company', point_type: 'grid', scored: 1, total: 1 },
+			{ keyword: 'plumber', point_type: 'tracker', scored: 0, total: 1 },
+		]);
+	});
+
+	it('--tracker-only ignores grid rows entirely', () => {
+		const rows = [
+			row('1', '1', { point_type: 'tracker', row: 'C' }),
+			row('2', '3', { point_type: 'tracker', row: 'N' }),
+			row('4', '40'), // a bad grid row that would fail the full sheet
+			row('5', '50'),
+		];
+		expect(scoreSheet(rows).withinPct).toBe(50);
+		const s = scoreSheet(rows, { trackerOnly: true });
+		expect(s.scored).toBe(2);
+		expect(s.withinPct).toBe(100);
+		expect(s.skipped.excluded).toBe(2);
+		expect(s.byGroup).toEqual([{ keyword: 'seo company', point_type: 'tracker', scored: 2, total: 2 }]);
+		expect(s.worst.every((w) => w.point.startsWith('tracker'))).toBe(true);
 	});
 });

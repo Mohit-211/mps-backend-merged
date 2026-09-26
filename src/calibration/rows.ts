@@ -13,6 +13,7 @@ export const CALIBRATION_HEADER = [
 	'lng',
 	'api_rank',
 	'api_top3',
+	'api_results',
 	'maps_url',
 	'manual_rank',
 	'manual_top3',
@@ -40,6 +41,10 @@ export const nameIndex = (run: Pick<LeanRankRun, 'mapList'>): Map<string, string
 const top3Names = (ids: string[] | undefined, names: Map<string, string>): string =>
 	(ids ?? []).map((id) => names.get(id) ?? `(unknown: ${id})`).join(NAME_SEPARATOR);
 
+/** "17" = the whole list had 17 results; "20+" = paging stopped once the client was found. "" if the search failed. */
+export const resultsLabel = (count: number | null | undefined, more: boolean | undefined): string =>
+	count === null || count === undefined ? '' : `${count}${more ? '+' : ''}`;
+
 const selfRank = (byTarget: Record<string, RankCellDoc>): string => {
 	const cell = byTarget.self;
 	return cell ? displayRank(cell as Parameters<typeof displayRank>[0]) : 'error';
@@ -62,6 +67,7 @@ export const buildCalibrationRows = (run: Pick<LeanRankRun, 'tracker' | 'grid' |
 				cell.point.lng.toFixed(6),
 				selfRank(cell.byTarget),
 				top3Names(cell.top3, names),
+				resultsLabel(cell.result_count, cell.more_results),
 				mapsUrl(section.keyword, cell.point.lat, cell.point.lng),
 				'',
 				'',
@@ -79,6 +85,7 @@ export const buildCalibrationRows = (run: Pick<LeanRankRun, 'tracker' | 'grid' |
 				point.lng.toFixed(6),
 				selfRank(point.byTarget),
 				top3Names(point.top3, names),
+				resultsLabel(point.result_count, point.more_results),
 				mapsUrl(section.keyword, point.lat, point.lng),
 				'',
 				'',
@@ -89,8 +96,8 @@ export const buildCalibrationRows = (run: Pick<LeanRankRun, 'tracker' | 'grid' |
 	return rows;
 };
 
-export const calibrationFileName = (runAt: Date, locationName: string, city?: string): string => {
-	const slug = `${locationName} ${city ?? ''}`
+export const calibrationFileName = (runAt: Date, locationName: string, city?: string, suffix?: string): string => {
+	const slug = `${locationName} ${city ?? ''} ${suffix ?? ''}`
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-+|-+$/g, '');

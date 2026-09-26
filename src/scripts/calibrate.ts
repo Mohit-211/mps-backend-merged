@@ -1,11 +1,12 @@
 /*
  * Writes the calibration sheet for one completed rank run. Makes NO API calls.
  *
- *   npm run calibrate -- <locationId> <runId> [--force]
+ *   npm run calibrate -- <locationId> <runId> [--suffix=r2] [--force]
  *
  * Output: docs/calibration/<run date>-<location>.csv, one row per keyword × sample point with our
  * rank for the client (api_rank), our top 3 (api_top3) and a Google Maps link. Fill in manual_rank /
  * manual_top3 from the link, then run `npm run calibrate:score -- <csv>`.
+ * --suffix=<s> writes <run date>-<location>-<s>.csv (e.g. a second round on the same day).
  * Refuses to overwrite an existing sheet (it may hold manual entries) unless --force is given.
  */
 import fs from 'fs';
@@ -21,9 +22,10 @@ const OUT_DIR = path.resolve(process.cwd(), 'docs/calibration');
 const main = async (): Promise<number> => {
 	const args = process.argv.slice(2);
 	const force = args.includes('--force');
+	const suffix = (args.find((a) => a.startsWith('--suffix=')) ?? '').slice('--suffix='.length);
 	const [locationId, runId] = args.filter((a) => !a.startsWith('--'));
 	if (!locationId || !runId || !Types.ObjectId.isValid(locationId) || !Types.ObjectId.isValid(runId)) {
-		process.stderr.write('Usage: npm run calibrate -- <locationId> <runId> [--force]\n');
+		process.stderr.write('Usage: npm run calibrate -- <locationId> <runId> [--suffix=r2] [--force]\n');
 		return 2;
 	}
 
@@ -41,14 +43,14 @@ const main = async (): Promise<number> => {
 		if (!['done', 'partial'].includes(run.status)) throw new Error(`Run status is ${run.status}; only done or partial runs can be calibrated`);
 
 		const rows = buildCalibrationRows(run);
-		const file = path.join(OUT_DIR, calibrationFileName(new Date(run.run_at), location.name, location.city));
+		const file = path.join(OUT_DIR, calibrationFileName(new Date(run.run_at), location.name, location.city, suffix));
 		if (fs.existsSync(file) && !force) {
 			throw new Error(`${path.relative(process.cwd(), file)} already exists (it may contain manual entries). Use --force to overwrite.`);
 		}
 		fs.mkdirSync(OUT_DIR, { recursive: true });
 		fs.writeFileSync(file, toCsv(CALIBRATION_HEADER, rows));
 
-		const unknown = rows.filter((r) => String(r[7]).includes('(unknown:')).length;
+		const unknown = rows.filter((r) => String(r[CALIBRATION_HEADER.indexOf('api_top3')]).includes('(unknown:')).length;
 		process.stdout.write(`Wrote ${path.relative(process.cwd(), file)}: ${rows.length} rows (0 API calls).\n`);
 		if (unknown > 0) {
 			process.stdout.write(

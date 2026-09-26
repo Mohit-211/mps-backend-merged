@@ -75,10 +75,24 @@ export interface WorstRow {
 	gap: number;
 }
 
+export interface ScoreOptions {
+	/** Score only tracker rows (C/N/S/E/W); grid rows are ignored. */
+	trackerOnly?: boolean;
+}
+
+export interface GroupCount {
+	keyword: string;
+	point_type: string;
+	scored: number;
+	total: number;
+}
+
 export interface CalibrationScore {
 	/** Rows with a manual rank and a usable API rank (duplicates of the same point counted once). */
 	scored: number;
-	skipped: { noManual: number; apiError: number; duplicate: number };
+	skipped: { noManual: number; apiError: number; duplicate: number; excluded: number };
+	/** Rows scored out of rows considered, per keyword × point_type (in sheet order). */
+	byGroup: GroupCount[];
 	withinPct: number | null;
 	mapsFoundApiNotPct: number | null;
 	apiFoundMapsNotPct: number | null;
@@ -97,9 +111,10 @@ const pointLabel = (r: SheetRow): string => (r.point_type === 'tracker' ? `track
 const gapOf = (api: number | 'not_found', manual: number | 'not_found'): number =>
 	Math.abs((api === 'not_found' ? 61 : api) - (manual === 'not_found' ? 61 : manual));
 
-export const scoreSheet = (rows: SheetRow[]): CalibrationScore => {
+export const scoreSheet = (rows: SheetRow[], options: ScoreOptions = {}): CalibrationScore => {
 	const seen = new Set<string>();
-	const skipped = { noManual: 0, apiError: 0, duplicate: 0 };
+	const skipped = { noManual: 0, apiError: 0, duplicate: 0, excluded: 0 };
+	const groups = new Map<string, GroupCount>();
 	let within = 0;
 	let mapsFoundApiNot = 0;
 	let apiFoundMapsNot = 0;
@@ -108,6 +123,14 @@ export const scoreSheet = (rows: SheetRow[]): CalibrationScore => {
 	const worst: WorstRow[] = [];
 
 	for (const r of rows) {
+		if (options.trackerOnly && r.point_type !== 'tracker') {
+			skipped.excluded++;
+			continue;
+		}
+		const groupKey = `${r.keyword}|${r.point_type}`;
+		const group = groups.get(groupKey) ?? { keyword: r.keyword, point_type: r.point_type, scored: 0, total: 0 };
+		groups.set(groupKey, group);
+		group.total++;
 		const manual = parseRank(r.manual_rank);
 		const api = parseRank(r.api_rank);
 		if (manual === null || manual === 'error') {
@@ -126,6 +149,7 @@ export const scoreSheet = (rows: SheetRow[]): CalibrationScore => {
 		}
 		seen.add(key);
 		scored++;
+		group.scored++;
 
 		const gap = gapOf(api, manual);
 		const bothFound = api !== 'not_found' && manual !== 'not_found';
@@ -150,6 +174,7 @@ export const scoreSheet = (rows: SheetRow[]): CalibrationScore => {
 	return {
 		scored,
 		skipped,
+		byGroup: [...groups.values()],
 		withinPct,
 		mapsFoundApiNotPct: pct(mapsFoundApiNot, scored),
 		apiFoundMapsNotPct: pct(apiFoundMapsNot, scored),
