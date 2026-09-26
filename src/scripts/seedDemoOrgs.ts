@@ -11,6 +11,8 @@
  * - an Agency organization (agency-demo@mypageseo.test) on a demo plan (5 locations): 2 clients and 3
  *   locations (2 GBP-connected, 1 added from a Places search: gbp_not_connected), each with rank runs
  *   and a report; plus a client user (agency-client@mypageseo.test) who sees one client only.
+ *   Dashboard data (Phase 11): ranks improve and decline, Queen West has an unverified profile on a
+ *   revoked Google connection (reconnect_required), and one team invitation is pending.
  * Rank runs use the offline demo Places client; Place Details come from an offline demo client.
  * Prints logins, tokens and curl examples.
  *
@@ -34,6 +36,7 @@ import {
 	GbpReview,
 	GbpSync,
 	ILocation,
+	Invitation,
 	IUser,
 	Location,
 	Membership,
@@ -50,6 +53,7 @@ import { DEMO_CENTER, DEMO_KEYWORDS, DEMO_PLACE_IDS, createDemoPlaces } from '..
 import { generateAuthTokens } from '../services/common/token.service';
 import { updateSummaryFromRuns } from '../services/locations/summary';
 import { createOrganizationForOwner } from '../services/org/context';
+import { hashToken } from '../services/team/invitation.service';
 import { enqueueRankRun } from '../services/ranking/rankRun.service';
 import { executeRankRun } from '../services/ranking/rankRunExecutor';
 import { normaliseKeywords } from '../services/ranking/trackingSettings';
@@ -96,6 +100,7 @@ const removePreviousDemo = async (): Promise<void> => {
 		Client.collection.deleteMany({ organization_id: { $in: orgIds } }),
 		Membership.deleteMany({ $or: [{ organization_id: { $in: orgIds } }, { user_id: { $in: userIds } }] }),
 		Organization.deleteMany({ _id: { $in: orgIds } }),
+		Invitation.deleteMany({ organization_id: { $in: orgIds } }),
 		Profile.deleteMany({ user_id: { $in: userIds } }),
 		UserToken.deleteMany({ user_id: { $in: userIds } }),
 		UserAuth.deleteMany({ user_id: { $in: userIds } }),
@@ -162,16 +167,16 @@ const createDemoLocation = (orgId: Types.ObjectId, userId: Types.ObjectId, input
  * A placeholder Google connection for the demo bindings (status active; the token values are not real
  * and are never used: the demo never syncs). Without it the demo locations would show reconnect_required.
  */
-const demoConnection = (userId: Types.ObjectId) =>
+const demoConnection = (userId: Types.ObjectId, googleSub = 'demo-google-sub', status: 'active' | 'revoked' = 'active') =>
 	UserAuth.collection.insertOne({
 		user_id: userId,
 		token_type: tokenTypes.GBP,
 		access_token: 'demo-placeholder',
 		refresh_token: 'demo-placeholder',
 		expiry_date: new Date('2099-01-01T00:00:00Z'),
-		status: 'active',
-		google_email: 'demo@mypageseo.test',
-		google_sub: 'demo-google-sub',
+		status,
+		google_email: `${googleSub}@mypageseo.test`,
+		google_sub: googleSub,
 		is_active: true,
 		created_at: new Date(),
 		updated_at: new Date(),
@@ -237,6 +242,8 @@ const main = async (): Promise<void> => {
 	await runRanks(bLoc, business._id, [0, 1, 2], now);
 	await writeDemoGbpData({ _id: bLoc._id as Types.ObjectId }, business._id, new Date(now));
 	await demoConnection(business._id);
+	// Two generations a month apart give the GBP Score a trend (score_history).
+	await generateGbpReport(String(bLoc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false, now: () => new Date(now - 30 * DAY) });
 	await generateGbpReport(String(bLoc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false });
 
 	// ---- Agency organization: 2 clients, 3 locations, a client user, a demo plan ----
@@ -268,17 +275,33 @@ const main = async (): Promise<void> => {
 	);
 	for (const loc of [a1, a2, a3]) await runRanks(loc, agency._id, [1, 2], now);
 	await writeDemoGbpData({ _id: a1._id as Types.ObjectId }, agency._id, new Date(now), { gbpLocationId: 'locations/demo-a1' });
+	// Queen West: an unverified profile (a GBP issue) on a Google connection that was revoked (reconnect_required).
 	await writeDemoGbpData({ _id: a2._id as Types.ObjectId }, agency._id, new Date(now), {
 		gbpLocationId: 'locations/demo-a2',
 		placeId: DEMO_PLACE_IDS.competitor_1,
 		title: 'Queen West Plumbing Co.',
+		googleSub: 'demo-google-sub-revoked',
+		verified: false,
 	});
+	await demoConnection(agency._id, 'demo-google-sub-revoked', 'revoked');
 	await demoConnection(agency._id);
-	for (const loc of [a1, a2, a3]) await generateGbpReport(String(loc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false });
+	for (const loc of [a1, a2, a3]) {
+		await generateGbpReport(String(loc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false, now: () => new Date(now - 30 * DAY) });
+		await generateGbpReport(String(loc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false });
+	}
 
 	const clientUser = await createDemoUser(CLIENT_USER_EMAIL, 'Danforth Services (client)', userTypes.client, password);
 	await Membership.create({ organization_id: orgId, user_id: clientUser._id, role: 'client_user', client_ids: [clientB._id], created_by: agency._id });
 	await User.updateOne({ _id: clientUser._id }, { $set: { default_organization_id: orgId } });
+	// A pending team invitation (the token is random and not printed: it can't be accepted from the seed).
+	await Invitation.create({
+		organization_id: orgId,
+		email: 'new-teammate@mypageseo.test',
+		role: 'member',
+		token_hash: hashToken(randomBytes(32).toString('base64url')),
+		expires_at: new Date(now + 7 * DAY),
+		invited_by: agency._id,
+	});
 	await Organization.updateMany({ _id: { $in: [businessOrg._id, orgId] } }, { $set: { 'onboarding.completed_at': new Date(now - 90 * DAY), 'onboarding.skipped': ['reporting_brand'] } });
 
 	const tokenOf = async (user: IUser) => (await generateAuthTokens(user)).access.token as string;
@@ -296,6 +319,9 @@ const main = async (): Promise<void> => {
 	out(`  TOKEN_CLIENT='${await tokenOf(clientUser)}'`);
 	out();
 	out('  Try:');
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_BUSINESS" ${base}/dashboard`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" "${base}/dashboard?sort=rank_change&order=asc"`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_CLIENT" ${base}/dashboard`);
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" "${base}/locations?sort=rank"`);
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/organization/usage`);
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/clients/${String(clientA._id)}`);
