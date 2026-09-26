@@ -31,7 +31,7 @@ Organization (type: business | agency; name; country; plan)
       └─ Reports
 ```
 
-The backend today still keys ownership by `user` (`created_by`); the **Organization** model arrives in Phase 8.
+Since Phase 8 the backend keys ownership by **organization**: users act through a membership (`owner`, `member`, `client_user`); `created_by` is kept for audit only.
 
 ## The Location (the atomic object)
 
