@@ -99,6 +99,16 @@ describe('ranking engine: targets and requests', () => {
 		expect(engine.getStats().apiCalls.ids_only).toBe(10);
 	});
 
+	it('reports how many results each point returned, and whether paging stopped early', async () => {
+		const fake = fakePlaces((p) =>
+			p.center.latitude === CENTER.lat ? { ...list(page1Target), stoppedEarly: true } : list(page1Target.slice(0, 7)),
+		);
+		const engine = createRankingEngine({ places: fake.places, region: 'ca', targets, sleep: noSleep });
+		const ranks = await engine.rankKeywordAtPoints('plumber', trackerPoints(CENTER, 1.5));
+		expect(ranks[0]).toMatchObject({ resultCount: page1Target.length, moreResults: true });
+		expect(ranks[1]).toMatchObject({ resultCount: 7, moreResults: false });
+	});
+
 	it('sends stopWhenFound = all target IDs, the region, radius and point', async () => {
 		const fake = fakePlaces(() => list(page1Target));
 		const engine = createRankingEngine({ places: fake.places, region: 'us', targets, radiusM: 3000, sleep: noSleep });
@@ -147,6 +157,7 @@ describe('ranking engine: errors', () => {
 			competitor_2: { rank: null, status: 'error' },
 		});
 		expect(ranks.filter((r) => r.byTarget.self.status === 'ok')).toHaveLength(4);
+		expect(south).toMatchObject({ top3: [], resultCount: null, moreResults: false });
 		expect(engine.getStats()).toMatchObject({ searches: 5, errors: 1, apiCalls: { ids_only: 4 + 2 } });
 		expect(engine.getErrors()).toEqual([
 			{ keyword: 'plumber', point: { lat: failAt.lat, lng: failAt.lng }, status: 500, message: expect.stringContaining('Internal error') },
