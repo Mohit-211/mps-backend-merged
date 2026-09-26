@@ -12,7 +12,8 @@ import { EnqueueResult } from '../../../src/services/ranking/rankRun.service';
 import { updateTracking } from '../../../src/services/ranking/tracking.service';
 import { createTokenCrypto } from '../../../src/utils/tokenCrypto';
 import { loadGbpFixture } from '../../helpers/fakeTransport';
-import { clearDb, createLocation, createUser, keywordsOf, startTestDb } from '../../helpers/mongoose';
+import { clearDb, createLocation, createUser, ensureOrg, keywordsOf, startTestDb } from '../../helpers/mongoose';
+import { resolveOrgContext } from '../../../src/services/org/context';
 
 jest.mock('../../../src/configs/mongoConnection', () => ({ agenda: {} }));
 
@@ -121,11 +122,16 @@ describe('onboarding service', () => {
 	};
 
 	const select = { gbpAccountId: ACCOUNT, gbpLocationId: PROFILE.name };
+	/** Phase 8: onboarding acts in the user's organization. */
+	const ctxFor = async (userId: unknown) => {
+		await ensureOrg(userId as Types.ObjectId);
+		return resolveOrgContext(String(userId));
+	};
 
 	it('creates a location from the profile, binds it with one GBP call, and starts onboarding', async () => {
 		const user = await connectedUser('a@test.dev');
 		const { service, gbpCalls } = setup();
-		const result = await service.selectProfile(user._id, select);
+		const result = await service.selectProfile(await ctxFor(user._id), select);
 		expect(gbpCalls).toEqual([PROFILE.name]);
 		expect(result.created).toBe(true);
 		expect(result.location).toMatchObject({ name: 'Example Plumbing Co', place_id: PLACE_ID, lat: 32.7801, lng: -96.8005 });
@@ -133,52 +139,63 @@ describe('onboarding service', () => {
 		const saved = await Location.findById(result.location.location_id).lean();
 		expect(saved).toMatchObject({ country: 'United States', city: 'Dallas', mobile: '(214) 555-0100', onboarding: { step: 'profile_selected', completed_at: null } });
 		expect(await UserGBP.countDocuments({ location_id: saved?._id, is_active: true })).toBe(1);
-		expect((await Profile.findOne({ user_id: user._id }))?.no_of_locations).toBe(1);
+		expect(saved).toMatchObject({ source: 'gbp', gbp_connected: true });
+		expect(String(saved?.organization_id)).toBe(String((await ensureOrg(user._id))._id));
 	});
 
 	it('links an existing location with the same place_id instead of duplicating it', async () => {
 		const user = await connectedUser('b@test.dev');
 		const existing = await createLocation(user._id as Types.ObjectId, { place_id: PLACE_ID });
-		const result = await setup().service.selectProfile(user._id, select);
+		const result = await setup().service.selectProfile(await ctxFor(user._id), select);
 		expect(result).toMatchObject({ created: false, location: { location_id: String(existing._id) } });
 		expect(await Location.countDocuments({ created_by: user._id })).toBe(1);
-		expect((await Profile.findOne({ user_id: user._id }))?.no_of_locations).toBe(0);
+
 	});
 
-	it('links an explicit location_id (and reports a place_id conflict without overwriting)', async () => {
+	it('an explicit location_id for a different place is refused (409 place_id_mismatch), never overwritten', async () => {
 		const user = await connectedUser('c@test.dev');
 		const mine = await createLocation(user._id as Types.ObjectId, { place_id: 'ChIJdifferentPlace0000001' });
-		const result = await setup().service.selectProfile(user._id, { ...select, location_id: String(mine._id) });
-		expect(result.created).toBe(false);
-		expect(result.binding.place_id.status).toBe('conflict');
+		await expect(setup().service.selectProfile(await ctxFor(user._id), { ...select, location_id: String(mine._id) })).rejects.toMatchObject({
+			statusCode: 409,
+			data: { reason: 'place_id_mismatch' },
+		});
 		expect((await Location.findById(mine._id))?.place_id).toBe('ChIJdifferentPlace0000001');
+	});
+
+	it('creating a new location respects the plan limit (default 1)', async () => {
+		const user = await connectedUser('lim@test.dev');
+		await createLocation(user._id as Types.ObjectId, { place_id: 'ChIJalreadyHere000000001' });
+		await expect(setup().service.selectProfile(await ctxFor(user._id), select)).rejects.toMatchObject({
+			statusCode: 403,
+			data: { reason: 'location_limit_reached', used: 1, limit: 1 },
+		});
 	});
 
 	it("refuses another user's location_id, a non-US/CA profile and an inaccessible profile", async () => {
 		const owner = await connectedUser('owner@test.dev');
 		const intruder = await connectedUser('intruder@test.dev');
 		const theirs = await createLocation(owner._id as Types.ObjectId);
-		await expect(setup().service.selectProfile(intruder._id, { ...select, location_id: String(theirs._id) })).rejects.toMatchObject({ statusCode: 404 });
+		await expect(setup().service.selectProfile(await ctxFor(intruder._id), { ...select, location_id: String(theirs._id) })).rejects.toMatchObject({ statusCode: 404 });
 		const uk: GbpLocation = { ...PROFILE, storefrontAddress: { ...(PROFILE.storefrontAddress as NonNullable<GbpLocation['storefrontAddress']>), regionCode: 'GB' } };
-		await expect(setup(uk).service.selectProfile(owner._id, select)).rejects.toMatchObject({
+		await expect(setup(uk).service.selectProfile(await ctxFor(owner._id), select)).rejects.toMatchObject({
 			statusCode: 400,
 			message: 'Only US and Canadian businesses are supported.',
 		});
-		await expect(setup(PROFILE, { getLocationFails: true }).service.selectProfile(owner._id, select)).rejects.toMatchObject({ statusCode: 400 });
+		await expect(setup(PROFILE, { getLocationFails: true }).service.selectProfile(await ctxFor(owner._id), select)).rejects.toMatchObject({ statusCode: 400 });
 		expect(await Location.countDocuments({ created_by: owner._id })).toBe(1);
 	});
 
 	it('accepts a service-area business', async () => {
 		const user = await connectedUser('d@test.dev');
 		const sab: GbpLocation = { ...PROFILE, storefrontAddress: null, serviceAreaRegionCode: 'US', latlng: null };
-		const result = await setup(sab).service.selectProfile(user._id, select);
+		const result = await setup(sab).service.selectProfile(await ctxFor(user._id), select);
 		expect(result.location).toMatchObject({ address: 'Service-area business', lat: null, place_id: PLACE_ID });
 	});
 
 	it('advances steps through tracking updates, then completes (rank run + sync request), idempotently', async () => {
 		const user = await connectedUser('e@test.dev');
 		const { service, enqueued } = setup();
-		const { location } = await service.selectProfile(user._id, select);
+		const { location } = await service.selectProfile(await ctxFor(user._id), select);
 		const reload = async () => (await Location.findById(location.location_id)) as ILocation;
 
 		await expect(service.complete(user._id, location.location_id)).rejects.toMatchObject({ statusCode: 400, message: 'Add at least one keyword first.' });
@@ -206,27 +223,37 @@ describe('onboarding service', () => {
 		expect((await reload()).onboarding?.step).toBe('completed');
 	});
 
-	it('complete requires a bound profile', async () => {
+	it('complete works without a GBP binding (Phase 8: Places-search locations); no GBP sync then', async () => {
 		const user = await connectedUser('f@test.dev');
 		const loc = await createLocation(user._id as Types.ObjectId, { tracking: { keywords: keywordsOf('plumber') } });
-		await expect(setup().service.complete(user._id, String(loc._id))).rejects.toMatchObject({
-			statusCode: 400,
-			message: 'Select a Business Profile for this location first.',
-		});
+		const done = await setup().service.complete(user._id, String(loc._id));
+		expect(done).toMatchObject({ completed: true, rank_run: { status: 'queued' }, gbp_sync: null });
+		expect(syncs).toHaveLength(0);
+	});
+
+	it("complete refuses a location of another organization (404)", async () => {
+		const owner = await connectedUser('o2@test.dev');
+		const other = await connectedUser('x2@test.dev');
+		const loc = await createLocation(owner._id as Types.ObjectId, { tracking: { keywords: keywordsOf('plumber') } });
+		await expect(setup().service.complete(other._id, String(loc._id))).rejects.toMatchObject({ statusCode: 404 });
 	});
 
 	it('reports the connection and unfinished onboarding locations first', async () => {
 		const user = await connectedUser('g@test.dev');
 		const { service } = setup();
-		const { location } = await service.selectProfile(user._id, select);
-		await Location.create({ ...locationFieldsFromProfile(PROFILE), place_id: 'ChIJother00000000000001', name: 'Done Co', created_by: user._id, onboarding: { step: 'completed', started_at: new Date(), completed_at: new Date() } });
-		await createLocation(user._id as Types.ObjectId); // legacy location: not listed
-		const state = await service.getState(user._id);
+		const { location } = await service.selectProfile(await ctxFor(user._id), select);
+		await Location.create({ ...locationFieldsFromProfile(PROFILE), place_id: 'ChIJother00000000000001', name: 'Done Co', created_by: user._id, organization_id: (await ensureOrg(user._id))._id, onboarding: { step: 'completed', started_at: new Date(), completed_at: new Date() } });
+		await createLocation(user._id as Types.ObjectId, { name: 'Legacy Co' }); // pre-onboarding location: listed after the unfinished ones
+		const state = await service.getState(await ctxFor(user._id));
 		expect(state.gbp).toEqual({ connected: true, connections: [{ google_sub: '1', google_email: 'owner@example.test', status: 'active' }] });
-		expect(state.locations.map((l) => l.name)).toEqual(['Example Plumbing Co', 'Done Co']);
+		expect(state.locations.map((l) => l.name)).toEqual(['Example Plumbing Co', 'Done Co', 'Legacy Co']);
+		// 'Done Co' is set up, so the organization's onboarding is complete (the other locations resume on their own).
+		expect(state.organization).toMatchObject({ type: 'business', next_step: null, completed: true });
+		expect(state.organization.completed_at).toBeInstanceOf(Date);
+		expect(state.empty_states).toMatchObject({ no_locations: false, google_not_connected: false, no_ranking_data: true });
 		expect(state.locations[0]).toMatchObject({ location_id: location.location_id, onboarding: { step: 'profile_selected' } });
 
 		const { user: fresh } = await createUser('fresh@test.dev');
-		expect((await service.getState(fresh._id)).gbp).toEqual({ connected: false, connections: [] });
+		expect((await service.getState(await ctxFor(fresh._id))).gbp).toEqual({ connected: false, connections: [] });
 	});
 });

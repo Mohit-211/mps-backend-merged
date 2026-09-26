@@ -55,6 +55,9 @@ const envVarsSchema = Joi.object({
 	GBP_ROLLING_DAYS: Joi.number().integer().min(7).max(90).default(40),
 	GBP_KEYWORD_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(6),
 	GBP_KEYWORD_ROLLING_MONTHS: Joi.number().integer().min(1).max(6).default(2),
+	DEFAULT_LOCATION_LIMIT: Joi.number().integer().min(0).default(1).description('Location limit for an organization without an active plan (or a plan without location_limit)'),
+	DEFAULT_KEYWORD_LIMIT: Joi.number().integer().min(1).empty('').default(null).description('Org-wide tracked-keyword limit without a plan value; empty = no org-wide cap'),
+	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of email-verification and password-reset codes'),
 	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
 	COMPETITOR_DETAILS_ATMOSPHERE: Joi.boolean().default(false).description('Also fetch editorialSummary (Atmosphere-tier Place Details) for the competitor comparison'),
 	TOKEN_ENCRYPTION_KEY: Joi.string()
@@ -177,6 +180,17 @@ interface Config {
 		localHour: number;
 	};
 
+	organization: {
+		/** Location limit without an active plan value. */
+		defaultLocationLimit: number;
+		/** Org-wide keyword limit without a plan value; null = none. */
+		defaultKeywordLimit: number | null;
+	};
+
+	auth: {
+		codeTtlMinutes: number;
+	};
+
 	report: {
 		/** Seconds between a report request and its generation (deduplicates close triggers). */
 		debounceSeconds: number;
@@ -286,6 +300,15 @@ const config: Config = {
 	refresh: {
 		minIntervalHours: envVars.REFRESH_MIN_INTERVAL_HOURS,
 		localHour: envVars.REFRESH_LOCAL_HOUR,
+	},
+
+	organization: {
+		defaultLocationLimit: envVars.DEFAULT_LOCATION_LIMIT,
+		defaultKeywordLimit: envVars.DEFAULT_KEYWORD_LIMIT ?? null,
+	},
+
+	auth: {
+		codeTtlMinutes: envVars.AUTH_CODE_TTL_MINUTES,
 	},
 
 	report: {

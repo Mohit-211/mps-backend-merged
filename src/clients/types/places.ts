@@ -92,7 +92,15 @@ export type PlaceDetailsField =
 	| 'websiteUri'
 	| 'nationalPhoneNumber'
 	| 'businessStatus'
-	| 'editorialSummary';
+	| 'editorialSummary'
+	| 'addressComponents';
+
+/** One address part (Phase 8: city, state, postal code and country of a location added from Places). */
+export interface AddressComponent {
+	long: string;
+	short: string;
+	types: string[];
+}
 
 export interface PlaceDetails {
 	id?: string;
@@ -109,6 +117,7 @@ export interface PlaceDetails {
 	nationalPhoneNumber?: string;
 	businessStatus?: string;
 	editorialSummary?: string;
+	addressComponents?: AddressComponent[];
 }
 
 export interface PlaceDetailsResult {
@@ -161,4 +170,5 @@ export interface RawPlaceDetails {
 	nationalPhoneNumber?: string;
 	businessStatus?: string;
 	editorialSummary?: RawLocalizedText;
+	addressComponents?: { longText?: string; shortText?: string; types?: string[] }[];
 }

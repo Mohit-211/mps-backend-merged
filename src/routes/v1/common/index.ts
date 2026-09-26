@@ -19,6 +19,9 @@ import citationRoute from './citation.route';
 import paymentRoute from './payment.route';
 import blogRoute from './blog.routes';
 import blogCategoryRoutes from './blogCategory.routes';
+import authRoute from './auth.route';
+import organizationRoute from './organization.route';
+import clientsRoute from './clients.route';
 
 
 
@@ -67,6 +70,21 @@ const commonRoutes = [
 		// Ranking reports (Phase 5): /locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}
 		path: '/locations',
 		route: rankingRoute,
+	},
+	{
+		// Phase 8: signup / verify / login / password reset for the rebuilt app
+		path: '/auth',
+		route: authRoute,
+	},
+	{
+		// Phase 8: the current organization, usage and members
+		path: '/organization',
+		route: organizationRoute,
+	},
+	{
+		// Phase 8: agency clients
+		path: '/clients',
+		route: clientsRoute,
 	},
 	{
 		// Onboarding (Phase 7a): /onboarding/{state,gbp-profiles,select-profile,complete}

@@ -39,6 +39,10 @@ export * from "./placesUsage.model";
 export * from "./gbpSync.model";
 export * from "./gbpData.model";
 export * from "./gbpReport.model";
+export * from "./organization.model";
+export * from "./membership.model";
+export * from "./authCode.model";
+export * from "./rateLimit.model";
 
 
 // location service — citations

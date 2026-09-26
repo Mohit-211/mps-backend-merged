@@ -84,23 +84,36 @@ describe('bind', () => {
 		expect(binding).toMatchObject({ gbpAccountId: ACCOUNT, place_id: GBP_PLACE_ID, title: 'Example Plumbing Co' });
 	});
 
-	it('reports a match, and a conflict without overwriting', async () => {
+	it('a location without a place_id cannot take the place of another location in the organization (409)', async () => {
+		const user = await connectedUser('dup@test.dev');
+		const existing = await createLocation(user._id as Types.ObjectId, { place_id: GBP_PLACE_ID });
+		const empty = await createLocation(user._id as Types.ObjectId, { place_id: null });
+		await expect(setup().service.bindLocation(user._id, bindInput(empty._id))).rejects.toMatchObject({
+			statusCode: 409,
+			data: { reason: 'duplicate_place', location_id: String(existing._id) },
+		});
+	});
+
+	it('reports a match; a profile for a different place is refused (409 place_id_mismatch, Phase 8)', async () => {
 		const user = await connectedUser('b@test.dev');
 		const same = await createLocation(user._id as Types.ObjectId, { place_id: GBP_PLACE_ID });
 		const other = await createLocation(user._id as Types.ObjectId, { place_id: 'ChIJsomethingElse0000001' });
 		const { service } = setup();
 		expect((await service.bindLocation(user._id, bindInput(same._id))).place_id.status).toBe('match');
+		expect((await Location.findById(same._id))?.gbp_connected).toBe(true);
 		await UserGBP.deleteMany({});
-		const conflict = await service.bindLocation(user._id, bindInput(other._id));
-		expect(conflict.place_id).toEqual({ location: 'ChIJsomethingElse0000001', gbp: GBP_PLACE_ID, status: 'conflict' });
-		expect(conflict.coordinates).toBe('kept');
+		await expect(service.bindLocation(user._id, bindInput(other._id))).rejects.toMatchObject({
+			statusCode: 409,
+			data: { reason: 'place_id_mismatch', location_place_id: 'ChIJsomethingElse0000001', gbp_place_id: GBP_PLACE_ID },
+		});
+		expect(await UserGBP.countDocuments({ location_id: other._id })).toBe(0);
 		expect((await Location.findById(other._id))?.place_id).toBe('ChIJsomethingElse0000001');
 	});
 
 	it("refuses another user's location (404) and a GBP location the account cannot access (400)", async () => {
 		const owner = await connectedUser('owner@test.dev');
 		const intruder = await connectedUser('intruder@test.dev');
-		const location = await createLocation(owner._id as Types.ObjectId);
+		const location = await createLocation(owner._id as Types.ObjectId, { place_id: null });
 		await expect(setup().service.bindLocation(intruder._id, bindInput(location._id))).rejects.toMatchObject({ statusCode: 404 });
 
 		const forbidden = setup(async () => {
@@ -115,8 +128,8 @@ describe('bind', () => {
 
 	it('rebinding a location replaces its binding; one GBP location cannot be bound to two locations', async () => {
 		const user = await connectedUser('c@test.dev');
-		const first = await createLocation(user._id as Types.ObjectId);
-		const second = await createLocation(user._id as Types.ObjectId);
+		const first = await createLocation(user._id as Types.ObjectId, { place_id: null });
+		const second = await createLocation(user._id as Types.ObjectId, { place_id: null });
 		const { service } = setup();
 		await service.bindLocation(user._id, bindInput(first._id));
 		await service.bindLocation(user._id, bindInput(first._id));
@@ -126,7 +139,7 @@ describe('bind', () => {
 
 	it('validates the Google resource names', async () => {
 		const user = await connectedUser('d@test.dev');
-		const location = await createLocation(user._id as Types.ObjectId);
+		const location = await createLocation(user._id as Types.ObjectId, { place_id: null });
 		const { service } = setup();
 		await expect(service.bindLocation(user._id, { ...bindInput(location._id), gbpAccountId: 'accounts/../x' })).rejects.toMatchObject({ statusCode: 400 });
 		await expect(service.bindLocation(user._id, bindInput(location._id, 'locations/1?x=y'))).rejects.toMatchObject({ statusCode: 400 });
@@ -155,7 +168,7 @@ describe('unbind (C12)', () => {
 
 	it('bind → unbind leaves no binding, no tokens and no scheduled jobs', async () => {
 		const user = await connectedUser('e@test.dev');
-		const location = await createLocation(user._id as Types.ObjectId);
+		const location = await createLocation(user._id as Types.ObjectId, { place_id: null });
 		const { service } = setup();
 		await service.bindLocation(user._id, bindInput(location._id));
 		await agenda.schedule(new Date('2030-01-01T00:00:00Z'), JOB_NAMES.GBP_SYNC, { location_id: String(location._id) });
@@ -174,9 +187,9 @@ describe('unbind (C12)', () => {
 
 	it('keeps the tokens while another binding still needs them, and leaves other locations alone', async () => {
 		const user = await connectedUser('f@test.dev');
-		const a = await createLocation(user._id as Types.ObjectId);
-		const b = await createLocation(user._id as Types.ObjectId);
-		const locB: GbpLocation = { ...GBP_LOCATION, name: 'locations/200000000000000000009' };
+		const a = await createLocation(user._id as Types.ObjectId, { place_id: null });
+		const b = await createLocation(user._id as Types.ObjectId, { place_id: null });
+		const locB: GbpLocation = { ...GBP_LOCATION, name: 'locations/200000000000000000009', placeId: 'ChIJfakeGbpPlace000000009' };
 		const { service } = setup(async (_u, name) => (name === locB.name ? locB : GBP_LOCATION));
 		await service.bindLocation(user._id, bindInput(a._id));
 		await service.bindLocation(user._id, bindInput(b._id, locB.name));
@@ -194,7 +207,7 @@ describe('unbind (C12)', () => {
 
 	it('404s for an unbound location', async () => {
 		const user = await connectedUser('g@test.dev');
-		const location = await createLocation(user._id as Types.ObjectId);
+		const location = await createLocation(user._id as Types.ObjectId, { place_id: null });
 		await expect(setup().service.unbindLocation(user._id, String(location._id))).rejects.toMatchObject({ statusCode: 404 });
 	});
 });
@@ -202,7 +215,7 @@ describe('unbind (C12)', () => {
 describe('disconnect', () => {
 	it('revokes at Google and removes every binding, job and token', async () => {
 		const user = await connectedUser('h@test.dev');
-		const a = await createLocation(user._id as Types.ObjectId);
+		const a = await createLocation(user._id as Types.ObjectId, { place_id: null });
 		const { service, revoked } = setup();
 		await service.bindLocation(user._id, bindInput(a._id));
 		await agenda.schedule(new Date('2030-01-01T00:00:00Z'), JOB_NAMES.GBP_SYNC, { location_id: String(a._id) });

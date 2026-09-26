@@ -9,7 +9,6 @@ import * as supportService from './support.service';
 import * as subscriptionService from './subscription.service';
 import * as contactUsService from './contactUs.service';
 
-import * as locationService from './location.service';
 import * as businessCategoryService from './businessCategory.service';
 import * as whitelabelProfileService from './whitelabelProfile.service';
 import * as gbpPSService from './gbpPostSchedular.service';
@@ -29,7 +28,6 @@ export {
     supportService,
     subscriptionService,
     contactUsService,
-    locationService,
     businessCategoryService,
     whitelabelProfileService,
     gbpPSService,

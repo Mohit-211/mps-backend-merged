@@ -23,8 +23,11 @@
 
 **Auth:**
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
-- `owner`: `:locationId` must be one of the caller's own active locations. Otherwise **404**; a malformed id gives **400**.
-- `none`: no MyPageSEO login (the Google OAuth callback only).
+- `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
+- `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
+- `none`: no MyPageSEO login (the Google OAuth callback, and the Phase 8 `/auth` endpoints).
+
+**Roles (Phase 8):** `owner` (everything), `member` (everything except editing the organization), `client_user` (agency; read-only, only its assigned clients and their locations).
 
 **Response envelope:** every response is `{ "success": bool, "status": number, "message": string, "data": … }`.
 
@@ -37,7 +40,8 @@
 | 404 | Not found, or not yours |
 | 409 | Conflict |
 | 422 | Run over the call cap |
-| 429 | Daily search limit |
+| 403 | Phase 8: no access with a `reason` (`read_only`, `agency_only`, `owner_only`, `location_limit_reached`, `keyword_limit_reached`, `email_not_verified`, …) |
+| 429 | Daily search limit, or an auth rate limit (`rate_limited`, `retry_after_seconds`) |
 | 502 | Google failed |
 | 503 | Not configured / GBP access not approved |
 
@@ -45,7 +49,7 @@
 
 ## Catalogue: all current endpoints
 
-Paths are full paths. Auth: `none`, `user` (user access token), `user + owner` (also owns the location, otherwise 404), `refresh token`, `admin`. The security findings for legacy routes (S1–S30) are in [AUDIT.md](AUDIT.md) and the [ROUTES.md](ROUTES.md) snapshot.
+Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (acts in the current organization), `user + owner` (member of the location's organization, otherwise 404), `refresh token`, `admin`. The security findings for legacy routes (S1–S30) are in [AUDIT.md](AUDIT.md) and the [ROUTES.md](ROUTES.md) snapshot.
 
 ### Admin
 
@@ -69,43 +73,74 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + owner` (
 | GET | `/api/v1/admin/operations/getBusinessesById/:id` | none | Get Businesses By Id | legacy | live |
 | GET | `/api/v1/admin/operations/getAllClients` | none | Get All Clients | legacy | live |
 
+### Auth (rebuilt app)
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/auth/signup` | none | Signup as Business or Agency: user + organization + owner membership; sends a verification code | 8 | live |
+| POST | `/api/v1/auth/verify-email` | none | Verify the email with the 6-digit code; returns the session (tokens, organizations, onboarding) | 8 | live |
+| POST | `/api/v1/auth/verify-email/resend` | none | New verification code (same answer whether or not the account exists) | 8 | live |
+| POST | `/api/v1/auth/login` | none | Login; returns tokens, organizations and onboarding (403 `email_not_verified`) | 8 | live |
+| POST | `/api/v1/auth/forgot-password` | none | Password reset code by email (same answer whether or not the account exists) | 8 | live |
+| POST | `/api/v1/auth/reset-password` | none | New password with the reset code; signs out every session | 8 | live |
+
 ### User auth & account
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/user/auth/register` | none | Register | legacy | live |
-| POST | `/api/v1/user/auth/otp` | none | Send OTP | legacy | live |
-| POST | `/api/v1/user/auth/verify-otp` | none | Verify OTP | legacy | live |
-| POST | `/api/v1/user/auth/login` | none | Login | legacy | live |
+| POST | `/api/v1/user/auth/register` | none | Register (legacy; since Phase 8 it also creates an organization). Replaced by `/auth/signup` | legacy | deprecated |
+| POST | `/api/v1/user/auth/otp` | none | Send OTP (plaintext codes). Replaced by `/auth/verify-email/resend` and `/auth/forgot-password` | legacy | deprecated |
+| POST | `/api/v1/user/auth/verify-otp` | none | Verify OTP. Replaced by `/auth/verify-email` | legacy | deprecated |
+| POST | `/api/v1/user/auth/login` | none | Login. Replaced by `/auth/login` | legacy | deprecated |
 | POST | `/api/v1/user/auth/reset-password` | user | Reset Password | legacy | live |
-| POST | `/api/v1/user/auth/forgot-password` | none | Forgot Password | legacy | live |
+| POST | `/api/v1/user/auth/forgot-password` | none | Forgot Password. Replaced by `/auth/forgot-password` + `/auth/reset-password` | legacy | deprecated |
 | POST | `/api/v1/user/auth/refresh-auth` | refresh token | Refresh Auth | legacy | live |
 | POST | `/api/v1/user/auth/logout` | refresh token | Logout | legacy | live |
 | GET | `/api/v1/user/auth/deactivate` | user | Deactivate Account | legacy | live |
-| POST | `/api/v1/user/auth/employee/add` | user | Add Employee | legacy | live |
-| DELETE | `/api/v1/user/auth/employee/remove` | user | Delete Employee | legacy | live |
+| POST | `/api/v1/user/auth/employee/add` | user | Add Employee (Phase 8: also a `member` of the owner's organizations) | legacy | live |
+| DELETE | `/api/v1/user/auth/employee/remove` | user | Delete Employee (Phase 8: memberships removed) | legacy | live |
 | GET | `/api/v1/user/auth/employee/all` | user | Get All Employee By Owner | legacy | live |
 | GET | `/api/v1/user/auth/employee/details/:employee_id` | user | Employee Details | legacy | live |
 | GET | `/api/v1/user/profile` | user | Get Profile | legacy | live |
 | POST | `/api/v1/user/notifications` | user | Notification Toogle | legacy | live |
 | PUT | `/api/v1/user/profile` | user | Update Profile | legacy | live |
-| POST | `/api/v1/user/clients` | user | Create Client | legacy | live |
-| GET | `/api/v1/user/clients` | user | Get All Client | legacy | live |
-| GET | `/api/v1/user/clients/:client_id` | user | Get Client Details | legacy | live |
-| PUT | `/api/v1/user/clients` | user | Update Client | legacy | live |
-| DELETE | `/api/v1/user/clients/:client_id` | user | Delete Client | legacy | live |
+| POST | `/api/v1/user/clients` | user | Create Client. Replaced by `/clients` | legacy | deprecated |
+| GET | `/api/v1/user/clients` | user | Get All Client. Replaced by `/clients` | legacy | deprecated |
+| GET | `/api/v1/user/clients/:client_id` | user | Get Client Details. Replaced by `/clients/:clientId` | legacy | deprecated |
+| PUT | `/api/v1/user/clients` | user | Update Client. Replaced by `PATCH /clients/:clientId` | legacy | deprecated |
+| DELETE | `/api/v1/user/clients/:client_id` | user | Delete Client. Replaced by `DELETE /clients/:clientId` | legacy | deprecated |
 
 ### Locations
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/locations` | user | Create Location | legacy | live |
-| GET | `/api/v1/locations/:locationId` | none | Get Location Details | legacy | live |
-| DELETE | `/api/v1/locations/:locationId` | user | Delete Location | legacy | live |
-| PUT | `/api/v1/locations` | user | Update Location | legacy | live |
-| GET | `/api/v1/locations` | user | Get Location By User | legacy | live |
-| GET | `/api/v1/locations/google-locations/:name` | none | Get Google Locations | legacy | live |
-| GET | `/api/v1/locations/google-locations/details/:placeId` | none | Get Google Location Details | legacy | live |
+| GET | `/api/v1/locations` | user + org | The locations table: search, filter (client, status), sort, pagination; status, rank, GBP score, reviews per row | legacy, rebuilt 8 | live |
+| POST | `/api/v1/locations` | user + org (owner/member) | Add a location from a Places search result `{ place_id, client_id? }` (1 Place Details call; plan limit; one place per organization). No manual entry | legacy, rebuilt 8 | live |
+| GET | `/api/v1/locations/:locationId` | user + owner | Location header (was unauthenticated) | legacy, rebuilt 8 | live |
+| GET | `/api/v1/locations/:locationId/overview` | user + owner | Header + the latest summary of every module (`available: false` sections when there's no data yet) | 8 | live |
+| PATCH | `/api/v1/locations/:locationId` | user + owner (write) | Edit `name`, `timezone`, `client_id` | 8 | live |
+| DELETE | `/api/v1/locations/:locationId` | user + owner (write) | Soft delete: jobs cancelled, GBP unbound, history kept, plan slot freed | legacy, rebuilt 8 | live |
+
+### Organization
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/organization` | user + org | The current organization, the caller's role and every organization they belong to | 8 | live |
+| PATCH | `/api/v1/organization` | user + org (owner) | Edit `name`, `country` | 8 | live |
+| GET | `/api/v1/organization/usage` | user + org | Plan and usage: locations used/limit, keywords used/limit, clients (agency) | 8 | live |
+| GET | `/api/v1/organization/members` | user + org (owner/member) | Team members with roles | 8 | live |
+
+### Clients (agency)
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/clients` | user + org (agency) | Clients with location count and averages; search, status, pagination (a client_user sees its own) | 8 | live |
+| POST | `/api/v1/clients` | user + org (agency, owner/member) | Create a client | 8 | live |
+| GET | `/api/v1/clients/:clientId` | user + org (agency) | Client detail: client, assigned locations (list rows), summary | 8 | live |
+| PATCH | `/api/v1/clients/:clientId` | user + org (agency, owner/member) | Edit a client | 8 | live |
+| DELETE | `/api/v1/clients/:clientId` | user + org (agency, owner/member) | Soft delete; its locations stay, unassigned | 8 | live |
+| POST | `/api/v1/clients/:clientId/locations` | user + org (agency, owner/member) | Assign a location `{ location_id }` | 8 | live |
+| DELETE | `/api/v1/clients/:clientId/locations/:locationId` | user + org (agency, owner/member) | Unassign a location | 8 | live |
 
 ### Ranking
 
@@ -137,12 +172,13 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + owner` (
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/onboarding/state` | user | Connection + onboarding locations (resume) | 7a | live |
-| GET | `/api/v1/onboarding/gbp-profiles` | user | Every accessible profile, `supported` flag | 7a | live |
-| POST | `/api/v1/onboarding/select-profile` | user | Create or link a Location from a profile and bind | 7a | live |
-| POST | `/api/v1/onboarding/complete` | user | First rank run + GBP sync request | 7a | live |
+| GET | `/api/v1/onboarding/state` | user + org | Organization onboarding steps (Business / Agency, resumable), empty states, connection, onboarding locations | 7a, rebuilt 8 | live |
+| GET | `/api/v1/onboarding/gbp-profiles` | user + org | Every accessible profile, `supported` flag | 7a | live |
+| POST | `/api/v1/onboarding/select-profile` | user + org | Create (plan limit) or link a location of the organization from a profile and bind; `client_id?` (agency) | 7a, changed 8 | live |
+| POST | `/api/v1/onboarding/complete` | user + org (owner/member) | First rank run (+ GBP sync when bound) and the monthly refresh; no GBP needed since Phase 8 | 7a | live |
+| POST | `/api/v1/onboarding/skip` | user + org (owner/member) | Skip an organization step (`google`, `reporting_brand`) | 8 | live |
 | GET | `/api/v1/locations/:locationId/competitor-suggestions` | user + owner | Top 10 competitors across keywords (Places Enterprise, 24 h cache, daily cap) | 7a | live |
-| GET | `/api/v1/places/search` | user + owner (`locationId`) | Manual competitor search (Places Pro, 10 results, daily cap) | 7a | live |
+| GET | `/api/v1/places/search` | user + org (owner/member) | Places search (Pro, 10 results, daily cap): a competitor search with `locationId`, or an add-location search without it (Phase 8, `country`) | 7a, changed 8 | live |
 | PUT | `/api/v1/locations/:locationId/center` | user + owner | Manual business center from a city or ZIP (service-area businesses; 1 IDs-only search + 1 Details `location`) | 7a | live |
 
 ### Refresh and GBP sync
@@ -406,6 +442,48 @@ Generated in the `gbp-report` job about 2 minutes after a rank run or GBP sync f
 **Notes:**
 - **#28:** **404** before the first report; **400** for another `range`. A section that can't be shown is `{ available: false, reason }`: `gbp_not_connected` (every private section of a location added via Places search; the competitor comparison still works), `v4_access_pending` (reviews, media, posts; the GBP Score then excludes those pillars with `partial: true`), `not_synced_yet`, `no_place_id`. Shapes and examples: [API.md](API.md#gbp-report-phase-7c).
 
+### Auth, organization, locations and clients (Phase 8)
+
+Every location, client and report belongs to an organization; roles `owner`, `member`, `client_user` (see Conventions). Shapes and examples: [API.md](API.md#auth-organizations-locations-and-clients-phase-8).
+
+| # | Method | Path | Auth | Params / body | Returns |
+|---|---|---|---|---|---|
+| 29 | POST | `/auth/signup` | none | `{ account_type: business\|agency, name, email, password, organization_name, country: US\|CA, accept_terms: true }` | **201** `{ user_id, organization_id, email_verification }` |
+| 30 | POST | `/auth/verify-email` | none | `{ email, code }` | Session: `{ verified, tokens, user, organizations, current_organization_id, onboarding }` |
+| 31 | POST | `/auth/verify-email/resend` | none | `{ email }` | `{ email_verification: 'sent_if_pending' }` |
+| 32 | POST | `/auth/login` | none | `{ email, password }` | Session; **403** `email_not_verified` |
+| 33 | POST | `/auth/forgot-password` | none | `{ email }` | `{ reset: 'sent_if_account_exists' }` |
+| 34 | POST | `/auth/reset-password` | none | `{ email, code, password }` | `{ reset: true }` (sessions revoked) |
+| 35 | GET | `/organization` | user + org | – | `{ organization, role, memberships }` |
+| 36 | PATCH | `/organization` | user + org (owner) | `{ name?, country? }` | As #35 |
+| 37 | GET | `/organization/usage` | user + org | – | `{ plan, locations: { used, limit }, keywords: { used, limit }, clients }` |
+| 38 | GET | `/organization/members` | user + org (owner/member) | – | `[{ user_id, name, email, role, client_ids, status }]` |
+| 39 | GET | `/locations` | user + org | `search, client_id, status, sort, order, page, limit` | `{ locations: [row], page, limit, total }` |
+| 40 | POST | `/locations` | user + org (owner/member) | `{ place_id, client_id? }` | **201** `{ location, api_calls }`; **409** `duplicate_place`; **403** `location_limit_reached` |
+| 41 | GET | `/locations/:locationId` | user, owner | – | Location header |
+| 42 | GET | `/locations/:locationId/overview` | user, owner | – | Header + `rankings, gbp, performance, reviews, competitors, refresh, empty_states` |
+| 43 | PATCH | `/locations/:locationId` | user, owner (write) | `{ name?, timezone?, client_id? }` | Header |
+| 44 | DELETE | `/locations/:locationId` | user, owner (write) | – | `{ deleted, gbp_unbound, jobs_cancelled, usage }` |
+| 45 | GET | `/clients` | user + org (agency) | `search, status, page, limit` | `{ clients, page, limit, total }` |
+| 46 | POST | `/clients` | user + org (agency, owner/member) | `{ name, website?, contact_email? }` | **201** client |
+| 47 | GET | `/clients/:clientId` | user + org (agency) | – | `{ client, locations, summary }` |
+| 48 | PATCH | `/clients/:clientId` | user + org (agency, owner/member) | `{ name?, website?, contact_email?, status? }` | Client |
+| 49 | DELETE | `/clients/:clientId` | user + org (agency, owner/member) | – | `{ deleted, locations_unassigned }` |
+| 50 | POST | `/clients/:clientId/locations` | user + org (agency, owner/member) | `{ location_id }` | `{ assigned, client_id, location_id }` |
+| 51 | DELETE | `/clients/:clientId/locations/:locationId` | user + org (agency, owner/member) | – | `{ unassigned, client_id, location_id }` |
+| 52 | POST | `/onboarding/skip` | user + org (owner/member) | `{ step: google\|reporting_brand }` | As #17 |
+
+**Notes:**
+- **#17 (Phase 8):** `GET /onboarding/state` now returns `organization` (steps, `next_step`, `completed`) and `empty_states` before `gbp` and `locations`; every location of the organization is listed (unfinished first) with `source` and `client_id`.
+- **#19 (Phase 8):** `select-profile` takes `client_id?`, is limit-checked when it creates a location, links a location of the organization with the same place, and answers **409** `place_id_mismatch` for a location with a different place (also #15).
+- **#21 (Phase 8):** without `locationId` it is the add-location search (`country` or the organization's).
+- **#22 (Phase 8):** no GBP binding needed; the GBP sync is queued only when bound.
+- **#29–#34:** codes are stored hashed, expire in 15 minutes, allow 5 attempts, single use; rate-limited per email (and IP) with **429** `rate_limited`.
+- **#40:** 1 Place Details call (US/CA only), after the limit and duplicate checks.
+- **#44:** soft delete; history is kept and the plan slot freed at once.
+
 ## Removed endpoints
+
+Removed in Phase 8: `GET /locations/google-locations/:name` and `GET /locations/google-locations/details/:placeId` (unauthenticated proxies to the old paid Places API; use `GET /places/search`), and `PUT /locations` (now `PATCH /locations/:locationId`).
 
 Removed in the legacy cleanup (Phase 9a): the old ranking routes (`/rank-tracker`, `/local-search-grid`, `/local-map-ranking`), `/gbp-audit`, `/reputation-manager`, the white-label report links and the Search Console connect. See [LEGACY_FEATURES.md](LEGACY_FEATURES.md).

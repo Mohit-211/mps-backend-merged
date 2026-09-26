@@ -1,12 +1,16 @@
 import httpStatus from 'http-status';
 import Joi from 'joi';
-import { Location } from '../../models/location.model';
+import { findLocationForUser } from '../../services/org/access';
 import { catchAsync, isValidMongoObjectId, pick, responseWrapper } from '../../utils';
 
 // Ranking endpoints (CLAUDE.md §9.4). Every route runs verifyAuthJWTToken, then loadOwnedLocation.
 // The loaded location and validated input go on res.locals (not req.body, which the client controls).
 
-/** 400 for a malformed id; 404 unless the location exists, is active and was created by this user. */
+/**
+ * 400 for a malformed id; 404 unless the location is active and the caller is an active member of its
+ * organization (Phase 8; a client_user only for its clients' locations). Writes (anything but GET) need
+ * owner/member: a client_user gets 403 read_only.
+ */
 export const loadOwnedLocation = catchAsync(async (req, res, next) => {
 	const { locationId } = req.params;
 	if (!isValidMongoObjectId(locationId)) {
@@ -14,9 +18,10 @@ export const loadOwnedLocation = catchAsync(async (req, res, next) => {
 	}
 	const user = req.body?.user as { _id?: unknown } | undefined;
 	if (!user?._id) return responseWrapper(res, '', 'Unauthorized : please authenticate.', httpStatus.UNAUTHORIZED);
-	const location = await Location.findOne({ _id: locationId, created_by: user._id, is_active: true });
-	if (!location) return responseWrapper(res, '', 'Location not found', httpStatus.NOT_FOUND);
-	res.locals.location = location;
+	const access = await findLocationForUser(String(user._id), locationId, { write: req.method !== 'GET' && req.method !== 'HEAD' });
+	if (!access) return responseWrapper(res, '', 'Location not found', httpStatus.NOT_FOUND);
+	res.locals.location = access.location;
+	res.locals.membership = access.membership;
 	res.locals.userId = String(user._id);
 	next();
 });

@@ -59,8 +59,25 @@ export interface ILocationTracking {
 }
 
 /** In order. center_needed / center_set only occur for profiles without coordinates (service-area). */
-export type OnboardingStep = 'profile_selected' | 'center_needed' | 'center_set' | 'keywords_set' | 'competitors_set' | 'completed';
-export const ONBOARDING_STEPS: OnboardingStep[] = ['profile_selected', 'center_needed', 'center_set', 'keywords_set', 'competitors_set', 'completed'];
+export type OnboardingStep = 'profile_selected' | 'place_selected' | 'center_needed' | 'center_set' | 'keywords_set' | 'competitors_set' | 'completed';
+export const ONBOARDING_STEPS: OnboardingStep[] = ['profile_selected', 'place_selected', 'center_needed', 'center_set', 'keywords_set', 'competitors_set', 'completed'];
+
+/** How the location was added (Phase 8): a GBP profile, a Places search result, or pre-Phase 8 data. */
+export type LocationSource = 'gbp' | 'places_search' | 'legacy';
+export const LOCATION_SOURCES: LocationSource[] = ['gbp', 'places_search', 'legacy'];
+
+/** Latest numbers for the locations list (Phase 8), kept by the rank-run and GBP report hooks. */
+export interface ILocationSummary {
+  overall_avg_rank: number | null;
+  overall_change: number | null;
+  last_run_at: Date | null;
+  gbp_score: number | null;
+  gbp_grade: string | null;
+  gbp_partial: boolean | null;
+  public_score: number | null;
+  rating: number | null;
+  review_count: number | null;
+}
 
 /** Where the location's lat/lng came from: the GBP profile, a Place Details lookup, or the user (city/ZIP). */
 export type CenterSource = 'gbp' | 'place_details' | 'manual';
@@ -106,6 +123,11 @@ export interface ILocation extends Document {
   website_URL: string;
   business_category: string;
   client_id?: Schema.Types.ObjectId;
+  /** Phase 8: the owning organization (access is by membership; created_by stays for audit). */
+  organization_id?: mongoose.Types.ObjectId;
+  source?: LocationSource;
+  gbp_connected?: boolean;
+  summary?: ILocationSummary;
   is_active: boolean;
   created_at: Date;
   created_by?: Schema.Types.ObjectId;
@@ -216,6 +238,26 @@ const locationSchema = new Schema<ILocation>(
       ref: "Client",
       required: false,
       default: null,
+    },
+    organization_id: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
+    source: { type: String, enum: LOCATION_SOURCES, default: "legacy" },
+    gbp_connected: { type: Boolean, default: false },
+    summary: {
+      type: new Schema<ILocationSummary>(
+        {
+          overall_avg_rank: { type: Number, default: null },
+          overall_change: { type: Number, default: null },
+          last_run_at: { type: Date, default: null },
+          gbp_score: { type: Number, default: null },
+          gbp_grade: { type: String, default: null },
+          gbp_partial: { type: Boolean, default: null },
+          public_score: { type: Number, default: null },
+          rating: { type: Number, default: null },
+          review_count: { type: Number, default: null },
+        },
+        { _id: false },
+      ),
+      default: undefined,
     },
     is_active: {
       type: Boolean,
@@ -340,6 +382,12 @@ const locationSchema = new Schema<ILocation>(
 // Rank scheduler: due weekly/monthly locations.
 // monthly-refresh scheduler: due auto_monthly locations.
 locationSchema.index({ "tracking.frequency": 1, "refresh.next_refresh_at": 1 });
+// Phase 8: the organization's locations list, and one active location per place_id per organization.
+locationSchema.index({ organization_id: 1, is_active: 1, name: 1 });
+locationSchema.index(
+  { organization_id: 1, place_id: 1 },
+  { unique: true, name: "org_place_active_unique", partialFilterExpression: { is_active: true, organization_id: { $type: "objectId" }, place_id: { $type: "string" } } },
+);
 
 locationSchema.plugin(globalQueryFilters);
 locationSchema.plugin(toJSON);

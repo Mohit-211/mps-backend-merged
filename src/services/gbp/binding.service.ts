@@ -8,11 +8,12 @@ import { ConnectionRef, GbpClient, gbpClient } from '../../clients/gbpClient';
 import { GbpLocation } from '../../clients/types/gbp';
 import { JOB_NAMES } from '../../jobs/jobNames';
 import { GBPPost, Location, UserGBP } from '../../models';
-import { ApiError } from '../../utils';
+import { ApiError, apiErrorWithData } from '../../utils';
 import { toGbpApiError } from './errors';
 import { TokenStore, tokenStore } from './tokenStore';
 import { resolveConnection } from './connections';
 import { requestReportSafely } from './report.service';
+import { findLocationForUser } from '../org/access';
 
 // Binding a GBP location to one of our Locations, unbinding it (AUDIT C12), and disconnecting GBP.
 // - Bind reads the profile from Google (never trusts client-sent title/metadata) and takes place_id
@@ -69,11 +70,12 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 	const tokens = deps.tokens ?? tokenStore;
 	const agenda = (): Agenda => deps.agenda ?? getAgenda();
 
+	/** Phase 8: the location must be in an organization where the user is owner or member. */
 	const ownedLocation = async (userId: UserId, locationId: string) => {
 		if (!Types.ObjectId.isValid(locationId)) throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid location_id');
-		const location = await Location.findOne({ _id: locationId, created_by: userId, is_active: true });
-		if (!location) throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
-		return location;
+		const access = await findLocationForUser(userId, locationId, { write: true });
+		if (!access) throw new ApiError(httpStatus.NOT_FOUND, 'Location not found');
+		return access.location;
 	};
 
 	const bindLocation = async (userId: UserId, input: BindInput): Promise<BindResult> => {
@@ -81,16 +83,17 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		if (!LOCATION_ID.test(input.gbpLocationId ?? '')) throw new ApiError(httpStatus.BAD_REQUEST, 'gbpLocationId must look like locations/456');
 		const location = await ownedLocation(userId, input.location_id);
 
-		const elsewhere = await UserGBP.findOne({
-			user_id: userId,
-			gbpLocationId: input.gbpLocationId,
-			is_active: true,
-			location_id: { $ne: location._id },
-		});
+		// One binding per GBP profile within an organization (Phase 8: org-wide, not per user).
+		const others = await UserGBP.find({ gbpLocationId: input.gbpLocationId, is_active: true, location_id: { $ne: location._id } })
+			.select({ location_id: 1 })
+			.lean();
+		const elsewhere = others.length
+			? await Location.findOne({ _id: { $in: others.map((o) => o.location_id) }, organization_id: location.organization_id, is_active: true }).select({ _id: 1 }).lean()
+			: null;
 		if (elsewhere) {
 			throw new ApiError(
 				httpStatus.CONFLICT,
-				`This Google Business Profile is already bound to location ${String(elsewhere.location_id)}. Unbind it first.`,
+				`This Google Business Profile is already bound to location ${String(elsewhere._id)}. Unbind it first.`,
 			);
 		}
 
@@ -111,6 +114,26 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 			}
 		}
 
+		// Phase 8 (PRODUCT.md): a location's place_id is fixed; a profile for another place is refused.
+		const current = location.place_id ? String(location.place_id) : null;
+		if (current && gbp.placeId && current !== gbp.placeId) {
+			throw apiErrorWithData(httpStatus.CONFLICT, 'This Business Profile is for a different place than this location.', {
+				reason: 'place_id_mismatch',
+				location_place_id: current,
+				gbp_place_id: gbp.placeId,
+			});
+		}
+
+		// One location per place in an organization: a location without a place_id can't take one another location has.
+		if (!current && gbp.placeId) {
+			const taken = await Location.findOne({ organization_id: location.organization_id, is_active: true, place_id: gbp.placeId, _id: { $ne: location._id } })
+				.select({ _id: 1 })
+				.lean();
+			if (taken) {
+				throw apiErrorWithData(httpStatus.CONFLICT, 'This business is already another of your locations.', { reason: 'duplicate_place', location_id: String(taken._id) });
+			}
+		}
+
 		await UserGBP.deleteMany({ location_id: location._id });
 		await UserGBP.create({
 			user_id: userId,
@@ -128,8 +151,9 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 			is_active: true,
 		});
 
+		await Location.updateOne({ _id: location._id }, { $set: { gbp_connected: true } });
+
 		// place_id: set only when empty (atomic), never overwrite a different value.
-		const current = location.place_id ? String(location.place_id) : null;
 		let status: PlaceIdStatus = 'none';
 		if (gbp.placeId && !current) {
 			const set = await Location.updateOne(
@@ -214,19 +238,22 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 
 	const unbindLocation = async (userId: UserId, locationId: string): Promise<UnbindResult> => {
 		const location = await ownedLocation(userId, locationId);
-		const binding = await UserGBP.findOne({ user_id: userId, location_id: location._id, is_active: true });
+		// Phase 8: any owner/member may unbind; the binding's own user owns the Google connection.
+		const binding = await UserGBP.findOne({ location_id: location._id, is_active: true });
 		if (!binding) throw new ApiError(httpStatus.NOT_FOUND, 'This location is not bound to a Google Business Profile');
+		const bindingUser = binding.user_id as unknown as Types.ObjectId;
 
 		let googleSub = binding.google_sub ?? null;
 		if (googleSub === null) {
 			// Pre-7a binding: it belongs to the only connection, if there is exactly one.
-			const connections = await tokens.listConnections(userId, tokenTypes.GBP);
+			const connections = await tokens.listConnections(bindingUser, tokenTypes.GBP);
 			if (connections.length === 1) googleSub = connections[0].googleSub;
 		}
-		const jobs = await cancelLocationJobs(userId, location._id as Types.ObjectId, binding.gbpLocationId);
+		const jobs = await cancelLocationJobs(bindingUser, location._id as Types.ObjectId, binding.gbpLocationId);
 		await UserGBP.deleteOne({ _id: binding._id });
+		await Location.updateOne({ _id: location._id }, { $set: { gbp_connected: false } });
 		await requestReportSafely(location._id as Types.ObjectId, 'unbind', { agenda: agenda() });
-		const tokensDeleted = await deleteTokensIfUnbound(userId, googleSub);
+		const tokensDeleted = await deleteTokensIfUnbound(bindingUser, googleSub);
 		logger.info(`gbp unbind: location ${String(location._id)} (tokens_deleted=${tokensDeleted})`);
 		return { unbound: true, jobs_cancelled: jobs, tokens_deleted: tokensDeleted };
 	};
@@ -262,6 +289,7 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		for (const binding of bindings) {
 			await cancelLocationJobs(userId, binding.location_id as unknown as Types.ObjectId, binding.gbpLocationId);
 			await UserGBP.deleteOne({ _id: binding._id });
+			await Location.updateOne({ _id: binding.location_id }, { $set: { gbp_connected: false } });
 			await requestReportSafely(binding.location_id as unknown as Types.ObjectId, 'unbind', { agenda: agenda() });
 		}
 		await tokens.remove(userId, tokenTypes.GBP, sub);

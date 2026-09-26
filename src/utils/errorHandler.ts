@@ -8,7 +8,7 @@ import responseWrapper from './responseWrapper';
 const apiErrorHandler = (err: Error, req: Request, res: Response, next: NextFunction): Response<any, Record<string, any>> | void => {
   next(err);
   if (err instanceof ApiError) {
-    return responseWrapper(res, '', err.message, err.statusCode);
+    return responseWrapper(res, err.data ?? '', err.message, err.statusCode);
   } else {
     return responseWrapper(res, '', `An internal server error occurred: ${err}`, httpStatus.INTERNAL_SERVER_ERROR);
   }
