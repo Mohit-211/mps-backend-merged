@@ -1,0 +1,100 @@
+{
+  "places": [
+    {
+      "id": "ChIJsuggestTest0000000100",
+      "displayName": {
+        "text": "Dallas Plumbing Result 1",
+        "languageCode": "en"
+      },
+      "formattedAddress": "200 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000101",
+      "displayName": {
+        "text": "Dallas Plumbing Result 2",
+        "languageCode": "en"
+      },
+      "formattedAddress": "201 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000102",
+      "displayName": {
+        "text": "Dallas Plumbing Result 3",
+        "languageCode": "en"
+      },
+      "formattedAddress": "202 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000103",
+      "displayName": {
+        "text": "Dallas Plumbing Result 4",
+        "languageCode": "en"
+      },
+      "formattedAddress": "203 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000104",
+      "displayName": {
+        "text": "Dallas Plumbing Result 5",
+        "languageCode": "en"
+      },
+      "formattedAddress": "204 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000105",
+      "displayName": {
+        "text": "Dallas Plumbing Result 6",
+        "languageCode": "en"
+      },
+      "formattedAddress": "205 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000106",
+      "displayName": {
+        "text": "Dallas Plumbing Result 7",
+        "languageCode": "en"
+      },
+      "formattedAddress": "206 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000107",
+      "displayName": {
+        "text": "Dallas Plumbing Result 8",
+        "languageCode": "en"
+      },
+      "formattedAddress": "207 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000108",
+      "displayName": {
+        "text": "Dallas Plumbing Result 9",
+        "languageCode": "en"
+      },
+      "formattedAddress": "208 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000109",
+      "displayName": {
+        "text": "Dallas Plumbing Result 10",
+        "languageCode": "en"
+      },
+      "formattedAddress": "209 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000110",
+      "displayName": {
+        "text": "Dallas Plumbing Result 11",
+        "languageCode": "en"
+      },
+      "formattedAddress": "210 Main St, Dallas, TX 75201, USA"
+    },
+    {
+      "id": "ChIJsuggestTest0000000111",
+      "displayName": {
+        "text": "Dallas Plumbing Result 12",
+        "languageCode": "en"
+      },
+      "formattedAddress": "211 Main St, Dallas, TX 75201, USA"
+    }
+  ]
+}

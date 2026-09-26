@@ -1,9 +1,12 @@
 import logger from '../../src/configs/logger';
 import {
 	IDS_ONLY_FIELD_MASK,
+	NAMES_ADDRESSES_FIELD_MASK,
 	PlacesApiError,
+	SUGGESTIONS_FIELD_MASK,
 	PlacesConfigError,
 	WITH_NAMES_FIELD_MASK,
+	assertExactMask,
 	assertIdsOnlyMask,
 	createPlacesClient,
 	placesClient,
@@ -257,7 +260,7 @@ describe('call accounting and secrecy', () => {
 		await client.searchTextIds({ ...baseParams, stopWhenFound: [placeIds.target] });
 		await client.searchTextWithNames(baseParams);
 		await client.getPlaceDetails(placeIds.target, ['location']);
-		expect(client.getStats()).toEqual({ ids_only: 2, pro: 1, details: 1 });
+		expect(client.getStats()).toEqual({ ids_only: 2, pro: 1, enterprise: 0, details: 1 });
 	});
 
 	it('never puts the API key in logs or errors', async () => {
@@ -281,3 +284,61 @@ describe('call accounting and secrecy', () => {
 		expect(everything).not.toContain('emergency plumber');
 	});
 });
+
+describe('competitor search variants (Phase 7a)', () => {
+	it('suggestions: one page with names, addresses, rating and count, on its own mask', async () => {
+		const { client, fake } = clientWith([{ status: 200, fixture: 'searchText_suggestions_kw1' }]);
+		const result = await client.searchTextForSuggestions(baseParams);
+		expect(result.apiCalls).toBe(1);
+		expect(result.places).toHaveLength(20);
+		expect(result.places[0]).toEqual({
+			id: 'ChIJsuggestTest0000000001',
+			name: 'Leslieville Plumbing',
+			address: '101 King St W, Toronto, ON M4M 1A1, Canada',
+			rating: 4,
+			userRatingCount: 47,
+		});
+		expect(fake.requests[0].headers['X-Goog-FieldMask']).toBe(SUGGESTIONS_FIELD_MASK);
+		expect((fake.requests[0].data as { pageSize: number }).pageSize).toBe(20);
+		expect(client.getStats()).toEqual({ ids_only: 0, pro: 0, enterprise: 1, details: 0 });
+	});
+
+	it('suggestions keep movedPlaceId and null rating when Google omits it', async () => {
+		const { client } = clientWith([{ status: 200, fixture: 'searchText_suggestions_kw2' }]);
+		const { places } = await client.searchTextForSuggestions(baseParams);
+		expect(places.find((p) => p.id === 'ChIJoldSelfListing0000001')?.movedPlaceId).toBe('ChIJselfTestPlaceId000001');
+		expect(places.find((p) => p.id === 'ChIJsuggestTest0000000021')).toMatchObject({ rating: null, userRatingCount: null });
+	});
+
+	it('manual search: at most 10 names + addresses on the Pro mask', async () => {
+		const { client, fake } = clientWith([{ status: 200, fixture: 'searchText_names_addresses' }]);
+		const { places, apiCalls } = await client.searchTextNamesAddresses(baseParams);
+		expect(apiCalls).toBe(1);
+		expect(places).toHaveLength(10);
+		expect(places[0]).toEqual({ id: 'ChIJsuggestTest0000000100', name: 'Dallas Plumbing Result 1', address: '200 Main St, Dallas, TX 75201, USA' });
+		expect(fake.requests[0].headers['X-Goog-FieldMask']).toBe(NAMES_ADDRESSES_FIELD_MASK);
+		expect((fake.requests[0].data as { pageSize: number }).pageSize).toBe(10);
+		expect(client.getStats().pro).toBe(1);
+	});
+
+	it('mask guards reject any extra or missing field', () => {
+		expect(() => assertExactMask(`${SUGGESTIONS_FIELD_MASK},places.reviews`, SUGGESTIONS_FIELD_MASK)).toThrow(/Field mask violated/);
+		expect(() => assertExactMask('places.id,places.displayName', NAMES_ADDRESSES_FIELD_MASK)).toThrow(/Field mask violated/);
+		expect(() => assertExactMask(NAMES_ADDRESSES_FIELD_MASK, NAMES_ADDRESSES_FIELD_MASK)).not.toThrow();
+	});
+
+	it('the new masks never reach the IDs-only ranking search', async () => {
+		const { client, fake } = clientWith([
+			{ status: 200, fixture: 'searchText_suggestions_kw1' },
+			{ status: 200, fixture: 'searchText_names_addresses' },
+			{ status: 200, fixture: 'searchText_p1_target' },
+		]);
+		await client.searchTextForSuggestions(baseParams);
+		await client.searchTextNamesAddresses(baseParams);
+		await client.searchTextIds({ ...baseParams, stopWhenFound: [placeIds.target] });
+		expect(fake.requests[2].headers['X-Goog-FieldMask']).toBe(IDS_ONLY_FIELD_MASK);
+		expect(() => assertIdsOnlyMask(SUGGESTIONS_FIELD_MASK)).toThrow();
+		expect(() => assertIdsOnlyMask(NAMES_ADDRESSES_FIELD_MASK)).toThrow();
+	});
+});
+

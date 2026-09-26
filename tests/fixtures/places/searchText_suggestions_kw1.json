@@ -1,0 +1,204 @@
+{
+  "places": [
+    {
+      "id": "ChIJsuggestTest0000000001",
+      "displayName": {
+        "text": "Leslieville Plumbing",
+        "languageCode": "en"
+      },
+      "formattedAddress": "101 King St W, Toronto, ON M4M 1A1, Canada",
+      "rating": 4.0,
+      "userRatingCount": 47
+    },
+    {
+      "id": "ChIJsuggestTest0000000002",
+      "displayName": {
+        "text": "Riverside Drain Pros",
+        "languageCode": "en"
+      },
+      "formattedAddress": "102 Dundas St E, Toronto, ON M4M 1A2, Canada",
+      "rating": 4.1,
+      "userRatingCount": 54
+    },
+    {
+      "id": "ChIJselfTestPlaceId000001",
+      "displayName": {
+        "text": "Maple Leaf Plumbing & Heating",
+        "languageCode": "en"
+      },
+      "formattedAddress": "100 Queen St E, Toronto, ON M5C 1S6, Canada",
+      "rating": 4.8,
+      "userRatingCount": 212
+    },
+    {
+      "id": "ChIJsuggestTest0000000003",
+      "displayName": {
+        "text": "East End Plumbing & Heating",
+        "languageCode": "en"
+      },
+      "formattedAddress": "103 Gerrard St E, Toronto, ON M4M 1A3, Canada",
+      "rating": 4.2,
+      "userRatingCount": 61
+    },
+    {
+      "id": "ChIJsuggestTest0000000004",
+      "displayName": {
+        "text": "Beaches Rooter Service",
+        "languageCode": "en"
+      },
+      "formattedAddress": "104 Carlaw Ave, Toronto, ON M4M 1A4, Canada",
+      "rating": 4.3,
+      "userRatingCount": 68
+    },
+    {
+      "id": "ChIJsuggestTest0000000005",
+      "displayName": {
+        "text": "Danforth Pipe Works",
+        "languageCode": "en"
+      },
+      "formattedAddress": "105 Pape Ave, Toronto, ON M4M 1A5, Canada",
+      "rating": 4.4,
+      "userRatingCount": 75
+    },
+    {
+      "id": "ChIJsuggestTest0000000006",
+      "displayName": {
+        "text": "Queen East Plumbers",
+        "languageCode": "en"
+      },
+      "formattedAddress": "106 Broadview Ave, Toronto, ON M4M 1A6, Canada",
+      "rating": 4.5,
+      "userRatingCount": 82
+    },
+    {
+      "id": "ChIJsuggestTest0000000007",
+      "displayName": {
+        "text": "Greenwood Drain Cleaning",
+        "languageCode": "en"
+      },
+      "formattedAddress": "107 Logan Ave, Toronto, ON M4M 1A7, Canada",
+      "rating": 4.6,
+      "userRatingCount": 89
+    },
+    {
+      "id": "ChIJsuggestTest0000000008",
+      "displayName": {
+        "text": "Lakeshore Plumbing Co",
+        "languageCode": "en"
+      },
+      "formattedAddress": "108 Jones Ave, Toronto, ON M4M 1A8, Canada",
+      "rating": 4.7,
+      "userRatingCount": 96
+    },
+    {
+      "id": "ChIJsuggestTest0000000009",
+      "displayName": {
+        "text": "Don Valley Water Heaters",
+        "languageCode": "en"
+      },
+      "formattedAddress": "109 Coxwell Ave, Toronto, ON M4M 1A9, Canada",
+      "rating": 4.8,
+      "userRatingCount": 103
+    },
+    {
+      "id": "ChIJsuggestTest0000000010",
+      "displayName": {
+        "text": "Pape Plumbing Supply & Repair",
+        "languageCode": "en"
+      },
+      "formattedAddress": "110 Queen St E, Toronto, ON M4M 1A0, Canada",
+      "rating": 3.9,
+      "userRatingCount": 110
+    },
+    {
+      "id": "ChIJsuggestTest0000000011",
+      "displayName": {
+        "text": "Cabbagetown Plumbing",
+        "languageCode": "en"
+      },
+      "formattedAddress": "111 King St W, Toronto, ON M4M 1A1, Canada",
+      "rating": 4.0,
+      "userRatingCount": 117
+    },
+    {
+      "id": "ChIJsuggestTest0000000012",
+      "displayName": {
+        "text": "Riverdale Rooter",
+        "languageCode": "en"
+      },
+      "formattedAddress": "112 Dundas St E, Toronto, ON M4M 1A2, Canada",
+      "rating": 4.1,
+      "userRatingCount": 124
+    },
+    {
+      "id": "ChIJsuggestTest0000000013",
+      "displayName": {
+        "text": "Monarch Park Plumbing",
+        "languageCode": "en"
+      },
+      "formattedAddress": "113 Gerrard St E, Toronto, ON M4M 1A3, Canada",
+      "rating": 4.2,
+      "userRatingCount": 131
+    },
+    {
+      "id": "ChIJsuggestTest0000000014",
+      "displayName": {
+        "text": "Coxwell Drain Experts",
+        "languageCode": "en"
+      },
+      "formattedAddress": "114 Carlaw Ave, Toronto, ON M4M 1A4, Canada",
+      "rating": 4.3,
+      "userRatingCount": 138
+    },
+    {
+      "id": "ChIJsuggestTest0000000015",
+      "displayName": {
+        "text": "Parliament Plumbing",
+        "languageCode": "en"
+      },
+      "formattedAddress": "115 Pape Ave, Toronto, ON M4M 1A5, Canada",
+      "rating": 4.4,
+      "userRatingCount": 145
+    },
+    {
+      "id": "ChIJsuggestTest0000000016",
+      "displayName": {
+        "text": "Regent Park Pipes",
+        "languageCode": "en"
+      },
+      "formattedAddress": "116 Broadview Ave, Toronto, ON M4M 1A6, Canada",
+      "rating": 4.5,
+      "userRatingCount": 152
+    },
+    {
+      "id": "ChIJsuggestTest0000000017",
+      "displayName": {
+        "text": "Sherbourne Sewer Services",
+        "languageCode": "en"
+      },
+      "formattedAddress": "117 Logan Ave, Toronto, ON M4M 1A7, Canada",
+      "rating": 4.6,
+      "userRatingCount": 159
+    },
+    {
+      "id": "ChIJsuggestTest0000000018",
+      "displayName": {
+        "text": "Jarvis Plumbing Ltd",
+        "languageCode": "en"
+      },
+      "formattedAddress": "118 Jones Ave, Toronto, ON M4M 1A8, Canada",
+      "rating": 4.7,
+      "userRatingCount": 166
+    },
+    {
+      "id": "ChIJsuggestTest0000000019",
+      "displayName": {
+        "text": "Carlaw Heating & Plumbing",
+        "languageCode": "en"
+      },
+      "formattedAddress": "119 Coxwell Ave, Toronto, ON M4M 1A9, Canada",
+      "rating": 4.8,
+      "userRatingCount": 173
+    }
+  ]
+}

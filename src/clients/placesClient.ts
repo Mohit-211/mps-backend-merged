@@ -18,7 +18,11 @@ import {
 	PlaceDetailsField,
 	PlaceDetailsResult,
 	PlaceIdEntry,
+	NameAddressPlace,
 	PlacesCallStats,
+	SearchTextNamesAddressesResult,
+	SearchTextSuggestionsResult,
+	SuggestionPlace,
 	RawPlaceDetails,
 	RawSearchTextResponse,
 	SearchTextIdsParams,
@@ -39,6 +43,20 @@ export const IDS_ONLY_FIELDS: readonly string[] = ['places.id', 'places.movedPla
 export const IDS_ONLY_FIELD_MASK = IDS_ONLY_FIELDS.join(',');
 /** Adds displayName, which bills the call as Text Search Pro. Used only for Map Ranking. */
 export const WITH_NAMES_FIELD_MASK = 'places.id,places.movedPlaceId,places.displayName,nextPageToken';
+/** Competitor suggestions: rating + userRatingCount bill the call as Text Search Enterprise. 1 page. */
+export const SUGGESTIONS_FIELD_MASK =
+	'places.id,places.movedPlaceId,places.displayName,places.formattedAddress,places.rating,places.userRatingCount';
+/** Manual competitor search: names and addresses only (Text Search Pro). */
+export const NAMES_ADDRESSES_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress';
+export const MANUAL_SEARCH_PAGE_SIZE = 10;
+
+/** Throws unless `mask` is exactly `expected` (same fields, no extras): each search keeps its SKU. */
+export const assertExactMask = (mask: string, expected: string): void => {
+	const fields = mask.split(',').map((f) => f.trim());
+	const allowed = expected.split(',');
+	const valid = fields.length === allowed.length && new Set(fields).size === fields.length && fields.every((f) => allowed.includes(f));
+	if (!valid) throw new Error(`Field mask violated: "${mask}" (expected ${expected}).`);
+};
 
 export class PlacesConfigError extends Error {
 	constructor(message = 'GOOGLE_PLACE_API_KEY not set') {
@@ -138,7 +156,7 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 	const sleep = options.sleep ?? defaultSleep;
 	const retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
 	const defaultRadiusM = options.defaultRadiusM ?? 5000;
-	const stats: PlacesCallStats = { ids_only: 0, pro: 0, details: 0 };
+	const stats: PlacesCallStats = { ids_only: 0, pro: 0, enterprise: 0, details: 0 };
 
 	const requireKey = (): string => {
 		if (!options.apiKey) throw new PlacesConfigError();
@@ -181,10 +199,10 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 		}
 	};
 
-	const searchBody = (params: SearchTextParams, pageToken?: string) => ({
+	const searchBody = (params: SearchTextParams, pageToken?: string, pageSize: number = PAGE_SIZE) => ({
 		textQuery: params.textQuery,
 		regionCode: params.regionCode.toLowerCase(),
-		pageSize: PAGE_SIZE,
+		pageSize,
 		locationBias: {
 			circle: {
 				center: { latitude: params.center.latitude, longitude: params.center.longitude },
@@ -271,6 +289,67 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 		}
 	};
 
+	/** Competitor suggestions: one page (20) with names, addresses, rating and review count (Enterprise SKU). */
+	const searchTextForSuggestions = async (params: SearchTextParams): Promise<SearchTextSuggestionsResult> => {
+		const apiKey = requireKey();
+		assertSearchParams(params);
+		assertExactMask(SUGGESTIONS_FIELD_MASK, SUGGESTIONS_FIELD_MASK);
+		try {
+			const { data, attempts } = await send<RawSearchTextResponse>(
+				'enterprise',
+				'searchTextForSuggestions page=1',
+				{ method: 'POST', url: `${BASE_URL}/places:searchText`, data: searchBody(params) },
+				SUGGESTIONS_FIELD_MASK,
+				apiKey,
+			);
+			const places: SuggestionPlace[] = [];
+			for (const raw of data.places ?? []) {
+				const entry = toEntry(raw);
+				if (!entry) continue;
+				places.push({
+					...entry,
+					name: raw.displayName?.text ?? null,
+					address: raw.formattedAddress ?? null,
+					rating: typeof raw.rating === 'number' ? raw.rating : null,
+					userRatingCount: typeof raw.userRatingCount === 'number' ? raw.userRatingCount : null,
+				});
+			}
+			return { places, apiCalls: attempts };
+		} catch (err) {
+			if (!(err instanceof HttpRequestError)) throw err;
+			throw new PlacesApiError(err, err.attempts);
+		}
+	};
+
+	/** Manual competitor search: up to 10 names + addresses (Pro SKU). */
+	const searchTextNamesAddresses = async (params: SearchTextParams): Promise<SearchTextNamesAddressesResult> => {
+		const apiKey = requireKey();
+		assertSearchParams(params);
+		assertExactMask(NAMES_ADDRESSES_FIELD_MASK, NAMES_ADDRESSES_FIELD_MASK);
+		try {
+			const { data, attempts } = await send<RawSearchTextResponse>(
+				'pro',
+				'searchTextNamesAddresses page=1',
+				{
+					method: 'POST',
+					url: `${BASE_URL}/places:searchText`,
+					data: searchBody(params, undefined, MANUAL_SEARCH_PAGE_SIZE),
+				},
+				NAMES_ADDRESSES_FIELD_MASK,
+				apiKey,
+			);
+			const places: NameAddressPlace[] = [];
+			for (const raw of (data.places ?? []).slice(0, MANUAL_SEARCH_PAGE_SIZE)) {
+				const entry = toEntry(raw);
+				if (entry) places.push({ id: entry.id, name: raw.displayName?.text ?? null, address: raw.formattedAddress ?? null });
+			}
+			return { places, apiCalls: attempts };
+		} catch (err) {
+			if (!(err instanceof HttpRequestError)) throw err;
+			throw new PlacesApiError(err, err.attempts);
+		}
+	};
+
 	/** Place Details for the given fields (names without the "places." prefix). */
 	const getPlaceDetails = async (placeId: string, fields: PlaceDetailsField[]): Promise<PlaceDetailsResult> => {
 		const apiKey = requireKey();
@@ -300,7 +379,7 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 
 	const getStats = (): PlacesCallStats => ({ ...stats });
 
-	return { searchTextIds, searchTextWithNames, getPlaceDetails, getStats };
+	return { searchTextIds, searchTextWithNames, searchTextForSuggestions, searchTextNamesAddresses, getPlaceDetails, getStats };
 };
 
 /** Default client configured from the environment. Throws PlacesConfigError on use if no key is set. */

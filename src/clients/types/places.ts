@@ -49,6 +49,31 @@ export interface SearchTextWithNamesResult {
 	apiCalls: number;
 }
 
+/** Competitor suggestion candidate (Text Search Enterprise fields). */
+export interface SuggestionPlace extends PlaceIdEntry {
+	name: string | null;
+	address: string | null;
+	rating: number | null;
+	userRatingCount: number | null;
+}
+
+export interface SearchTextSuggestionsResult {
+	places: SuggestionPlace[];
+	apiCalls: number;
+}
+
+/** Manual competitor search result (Text Search Pro fields). */
+export interface NameAddressPlace {
+	id: string;
+	name: string | null;
+	address: string | null;
+}
+
+export interface SearchTextNamesAddressesResult {
+	places: NameAddressPlace[];
+	apiCalls: number;
+}
+
 /** Place Details field names, without the "places." prefix used by Text Search masks. */
 export type PlaceDetailsField =
 	| 'id'
@@ -92,6 +117,8 @@ export interface PlaceDetailsResult {
 export interface PlacesCallStats {
 	ids_only: number;
 	pro: number;
+	/** Text Search Enterprise (rating / userRatingCount): competitor suggestions only. */
+	enterprise: number;
 	details: number;
 }
 
@@ -106,6 +133,9 @@ export interface RawPlace {
 	id?: string;
 	movedPlaceId?: string;
 	displayName?: RawLocalizedText;
+	formattedAddress?: string;
+	rating?: number;
+	userRatingCount?: number;
 }
 
 export interface RawSearchTextResponse {
