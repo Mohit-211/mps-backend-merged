@@ -31,6 +31,8 @@ export interface RankingEngineOptions {
 export interface PointRanks<P extends GeoPoint> {
 	point: P;
 	byTarget: Record<string, RankCell>;
+	/** First 3 place IDs of the result list at this point (empty when the search failed). */
+	top3: string[];
 }
 
 export interface EngineStats {
@@ -163,7 +165,7 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 				const entries = await searchPoint(keyword, point);
 				const byTarget: Record<string, RankCell> = {};
 				for (const target of targets) byTarget[target.key] = toCell(entries, target.placeId);
-				return { point, byTarget };
+				return { point, byTarget, top3: (entries ?? []).slice(0, 3).map((e) => e.id) };
 			}),
 		);
 

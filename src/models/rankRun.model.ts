@@ -27,7 +27,7 @@ export interface TrackerSummaryDoc extends SummaryDoc {
 
 export interface TrackerSectionDoc {
 	keyword: string;
-	cells: { point: { label: string; lat: number; lng: number }; byTarget: Record<string, RankCellDoc> }[];
+	cells: { point: { label: string; lat: number; lng: number }; byTarget: Record<string, RankCellDoc>; top3?: string[] }[];
 	summary: Record<string, TrackerSummaryDoc>;
 }
 
@@ -35,7 +35,7 @@ export interface GridSectionDoc {
 	keyword: string;
 	size: number;
 	spacing_km: number;
-	points: { row: number; col: number; lat: number; lng: number; byTarget: Record<string, RankCellDoc> }[];
+	points: { row: number; col: number; lat: number; lng: number; byTarget: Record<string, RankCellDoc>; top3?: string[] }[];
 	summary: Record<string, SummaryDoc>;
 }
 
@@ -200,6 +200,8 @@ const rankRunSchema = new Schema<IRankRun>(
 							_id: false,
 							point: { label: String, lat: Number, lng: Number },
 							byTarget: { type: Map, of: rankCellSchema },
+							// First 3 place IDs at this point (calibration against Google Maps).
+							top3: { type: [String], default: [] },
 						},
 					],
 					summary: { type: Map, of: trackerSummarySchema },
@@ -222,6 +224,8 @@ const rankRunSchema = new Schema<IRankRun>(
 							lat: Number,
 							lng: Number,
 							byTarget: { type: Map, of: rankCellSchema },
+							// First 3 place IDs at this point (calibration against Google Maps).
+							top3: { type: [String], default: [] },
 						},
 					],
 					summary: { type: Map, of: summarySchema },
