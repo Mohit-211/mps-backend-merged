@@ -6,6 +6,49 @@ Read this whole file at the start of every session. It defines what the product 
 
 ---
 
+## Phase roadmap
+
+Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must never disagree with it.** Full spec sections below are written only when a phase is about to start.
+
+| # | Phase | Status | Branch | Milestone |
+|---|---|---|---|---|
+| 1 | Codebase audit | done | `claude/phase-1.5-hygiene` | – |
+| 1.5 | Repo hygiene | done | `claude/phase-1.5-hygiene` | – |
+| 1.6 | Build green | done | `claude/phase-1.6-build-green` | M1 |
+| 3 | Foundations | done | `claude/phase-3-foundations` | M1 |
+| 4 | Ranking engine | done | `claude/phase-4-ranking-engine` | M2 |
+| 5 | Ranking reports (three pages) | done | `claude/phase-5-ranking-reports` | M2 |
+| 5.5 | Live validation (Fredericton) | done (informal pass) | `claude/phase-5.5-live-validation` | M3 |
+| 6 | GBP connection | done | `claude/phase-6-gbp-connection` | M3 |
+| 7a | Google connect (popup) + onboarding | done | `claude/phase-7a-connect-onboarding` | M3 |
+| 9a | Legacy cleanup (early part of 9b) | done | `claude/phase-9a-legacy-cleanup` | M3 |
+| 7b | GBP sync on the monthly cadence | done | `claude/phase-7b-gbp-sync` | M3 |
+| 7c | GBP Score, report, competitors | done | `claude/phase-7c-scoring-report` | M3 |
+| 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | M4 |
+| 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | M4 |
+| **12** | **Reports center**: reports as PDF, email, schedules, white-label, share links | **in progress (planning)** | `claude/phase-12-reports` | M5 |
+| 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30. Required before launch; runs after 12. | planned | – | M5 |
+| 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
+| 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
+| – | **M5 Launch-ready** = 12 + 10 + 13 + 14 done, plus the Google approvals (GBP API access, app verification) | – | – | M5 |
+| 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
+| 15 | Notifications & automations | planned | – | – |
+| 16 | Citations (a data-source decision by Mohit comes first) | planned | – | – |
+| 17 | Ranking extras: keyword groups, Dallas + variance validation, larger grids | planned | – | – |
+| 9b | Cleanup (swagger, ARCHITECTURE.md, final docs pass) | ongoing | – | – |
+
+There is no Phase 2 (security moved to Phase 10, 2026-09-25). Milestone pushes: M1 after 3, M2 after 5, M3 after 7c, M4 after 11 (all pushed); M5 when launch-ready.
+
+**Blocked on Google** (details in `docs/STATUS.md`):
+
+| Approval | Unblocks |
+|---|---|
+| Business Profile API access (Cloud project 1010247538246: quota 0) | the GBP live test (resume at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`) and the 7c scoring calibration |
+| Google My Business API v4 access | Phase 9 (reviews, posting) and the v4 report sections (`GBP_V4_ENABLED=true`) |
+| OAuth app verification (`business.manage` is a sensitive scope) | M5 (real customers can connect) |
+
+---
+
 ## 0. Product intent (what we are building)
 
 MyPageSEO is a **Local SEO management platform** for US and Canadian **businesses and agencies** (Organization → Clients (agency) → Locations → modules). It is about **Google Maps / Google Business Profile visibility only**. Website (organic) SEO is permanently out of scope.
@@ -65,6 +108,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
   - **M2:** after Phase 5 (Ranking reports: all three pages working).
   - **M3:** after Phase 7c (GBP sync + report).
   - **M4:** after Phase 11 (Dashboards + team), agreed 2026-09-27.
+  - **M5 (launch-ready):** after Phases 12, 10, 13 and 14, plus the Google approvals (see the Phase roadmap).
 - At a milestone, give Mohit one push command covering `claude/rebuild` and every phase branch since the last milestone, plus a short summary for his developers.
 - Small commits, one concern each. Message format: `<phase>: <area>: <what>` e.g. `p4: ranking: add IDs-only text search client`.
 - Never rewrite history on shared branches. Never force-push `claude/rebuild`.
@@ -96,13 +140,16 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-26): 1 → 1.5 → 1.6 → 3 Foundations → 4 Ranking engine → 5 Ranking reports → 6 GBP connection → 7a Connect + onboarding → 9a Legacy cleanup (done early) → **7b GBP sync (monthly)** → live test with MyPageSEO → **7c Scoring + report + competitors (M3)** → **8 Auth, Organization, Onboarding & Locations** → **11 Dashboards + team (M4)** → 9 GBP posting (needs v4) → 9b Remaining cleanup → 10 Security (gated). After Phase 11 the next feature is chosen with Mohit; don't plan beyond it. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). Next: **12 Reports center** → 10 Security → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 16, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+
+**Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
 
 At the end of every phase:
 1. Stop.
 2. Write/update `docs/PROGRESS.md` with: what changed, files touched, decisions made, open questions, API calls consumed.
 3. Check that `docs/ENDPOINTS.md` (and `docs/API.md`) match every endpoint added, changed or removed in the phase, and that `npm run check:endpoints` passes.
-4. Summarise to Mohit and **wait for approval** before starting the next phase.
+4. Update the Phase roadmap table (status, branch, milestone) and make `docs/STATUS.md` agree with it.
+5. Summarise to Mohit and **wait for approval** before starting the next phase.
 
 Use plan mode before each phase: show the plan and the list of files to create/modify/delete, and wait for approval.
 
@@ -279,7 +326,7 @@ Branch `claude/phase-1.6-build-green`. Type-level fixes only; nothing that chang
 
 ## 6. (moved) Security hardening
 
-Security work is deferred until the rebuild features are done. It is now **Phase 10**, see §13a. Do not start it before Phases 3–9 are done and Mohit explicitly approves it.
+Security work is deferred. It is now **Phase 10**, see §13a, and runs after Phase 12 (see the Phase roadmap). Do not start it until Mohit explicitly approves it.
 
 ---
 
@@ -602,7 +649,13 @@ Original scope from Mohit (2026-09-26), aligned with the roadmap PDF §2, §5, �
 
 ## 12b. PHASE 11 — Dashboards + team (M4)
 
-**Built** on `claude/phase-11-dashboards-team`. As built:
+**Done** (merged `0786801`, pushed at M4 on 2026-09-27). Scope: the Business and Agency dashboards of roadmap PDF §6, and team management. Endpoints (request and response examples in `docs/API.md`, "Dashboard and team (Phase 11)"; catalogue #53–#60 in `docs/ENDPOINTS.md`):
+- `GET /dashboard` (Business or Agency shape; a client_user gets its clients only)
+- `POST/GET /organization/invitations`, `DELETE /organization/invitations/:invitationId`
+- `PATCH/DELETE /organization/members/:userId`
+- `POST /auth/invitations/inspect`, `POST /auth/invitations/accept`
+
+As built:
 - **Dashboard:** `GET /dashboard` (`src/services/dashboard/`), with a Business or Agency shape (a client_user gets the agency shape for its clients). It reads only `Location.summary`, which Phase 11 extends:
   - rank-run fields: `top3_rate`, `rank_trend` (6), `movement`, `declines`, `key_competitor`
   - report fields: `gbp_score_change`, `top_fixes` (weighted), `gbp_issues`, `reviews_available`, `unreplied`
@@ -615,6 +668,30 @@ Original scope from Mohit (2026-09-26), aligned with the roadmap PDF §2, §5, �
   - `sendInvitationEmail` (a shared email.service addition). In development the link is logged with the email masked.
 - **`npm run db:sync-indexes`:** syncs the rebuilt collections' indexes. It found and dropped the stale Phase 6 `user_auths` index (one Google account per user) that blocked multi-account connections on older databases; it's in the deploy checklist.
 - **Seeds:** `seed:demo-orgs` gives both dashboards data: rank movement both ways, GBP Score trends, an unverified profile on a revoked connection (`reconnect_required`), and a pending invitation.
+
+## 12c. PHASE 12 — Reports center (next)
+
+Branch `claude/phase-12-reports` from `claude/rebuild`. **Plan mode first; wait for approval.** Roadmap PDF §13 (reports) and §14 (white-label). Offline only: no Google or Places calls; PDF rendering tested locally. Next after 12: Phase 10 (security); the next milestone push is agreed then.
+
+1. **Report types** (the Citation Report is out of scope until citations are rebuilt: "planned (Phase 16)" in FRONTEND_BACKEND_MAP.md):
+   - **Rank Tracker Report:** overall + per-keyword avgRank / top3Rate / foundRate, change vs the previous run, history chart, grid heatmap per keyword (a static image in the PDF), top movers.
+   - **GBP Audit Report:** GBP Score + pillars + checks with fix hints, performance summary, search keywords, profile / NAP, verification, pending Google edits. v4 sections show "not available yet", never sample data.
+   - **Competitor Analysis Report:** Public Scores, side-by-side table, rank comparison, gap insights.
+   - **Full Report** (optional): all three in one PDF.
+2. **Snapshots:** generating a report freezes its data into a `ReportSnapshot`, so an old report never changes when new data arrives. The PDF is rendered from the snapshot.
+3. **Endpoints** (organization access rules; a client_user can view and download reports for its assigned clients only):
+   - `POST /reports` (location, type, date range / run, sections) → queued; `GET /reports` (library: filter by location / client / type / status, paginated); `GET /reports/:id` (status + snapshot JSON for an in-app viewer); `GET /reports/:id/pdf` (download); `DELETE /reports/:id` (archive).
+   - `POST /reports/:id/email { recipients }`: the PDF as an attachment, or a link above 10 MB.
+   - **Schedules:** CRUD `/report-schedules` (a location or a client, type, recipients, monthly, active / paused). A scheduled report is generated right after that location's monthly refresh finishes (not on a fixed date), then emailed. Status: `last_sent`, `next_expected`, `last_error`.
+4. **White-label (agency only):** organization-level branding (agency name, logo upload, primary / secondary colours, footer / contact text, hide MyPageSEO branding, sender name + reply-to for report emails), used by reports and report emails. Replaces the old white-label code where it overlaps; the plan lists what's reused vs replaced.
+5. **Share links** (replacing the removed white-label report links): `POST /reports/:id/share` → an unguessable token (hashed in the DB), optional expiry, revocable. A public `GET /r/:token` serves the branded report (HTML view + PDF download) with no login: rate-limited, `noindex`, no internal IDs exposed.
+6. **Storage:** PDFs on local disk in a non-public directory (`REPORTS_STORAGE_DIR`), served only through the authenticated and share endpoints. Retention `REPORT_RETENTION_MONTHS` (default 24).
+7. **Jobs:** `report-generate { report_id }` and `report-schedule-dispatch`, with one-active guards and a concurrency limit of 1–2 for PDF rendering (it's heavy).
+8. **Docs and seeds:** ENDPOINTS.md, API.md and FRONTEND_BACKEND_MAP.md kept in sync; `seed:demo-orgs` gains a few generated reports, one schedule and one share link. In development no real emails are sent (masked log, as with invitations).
+9. **The plan must include:** report types and their sections, the data model, the PDF rendering approach (compare headless Chrome via Puppeteer with a pure-Node PDF library, including RAM/CPU impact on a single Ubuntu VPS under pm2 cluster mode), storage, endpoints, job flow and the file list.
+10. **End of phase:** STATUS / PROGRESS / CLAUDE.md (roadmap table) updated, the deploy checklist updated with any new system dependency (e.g. Chromium libraries on Ubuntu), the merge command, then stop.
+
+**Gate.**
 
 ## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)
 
@@ -653,7 +730,7 @@ Original spec (the deletions below were done in 9a):
 
 ## 13a. PHASE 10 — Security hardening (gated)
 
-Runs after Phase 9. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
+Runs after Phase 12 and before Phase 13 (see the Phase roadmap); required before launch (M5). Covers all Deferred-P10 audit items, including S19 and S30. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
 
 Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S30, see `docs/AUDIT.md`). Apply minimal, targeted fixes:
 

@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, end of Phase 11 (Dashboards + team), awaiting merge and the M4 push._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, Phase 11 merged and M4 pushed; Phase 12 (Reports center) in planning._
 
 ## Product goal
 
@@ -12,28 +12,38 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 
 ## Phases
 
-| Phase | State | Branch | Merged into `claude/rebuild` | Pushed |
-|---|---|---|---|---|
-| 1 Audit | Done | `claude/phase-1.5-hygiene` | yes (`e4a7419`) | yes, before M1 |
-| 1.5 Repo hygiene | Done | `claude/phase-1.5-hygiene` | yes (`e4a7419`) | yes, before M1 |
-| 1.6 Build green | Done | `claude/phase-1.6-build-green` | yes, via `53986e0` | M1 |
-| 3 Foundations | Done | `claude/phase-3-foundations` | yes (`53986e0`) | M1 (2026-09-26) |
-| 4 Ranking engine | Done | `claude/phase-4-ranking-engine` | yes (`3da12ed`) | M2 (2026-09-26) |
-| 5 Ranking reports | Done | `claude/phase-5-ranking-reports` | yes (`2bb4cf8`) | M2 (2026-09-26) |
-| 5.5 Live validation | Done: **informal pass, one market, formal scoring pending** | `claude/phase-5.5-live-validation` | yes (`5735bad`) | M3 |
-| 6 GBP connection | Done | `claude/phase-6-gbp-connection` | yes (`4e4d556`) | M3 |
-| 7a Connect + onboarding | Done | `claude/phase-7a-connect-onboarding` | yes (`1273e2b`) | M3 |
-| 9a Legacy cleanup (early Phase 9) | Done | `claude/phase-9a-legacy-cleanup` | yes (`73e4fe9`) | M3 |
-| 7b GBP sync (monthly cadence) | Done | `claude/phase-7b-gbp-sync` (from 9a) | yes (`e74b079`) | M3 |
-| **Live test with MyPageSEO** | **Paused: connect passed; blocked on Google (GBP API access), see "Blocked on Google"** | — (on `claude/rebuild`) | — | — |
-| 7c Scoring + report + competitors | Done | `claude/phase-7c-scoring-report` | yes (`fb5af9f`) | **M3** (2026-09-26) |
-| 8 Auth, Organization, Onboarding & Locations | Done | `claude/phase-8-org-onboarding` | yes (`819dfd8`) | M4 |
-| **11 Dashboards + team** | **Done, awaiting merge** | `claude/phase-11-dashboards-team` | not yet | **M4** (after the merge) |
-| 9 GBP posting (was 8; needs v4) | Not started | — | — | — |
-| 9b Remaining cleanup (was 9) | Not started | — | — | — |
-| 10 Security (gated) | Deferred | — | — | — |
+This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phases, order and status; the two must never disagree).
 
-`main` is untouched (`62240ac`). There is no Phase 2; security moved to Phase 10. After Phase 8 the next feature is chosen with Mohit (likely reports center, dashboards or citations).
+| # | Phase | Status | Branch | Merged into `claude/rebuild` | Milestone |
+|---|---|---|---|---|---|
+| 1 | Codebase audit | done | `claude/phase-1.5-hygiene` | yes (`e4a7419`) | – |
+| 1.5 | Repo hygiene | done | `claude/phase-1.5-hygiene` | yes (`e4a7419`) | – |
+| 1.6 | Build green | done | `claude/phase-1.6-build-green` | yes, via `53986e0` | M1 |
+| 3 | Foundations | done | `claude/phase-3-foundations` | yes (`53986e0`) | M1 (pushed 2026-09-26) |
+| 4 | Ranking engine | done | `claude/phase-4-ranking-engine` | yes (`3da12ed`) | M2 (pushed 2026-09-26) |
+| 5 | Ranking reports | done | `claude/phase-5-ranking-reports` | yes (`2bb4cf8`) | M2 (pushed 2026-09-26) |
+| 5.5 | Live validation (Fredericton) | done (informal pass, one market; formal scoring in Phase 17) | `claude/phase-5.5-live-validation` | yes (`5735bad`) | M3 |
+| 6 | GBP connection | done | `claude/phase-6-gbp-connection` | yes (`4e4d556`) | M3 |
+| 7a | Google connect (popup) + onboarding | done | `claude/phase-7a-connect-onboarding` | yes (`1273e2b`) | M3 |
+| 9a | Legacy cleanup (early part of 9b) | done | `claude/phase-9a-legacy-cleanup` | yes (`73e4fe9`) | M3 |
+| 7b | GBP sync on the monthly cadence | done | `claude/phase-7b-gbp-sync` | yes (`e74b079`) | M3 |
+| 7c | GBP Score, report, competitors | done | `claude/phase-7c-scoring-report` | yes (`fb5af9f`) | M3 (pushed 2026-09-26) |
+| 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | yes (`819dfd8`) | M4 |
+| 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | yes (`0786801`) | M4 (pushed 2026-09-27) |
+| **12** | **Reports center** | **in progress (planning)** | `claude/phase-12-reports` | – | M5 |
+| 10 | Security hardening (all Deferred-P10 items incl. S19, S30) | planned (after 12) | – | – | M5 |
+| 13 | Billing & plans | planned | – | – | M5 |
+| 14 | Production readiness | planned | – | – | M5 |
+| – | **M5 Launch-ready** (12 + 10 + 13 + 14 + Google approvals) | – | – | – | M5 |
+| 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
+| 15 | Notifications & automations | planned | – | – | – |
+| 16 | Citations (data-source decision first) | planned | – | – | – |
+| 17 | Ranking extras (keyword groups, Dallas + variance validation, larger grids) | planned | – | – | – |
+| 9b | Cleanup | ongoing | – | – | – |
+
+**Live test with MyPageSEO:** paused. The connect passed; the rest is blocked on Google (GBP API access), see "Blocked on Google".
+
+`main` is untouched (`62240ac`). There is no Phase 2; security moved to Phase 10.
 
 ## Done so far
 
@@ -117,7 +127,7 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 
 ## Open items (owner: Mohit)
 
-1. **No push until M3** (after 7c).
+1. **Next push:** to be agreed after Phase 12 (M4 was pushed on 2026-09-27).
 2. **Google Cloud:**
    - Add the **Authorised JavaScript origins** to the OAuth client: the frontend's, and `http://localhost:5055` for the dev test page.
    - `.env`: `TOKEN_ENCRYPTION_KEY` (currently empty, so connecting would fail) and, for the redirect fallback only, `GOOGLE_GBP_REDIRECT_URI` on port 5055 (currently 5000).
@@ -126,7 +136,7 @@ MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focu
 5. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 6. **Maps ToS decisions before launch:** see "Decide before launch (Maps ToS)" below.
 7. **Rotate the DataForSEO credential** (AUDIT S13).
-8. **Security Phase 10:** deferred (includes S30 and the Search Console parts of S11, S12 and S29).
+8. **Security Phase 10:** planned after Phase 12, required before launch (all Deferred-P10 items, including S19, S30 and the Search Console parts of S11, S12 and S29).
 
 ## Blocked on Google
 
@@ -146,6 +156,9 @@ All three store or show Google Maps content. Confirm each against the Google Map
 
 ## Backlog (not now)
 
+The ranking items below belong to **Phase 17** (Ranking extras).
+
+
 - **Big-market test (Dallas):** Workman Plumbing (`ChIJjcMu_6CZToYRXut5OjLd6V4`, 2310 N Henderson Ave #522, 32.814438, -96.777703; the "#522" may be a mailbox suite, so confirm the storefront first). Keywords "plumber", "emergency plumber", "plumber dallas", 3×3 at 1.5 km (9 unique points per keyword; about 27–81 IDs-only + 3 Pro).
 - **Variance test:** repeat identical searches at the same point and measure the rank spread. Round 1 vs Round 2 showed 5 → 1 at one grid point and a competitor moving #8 → #2 in the Pro list.
 - **Formal `calibrate:score`:** fill in the manual columns (tracker rows are enough: `--tracker-only`) and record the verdict.
@@ -153,8 +166,8 @@ All three store or show Google Maps content. Confirm each against the Google Map
 
 ## Next up
 
-1. **Merge Phase 11**, then the **M4 push** (commands in the Phase 11 summary). On any database with data, follow the deploy checklist in OPERATIONS.md.
-2. **Pick the next feature together** (Phase 9 GBP posting needs v4 access; other candidates: the reports center, automations).
+1. **Phase 12: Reports center**, in plan mode (spec in CLAUDE.md §12c).
+2. **Then Phase 10 (security)**, then 13 (billing & plans) and 14 (production readiness) toward M5 launch-ready. The next milestone push is agreed after Phase 12.
 3. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
