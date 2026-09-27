@@ -88,6 +88,14 @@ export interface ILocationSummary {
   gbp_issues?: { id: string; label: string }[];
   reviews_available?: boolean | null;
   unreplied?: number | null;
+  /** Phase 16 (citations), written after every citation change: */
+  citation_score?: number | null;
+  citation_grade?: string | null;
+  citation_coverage?: number | null;
+  /** Active entries by status (not_checked, live_correct, nap_wrong, …). */
+  citation_counts?: Record<string, number> | null;
+  citation_total?: number | null;
+  citation_checked_at?: Date | null;
 }
 
 /** Keyword movement of the latest rank run vs the previous one (Phase 11). */
@@ -285,6 +293,12 @@ const locationSchema = new Schema<ILocation>(
           gbp_issues: { type: Schema.Types.Mixed, default: [] },
           reviews_available: { type: Boolean, default: null },
           unreplied: { type: Number, default: null },
+          citation_score: { type: Number, default: null },
+          citation_grade: { type: String, default: null },
+          citation_coverage: { type: Number, default: null },
+          citation_counts: { type: Schema.Types.Mixed, default: null },
+          citation_total: { type: Number, default: null },
+          citation_checked_at: { type: Date, default: null },
         },
         { _id: false },
       ),

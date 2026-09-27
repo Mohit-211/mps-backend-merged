@@ -2204,3 +2204,69 @@ A failed import:
 - File-level problems → **400** with `invalid_csv` (unreadable), `invalid_csv_header` (`missing` / `unknown` columns), `empty_csv` or `too_many_rows`.
 - **Export safety:** cells starting with `= + - @` are prefixed with `'`, so a spreadsheet never runs them as formulas. Re-importing such a cell keeps the `'`.
 
+### A location's citation list (admin)
+
+`GET /admin/citations/locations/:locationId` is the admin screen for one location:
+
+```json
+{ "location": { "id": "…", "name": "Maple Leaf Plumbing & Heating", "city": "Toronto", "state": "Ontario", "country": "Canada",
+                "organization": { "id": "…", "name": "Pat Agency", "type": "agency" }, "client": { "id": "…", "name": "Maple Leaf" },
+                "nap": { "name": "Maple Leaf Plumbing & Heating", "address": "100 Queen St E", "phone": "4165550100", "website": "https://example.test" } },
+  "business_categories": ["Plumber"], "category_groups": [ { "id": "…", "name": "Home services" } ], "category_matched": true,
+  "health": { "score": 50, "grade": "D", "coverage": 0.83, "scored": 5, "total": 6,
+              "counts": { "not_checked": 1, "live_correct": 2, "nap_wrong": 1, "not_found": 1, "duplicate": 0, "submitted": 1, "pending": 0, "removed": 0 } },
+  "entries": [ {
+      "id": "…", "directory": { "id": "…", "name": "Data Axle", "url": "https://www.data-axle.com/", "domain": "data-axle.com", "type": "aggregator", "authority": 80, "is_active": true },
+      "status": "nap_wrong", "listing_url": "https://…", "nap_found": { "name": "Maple Leaf Plumbing and Heating", "address": "100 Queen Street East", "phone": "(416) 555-0199", "website": null },
+      "mismatch_fields": ["phone"], "notes": null, "last_checked_at": "2026-09-27T…", "checked_by": "<admin id>", "source": "suggested", "active": true } ],
+  "removed_from_list": [] }
+```
+
+- **`nap`:** the NAP a listing should show (the location's own name, address, phone, website).
+- **`category_matched: false`:** none of the location's business categories (stored category + GBP primary / additional) is in a directory category, so only directories without categories are suggested.
+
+**Suggestions:** `POST …/suggest[?dry_run=true]` adds, as `not_checked`, every **active** directory that:
+- lists the location's country (US / CA),
+- fits its state / province when the directory has `regions`, and
+- has no categories, or shares a category group with the location.
+
+It never removes anything and never re-adds a directory an admin took off the list.
+- It also runs **automatically when onboarding completes** (`POST /onboarding/complete`); a failure there never blocks completion.
+- Locations outside the US / CA get `reason: "unsupported_country"` and nothing is added.
+
+**Recording a check:** `PATCH /admin/citations/entries/:entryId`:
+
+```json
+{ "status": "nap_wrong", "listing_url": "https://www.data-axle.com/biz/123",
+  "nap_found": { "name": "Maple Leaf Plumbing and Heating", "address": "100 Queen Street East", "phone": "(416) 555-0199" },
+  "note": "old phone number" }
+```
+
+→ `{ "entry": { …, "mismatch_fields": ["phone"], "last_checked_at": "…" }, "changed": ["status", "listing_url", "nap_found"] }`
+
+- **Statuses:** `not_checked | live_correct | nap_wrong | not_found | duplicate | submitted | pending | removed`. `removed` = the listing itself was taken down.
+- **`mismatch_fields`** is computed on the server after normalising:
+  - **name:** case, punctuation, `&` = "and"
+  - **address:** street line with abbreviations (Street = St), ZIP / postal code
+  - **phone:** the last 10 digits
+  - **website:** the host without `www.`
+
+  A field missing on either side is not compared.
+- **`live_correct` with a mismatch** → **409** `{ "reason": "nap_mismatch", "mismatch_fields": ["phone"] }`. Use `nap_wrong`, or send `"confirm": true`.
+- **`checked: true`** alone records "checked, no change". A change of status, NAP or URL also sets `last_checked_at` / `checked_by`; notes alone don't.
+- **Every change** writes one history row (`GET …/entries/:entryId/history`) and refreshes the location's Citation Health.
+
+**Bulk:** `POST /admin/citations/entries/bulk { entry_ids, status, note? }` → `{ updated, unchanged, skipped: [{ entry_id, reason }] }`. Entries whose NAP differs are skipped for `live_correct` (`nap_mismatch`).
+
+**Taking a directory off a list:** `DELETE /admin/citations/entries/:entryId` (restore: `POST …/restore`). The entry and its history are kept, and it stops counting in the score.
+
+### Work queue (admin)
+
+| Queue | What it lists | Sort |
+|---|---|---|
+| `GET /admin/citations/queue/unchecked` | locations with `not_checked` entries: `unchecked`, `active_entries`, `oldest_added_at` | waiting longest first |
+| `GET /admin/citations/queue/stale?days=90` | checked entries not checked again for N days (default `CITATION_STALE_DAYS` = 90), with `days_since_check` | oldest check first |
+| `GET /admin/citations/queue/recent?days=7` | history rows of the last N days, with directory and location | newest first |
+
+**Filters** on all three: `organization_id`, `client_id`, `directory_id`, `type`, plus `status` on `stale` and `recent` (on `recent` it is the new status); `page`, `limit` (≤ 100). Each row carries `location: { id, name, city, organization: { id, name }, client }`. Deleted locations and entries taken off a list are left out.
+

@@ -50,16 +50,16 @@
 
 ## Summary (Phase 16, in progress)
 
-**207 endpoints:** 192 live, 14 deprecated, 1 dev-only.
-- **By origin:** 84 rebuilt or new, 123 legacy.
-- **By auth:** 95 user, 63 platform admin (each with a permission), 47 none, 2 refresh token.
+**218 endpoints:** 203 live, 14 deprecated, 1 dev-only.
+- **By origin:** 95 rebuilt or new, 123 legacy.
+- **By auth:** 95 user, 74 platform admin (each with a permission), 47 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
 **Phase 16 changes:**
 - **Done:** the 13 legacy `/citation/*` routes retired.
-- **Done:** the directory and category admin endpoints (#82–#93).
-- **To come:** the per-location lists and work queue (`/admin/citations/locations|entries|queue`) and `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
+- **Done:** the directory and category admin endpoints (#82–#93); per-location lists, entries and the work queue (#94–#104).
+- **To come:** the customer endpoints `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
 
 **Phase 9b** removes the 14 deprecated routes once the frontend has moved.
 
@@ -285,6 +285,17 @@ Manual, admin-managed citation tracking (no external citation APIs). Admin route
 | PATCH | `/api/v1/admin/citations/categories/:categoryId` | admin (`citations.manage`) | Update a directory category | 16 | live |
 | DELETE | `/api/v1/admin/citations/categories/:categoryId` | admin (`citations.manage`) | Delete a directory category (409 `in_use` while directories use it) | 16 | live |
 | GET | `/api/v1/admin/citations/business-categories` | admin (`citations.view`) | Search the GBP business categories (`?q=`, 20 results) for mapping | 16 | live |
+| GET | `/api/v1/admin/citations/locations/:locationId` | admin (`citations.view`) | A location's citation list: expected NAP, category matching, Citation Health, entries (and those taken off the list) | 16 | live |
+| POST | `/api/v1/admin/citations/locations/:locationId/suggest` | admin (`citations.manage`) | Add the matching directories (country, region, category group) as `not_checked`; `?dry_run=true` previews | 16 | live |
+| POST | `/api/v1/admin/citations/locations/:locationId/entries` | admin (`citations.manage`) | Add directories by hand (restores ones taken off the list) | 16 | live |
+| POST | `/api/v1/admin/citations/entries/bulk` | admin (`citations.manage`) | One status for up to 200 entries | 16 | live |
+| PATCH | `/api/v1/admin/citations/entries/:entryId` | admin (`citations.manage`) | Record a check: status, listing URL, NAP found (mismatch computed), notes, "checked, no change" | 16 | live |
+| DELETE | `/api/v1/admin/citations/entries/:entryId` | admin (`citations.manage`) | Take a directory off the location's list (history kept) | 16 | live |
+| POST | `/api/v1/admin/citations/entries/:entryId/restore` | admin (`citations.manage`) | Put a directory back on the list | 16 | live |
+| GET | `/api/v1/admin/citations/entries/:entryId/history` | admin (`citations.view`) | Every change of one entry (who, when, from → to, fields, note) | 16 | live |
+| GET | `/api/v1/admin/citations/queue/unchecked` | admin (`citations.view`) | Work queue: locations with unchecked citations, waiting longest first | 16 | live |
+| GET | `/api/v1/admin/citations/queue/stale` | admin (`citations.view`) | Work queue: entries not checked for N days (`CITATION_STALE_DAYS`, default 90) | 16 | live |
+| GET | `/api/v1/admin/citations/queue/recent` | admin (`citations.view`) | Work queue: changes of the last N days (default 7) | 16 | live |
 
 ### Payments & subscriptions
 
@@ -618,6 +629,17 @@ Admin auth: a platform-admin token with the permission shown. Errors carry `data
 | 91 | PATCH | `/admin/citations/categories/:categoryId` | admin (`citations.manage`) | any field of #90 | category |
 | 92 | DELETE | `/admin/citations/categories/:categoryId` | admin (`citations.manage`) | – | `{ deleted: true }`; **409** `in_use` (`directory_count`) |
 | 93 | GET | `/admin/citations/business-categories` | admin (`citations.view`) | `q` | `[{ id, name }]` (20, by name) |
+| 94 | GET | `/admin/citations/locations/:locationId` | admin (`citations.view`) | – | `{ location: { id, name, city, state, country, organization, client, nap }, business_categories, category_groups, category_matched, health: { score, grade, coverage, counts, scored, total }, entries: [entry], removed_from_list: [entry] }`; **404** deleted or unknown location |
+| 95 | POST | `/admin/citations/locations/:locationId/suggest` | admin (`citations.manage`) | `?dry_run=true` | `{ country, region, business_categories, category_groups, category_matched, dry_run, added: [{ directory_id, name, type }], already_listed, reason? (unsupported_country) }` |
+| 96 | POST | `/admin/citations/locations/:locationId/entries` | admin (`citations.manage`) | `{ directory_ids: [id] (≤ 200) }` | `{ added, restored, already_listed, health }`; **400** `invalid_directory` (`unknown`, `inactive`) |
+| 97 | POST | `/admin/citations/entries/bulk` | admin (`citations.manage`) | `{ entry_ids (≤ 200), status, note? }` | `{ updated, unchanged, skipped: [{ entry_id, reason: not_found\|entry_removed\|nap_mismatch }] }` (request order) |
+| 98 | PATCH | `/admin/citations/entries/:entryId` | admin (`citations.manage`) | `{ status?, listing_url?, nap_found?: { name, address, phone, website }, notes?, checked?, confirm?, note? }` | `{ entry, changed }`; **409** `nap_mismatch` (`mismatch_fields`; send `confirm: true`), **409** `entry_removed` |
+| 99 | DELETE | `/admin/citations/entries/:entryId` | admin (`citations.manage`) | `{ note? }` | `{ entry (active: false), changed }` |
+| 100 | POST | `/admin/citations/entries/:entryId/restore` | admin (`citations.manage`) | `{ note? }` | `{ entry (active: true), changed }` |
+| 101 | GET | `/admin/citations/entries/:entryId/history` | admin (`citations.view`) | `page, limit` | `{ history: [{ id, action, from, to, changed_fields, note, by: { admin_id, name }, at }], page, limit, total }` |
+| 102 | GET | `/admin/citations/queue/unchecked` | admin (`citations.view`) | `organization_id, client_id, directory_id, type, page, limit` | `{ locations: [{ location: { id, name, city, organization, client }, unchecked, active_entries, oldest_added_at }], page, limit, total }` |
+| 103 | GET | `/admin/citations/queue/stale` | admin (`citations.view`) | `days (default 90), organization_id, client_id, status, directory_id, type, page, limit` | `{ days, entries: [entry + location + days_since_check], page, limit, total }` |
+| 104 | GET | `/admin/citations/queue/recent` | admin (`citations.view`) | `days (default 7), organization_id, client_id, status (the new status), directory_id, type, page, limit` | `{ days, changes: [history row + directory + location], page, limit, total }` |
 
 ## Removed endpoints
 

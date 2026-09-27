@@ -103,7 +103,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 |---|---|---|
 | Citation dashboard per location (Citation Health score, counts by status, recent changes) | – | **planned (Phase 16)**: manual, admin-managed citation tracking (no external citation APIs). Read-only for organization users; a client_user sees its assigned clients only. |
 | Citation table (directory, type, status, NAP issues, listing link, last checked) | – | **planned (Phase 16)** |
-| Admin: directory master list, categories, per-location citation lists, work queue | `/admin/citations/directories*` (incl. CSV import / export), `/admin/citations/categories*`, `/admin/citations/business-categories` | **partial (Phase 16, in progress)**: directories, categories and CSV are available (platform admins, `citations.view` / `citations.manage`); per-location lists and the work queue are coming in this phase |
+| Admin: directory master list, categories, per-location citation lists, work queue | `/admin/citations/directories*` (incl. CSV import / export), `/admin/citations/categories*`, `/admin/citations/business-categories`, `/admin/citations/locations/:id` (+ `/suggest`, `/entries`), `/admin/citations/entries/*` (update, bulk, remove, restore, history), `/admin/citations/queue/{unchecked,stale,recent}` | **available (Phase 16)**: platform admins only (`citations.view` to read, `citations.manage` to change). API.md "Citations (Phase 16)" |
 | Legacy citation screens / campaign UI | – | **removed (Phase 16)**: the legacy `/citation/*` routes (campaign ordering, SerpAPI tracker, builder stub) are gone. Don't build them. |
 
 ## Competitors

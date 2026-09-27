@@ -1,8 +1,12 @@
 import httpStatus from 'http-status';
+import { CitationStatus } from '../../citations/constants';
 import { AdminActor } from '../../services/citations/common';
 import { categoryService } from '../../services/citations/category.service';
 import { directoryCsvService } from '../../services/citations/csv';
 import { directoryService } from '../../services/citations/directory.service';
+import { entriesService, EntryUpdateInput } from '../../services/citations/entries.service';
+import { QueueFilters, queueService } from '../../services/citations/queue.service';
+import { suggestForLocation } from '../../services/citations/suggest';
 import { catchAsync, responseWrapper } from '../../utils';
 
 // Citation admin (Phase 16): platform admins only (validateAdminJWTToken + citations.view / citations.manage
@@ -62,3 +66,42 @@ export const deleteCategory = catchAsync(async (req, res) => responseWrapper(res
 export const searchBusinessCategories = catchAsync(async (req, res) =>
 	responseWrapper(res, await categoryService.searchBusinessCategories(input<{ q?: string }>(res).q ?? ''), 'Business categories.'),
 );
+
+// ---- per-location lists and entries ----
+
+export const locationList = catchAsync(async (req, res) => responseWrapper(res, await entriesService.locationView(req.params.locationId), 'Citation list.'));
+
+export const suggest = catchAsync(async (req, res) => {
+	const { dry_run } = input<{ dry_run: boolean }>(res);
+	const result = await suggestForLocation(req.params.locationId, { dryRun: dry_run, actor: actorOf(res) });
+	return responseWrapper(res, result, dry_run ? 'Dry run: these directories would be added.' : `${result.added.length} directories added.`);
+});
+
+export const addEntries = catchAsync(async (req, res) =>
+	responseWrapper(res, await entriesService.addEntries(req.params.locationId, input<{ directory_ids: string[] }>(res).directory_ids, actorOf(res)), 'Directories added.'),
+);
+
+export const updateEntry = catchAsync(async (req, res) =>
+	responseWrapper(res, await entriesService.updateEntry(req.params.entryId, input<EntryUpdateInput>(res), actorOf(res)), 'Citation updated.'),
+);
+
+export const bulkUpdate = catchAsync(async (req, res) => {
+	const body = input<{ entry_ids: string[]; status: CitationStatus; note?: string | null }>(res);
+	return responseWrapper(res, await entriesService.bulkUpdate(body.entry_ids, body.status, body.note, actorOf(res)), 'Citations updated.');
+});
+
+export const removeEntry = catchAsync(async (req, res) =>
+	responseWrapper(res, await entriesService.removeEntry(req.params.entryId, input<{ note?: string | null }>(res).note, actorOf(res)), 'Directory taken off the list.'),
+);
+
+export const restoreEntry = catchAsync(async (req, res) =>
+	responseWrapper(res, await entriesService.restoreEntry(req.params.entryId, input<{ note?: string | null }>(res).note, actorOf(res)), 'Directory restored to the list.'),
+);
+
+export const entryHistory = catchAsync(async (req, res) => responseWrapper(res, await entriesService.history(req.params.entryId, input(res)), 'Citation history.'));
+
+// ---- work queue ----
+
+export const queueUnchecked = catchAsync(async (req, res) => responseWrapper(res, await queueService.unchecked(input<QueueFilters>(res)), 'Locations with unchecked citations.'));
+export const queueStale = catchAsync(async (req, res) => responseWrapper(res, await queueService.stale(input<QueueFilters>(res)), 'Citations not checked recently.'));
+export const queueRecent = catchAsync(async (req, res) => responseWrapper(res, await queueService.recent(input<QueueFilters>(res)), 'Recently changed citations.'));

@@ -3,7 +3,7 @@ import request from 'supertest';
 import { Types } from 'mongoose';
 import { GbpLocation, RawLocation } from '../../src/clients/types/gbp';
 import { queryTypesArr } from '../../src/configs/constantTypes';
-import { Location, OAuthState, PlacesUsage, RankRun, UserAuth, UserGBP } from '../../src/models';
+import { Directory, Location, LocationCitation, OAuthState, PlacesUsage, RankRun, UserAuth, UserGBP } from '../../src/models';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { loadGbpFixture } from '../helpers/fakeTransport';
 import { clearDb, createLocation, createUser as createBareUser, ensureOrg, keywordsOf, startTestDb } from '../helpers/mongoose';
@@ -182,9 +182,12 @@ describe('onboarding flow over HTTP', () => {
 			.send({ competitors: [suggestions.body.data.suggestions[0].place_id, 'ChIJrouteSearch000000001'] });
 		expect(comps.body.data.onboarding_step).toBe('competitors_set');
 
+		// Phase 16: completion also suggests the location's first citation list.
+		await Directory.create({ name: 'Yelp', url: 'https://www.yelp.com/', domain: 'yelp.com', type: 'general', countries: ['US', 'CA'] });
 		const done = await request(app).post('/api/v1/onboarding/complete').set(auth(token)).send({ location_id: locationId });
 		expect(done.status).toBe(200);
 		expect(done.body.data.rank_run.status).toBe('queued');
+		expect(await LocationCitation.countDocuments({ location_id: locationId, source: 'suggested', status: 'not_checked' })).toBe(1);
 		// The first rank run and the first GBP sync are queued; the monthly schedule is set.
 		expect(scheduleMock.mock.calls.map((c) => (c as unknown[])[1]).sort()).toEqual(['gbp-sync', 'rank-run']);
 		expect(done.body.data.gbp_sync).toMatchObject({ status: 'queued', existing: false });
