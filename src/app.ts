@@ -27,6 +27,7 @@ import {
 	handleImageCompression,
 } from './utils';
 import routes from './routes/v1';
+import { adminOnly } from './middlewares/auth/adminAuth.middleware';
 import devConnectRoutes from './routes/dev/devConnect.route';
 import shareRoutes from './routes/share.route';
 import { usageScope } from './services/usage/scope';
@@ -146,7 +147,8 @@ if (config.essentials.env === 'development') {
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.get('/api/v1/logs', (req, res) => {
+// Phase 10 (AUDIT S3): reading and deleting logs is super admin only.
+app.get('/api/v1/logs', adminOnly('system.read'), (req, res) => {
 	const currentDate = DateTime.now().toFormat('yyyy-MM-dd');
 	const logFileName = `${currentDate}.log`;
 	const logFilePath = path.join(LOG_DIR, logFileName);
@@ -161,7 +163,7 @@ app.get('/api/v1/logs', (req, res) => {
 	});
 });
 
-app.delete('/api/v1/logs', async (req: Request, res: Response) => {
+app.delete('/api/v1/logs', adminOnly('system.read'), async (req: Request, res: Response) => {
 	const logDirectory = LOG_DIR;
 	fs.readdir(logDirectory, async (err, files) => {
 		if (err) {

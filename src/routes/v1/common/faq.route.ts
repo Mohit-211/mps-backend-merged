@@ -1,11 +1,13 @@
 import express from 'express';
 import { faqController } from '../../../controllers';
-import { faqMiddleware } from '../../../middlewares';
+import { adminAuthMiddleware, faqMiddleware } from '../../../middlewares';
 const router = express.Router();
 
 router.get('/', faqController.getAllFaq);
-router.post('/', [faqMiddleware.validCreateFaqBody], faqController.createFaq);
-router.put('/:faqId', faqController.updateFaq);
-router.delete('/:faqId', faqController.deleteFaq);
+// Phase 10 (AUDIT S27): writes need content.manage.
+const content = adminAuthMiddleware.adminOnly('content.manage');
+router.post('/', [...content, faqMiddleware.validCreateFaqBody], faqController.createFaq);
+router.put('/:faqId', content, faqController.updateFaq);
+router.delete('/:faqId', content, faqController.deleteFaq);
 
 export default router;

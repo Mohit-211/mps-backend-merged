@@ -138,15 +138,13 @@ export const getWhiteLabelProfileDetail = async (body: BodyDefinition, params: P
 
         const whiteLevelProfileDocs = await mongoFunctions({
             schema: WhitelabelProfile,
-            condition: {_id: whiteLevelProfileId, is_active: true},
+            condition: {_id: whiteLevelProfileId, is_active: true, created_by: body.user?._id},
             operationType: mongoOperationsTypes.FIND,
             selectedFields: whitelabelProfileSelect,
         });
-        if (!whiteLevelProfileDocs) {
-            throw new ApiError(
-                httpStatus.INTERNAL_SERVER_ERROR,
-                'Failed to fetch white level profile detail',
-            );
+        // Phase 10 (AUDIT S17): only the owner's profile; anything else is not found.
+        if (!whiteLevelProfileDocs || (Array.isArray(whiteLevelProfileDocs) && whiteLevelProfileDocs.length === 0)) {
+            throw new ApiError(httpStatus.NOT_FOUND, 'White label profile not found');
         }
 
         return whiteLevelProfileDocs;

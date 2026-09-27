@@ -6,7 +6,8 @@ const router = express.Router();
 router.post('/', [userAuthMiddleware.verifyAuthJWTToken, WhiteLabelProfileMiddleware.validateNewWhiteLabelBody], whitelabelProfileController.createNewProfile);
 router.patch('/', [userAuthMiddleware.verifyAuthJWTToken, WhiteLabelProfileMiddleware.validateUpdateWhiteLabelBody], whitelabelProfileController.updateWhiteLabelProfile);
 router.get('/', [userAuthMiddleware.verifyAuthJWTToken], whitelabelProfileController.getWhiteLabelProfile);
-router.get('/:whiteLevelProfileId', whitelabelProfileController.getWhiteLabelProfileDetail);
+// Phase 10 (AUDIT S17): no longer public; the owner only, and never the access password.
+router.get('/:whiteLevelProfileId', [userAuthMiddleware.verifyAuthJWTToken], whitelabelProfileController.getWhiteLabelProfileDetail);
 router.delete('/:whiteLevelProfileId', [userAuthMiddleware.verifyAuthJWTToken], whitelabelProfileController.deleteWhiteLevelProfile);
 
 
