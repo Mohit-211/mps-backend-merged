@@ -4,9 +4,11 @@
  * three spacings. Budget: at most 300 IDs-only calls (free SKU), 0 Pro. Refuses without --confirm-live.
  *
  *   npm run variance:test -- --confirm-live
+ *   npm run variance:test -- --confirm-live --spacings=600     (rerun only the 10-minute spacing: 90 calls)
  *   Options: --location=<id> (default MyPageSEO Fredericton) --keywords="a|b" --spacings=0,60,600 --samples=3
  *
- * Writes docs/calibration/variance-<date>.md and prints the summary and the call count.
+ * Writes docs/calibration/variance-<date>.md (variance-<date>-s<spacings>.md for other spacings) after
+ * EACH spacing, and on Ctrl-C, so an interrupted run keeps what finished; usage is flushed the same way.
  */
 import fs from 'fs';
 import path from 'path';
@@ -18,6 +20,7 @@ import { createRankingEngine, regionFromCountry, trackerPoints } from '../rankin
 import { withDefaults } from '../services/ranking/trackingSettings';
 import { VariancePoint, VarianceSummary, recommendSampling, summariseVariance } from '../services/ranking/variance';
 import { withLocationUsage } from '../services/usage/jobScope';
+import { flushUsage } from '../services/usage/scope';
 
 const BUDGET = 300;
 const DEFAULT_LOCATION = '6ab76e2c99cf66c2cc414a18';
@@ -80,6 +83,38 @@ const main = async (): Promise<number> => {
 		const points = trackerPoints({ lat: location.lat as number, lng: location.lng as number }, config.ranking.trackerOffsetKm);
 		const budget = budgeted(placesClient, BUDGET);
 		const results: { spacingSec: number; summaries: VarianceSummary[]; points: VariancePoint[]; calls: number }[] = [];
+		const date = new Date().toISOString().slice(0, 10);
+		const suffix = spacings.join(',') === '0,60,600' ? '' : `-s${spacings.join('_')}`;
+		const file = path.resolve(process.cwd(), 'docs/calibration', `variance-${date}${suffix}.md`);
+		const writeReport = (state: 'complete' | 'partial' | 'interrupted') => {
+			const rec = recommendSampling(results);
+			const done = new Set(results.map((r) => r.spacingSec));
+			const lines = [
+				`# Variance test ${date} (Phase 12.5)${state === 'complete' ? '' : ` — ${state}`}`,
+				'',
+				`Location \`${locationId}\` (${location.name}), keywords: ${keywords.map((k) => `"${k}"`).join(', ')}; ${samples} samples at the 5 tracker points; full depth IDs-only.`,
+				`Calls: **${budget.used()}** IDs-only (budget ${BUDGET}), 0 Pro.`,
+				'',
+				'| Spacing | Target | Points | Identical | Max spread | Points with a failed sample | Calls |',
+				'|---|---|---|---|---|---|---|',
+				...results.flatMap((r) => r.summaries.map((x) => `| ${r.spacingSec} s | ${x.target} | ${x.points} | ${x.identical_pct} % | ${x.max_spread} | ${x.with_errors} | ${r.calls} |`)),
+				...spacings.filter((sp) => !done.has(sp)).map((sp) => `| ${sp} s | – | – | not completed | – | – | – |`),
+				'',
+				'Per point (self; 61 = not in the top 60):',
+				'',
+				...results.flatMap((r) => r.points.map((p) => `- ${r.spacingSec} s · ${p.keyword} · ${p.point}: ${JSON.stringify(p.byTarget.self?.samples ?? [])} → ${p.byTarget.self?.rank ?? p.byTarget.self?.status}`)),
+				'',
+				`**Rule (Mohit):** no variance at any spacing → 1 sample; otherwise the smallest spacing showing variance, with 3 samples. **Result so far:** RANK_SAMPLES_PER_POINT=${rec.samples}, RANK_SAMPLE_SPACING_SEC=${rec.spacingSec} (to be confirmed by Mohit).`,
+			];
+			fs.writeFileSync(file, `${lines.join('\n')}\n`);
+		};
+		process.once('SIGINT', () => {
+			writeReport('interrupted');
+			out(`Interrupted: ${budget.used()} IDs-only calls so far; partial results written to ${path.relative(process.cwd(), file)}.`);
+			flushUsage()
+				.catch(() => undefined)
+				.finally(() => mongoose.disconnect().finally(() => process.exit(130)));
+		});
 		await withLocationUsage(locationId, async () => {
 			for (const spacingSec of spacings) {
 				const before = budget.used();
@@ -98,29 +133,12 @@ const main = async (): Promise<number> => {
 				}
 				const summaries = summariseVariance(vp, targets.map((t) => t.key));
 				results.push({ spacingSec, summaries, points: vp, calls: budget.used() - before });
+				await flushUsage();
+				writeReport(results.length === spacings.length ? 'complete' : 'partial');
 				out(`spacing ${spacingSec}s: ${budget.used() - before} calls, ${Math.round((Date.now() - started) / 1000)}s; self identical ${summaries[0].identical_pct}% max spread ${summaries[0].max_spread}`);
 			}
 		});
 		const rec = recommendSampling(results);
-		const date = new Date().toISOString().slice(0, 10);
-		const lines = [
-			`# Variance test ${date} (Phase 12.5)`,
-			'',
-			`Location \`${locationId}\` (${location.name}), keywords: ${keywords.map((k) => `"${k}"`).join(', ')}; ${samples} samples at the 5 tracker points; full depth IDs-only.`,
-			`Calls: **${budget.used()}** IDs-only (budget ${BUDGET}), 0 Pro.`,
-			'',
-			'| Spacing | Target | Points | Identical | Max spread | Points with a failed sample | Calls |',
-			'|---|---|---|---|---|---|---|',
-			...results.flatMap((r) => r.summaries.map((s) => `| ${r.spacingSec} s | ${s.target} | ${s.points} | ${s.identical_pct} % | ${s.max_spread} | ${s.with_errors} | ${r.calls} |`)),
-			'',
-			'Per point (self; 61 = not in the top 60):',
-			'',
-			...results.flatMap((r) => r.points.map((p) => `- ${r.spacingSec} s · ${p.keyword} · ${p.point}: ${JSON.stringify(p.byTarget.self?.samples ?? [])} → ${p.byTarget.self?.rank ?? p.byTarget.self?.status}`)),
-			'',
-			`**Rule (Mohit):** no variance at any spacing → 1 sample; otherwise the smallest spacing showing variance, with 3 samples. **Result:** RANK_SAMPLES_PER_POINT=${rec.samples}, RANK_SAMPLE_SPACING_SEC=${rec.spacingSec} (to be confirmed by Mohit).`,
-		];
-		const file = path.resolve(process.cwd(), 'docs/calibration', `variance-${date}.md`);
-		fs.writeFileSync(file, `${lines.join('\n')}\n`);
 		out(`Total ${budget.used()} IDs-only calls. Recommendation: samples=${rec.samples}, spacing=${rec.spacingSec}s. Written to ${path.relative(process.cwd(), file)}.`);
 		return 0;
 	} finally {
