@@ -1,4 +1,5 @@
 import { GbpProfileSummary, GbpReportData, ReportRangeParam } from '../../../models';
+import { normaliseName, normalisePhone, normaliseWebsite } from '../../../utils/nap';
 import { GbpAuditData, Part, PartUnavailable } from '../types';
 
 // GBP Audit report data (Phase 12): copied from the location's stored GBP report (7c) and its latest
@@ -28,21 +29,6 @@ const pass = <T>(part: { available: boolean } | null | undefined, map: (p: never
 };
 
 // ---- NAP (name / phone / website) consistency ----
-
-export const normaliseName = (v: string | null | undefined): string | null => {
-	const n = (v ?? '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '');
-	return n || null;
-};
-/** The last 10 digits (North American numbers, with or without +1). */
-export const normalisePhone = (v: string | null | undefined): string | null => {
-	const d = (v ?? '').replace(/\D/g, '');
-	return d.length >= 10 ? d.slice(-10) : d || null;
-};
-export const normaliseWebsite = (v: string | null | undefined): string | null => {
-	const raw = (v ?? '').trim().toLowerCase();
-	if (!raw) return null;
-	return raw.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[/?#].*$/, '') || null;
-};
 
 export const napCheck = (location: LocationForNap, profile: Pick<GbpProfileSummary, 'title' | 'primary_phone' | 'website'>) => {
 	const row = (field: 'name' | 'phone' | 'website', a: string | null, b: string | null, norm: (v: string | null) => string | null) => {

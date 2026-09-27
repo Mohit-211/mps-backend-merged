@@ -53,6 +53,11 @@ export * from "./apiUsage.model";
 
 // Legacy citation order (credit payments only; Phase 13 decides)
 export * from "./legacyLocationCitation.model";
+// Citations (Phase 16)
+export * from "./directoryCategory.model";
+export * from "./directory.model";
+export * from "./locationCitation.model";
+export * from "./citationStatusLog.model";
 
 // location service — credit-based payments (kept fully separate from subscription Payment above)
 export * from "./creditPayment.model";
