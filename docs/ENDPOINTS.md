@@ -50,16 +50,15 @@
 
 ## Summary (Phase 16, in progress)
 
-**218 endpoints:** 203 live, 14 deprecated, 1 dev-only.
-- **By origin:** 95 rebuilt or new, 123 legacy.
-- **By auth:** 95 user, 74 platform admin (each with a permission), 47 none, 2 refresh token.
+**220 endpoints:** 205 live, 14 deprecated, 1 dev-only.
+- **By origin:** 97 rebuilt or new, 123 legacy.
+- **By auth:** 97 user, 74 platform admin (each with a permission), 47 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
 **Phase 16 changes:**
 - **Done:** the 13 legacy `/citation/*` routes retired.
-- **Done:** the directory and category admin endpoints (#82–#93); per-location lists, entries and the work queue (#94–#104).
-- **To come:** the customer endpoints `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
+- **Done:** the directory and category admin endpoints (#82–#93); per-location lists, entries and the work queue (#94–#104); the customer endpoints (#105–#106); the dashboard `citations` block (#53). See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
 
 **Phase 9b** removes the 14 deprecated routes once the frontend has moved.
 
@@ -296,6 +295,8 @@ Manual, admin-managed citation tracking (no external citation APIs). Admin route
 | GET | `/api/v1/admin/citations/queue/unchecked` | admin (`citations.view`) | Work queue: locations with unchecked citations, waiting longest first | 16 | live |
 | GET | `/api/v1/admin/citations/queue/stale` | admin (`citations.view`) | Work queue: entries not checked for N days (`CITATION_STALE_DAYS`, default 90) | 16 | live |
 | GET | `/api/v1/admin/citations/queue/recent` | admin (`citations.view`) | Work queue: changes of the last N days (default 7) | 16 | live |
+| GET | `/api/v1/locations/:locationId/citations` | user + owner (read-only) | Citation dashboard + table for a location: Citation Health, counts, NAP issues, recent changes (`?status=`) | 16 | live |
+| GET | `/api/v1/locations/:locationId/citations/changes` | user + owner (read-only) | A location's citation change history (paginated; shown as "MyPageSEO team") | 16 | live |
 
 ### Payments & subscriptions
 
@@ -539,7 +540,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 51 | DELETE | `/clients/:clientId/locations/:locationId` | user + org (agency, owner/member) | – | `{ unassigned, client_id, location_id }` |
 | 52 | POST | `/onboarding/skip` | user + org (owner/member) | `{ step: google\|reporting_brand }` | As #17 |
 
-| 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order` | Business: `{ type, locations_count, visibility, gbp, reviews, movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio, status_counts, declines, gbp_issues, recommended_actions, table }` |
+| 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order` | Business: `{ type, locations_count, visibility, gbp, reviews, citations (16), movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio (+ avg_citation_score), citations (16), status_counts, declines, gbp_issues, recommended_actions, table (rows + citations) }` |
 | 54 | POST | `/organization/invitations` | user + org (owner) | `{ email, role: member\|client_user, client_ids? }` | **201** `{ invitation_id, email, role, client_ids, status, expires_at, email_sent }`; **409** `already_member` |
 | 55 | GET | `/organization/invitations` | user + org (owner) | `status?` | `[{ invitation_id, email, role, client_ids, status, expires_at, invited_by, created_at }]` |
 | 56 | DELETE | `/organization/invitations/:invitationId` | user + org (owner) | – | `{ revoked, invitation_id }` |
@@ -640,6 +641,8 @@ Admin auth: a platform-admin token with the permission shown. Errors carry `data
 | 102 | GET | `/admin/citations/queue/unchecked` | admin (`citations.view`) | `organization_id, client_id, directory_id, type, page, limit` | `{ locations: [{ location: { id, name, city, organization, client }, unchecked, active_entries, oldest_added_at }], page, limit, total }` |
 | 103 | GET | `/admin/citations/queue/stale` | admin (`citations.view`) | `days (default 90), organization_id, client_id, status, directory_id, type, page, limit` | `{ days, entries: [entry + location + days_since_check], page, limit, total }` |
 | 104 | GET | `/admin/citations/queue/recent` | admin (`citations.view`) | `days (default 7), organization_id, client_id, status (the new status), directory_id, type, page, limit` | `{ days, changes: [history row + directory + location], page, limit, total }` |
+| 105 | GET | `/locations/:locationId/citations` | user + owner | `status` | `{ available: true, health: { score, grade, coverage, total }, counts, last_checked_at, recent_changes: [change], citations: [{ directory: { name, url, type }, status, nap_issues: [{ field, found, expected }], listing_url, last_checked_at }] }` (problems first); `{ available: false, reason: "no_citations_yet" }` |
+| 106 | GET | `/locations/:locationId/citations/changes` | user + owner | `page, limit` | `{ changes: [{ at, directory: { name, type }, action, from, to, changed_fields, by: "MyPageSEO team" }], page, limit, total }` |
 
 ## Removed endpoints
 

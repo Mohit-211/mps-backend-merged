@@ -59,8 +59,8 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Business dashboard | `GET /dashboard` (business shape) | **available (11)**: visibility (average rank, change, top-3 rate, trend), GBP Score + grade + change, rating/reviews (public numbers until v4), ranking movement, key competitor, top 5 recommended actions, last/next refresh. "Local Visibility score" = the average-rank block (no separate score). "Citation health": **planned (Phase 16)**. |
-| Agency dashboard | `GET /dashboard` (agency shape) | **available (11)**: client and location counts, portfolio averages (rank, GBP Score), statuses (reconnect / setup), locations with ranking declines, GBP issues, recommended actions, portfolio table (paged, sortable). "Unanswered reviews across portfolio" needs v4; "Reports ready/scheduled/failed": use `GET /reports?status=` and `GET /report-schedules` (Phase 12; not in the dashboard response). |
+| Business dashboard | `GET /dashboard` (business shape) | **available (11)**: visibility (average rank, change, top-3 rate, trend), GBP Score + grade + change, rating/reviews (public numbers until v4), ranking movement, key competitor, top 5 recommended actions, last/next refresh. "Local Visibility score" = the average-rank block (no separate score). "Citation health": **available (16)**: the `citations` block (score, grade, coverage, listings, live / wrong NAP / not listed / unchecked counts) and `locations[].citation_score`; recommended actions `citations:nap_wrong` and `citations:not_found`. |
+| Agency dashboard | `GET /dashboard` (agency shape) | **available (11)**: client and location counts, portfolio averages (rank, GBP Score), statuses (reconnect / setup), locations with ranking declines, GBP issues, recommended actions, portfolio table (paged, sortable). Citations (16): `portfolio.avg_citation_score`, the `citations` block, and `table.rows[].citations`. "Unanswered reviews across portfolio" needs v4; "Reports ready/scheduled/failed": use `GET /reports?status=` and `GET /report-schedules` (Phase 12; not in the dashboard response). |
 
 ## Locations
 
@@ -101,8 +101,8 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Citation dashboard per location (Citation Health score, counts by status, recent changes) | – | **planned (Phase 16)**: manual, admin-managed citation tracking (no external citation APIs). Read-only for organization users; a client_user sees its assigned clients only. |
-| Citation table (directory, type, status, NAP issues, listing link, last checked) | – | **planned (Phase 16)** |
+| Citation dashboard per location (Citation Health score, counts by status, recent changes) | `GET /locations/:id/citations` (`health`, `counts`, `recent_changes`, `last_checked_at`), `GET /locations/:id/citations/changes` | **available (16)**: read-only for every organization role (a client_user only for its clients' locations). Before an admin builds the list: `{ available: false, reason: "no_citations_yet" }`. Changes show "MyPageSEO team"; internal notes are never shown. |
+| Citation table (directory, type, status, NAP issues, listing link, last checked) | `GET /locations/:id/citations[?status=]` → `citations[]` | **available (16)**: problems first (`nap_wrong`, `duplicate`, `not_found`, …); `nap_issues: [{ field, found, expected }]`. |
 | Admin: directory master list, categories, per-location citation lists, work queue | `/admin/citations/directories*` (incl. CSV import / export), `/admin/citations/categories*`, `/admin/citations/business-categories`, `/admin/citations/locations/:id` (+ `/suggest`, `/entries`), `/admin/citations/entries/*` (update, bulk, remove, restore, history), `/admin/citations/queue/{unchecked,stale,recent}` | **available (Phase 16)**: platform admins only (`citations.view` to read, `citations.manage` to change). API.md "Citations (Phase 16)" |
 | Legacy citation screens / campaign UI | – | **removed (Phase 16)**: the legacy `/citation/*` routes (campaign ordering, SerpAPI tracker, builder stub) are gone. Don't build them. |
 

@@ -2270,3 +2270,38 @@ It never removes anything and never re-adds a directory an admin took off the li
 
 **Filters** on all three: `organization_id`, `client_id`, `directory_id`, `type`, plus `status` on `stale` and `recent` (on `recent` it is the new status); `page`, `limit` (≤ 100). Each row carries `location: { id, name, city, organization: { id, name }, client }`. Deleted locations and entries taken off a list are left out.
 
+### Citations for organization users (read-only)
+
+`GET /locations/:locationId/citations[?status=]`. Access is membership of the location's organization; a client_user sees only its clients' locations. Another organization's location → **404**.
+
+```json
+{ "available": true,
+  "health": { "score": 50, "grade": "D", "coverage": 0.83, "total": 6 },
+  "counts": { "not_checked": 1, "live_correct": 2, "nap_wrong": 1, "not_found": 1, "duplicate": 0, "submitted": 1, "pending": 0, "removed": 0 },
+  "last_checked_at": "2026-09-27T…",
+  "recent_changes": [ { "at": "2026-09-27T…", "directory": { "name": "Data Axle", "type": "aggregator" }, "action": "status_changed",
+                        "from": "not_checked", "to": "nap_wrong", "changed_fields": ["status", "nap_found"], "by": "MyPageSEO team" } ],
+  "citations": [
+    { "directory": { "name": "Data Axle", "url": "https://www.data-axle.com/", "type": "aggregator" }, "status": "nap_wrong",
+      "nap_issues": [ { "field": "phone", "found": "(416) 555-0199", "expected": "4165550100" } ],
+      "listing_url": "https://…", "last_checked_at": "2026-09-27T…" },
+    { "directory": { "name": "Yelp", "url": "https://www.yelp.com/", "type": "general" }, "status": "live_correct", "nap_issues": [], "listing_url": "https://…", "last_checked_at": "…" } ] }
+```
+
+- **Row order:** problems first: `nap_wrong`, `duplicate`, `not_found`, `pending`, `submitted`, `not_checked`, `live_correct`.
+- **Hidden from customers:** admin names and ids, and internal notes. Every change reads "MyPageSEO team".
+- **No list yet:** `{ "available": false, "reason": "no_citations_yet" }`. The list is created when onboarding completes, or by an admin.
+- **History:** `GET /locations/:locationId/citations/changes?page=&limit=` returns the same change rows, paginated (notes-only edits are not listed).
+
+**Dashboard** (`GET /dashboard`, Phase 16 additions):
+- **Business shape:** a `citations` block and `locations[].citation_score`.
+- **Agency shape:** `portfolio.avg_citation_score`, the `citations` block and `table.rows[].citations: { score, grade, nap_wrong }`.
+
+```json
+"citations": { "available": true, "score": 50, "grade": "D", "coverage": 0.83, "listings": 6,
+               "live_correct": 2, "nap_wrong": 1, "not_found": 1, "not_checked": 1 }
+```
+
+- **Not available:** `{ "available": false, "reason": "no_citations_yet" | "not_checked_yet" }`.
+- **Recommended actions** gain `citations:nap_wrong` ("N listings show the wrong name, address or phone") and `citations:not_found` ("Not listed on N directories"), with `source: "citations"`.
+

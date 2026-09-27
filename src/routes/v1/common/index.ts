@@ -10,6 +10,7 @@ import contactUsRoutes from './contactUs.route';
 
 import locationRoute from './location.route';
 import rankingRoute from './ranking.route';
+import citationsRoute from './citations.route';
 import onboardingRoute from './onboarding.route';
 import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
@@ -72,6 +73,11 @@ const commonRoutes = [
 		// Ranking reports (Phase 5): /locations/:locationId/{tracking,rank-runs,rank-tracker,grid,map-ranking}
 		path: '/locations',
 		route: rankingRoute,
+	},
+	{
+		// Citations (Phase 16): /locations/:locationId/citations[/changes], read-only.
+		path: '/locations',
+		route: citationsRoute,
 	},
 	{
 		// Phase 8: signup / verify / login / password reset for the rebuilt app
