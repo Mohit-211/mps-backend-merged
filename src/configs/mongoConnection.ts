@@ -57,7 +57,7 @@ process.on('SIGINT', async () => {
     logger.warn('Mongo connection is disconnected due to application termination');
     process.exit(0);
   } catch (err) {
-    console.error('Error closing MongoDB connection:', err);
+    logger.error(`Error closing MongoDB connection: ${(err as Error)?.message}`);
     process.exit(1);
   }
 });

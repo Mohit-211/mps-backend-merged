@@ -9,7 +9,9 @@ const LOG_DIR = path.resolve(__dirname, process.env.NODE_ENV === 'development' ?
 
 morgan.token('message', (req: Request, res: Response) => res.locals.message || 'No message available');
 /** Phase 12: report share tokens (/r/<token>) must never reach the logs. */
-export const redactUrl = (url: string): string => url.replace(/^\/r\/[^/?#]+/, '/r/[redacted]');
+/** Phase 10 (AUDIT S30): nor OAuth codes, states, tokens, OTPs, passwords or emails in query strings. */
+const SENSITIVE_QUERY = /([?&](?:code|state|token|otp|password|email|access_token|refresh_token|id_token)=)[^&#]*/gi;
+export const redactUrl = (url: string): string => url.replace(/^\/r\/[^/?#]+/, '/r/[redacted]').replace(SENSITIVE_QUERY, '$1[redacted]');
 morgan.token('safe-url', (req: Request) => redactUrl(req.originalUrl || req.url));
 
 const getIpFormat = (): string => (config.essentials.env === 'production' ? ':remote-addr - ' : '');

@@ -1,4 +1,5 @@
 import httpStatus from 'http-status';
+import logger from '../../configs/logger';
 import crypto from 'crypto'
 
 import { Profile, CreditPayment, User, PaymentCreditPlan } from '../../models';
@@ -92,7 +93,7 @@ export const makeSquarePayment = async (body: BodyDefinition): Promise<any> => {
         return locationCitationDoc;
 
     } catch (error: any) {
-        console.error("Payment error: ", error.response ? error.response.data : error.message);
+        logger.error(`payment error: status ${error.response?.status ?? error.message}`);
         throw new ApiError(
             error.response?.status || error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
             error.response?.data?.message || error.message

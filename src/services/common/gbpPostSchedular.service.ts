@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from 'http-status';
+import logger from '../../configs/logger';
 import { findLocationForUser } from '../org/access';
 import axios from 'axios'
 import moment from 'moment-timezone';
@@ -112,14 +113,14 @@ export const addPostToGBP = async (body: BodyDefinition): Promise<any> => {
 		}
 	} catch (err: any) {
 		if (axios.isAxiosError(err) && err.response) {
-			console.error('Google API Error:', JSON.stringify(err.response.data, null, 2));
+			logger.error(`gbp post: Google API error ${err.response?.status ?? ''}`);
 			throw new ApiError(
 				err.response.status || httpStatus.INTERNAL_SERVER_ERROR,
 				err.response.data?.error?.message || 'Google API request failed'
 			);
 		} else {
 			const errorMessage = err.errors?.[0]?.message || err.message || 'Unknown server error';
-			console.error('Internal Error:', errorMessage);
+			logger.error(`gbp post: internal error: ${errorMessage}`);
 			throw new ApiError(
 				err.code || httpStatus.INTERNAL_SERVER_ERROR,
 				errorMessage
@@ -294,10 +295,10 @@ export const deleteGBPPost = async (userId: string, gbpPostId: string): Promise<
 
 	} catch (err: any) {
 		if (axios.isAxiosError(err) && err.response) {
-			console.error('Google API Delete Error:', JSON.stringify(err.response.data, null, 2));
+			logger.error(`gbp post delete: Google API error ${err.response?.status ?? ''}`);
 			return false;
 		} else {
-			console.error('Unknown error while deleting GBP post:', err.message);
+			logger.error(`gbp post delete failed: ${err.message}`);
 			return false;
 		}
 	}

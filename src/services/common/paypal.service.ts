@@ -1,4 +1,5 @@
 import axios from 'axios';
+import logger from '../../configs/logger';
 import { BASE_URL } from '../../configs/paypal';
 import {
 	Coupon,
@@ -13,8 +14,6 @@ async function getAccessToken() {
 		`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`,
 	).toString("base64");
 
-	console.log("PAYPAL MODE:", process.env.PAYPAL_MODE);
-	console.log("BASE URL:", BASE_URL);
 
 	try {
 		const { data } = await axios.post(
@@ -28,18 +27,11 @@ async function getAccessToken() {
 			},
 		);
 
-		console.log("PayPal Access Token Generated");
 
 		return data.access_token;
 	} catch (error: any) {
-		console.log("========================================");
-		console.log("PAYPAL TOKEN ERROR");
-		console.log("Status:", error.response?.status);
-		console.log(
-			"Response:",
-			JSON.stringify(error.response?.data, null, 2),
-		);
-		console.log("========================================");
+		// Phase 10 (AUDIT S21): status only, never the response body.
+		logger.error(`paypal token request failed: status ${error.response?.status ?? error.code ?? 'unknown'}`);
 
 		throw error;
 	}
@@ -154,20 +146,7 @@ export async function createPaypalSubscription(
 	}
 
 	try {
-		console.log("========================================");
-		console.log("Creating PayPal Subscription...");
-		console.log("BASE URL:", BASE_URL);
-		console.log("Plan ID:", paypalPlanId);
-		console.log("Currency:", currency);
-		console.log("Discounted Setup Fee:", discountedSetupFee);
-		console.log(
-			"Access Token:",
-			token ? `${token.substring(0, 20)}...` : null,
-		);
-		console.log(
-			"Request Body:",
-			JSON.stringify(requestBody, null, 2),
-		);
+		logger.info(`paypal: creating a subscription (plan ${paypalPlanId}, ${currency})`);
 
 		const { data } = await axios.post(
 			`${BASE_URL}/v1/billing/subscriptions`,
@@ -181,8 +160,7 @@ export async function createPaypalSubscription(
 			},
 		);
 
-		console.log("PayPal Response:", JSON.stringify(data, null, 2));
-		console.log("========================================");
+		logger.info(`paypal: subscription ${String(data.id)} created`);
 
 		return {
 			paypal_subscription_id: data.id,
@@ -192,18 +170,7 @@ export async function createPaypalSubscription(
 			)?.href,
 		};
 	} catch (error: any) {
-		console.log("========================================");
-		console.log("PAYPAL SUBSCRIPTION ERROR");
-		console.log("Status:", error.response?.status);
-		console.log(
-			"Response:",
-			JSON.stringify(error.response?.data, null, 2),
-		);
-		console.log(
-			"Headers:",
-			JSON.stringify(error.response?.headers, null, 2),
-		);
-		console.log("========================================");
+		logger.error(`paypal subscription request failed: status ${error.response?.status ?? error.code ?? 'unknown'}`);
 
 		throw error;
 	}
@@ -262,26 +229,21 @@ export const getPaypalSubscription = async (subscriptionId: string) => {
 
 		return response.data;
 	} catch (error: any) {
-		console.error(
-			'PayPal Get Subscription Error:',
-			error.response?.data || error.message,
-		);
+		logger.error(`paypal get subscription failed: status ${error.response?.status ?? error.code ?? 'unknown'}`);
 		throw error;
 	}
 };
 
 export const handlePaymentCompleted = async (resource: any) => {
 	try {
-		console.log('==================================');
-		console.log('Payment Completed');
-		console.log(resource.id);
+		logger.info('Payment Completed');
 
 		const paypalSubscriptionId =
 			resource.billing_agreement_id ||
 			resource.billing_agreement_id?.toString();
 
 		if (!paypalSubscriptionId) {
-			console.log('Subscription ID not found.');
+			logger.info('Subscription ID not found.');
 			return;
 		}
 
@@ -290,22 +252,20 @@ export const handlePaymentCompleted = async (resource: any) => {
 		});
 
 		if (!payment) {
-			console.log('Payment not found.');
+			logger.info('Payment not found.');
 			return;
 		}
 
 		// Ignore duplicate PAYMENT.SALE.COMPLETED events
 		if (payment.status === 'SUCCESS') {
-			console.log(
-				'Payment already processed. Ignoring duplicate webhook.',
-			);
+			logger.info('Payment already processed. Ignoring duplicate webhook.');
 			return;
 		}
 
 		const plan = await SubscriptionPlan.findById(payment.plan_id);
 
 		if (!plan) {
-			console.log('Subscription plan not found.');
+			logger.info('Subscription plan not found.');
 			return;
 		}
 
@@ -369,9 +329,7 @@ export const handlePaymentCompleted = async (resource: any) => {
 		// Send Welcome Email ONLY ONCE
 		if (email) {
 			try {
-				console.log('==================================');
-				console.log('Sending Welcome Email');
-				console.log('To:', email);
+				logger.info('paypal: sending the welcome email');
 
 				await sendSubscriptionWelcomeMail(
 					email,
@@ -379,26 +337,21 @@ export const handlePaymentCompleted = async (resource: any) => {
 					// plan.name,
 				);
 
-				console.log('Welcome Email Sent');
-				console.log('==================================');
+				logger.info('Welcome Email Sent');
 			} catch (error) {
-				console.error(
-					'Failed to send welcome email:',
-					error,
-				);
+				logger.error(`Failed to send welcome email: ${(error as Error)?.message}`);
 			}
 		}
 
-		console.log('Payment processed successfully.');
-		console.log('==================================');
+		logger.info('Payment processed successfully.');
 	} catch (err) {
-		console.error('Payment Completed Error:', err);
+		logger.error(`Payment Completed Error: ${(err as Error)?.message}`);
 		throw err;
 	}
 };
 
 export const handleSubscriptionCreated = async (resource: any) => {
-	console.log('Subscription Created');
+	logger.info('Subscription Created');
 
 	await Payment.findOneAndUpdate(
 		{
@@ -411,7 +364,7 @@ export const handleSubscriptionCreated = async (resource: any) => {
 };
 
 export const handleSubscriptionActivated = async (resource: any) => {
-	console.log('Subscription Activated');
+	logger.info('Subscription Activated');
 
 	await Payment.findOneAndUpdate(
 		{
@@ -427,7 +380,7 @@ export const handleSubscriptionActivated = async (resource: any) => {
 };
 
 export const handleSubscriptionUpdated = async (resource: any) => {
-	console.log('Subscription Updated');
+	logger.info('Subscription Updated');
 
 	await Payment.findOneAndUpdate(
 		{
@@ -438,7 +391,7 @@ export const handleSubscriptionUpdated = async (resource: any) => {
 };
 
 export const handleSubscriptionSuspended = async (resource: any) => {
-	console.log('Subscription Suspended');
+	logger.info('Subscription Suspended');
 
 	await Payment.findOneAndUpdate(
 		{
@@ -451,7 +404,7 @@ export const handleSubscriptionSuspended = async (resource: any) => {
 };
 
 export const handleSubscriptionCancelled = async (resource: any) => {
-	console.log('Subscription Cancelled');
+	logger.info('Subscription Cancelled');
 
 	await Payment.findOneAndUpdate(
 		{
@@ -465,7 +418,7 @@ export const handleSubscriptionCancelled = async (resource: any) => {
 };
 
 export const handleSubscriptionExpired = async (resource: any) => {
-	console.log('Subscription Expired');
+	logger.info('Subscription Expired');
 
 	await Payment.findOneAndUpdate(
 		{
@@ -478,7 +431,7 @@ export const handleSubscriptionExpired = async (resource: any) => {
 };
 
 export const handlePaymentDenied = async (resource: any) => {
-	console.log('Payment Denied');
+	logger.info('Payment Denied');
 
 	const paypalSubscriptionId = resource.billing_agreement_id;
 
@@ -498,7 +451,7 @@ export const handlePaymentDenied = async (resource: any) => {
 };
 
 export const handlePaymentRefunded = async (resource: any) => {
-	console.log('Payment Refunded');
+	logger.info('Payment Refunded');
 
 	const paypalSubscriptionId = resource.billing_agreement_id;
 
@@ -518,7 +471,7 @@ export const handlePaymentRefunded = async (resource: any) => {
 };
 
 export const handleSubscriptionPaymentFailed = async (resource: any) => {
-	console.log('Subscription Payment Failed');
+	logger.info('Subscription Payment Failed');
 
 	const paypalSubscriptionId = resource.billing_agreement_id || resource.id;
 

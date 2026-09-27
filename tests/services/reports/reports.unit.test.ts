@@ -234,6 +234,9 @@ describe('request log redaction', () => {
 	it('never logs a share token', () => {
 		expect(redactUrl('/r/AbC_123-xyz/pdf?x=1')).toBe('/r/[redacted]/pdf?x=1');
 		expect(redactUrl('/api/v1/reports/abc')).toBe('/api/v1/reports/abc');
+		// Phase 10 (AUDIT S30): sensitive query values on any path.
+		expect(redactUrl('/api/v1/user/auth/google/gbp/callback?code=4/abc&state=xyz&scope=email')).toBe('/api/v1/user/auth/google/gbp/callback?code=[redacted]&state=[redacted]&scope=email');
+		expect(redactUrl('/x?Email=a@b.c&page=2&token=t')).toBe('/x?Email=[redacted]&page=2&token=[redacted]');
 	});
 });
 

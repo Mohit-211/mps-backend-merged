@@ -118,10 +118,7 @@ export const createPlan = async (body: any) => {
 			throw paypalError;
 		}
 	} catch (error: any) {
-		console.error(
-			'PayPal Create Plan Error:',
-			error?.response?.data || error,
-		);
+		logger.error(`paypal create plan failed: status ${error?.response?.status ?? error?.message}`);
 
 		throw new ApiError(
 			error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
@@ -363,7 +360,6 @@ export const validateCoupon = async (body: any) => {
 
 		const codeUpper = coupon.code.toUpperCase();
 
-	
 
 	if (codeUpper.startsWith('GUSD')) {
 	const discountAmount = Number(
@@ -996,7 +992,6 @@ export const createSubscription = async (body: any) => {
 // export const createSubscription = async (body: any) => {
 // 	try {
 // 		const { plan_id, coupon_code, business_details } = body;
-		
 
 // 		if (!plan_id) {
 // 			throw new ApiError(httpStatus.BAD_REQUEST, 'Plan is required.');
@@ -1057,7 +1052,6 @@ export const createSubscription = async (body: any) => {
 // 			plan.currency,
 // 		);
 
-		
 // 		const payment = await Payment.create({
 // 			payment_type: 'SUBSCRIPTION',
 
