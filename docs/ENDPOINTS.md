@@ -22,7 +22,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
-- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.manage` (Phase 16; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -50,15 +50,16 @@
 
 ## Summary (Phase 16, in progress)
 
-**195 endpoints:** 180 live, 14 deprecated, 1 dev-only.
-- **By origin:** 72 rebuilt or new, 123 legacy.
-- **By auth:** 95 user, 51 platform admin (each with a permission), 47 none, 2 refresh token.
+**207 endpoints:** 192 live, 14 deprecated, 1 dev-only.
+- **By origin:** 84 rebuilt or new, 123 legacy.
+- **By auth:** 95 user, 63 platform admin (each with a permission), 47 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
 **Phase 16 changes:**
 - **Done:** the 13 legacy `/citation/*` routes retired.
-- **To come:** `/admin/citations/*` and `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
+- **Done:** the directory and category admin endpoints (#82–#93).
+- **To come:** the per-location lists and work queue (`/admin/citations/locations|entries|queue`) and `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
 
 **Phase 9b** removes the 14 deprecated routes once the frontend has moved.
 
@@ -265,6 +266,25 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/white-label-profiles` | user | Get White Label Profile. Replaced by #75 | legacy | deprecated |
 | GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user (owner) | Get White Label Profile Detail. Replaced by #75 | legacy, changed 10 | deprecated |
 | DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile. Replaced by #76 / #79 | legacy | deprecated |
+
+### Citations (Phase 16)
+
+Manual, admin-managed citation tracking (no external citation APIs). Admin routes need a platform-admin token with `citations.view` (read) or `citations.manage` (write). Examples: [API.md](API.md#citations-phase-16).
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/admin/citations/directories` | admin (`citations.view`) | Directory master list (search, type, country, category, active; paginated) | 16 | live |
+| POST | `/api/v1/admin/citations/directories` | admin (`citations.manage`) | Create a directory | 16 | live |
+| GET | `/api/v1/admin/citations/directories/export` | admin (`citations.view`) | Export every directory as CSV | 16 | live |
+| POST | `/api/v1/admin/citations/directories/import` | admin (`citations.manage`) | Import directories from CSV (`text/csv`; `?dry_run=true`; all-or-nothing; upsert by domain) | 16 | live |
+| GET | `/api/v1/admin/citations/directories/:directoryId` | admin (`citations.view`) | Directory detail + how many locations use it | 16 | live |
+| PATCH | `/api/v1/admin/citations/directories/:directoryId` | admin (`citations.manage`) | Update a directory | 16 | live |
+| DELETE | `/api/v1/admin/citations/directories/:directoryId` | admin (`citations.manage`) | Deactivate a directory (entries keep it; no longer suggested) | 16 | live |
+| GET | `/api/v1/admin/citations/categories` | admin (`citations.view`) | Directory categories (industry groups) with their GBP business categories and directory counts | 16 | live |
+| POST | `/api/v1/admin/citations/categories` | admin (`citations.manage`) | Create a directory category | 16 | live |
+| PATCH | `/api/v1/admin/citations/categories/:categoryId` | admin (`citations.manage`) | Update a directory category | 16 | live |
+| DELETE | `/api/v1/admin/citations/categories/:categoryId` | admin (`citations.manage`) | Delete a directory category (409 `in_use` while directories use it) | 16 | live |
+| GET | `/api/v1/admin/citations/business-categories` | admin (`citations.view`) | Search the GBP business categories (`?q=`, 20 results) for mapping | 16 | live |
 
 ### Payments & subscriptions
 
@@ -579,6 +599,25 @@ No new endpoints; changed responses (examples in [API.md](API.md#ranking--data-q
 - **#37:** `api_usage` (Google API calls per billing SKU from the usage ledger, this and last month).
 - **#28 competitor rows:** `photo_count` (0–10; 10 = "10+"), `photos_capped`, `reviews` (up to 5, with `author: { name, uri }`), `recent_review_at`; insights `photos_gap`, `review_freshness`.
 - **Reports** (#61): Rank Tracker gains the section `map_ranking`, Competitor Analysis the section `reviews`.
+
+### Citations (Phase 16)
+
+Admin auth: a platform-admin token with the permission shown. Errors carry `data.reason`. Shapes and examples: [API.md](API.md#citations-phase-16).
+
+| # | Method | Path | Auth | Params / body | Returns |
+|---|---|---|---|---|---|
+| 82 | GET | `/admin/citations/directories` | admin (`citations.view`) | `q, type, country (US\|CA), category_id, active, page, limit (≤ 100)` | `{ directories: [directory], page, limit, total }` |
+| 83 | POST | `/admin/citations/directories` | admin (`citations.manage`) | `{ name, url, type, countries, category_ids?, regions?, authority?, notes?, is_active? }` | **201** directory; **400** `invalid_directory` (`problems[]`); **409** `domain_taken` |
+| 84 | GET | `/admin/citations/directories/export` | admin (`citations.view`) | – | `text/csv` (UTF-8 with BOM), columns `name,url,type,countries,categories,regions,authority,notes,active` |
+| 85 | POST | `/admin/citations/directories/import` | admin (`citations.manage`) | body: the CSV (`Content-Type: text/csv`, ≤ 1 MB, ≤ 2,000 rows); `?dry_run=true` | `{ dry_run, applied, rows, created, updated, unchanged, errors: [{ row, field, message }] }`; **422** with `errors` (nothing applied); **400** `invalid_csv`, `invalid_csv_header`, `empty_csv`, `too_many_rows` |
+| 86 | GET | `/admin/citations/directories/:directoryId` | admin (`citations.view`) | – | directory + `used_by_locations` |
+| 87 | PATCH | `/admin/citations/directories/:directoryId` | admin (`citations.manage`) | any field of #83 | directory |
+| 88 | DELETE | `/admin/citations/directories/:directoryId` | admin (`citations.manage`) | – | directory with `is_active: false` |
+| 89 | GET | `/admin/citations/categories` | admin (`citations.view`) | – | `[{ id, name, slug, is_active, business_categories: [{ id, name }], directory_count }]` |
+| 90 | POST | `/admin/citations/categories` | admin (`citations.manage`) | `{ name, slug?, business_category_ids?, is_active? }` | **201** category; **409** `slug_taken`; **400** `unknown_business_category` |
+| 91 | PATCH | `/admin/citations/categories/:categoryId` | admin (`citations.manage`) | any field of #90 | category |
+| 92 | DELETE | `/admin/citations/categories/:categoryId` | admin (`citations.manage`) | – | `{ deleted: true }`; **409** `in_use` (`directory_count`) |
+| 93 | GET | `/admin/citations/business-categories` | admin (`citations.view`) | `q` | `[{ id, name }]` (20, by name) |
 
 ## Removed endpoints
 

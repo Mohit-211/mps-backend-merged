@@ -53,6 +53,8 @@
     "compression": "^1.8.2",
     "cors": "^2.8.6",
     "cross-env": "^7.0.3",
+    "csv-parse": "^5.6.0",
+    "csv-stringify": "^6.9.0",
     "dejavu-fonts-ttf": "^2.37.3",
     "dotenv": "^16.6.1",
     "express": "^4.22.3",

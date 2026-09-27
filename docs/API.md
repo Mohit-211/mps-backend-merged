@@ -2104,6 +2104,7 @@ Authorization: Bearer eyJ…
 | `platform.write` | super admin, admin |
 | `content.manage` | super admin, admin, editor |
 | `system.read` | super admin |
+| `citations.view` (Phase 16) | super admin, admin, editor |
 | `citations.manage` (Phase 16) | super admin, admin, editor |
 
 - **Errors:** no or invalid token → **401**; a missing permission → **403**: `{ "reason": "forbidden", "permission": "platform.read" }`. Rate limits → **429** `rate_limited`.
@@ -2114,3 +2115,92 @@ Authorization: Bearer eyJ…
 - Any request key starting with `$` or containing `.` → **400** `{ "reason": "invalid_input", "field": "body.email.$ne" }`.
 - Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, legacy white-label create/update, GBP post add); elsewhere a file → **400**.
 - 500 responses say "Something went wrong." (details only in development).
+
+## Citations (Phase 16)
+
+**Manual, admin-managed citation tracking.** Platform admins keep a **master list of directories**, put directories on each location's **citation list**, and record what they find: status, listing URL, NAP as seen. Organization users get a read-only dashboard, a table and a **Citation Health** score, plus a Citation Report in the Reports center. There are no external citation APIs and no Google calls.
+
+**Admin routes** (`/api/v1/admin/citations/*`) take a platform-admin token (see "Platform admin authentication"):
+- `citations.view` to read; `citations.manage` to change. Both are held by super admin, admin and editor.
+- Errors carry `data.reason`. Every catalogue row is in [ENDPOINTS.md](ENDPOINTS.md).
+
+### Directories and categories (admin)
+
+A **directory**:
+
+```json
+{ "id": "…", "name": "HomeStars", "url": "https://homestars.com/", "domain": "homestars.com", "type": "niche",
+  "categories": [ { "id": "…", "name": "Home services", "slug": "home-services" } ],
+  "countries": ["CA"], "regions": [], "authority": 60, "notes": null, "is_active": true,
+  "created_at": "2026-09-27T…", "updated_at": "2026-09-27T…" }
+```
+
+**Fields:**
+- **`type`:** `general | niche | aggregator | social | government_chamber`.
+- **`countries`:** `US` and / or `CA` (at least one).
+- **`categories`:** empty = fits every business. A `niche` directory needs at least one.
+- **`regions`:** optional 2-letter state / province codes. They limit the directory to part of a country, e.g. a state chamber.
+- **`authority`:** 0–100 or null (optional; weights the score).
+- **`domain`:** unique, taken from `url` without `www.`.
+
+**Writes:**
+- **Create:** `POST /admin/citations/directories { name, url, type, countries, category_ids?, regions?, authority?, notes?, is_active? }` → **201**.
+- **Errors:** **400** `{ reason: "invalid_directory", problems: [{ field, message }] }`; **409** `{ reason: "domain_taken", domain }`.
+- **Delete:** deactivates the directory. Entries that use it keep it, and it is no longer suggested.
+
+A **directory category** is an industry group mapped to the Google business categories (`GET /admin/citations/business-categories?q=plumb` → `[{ id, name }]`):
+
+```json
+{ "id": "…", "name": "Home services", "slug": "home-services", "is_active": true,
+  "business_categories": [ { "id": "…", "name": "Plumber" }, { "id": "…", "name": "Electrician" } ], "directory_count": 6 }
+```
+
+A category can't be deleted while directories use it: **409** `{ reason: "in_use", directory_count }`. Deactivate it instead.
+
+### Directory CSV import / export (admin)
+
+`GET /admin/citations/directories/export` downloads `citation-directories-<date>.csv`: UTF-8 with a BOM, so Excel reads accents correctly.
+
+```csv
+name,url,type,countries,categories,regions,authority,notes,active
+Angi,https://www.angi.com/,niche,US,home-services,,85,,true
+Texas Chamber Directory,https://example-chamber.org/,government_chamber,US,,TX,40,Region-limited example,true
+Yelp,https://www.yelp.com/,general,US|CA,,,93,,true
+```
+
+`POST /admin/citations/directories/import?dry_run=true` takes the file as the body, with `Content-Type: text/csv` (≤ 1 MB, ≤ 2,000 rows).
+- The header is required; columns can come in any order. `name, url, type, countries` are required columns.
+- **Lists** are separated by `|`. **Categories** are directory-category **slugs**.
+- **Upsert key:** the domain of `url`. A file row with a known domain updates that directory; a new domain creates one.
+- Directories that are **not** in the file are left alone (never deleted).
+- **All-or-nothing:** any row error → **422** and nothing is applied. `dry_run=true` validates and counts without writing.
+
+```json
+{ "dry_run": false, "applied": true, "rows": 42, "created": 40, "updated": 1, "unchanged": 1, "errors": [] }
+```
+
+A failed import:
+
+```json
+{ "dry_run": false, "applied": false, "rows": 3, "created": 2, "updated": 0, "unchanged": 1,
+  "errors": [ { "row": 3, "field": "categories", "message": "unknown category \"lawyers\"" },
+              { "row": 4, "field": "url", "message": "duplicate domain \"yelp.com\" (also on line 2)" } ] }
+```
+
+**Row rules:**
+
+| Column | Rule |
+|---|---|
+| name | 1–120 characters |
+| url | http(s) URL ≤ 300; unique domain within the file |
+| type | one of the 5 types |
+| countries | `US`, `CA` or `US\|CA` |
+| categories | existing slugs; required for `niche` |
+| regions | 2-letter codes valid for the listed countries |
+| authority | empty or an integer 0–100 |
+| active | `true`, `false` or empty (= true) |
+
+**Other errors:**
+- File-level problems → **400** with `invalid_csv` (unreadable), `invalid_csv_header` (`missing` / `unknown` columns), `empty_csv` or `too_many_rows`.
+- **Export safety:** cells starting with `= + - @` are prefixed with `'`, so a spreadsheet never runs them as formulas. Re-importing such a cell keeps the `'`.
+
