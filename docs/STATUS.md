@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, Phase 12.5 merged and pushed, with its follow-ups on `claude/rebuild` (sampling defaults, attribution wording, decisions, Phase 16 spec); next is Phase 10 in plan mode._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27. Phase 10 is merged (`3c776fd`) and pushed. Follow-ups on `claude/rebuild`: Phase 16 joins M5, frontend notes (token refresh, admin sign-in, CORS), the keyword-volume vendor fully removed. Next: Phase 8.1 (email verification by link), then the Phase 16 plan._
 
 ## Product goal
 
@@ -8,7 +8,7 @@ _Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); 
 
 MyPageSEO is a local SEO reporting platform for US and Canadian businesses, focused only on **Google Maps / Places visibility**. There are three ranking pages, **Rank Tracker**, **Local Search Grid** and **Local Map Ranking**, all powered by one ranking engine and one fixed keyword set per location. There is also a GBP report and GBP posting.
 
-**Out of scope:** organic/website ranking, SerpAPI, DataForSEO, Moz, and Google Q&A.
+**Out of scope:** organic/website ranking, SerpAPI, third-party keyword search volume (vendor removed 2026-09-27), Moz, and Google Q&A.
 
 ## Phases
 
@@ -32,11 +32,12 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | yes (`0786801`) | M4 (pushed 2026-09-27) |
 | 12 | Reports center | done | `claude/phase-12-reports` | yes (`3f1e192`) | M5 (pushed 2026-09-27) |
 | 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
-| **10** | **Security hardening** (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | **built, awaiting merge** | `claude/phase-10-security` | – | M5 |
-| 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f); right after Phase 10 | planned | – | – | – |
+| 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
+| **8.1** | **Email verification by link** (CLAUDE.md §12g) | **next** | `claude/phase-8.1-email-verify` | – | M5 |
+| 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f); right after 8.1 | planned | `claude/phase-16-citations` | – | M5 |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
-| – | **M5 Launch-ready** (12 + 12.5 + 10 + 13 + 14 + pre-launch live validation + Google approvals) | – | – | – | M5 |
+| – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
 | 15 | Notifications & automations | planned | – | – | – |
 | 17 | Ranking extras (keyword groups, larger grids) | planned | – | – | – |
@@ -150,14 +151,16 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
    - Add the **Authorised JavaScript origins** to the OAuth client: the frontend's, and `http://localhost:5055` for the dev test page.
    - `.env`: `TOKEN_ENCRYPTION_KEY` (currently empty, so connecting would fail) and, for the redirect fallback only, `GOOGLE_GBP_REDIRECT_URI` on port 5055 (currently 5000).
 4. **Live steps, when you say so:** the GBP live test (see "Next up"). The variance test is done (2026-09-27); an optional rerun of the 10-minute spacing: `npm run variance:test -- --confirm-live --spacings=600` (90 calls).
-   - **Price check (Mohit, in progress):** `src/configs/pricing.ts` against Google's pricing page; send corrections.
-   - **Quota check (Mohit, in progress):** Places API (New) Text Search and Place Details at ≥ 600 requests/minute in Cloud (the 8 req/s cap assumes it).
+   - **Price check (Mohit, pending):** `src/configs/pricing.ts` against Google's pricing page; send corrections.
+   - **Quota check (Mohit, pending):** Places API (New) Text Search and Place Details at ≥ 600 requests/minute in Cloud (the 8 req/s cap assumes it).
    - **Google Cloud checklist** (OPERATIONS.md, "Ranking quality, Google API usage and cost"): budget alerts, quotas ≥ 600/min, key restrictions.
-5. **Google approvals:** see "Blocked on Google" below.
+   - **Dallas test + formal `calibrate:score` (Mohit, pending):** see "Pre-launch live validation" below.
+5. **Google approvals (pending):** GBP API access (quota 0 today), Google My Business API v4, OAuth app verification. See "Blocked on Google" below.
 6. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 7. **Maps ToS: accepted risk for now**, revisit before launch: see "Maps ToS: accepted risk" below.
-8. **Rotate the DataForSEO credential** (AUDIT S13), and at the Phase 10 deploy the 12-character `JWT_SECRET`.
-9. **Security Phase 10:** next, in plan mode; must include the admin auth and roles Phase 16 relies on; required before launch (all Deferred-P10 items, including S19, S30 and the Search Console parts of S11, S12 and S29).
+8. **DataForSEO password change by the account owner (old credential in git history)** (AUDIT S13). The vendor was removed from the code, config and docs on 2026-09-27.
+9. **Phase 10 deploy:** replace the 12-character `JWT_SECRET` (≥ 32 characters; every user signs in again once), add `ADMIN_JWT_SECRET` and `PAYPAL_WEBHOOK_ID`, list every frontend origin in `ACCESSDOMAINS`, delete the old `ANALYTICS` token rows (OPERATIONS.md deploy checklist).
+10. **Frontend team notes** (Phase 10): token refresh (1-day access, 30-day refresh), admin panel sign-in and permissions, CORS origins: FRONTEND_BACKEND_MAP.md "Notes for the frontend team".
 
 ## Blocked on Google
 
@@ -197,7 +200,7 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Merge and push Phase 10** (commands in the phase summary). **At deploy:** rotate `JWT_SECRET` (≥ 32 characters; every user signs in again once), add `ADMIN_JWT_SECRET` and `PAYPAL_WEBHOOK_ID`, check `ACCESSDOMAINS`, delete old `ANALYTICS` token rows (OPERATIONS.md deploy checklist).
+1. **Phase 8.1: email verification by link** (CLAUDE.md §12g), on `claude/phase-8.1-email-verify`.
 2. **Then Phase 16 (citations)**, in plan mode (CLAUDE.md §12f; the plan audits the old citation module), then 13 (billing & plans) and 14 (production readiness) toward M5.
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.

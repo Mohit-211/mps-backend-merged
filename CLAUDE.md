@@ -28,11 +28,12 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | M4 |
 | 12 | Reports center: reports as PDF, email, schedules, white-label, share links | done | `claude/phase-12-reports` | M5 (pushed) |
 | 12.5 | Ranking & data quality: full depth, repeated sampling (3 samples, 60 s), richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | done | `claude/phase-12.5-quality` | M5 (pushed) |
-| **10** | **Security hardening**: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on. Required before launch. | **built, awaiting merge** | `claude/phase-10-security` | M5 |
-| 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f). Builds right after Phase 10 (Mohit, 2026-09-27). | planned | – | – |
+| 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
+| **8.1** | **Email verification by link** (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | **next** | `claude/phase-8.1-email-verify` | M5 |
+| 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f). Right after 8.1. | planned | `claude/phase-16-citations` | M5 |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
-| – | **M5 Launch-ready** = 12 + 12.5 + 10 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, app verification) | – | – | M5 |
+| – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
 | 15 | Notifications & automations | planned | – | – |
 | 17 | Ranking extras: keyword groups, larger grids (the variance test is done; Dallas is a pre-launch item) | planned | – | – |
@@ -93,7 +94,7 @@ All three ranking pages are powered by **one ranking engine** and **one fixed ke
 If an in-scope change *requires* touching an out-of-scope file (e.g. a shared util or `src/models/index.ts` export), make the smallest possible change and call it out explicitly in the phase summary.
 
 ### Permanently removed from product
-- Organic/website ranking (desktop/mobile organic), DataForSEO search volume, Moz, SerpAPI-based ranking, Search Console "average position" helpers.
+- Organic/website ranking (desktop/mobile organic), third-party keyword search-volume APIs (the vendor was removed 2026-09-27), Moz, SerpAPI-based ranking, Search Console "average position" helpers.
 - Google Q&A (the Q&A API was discontinued on 2025-11-03; do not implement anything Q&A).
 
 ---
@@ -107,14 +108,14 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - **Push after every merged phase** (Mohit, 2026-09-27: GitHub is the only off-machine backup). At the end of each phase, give Mohit the merge command **and** one push command covering `claude/rebuild` and that phase's branch, plus a short summary for his developers. Mohit runs both. Never push anything else, and never push `main`.
 - Milestones (history and launch):
   - **M1:** after Phase 3 (Foundations). **M2:** after Phase 5. **M3:** after Phase 7c. **M4:** after Phase 11. (Pushed at the time; before Phase 12 pushes happened only at milestones.)
-  - **M5 (launch-ready):** after Phases 12, 12.5, 10, 13 and 14, the pre-launch live validation, and the Google approvals (see the Phase roadmap).
+  - **M5 (launch-ready):** after Phases 12, 12.5, 10, 8.1, 16, 13 and 14, the pre-launch live validation, and the Google approvals (see the Phase roadmap).
 - Small commits, one concern each. Message format: `<phase>: <area>: <what>` e.g. `p4: ranking: add IDs-only text search client`.
 - Never rewrite history on shared branches. Never force-push `claude/rebuild`.
 - The old code is backed up separately by Mohit. Deleting old in-scope code is allowed **only in the phase that explicitly says so**.
 
 ### Environment & safety
 - Work only against a **local MongoDB** and a local `.env`. Never use production credentials, never connect to production DB, never SSH anywhere.
-- Never print, log, or commit secrets. Never hardcode credentials (the old code has a hardcoded DataForSEO login; that pattern is banned).
+- Never print, log, or commit secrets. Never hardcode credentials (the old code had a hardcoded third-party API login; that pattern is banned).
 - API keys used during development must be **test keys with low quotas/budget caps**. If a required key is missing, stop and ask; do not stub a real-looking key.
 - **Real Google calls only when Mohit says so, within the budget he gives.**
   - Mohit's local `.env` has a Places API (New) key (since Phase 5.5) and the GBP OAuth client. Never print, log or commit them.
@@ -138,7 +139,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 done. Next: **10 Security** → **16 Citations** (right after 10, Mohit 2026-09-27) → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 done. Next: **8.1 Email verification by link** → **16 Citations** (in M5, Mohit 2026-09-27) → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 **Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
 
@@ -274,7 +275,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - S10. Body parser limit 100mb.
 - S11. GBP OAuth `state` is unsigned JSON containing `user_id` (account-binding attack).
 - S12. OAuth refresh/access tokens stored in plaintext (`UserAuth`).
-- S13. Hardcoded DataForSEO credentials in `helpers/rankTrackerReport.ts`; hardcoded AES key in `utils/fileEncryption.ts`.
+- S13. Hardcoded keyword search-volume API credentials in `helpers/rankTrackerReport.ts`; hardcoded AES key in `utils/fileEncryption.ts`.
 - S14. Admin temporary password generated with `Math.random()`.
 - S15. Report fetch middlewares (`validFetch*`) don't check location ownership (IDOR).
 
@@ -322,7 +323,7 @@ Branch `claude/phase-1.6-build-green`. Type-level fixes only; nothing that chang
 
 - All 46 TypeScript errors fixed. `mongoFunctions` is now generic over the model type, and `getKeywordMovmentData` (never called) uses the `oAuth2Client()` factory.
 - `.env` is loaded from `ENV_FILE`, else `./.env` in the working directory. The build no longer copies `.env`. pm2 must start from the repo root (`docs/OPERATIONS.md`).
-- DataForSEO credentials moved to the optional `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` env vars.
+- The keyword search-volume vendor's credentials moved to optional env vars (the vendor and its vars were removed entirely later; see CHANGELOG 2026-09-27).
 - Local MongoDB: Homebrew `mongodb-community@7.0`, separate database `mps_rebuild`; `MONGODB_AUTH_SOURCE` is required and `mps_db` is gone.
 
 ---
@@ -802,14 +803,14 @@ Tests: validation per topic type, idempotent publish, recurrence mapping.
 ## 13. PHASE 9b — Remaining cleanup & documentation (was Phase 9)
 
 **Partly done early (9a, Mohit, 2026-09-26)** on `claude/phase-9a-legacy-cleanup`, because the frontend moves to the new endpoints:
-- Deleted: old ranking code, the GBP audit, the Reputation Manager, the white-label report links, the Search Console connect, SerpAPI / Moz / DataForSEO config and helpers, unused config and env vars (Stripe, Razorpay, …), and the `googleapis` package.
+- Deleted: old ranking code, the GBP audit, the Reputation Manager, the white-label report links, the Search Console connect, SerpAPI / Moz / keyword-volume vendor config and helpers, unused config and env vars (Stripe, Razorpay, …), and the `googleapis` package.
 - Written: `docs/LEGACY_FEATURES.md` (how to rebuild Reputation Manager and white-label links properly) and `docs/MIGRATION.md`.
 - **Left for Phase 9b:** swagger.json, ARCHITECTURE.md, the final OPERATIONS/API pass, `serpapi` (still imported by citations, out of scope).
 
 Original spec (the deletions below were done in 9a):
 - Delete old ranking code: `helpers/rankTrackerReport.ts`, `helpers/localSearchGridReport.ts` (after `generateGrid` is ported), `helpers/localMapRankingReport.ts`, `helpers/getSerpCountryCode.ts` (unused since Phase 1.5), old ranking services/controllers/middlewares/routes/models, `configs/serpConfig.ts`, `constants/serpCountryCode.ts` if unused.
 - Delete old GBP audit code: `helpers/gbpAudit.ts`, `services/common/gbpAudit.service.ts` and its route/controller/middleware/model.
-- Remove unused dependencies (`serpapi` and any others made unused). Remove SerpAPI/DataForSEO/Moz env vars from config and `.env.example`.
+- Remove unused dependencies (`serpapi` and any others made unused). Remove SerpAPI / keyword-volume vendor / Moz env vars from config and `.env.example`.
 - Do **not** drop MongoDB collections; write `docs/MIGRATION.md` listing collections that are now unused so Mohit can archive them.
 - Update `swagger.json` for all new endpoints. Finalise `docs/API.md`, `docs/ARCHITECTURE.md` (diagram of jobs, clients, models), `docs/OPERATIONS.md` (env vars, running jobs, backfills, quotas, costs per run).
 
@@ -841,7 +842,7 @@ Do not start this phase unless Mohit says so in the session. If approved, Mohit 
 - Remove wildcard CORS middleware; full `helmet()`; drop polyfill.io; JSON/urlencoded limit `1mb`.
 - PayPal webhook: verify via `POST {BASE_URL}/v1/notifications/verify-webhook-signature` with `PAYPAL_WEBHOOK_ID`.
 - IDOR: fetch middlewares filter by `created_by: user._id`.
-- Hardcoded credentials: already done (`utils/fileEncryption.ts` deleted in Phase 1.5; DataForSEO moved to env in Phase 1.6). The old DataForSEO credential must still be rotated.
+- Hardcoded credentials: already done (`utils/fileEncryption.ts` deleted in Phase 1.5; the keyword-volume vendor moved to env in Phase 1.6 and was removed entirely on 2026-09-27). Its old credential must still be changed by the account owner (STATUS.md).
 - S19 admin JWT key: one key-derivation helper for every sign/verify, a startup assertion on secret format/length, algorithms pinned to HS256.
 
 **Approved plan (Mohit, 2026-09-27), where it refines the list above:**
@@ -879,5 +880,5 @@ Log `api_calls` on every run/report so real costs can be measured.
 - Add any field to the IDs-only Text Search field mask.
 - Fetch third-party data on a GET page view (all heavy work happens in jobs). The only exception is `GET map-ranking?resolveNames=true`, which works only when `STORE_PLACE_NAMES=false` and the caller explicitly asks for it (pending a ToS decision).
 - Store secrets in code, logs, fixtures, or docs.
-- Implement Q&A, organic ranking, DataForSEO, Moz, or SerpAPI.
+- Implement Q&A, organic ranking, third-party keyword search volume, Moz, or SerpAPI.
 - Start the next phase without approval.

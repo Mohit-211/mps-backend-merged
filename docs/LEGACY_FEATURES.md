@@ -1,6 +1,6 @@
 # Removed legacy features: reference for rebuilding
 
-Written for Mohit and his developers. These features were removed in the legacy cleanup (branch `claude/phase-9a-legacy-cleanup`) because they were broken, depended on removed services (SerpAPI, Moz, DataForSEO), or were replaced by the rebuilt ranking and GBP code.
+Written for Mohit and his developers. These features were removed in the legacy cleanup (branch `claude/phase-9a-legacy-cleanup`) because they were broken, depended on removed services (SerpAPI, Moz, a keyword search-volume API), or were replaced by the rebuilt ranking and GBP code.
 
 **Where the code is.** The last commit that still has all of it is **`1695187`**:
 
@@ -91,7 +91,7 @@ git checkout 1695187 -- <path>                                              # br
 
 | Removed | Old endpoints | Replaced by |
 |---|---|---|
-| Rank Tracker (SerpAPI + DataForSEO + Search Console) | `POST /rank-tracker`, `GET /rank-tracker/:locationId` | `/locations/:id/rank-runs` + `GET /locations/:id/rank-tracker` (Phase 5; ENDPOINTS.md #3–6) |
+| Rank Tracker (SerpAPI + a keyword search-volume API + Search Console) | `POST /rank-tracker`, `GET /rank-tracker/:locationId` | `/locations/:id/rank-runs` + `GET /locations/:id/rank-tracker` (Phase 5; ENDPOINTS.md #3–6) |
 | Local Search Grid (single SerpAPI search) | `POST /local-search-grid`, `GET /local-search-grid/:locationId` | `GET /locations/:id/grid` (#7) |
 | Local Map Ranking (SerpAPI) | `POST /local-map-ranking`, `GET /local-map-ranking/:locationId` | `GET /locations/:id/map-ranking` (#8) |
 | GBP Audit (legacy Places, recomputed on every GET) | `POST /gbp-audit`, `GET /gbp-audit/:locationId` | The GBP report (Phase 7c): health score, competitors, insights |

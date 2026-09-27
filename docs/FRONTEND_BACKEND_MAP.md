@@ -8,6 +8,33 @@ Every current endpoint (legacy included) is in [ENDPOINTS.md](ENDPOINTS.md); req
 
 Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
+## Notes for the frontend team (Phase 10, 2026-09-27)
+
+**1. Sessions: refresh the access token.**
+- Access tokens last **1 day** (they were 7). Refresh tokens last **30 days** (`JWT_REFRESH_EXPIRATION_DAYS`).
+- On a **401** from any endpoint, call `POST /user/auth/refresh-auth { refresh_token }` once and retry with the new access token.
+- If the refresh itself fails (401 expired or revoked, 404 disabled account), clear the tokens and go to login. After 30 days the user always logs in again.
+- A password change or reset, or an account deletion, ends every session (the next refresh is 401).
+- Exact flow, responses and error messages: [API.md](API.md) "Session tokens and refresh".
+
+**2. Admin panel: admin sign-in only.**
+- The admin panel signs in with `POST /admin/auth/login` and sends that **admin** token (12 h) on every admin call. User tokens never work on admin routes, and admin tokens never work on user routes.
+- Every admin route is guarded. No token → **401**. A role without the permission → **403** `{ "reason": "forbidden", "permission": "…" }`; hide the menu entries the role can't use.
+- Forgot password: `sendOTP` → `verifyOTP` → `forgotPassword` (see API.md "Platform admin authentication").
+
+| Permission | Roles | Routes |
+|---|---|---|
+| `admins.manage` | super admin | `/admin/auth/{register, getAllAdmins, getAdminById/:id, updateAdmin, deleteAdmin}`, `/roles` (all) |
+| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `GET /subscription`, `/subscription/{coupons, payments/all}`, `/payments/getAllPayments`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId`, `/citation/getAllCitatioList` |
+| `platform.write` | super admin, admin | `PUT /admin/operations/updateAgencyStatus`, `POST/PUT/DELETE /subscription[/:plan_id]`, `/subscription/{coupon/generate, send-subscription-welcome-mail}`, `PUT /supports/updateSupportTicketStatus`, `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
+| `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |
+| `system.read` | super admin | `/system/{info, process, time, usage}`, `GET/DELETE /logs` |
+| `citations.manage` | super admin, admin, editor | Phase 16 citation admin (directories, per-location lists, work queue) |
+
+The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (permission)`). The public admin routes are `login`, `sendOTP`, `verifyOTP` and `forgotPassword` (rate-limited).
+
+**3. CORS: register every frontend origin.** The wildcard CORS header is gone. The API answers cross-origin requests only from the origins listed in **`ACCESSDOMAINS`** (comma-separated, exact scheme + host + port, e.g. `https://app.mypageseo.com,https://admin.mypageseo.com`). A new frontend URL (staging, preview, admin panel) must be added there, and the API restarted, before it can call the API. Otherwise the browser blocks the request with a CORS error.
+
 ## Auth
 
 | Screen | Backend | Status |
@@ -138,7 +165,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | PDF mentions | Why |
 |---|---|
 | Organic Google rankings / "Google" result type / Google Local Pack from a SERP | The product is Maps / Places only (CLAUDE.md §1). Use Maps ranks and the Maps top-3 rate. |
-| Keyword search volume | DataForSEO removed; no source. GBP search-keyword impressions (7b) are the alternative. |
+| Keyword search volume | No source (the third-party vendor was removed 2026-09-27). GBP search-keyword impressions (7b) are the alternative. |
 | Competitor citations, key citations, links, linking domains, website authority | No SEO-authority data source. |
 | Full competitor photo counts | Places `photos` is not in our field set and moves billing to the top tier. Only the client's own photos (v4). |
 | Google Q&A | API discontinued 2025-11-03. |

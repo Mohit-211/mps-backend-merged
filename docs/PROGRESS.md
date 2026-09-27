@@ -921,3 +921,17 @@ All three are fixed.
 - 0 Google calls
 
 **API calls consumed:** 0.
+
+## On `claude/rebuild` after the Phase 10 merge (2026-09-27)
+
+Phase 10 was merged as `3c776fd` and pushed by Mohit. Follow-ups, committed on `claude/rebuild`:
+- **Phase 16 is part of M5** (Mohit): the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. Roadmap (CLAUDE.md, STATUS.md): M5 = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals. Phase 8.1 (email verification by link) was added before 16.
+- **Frontend notes** (FRONTEND_BACKEND_MAP.md "Notes for the frontend team"; API.md "Session tokens and refresh"):
+  - access tokens last 1 day and refresh tokens 30 days (`JWT_REFRESH_EXPIRATION_DAYS`), with the refresh flow and its errors
+  - the admin panel signs in via `/admin/auth/login`, with every guarded route and its permission listed
+  - the frontend origins must be in `ACCESSDOMAINS`
+- **DataForSEO fully removed (2026-09-27).**
+  - There was nothing left in code, config, `.env.example`, tests or fixtures (the code went in 9a, the env vars earlier). The local `.env` had no DATAFORSEO lines, so nothing needed removing.
+  - The remaining docs mentions (CLAUDE.md, AUDIT, FRONTEND_BACKEND_MAP, LEGACY_FEATURES, MIGRATION, PRODUCT, STATUS) now read "keyword search-volume vendor (removed 2026-09-27)" or similar.
+  - Outside this history file, the only remaining mention is Mohit's STATUS item: "DataForSEO password change by the account owner (old credential in git history)".
+- **Pending on Mohit's side** (STATUS.md open items): the price check, the quota check, the Dallas test + formal `calibrate:score`, the Google approvals (GBP API access, v4, app verification).

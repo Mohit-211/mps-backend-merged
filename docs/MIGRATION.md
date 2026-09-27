@@ -44,7 +44,7 @@ These can be deleted from server `.env` files. Leaving them does no harm: the co
 |---|---|
 | Stripe | `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET_INTENT_CHARGE`, `STRIPE_WEBHOOK_SECRET_CUSTOMER_INVOICE_PRICE` |
 | Razorpay | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
-| SerpAPI / Moz / DataForSEO | `SERP_API_KEY`, `SERP_API_TIMEOUT`, `SEO_MOZ_API_USERNAME`, `SEO_MOZ_API_PASSWORD`, `SEO_MOZ_API_KEY`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` |
+| SerpAPI / Moz / keyword search-volume vendor (removed 2026-09-27) | `SERP_API_KEY`, `SERP_API_TIMEOUT`, `SEO_MOZ_API_USERNAME`, `SEO_MOZ_API_PASSWORD`, `SEO_MOZ_API_KEY`, and the vendor's login / password vars |
 | Search Console | `GOOGLE_ANALYTICS_CLIENT_ID`, `GOOGLE_ANALYTICS_CLIENT_SECRET`, `GOOGLE_ANALYTICS_REDIRECT_URI` |
 | Places (legacy) | `GOOGLE_PLACE_API_URL` |
 | Square (unused parts) | `SQUARE_APPLICATION_ID`, `SQUARE_ENV` |

@@ -89,7 +89,7 @@ The mandatory reports are the Rank Tracker Report, GBP Audit Report, Competitor 
 The PDF's benchmark (BrightLocal-style) shows metrics we deliberately don't have. The frontend must not build screens for them:
 
 - **Organic Google rankings** (website / "Google" result type): Maps / Places only. Our "Local Pack coverage" comes from Maps ranks 1–3 (`top3Rate`), not a Google SERP.
-- **Search volume** per keyword (DataForSEO was removed). GBP's own search-keyword impressions (7b) are available instead.
+- **Search volume** per keyword (the third-party vendor was removed 2026-09-27). GBP's own search-keyword impressions (7b) are available instead.
 - **Competitor citations, key citations, links, linking domains, website authority**: no SEO-authority data source.
 - **Full competitor photo counts**: Places Details doesn't return photo counts on our field set, and requesting `photos` moves the call to the most expensive tier. Photo counts exist only for the client's own profile (v4 media).
 - **Google Q&A**: the API was discontinued on 2025-11-03.

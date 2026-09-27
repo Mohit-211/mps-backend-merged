@@ -1594,7 +1594,35 @@ A wrong code → **400** `{ "reason": "invalid_code", "attempts_left": 4 }`; exp
 | `POST /auth/forgot-password` | `{ email }` | **200** `{ "reset": "sent_if_account_exists" }` |
 | `POST /auth/reset-password` | `{ email, code, password }` | **200** `{ "reset": true }`; every refresh token is revoked (log in again) |
 
-Token refresh and logout stay at `POST /user/auth/refresh-auth` and `POST /user/auth/logout`.
+#### Session tokens and refresh (Phase 10)
+
+| Token | Lifetime | Config | Where |
+|---|---|---|---|
+| Access | **1 day** | `JWT_ACCESS_EXPIRATION_DAYS` (default 1) | `Authorization: Bearer <access>` on every user endpoint |
+| Refresh | **30 days** | `JWT_REFRESH_EXPIRATION_DAYS` (default 30) | only in the refresh and logout bodies; stored server-side (revocable) |
+
+The refresh token isn't rotated: a refresh returns a new access token only, and the same refresh token keeps working until it expires 30 days after login. After that the user must log in again.
+
+**Flow:**
+1. Any user endpoint answers **401** when the access token is missing, bad, expired or revoked (password change or reset, account deletion).
+2. On a 401, call once:
+   ```http
+   POST /api/v1/user/auth/refresh-auth
+   { "refresh_token": "eyJ…" }
+   → 200 { "tokens": { "access": { "token": "eyJ…", "expires": "2026-09-28T10:00:00.000Z" } } }
+   ```
+3. Retry the original request with the new access token. Refresh ahead of time if you like: `tokens.access.expires` is included.
+4. If the refresh call fails, clear the stored tokens and send the user to the login page:
+
+| Refresh response | Meaning |
+|---|---|
+| **401** "Invalid or expired token. Please log in again." | refresh token expired (30 days), bad signature or not a refresh token |
+| **401** "Token not found. Please log in again." | revoked: logout, password change or reset, account deletion |
+| **404** "User Not Found" | the account is disabled |
+
+Never retry a failed refresh in a loop. Run one refresh at a time and let concurrent 401s wait for it.
+
+**Logout:** `POST /api/v1/user/auth/logout` `{ "refresh_token" }` with a `time_zone` header (e.g. `America/Toronto`) deletes that refresh token. The access token stays valid until it expires (at most 1 day), so drop it on the client.
 
 ### Organization (`/api/v1/organization`)
 
@@ -2054,7 +2082,7 @@ Authorization: Bearer eyJ…
 - **Errors:** no or invalid token → **401**; a missing permission → **403**: `{ "reason": "forbidden", "permission": "platform.read" }`. Rate limits → **429** `rate_limited`.
 
 **Other Phase 10 changes clients see:**
-- A bad, expired or revoked **user** token is **401** (it used to be 500 for a bad signature, 404 for a deleted user). Access tokens last 1 day; use `/user/auth/refresh-auth` (or sign in again).
+- A bad, expired or revoked **user** token is **401** (it used to be 500 for a bad signature, 404 for a deleted user). Access tokens last 1 day; refresh as in "Session tokens and refresh" above (refresh tokens last 30 days, then sign in again).
 - Password changes and resets end every session of that user.
 - Any request key starting with `$` or containing `.` → **400** `{ "reason": "invalid_input", "field": "body.email.$ne" }`.
 - Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, legacy white-label create/update, GBP post add); elsewhere a file → **400**.
