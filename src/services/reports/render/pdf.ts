@@ -224,22 +224,29 @@ export const renderPdf = (report: ReportDocument, opts: RenderOptions = {}): Pro
 			doc.y = top + h + 22;
 		};
 
-		const heatmap = (b: Extract<Block, { kind: 'heatmap' }>) => {
-			const cell = Math.min(36, W / b.size);
-			const gridW = cell * b.size;
-			ensure(20 + gridW + 26);
-			doc.font('B').fontSize(9.5).fillColor(TEXT);
-			write(b.title, MARGIN, doc.y, { width: W });
-			gap(4);
+		/** One or two heatmaps side by side, then the shared legend. */
+		const heatmaps = (row: Extract<Block, { kind: 'heatmap' }>[]) => {
+			const colW = row.length > 1 ? (W - 24) / 2 : W;
+			const cells = row.map((b) => Math.min(36, colW / b.size));
+			const titleH = 30;
+			const gridH = Math.max(...row.map((b, i) => cells[i] * b.size));
+			ensure(titleH + gridH + 26);
 			const top = doc.y;
-			for (const c of b.cells) {
-				const x = MARGIN + c.col * cell;
-				const y = top + c.row * cell;
-				doc.rect(x + 1, y + 1, cell - 2, cell - 2).fill(BUCKET_COLORS[c.bucket]);
-				doc.font('B').fontSize(cell > 28 ? 9 : 7).fillColor('#ffffff');
-				write(c.text, x, y + cell / 2 - 5, { width: cell, align: 'center', lineBreak: false });
-			}
-			doc.y = top + gridW + 6;
+			row.forEach((b, i) => {
+				const left = MARGIN + i * (colW + 24);
+				const cell = cells[i];
+				doc.font('B').fontSize(9.5).fillColor(TEXT);
+				write(b.title, left, top, { width: colW, height: titleH, ellipsis: true });
+				const gy = top + titleH;
+				for (const c of b.cells) {
+					const x = left + c.col * cell;
+					const y = gy + c.row * cell;
+					doc.rect(x + 1, y + 1, cell - 2, cell - 2).fill(BUCKET_COLORS[c.bucket]);
+					doc.font('B').fontSize(cell > 28 ? 9 : 7).fillColor('#ffffff');
+					write(c.text, x, y + cell / 2 - 5, { width: cell, align: 'center', lineBreak: false });
+				}
+			});
+			doc.y = top + titleH + gridH + 6;
 			let x = MARGIN;
 			doc.font('R').fontSize(7);
 			for (const [key, label] of Object.entries(BUCKET_LABELS)) {
@@ -248,7 +255,7 @@ export const renderPdf = (report: ReportDocument, opts: RenderOptions = {}): Pro
 				write(label, x + 10, doc.y, { lineBreak: false });
 				x += 12 + doc.widthOfString(label) + 10;
 			}
-			gap(20);
+			gap(22);
 		};
 
 		const list = (b: Extract<Block, { kind: 'list' }>) => {
@@ -274,13 +281,20 @@ export const renderPdf = (report: ReportDocument, opts: RenderOptions = {}): Pro
 			gap(10);
 		};
 
-		for (const b of report.blocks) {
-			if (b.kind === 'heading') heading(b);
+		const blocks = report.blocks;
+		for (let i = 0; i < blocks.length; i++) {
+			const b = blocks[i];
+			if (b.kind === 'heatmap') {
+				const next = blocks[i + 1];
+				if (next?.kind === 'heatmap') {
+					heatmaps([b, next]);
+					i += 1;
+				} else heatmaps([b]);
+			} else if (b.kind === 'heading') heading(b);
 			else if (b.kind === 'paragraph') paragraph(b);
 			else if (b.kind === 'kpis') kpis(b);
 			else if (b.kind === 'table') table(b);
 			else if (b.kind === 'line_chart') lineChart(b);
-			else if (b.kind === 'heatmap') heatmap(b);
 			else if (b.kind === 'list') list(b);
 			else if (b.kind === 'unavailable') unavailable(b);
 			else if (b.kind === 'page_break' && doc.y > MARGIN + 10) doc.addPage();

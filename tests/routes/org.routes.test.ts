@@ -404,7 +404,7 @@ describe('onboarding state', () => {
 			{ id: 'first_client', status: 'pending' },
 			{ id: 'first_location', status: 'pending' },
 			{ id: 'location_setup', status: 'pending' },
-			{ id: 'reporting_brand', status: 'not_available' },
+			{ id: 'reporting_brand', status: 'pending' },
 		]);
 		expect(state.empty_states).toMatchObject({ no_locations: true, google_not_connected: true });
 		state = (await request(app).post('/api/v1/onboarding/skip').set(auth(token)).send({ step: 'google' })).body.data;
@@ -412,6 +412,11 @@ describe('onboarding state', () => {
 		await Client.create({ company_name: 'A', organization_id: org._id });
 		await createLocation(user._id as Types.ObjectId, { tracking: { keywords: keywordsOf('x') } });
 		state = (await request(app).get('/api/v1/onboarding/state').set(auth(token))).body.data;
+		expect(state.organization).toMatchObject({ completed: false, next_step: 'reporting_brand' });
+		// Phase 12: saving any branding completes the step (it can also be skipped).
+		await Organization.updateOne({ _id: org._id }, { $set: { branding: { agency_name: 'Acme' } } });
+		state = (await request(app).get('/api/v1/onboarding/state').set(auth(token))).body.data;
+		expect(state.organization.steps.at(-1)).toEqual({ id: 'reporting_brand', status: 'done' });
 		expect(state.organization).toMatchObject({ completed: true, next_step: null });
 		expect((await request(app).post('/api/v1/onboarding/skip').set(auth(token)).send({ step: 'first_client' })).status).toBe(400);
 	});

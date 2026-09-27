@@ -13,13 +13,20 @@
  *   and a report; plus a client user (agency-client@mypageseo.test) who sees one client only.
  *   Dashboard data (Phase 11): ranks improve and decline, Queen West has an unverified profile on a
  *   revoked Google connection (reconnect_required), and one team invitation is pending.
+ * - Reports center (Phase 12): real PDFs rendered offline into REPORTS_STORAGE_DIR (business: Rank
+ *   Tracker + Full; agency: Rank Tracker, GBP Audit and Competitor Analysis for Maple Leaf, a Full
+ *   report for Danforth without GBP), agency white-label branding with a generated logo, one monthly
+ *   schedule (client Maple Leaf Group) and one 30-day share link (printed).
  * Rank runs use the offline demo Places client; Place Details come from an offline demo client.
  * Prints logins, tokens and curl examples.
  *
  * Refuses to run unless NODE_ENV=development AND the connected database is mps_rebuild.
  * Only the demo accounts' own data (and the demo plan) are deleted and recreated.
  */
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
+import fs from 'fs/promises';
+import path from 'path';
+import zlib from 'zlib';
 import bcrypt from 'bcryptjs';
 import mongoose, { Types } from 'mongoose';
 import { Agenda } from 'agenda';
@@ -43,6 +50,11 @@ import {
 	Organization,
 	Profile,
 	RankRun,
+	Report,
+	ReportType,
+	ReportSchedule,
+	ReportShare,
+	ReportSnapshot,
 	SubscriptionPlan,
 	User,
 	UserAuth,
@@ -57,6 +69,9 @@ import { hashToken } from '../services/team/invitation.service';
 import { enqueueRankRun } from '../services/ranking/rankRun.service';
 import { executeRankRun } from '../services/ranking/rankRunExecutor';
 import { normaliseKeywords } from '../services/ranking/trackingSettings';
+import { createReportService } from '../services/reports/report.service';
+import { reportStorage } from '../services/reports/storage';
+import { createShareService } from '../services/reports/share.service';
 
 const BUSINESS_EMAIL = 'business-demo@mypageseo.test';
 const AGENCY_EMAIL = 'agency-demo@mypageseo.test';
@@ -88,7 +103,16 @@ const removePreviousDemo = async (): Promise<void> => {
 	).map((l) => l._id);
 	await Location.collection.deleteMany({ $or: [{ created_by: { $in: userIds } }, { organization_id: { $in: orgIds } }] });
 	const byLocation = { location_id: { $in: ids } };
+	const reportIds = (await Report.find({ organization_id: { $in: orgIds } }).select({ _id: 1 }).lean()).map((r) => r._id);
+	for (const orgId of orgIds) {
+		await fs.rm(path.join(reportStorage.root, 'pdf', String(orgId)), { recursive: true, force: true });
+		await fs.rm(path.join(reportStorage.root, 'branding', String(orgId)), { recursive: true, force: true });
+	}
 	await Promise.all([
+		Report.deleteMany({ organization_id: { $in: orgIds } }),
+		ReportSnapshot.deleteMany({ report_id: { $in: reportIds } }),
+		ReportShare.deleteMany({ organization_id: { $in: orgIds } }),
+		ReportSchedule.deleteMany({ organization_id: { $in: orgIds } }),
 		RankRun.deleteMany(byLocation),
 		GbpReport.deleteMany(byLocation),
 		GbpSync.deleteMany(byLocation),
@@ -200,6 +224,49 @@ const runRanks = async (location: ILocation, userId: Types.ObjectId, runs: (0 | 
 	await updateSummaryFromRuns(location._id as Types.ObjectId);
 };
 
+/** A small PNG logo (a two-colour badge), encoded here so the seed needs no image file. */
+const demoLogoPng = (): Buffer => {
+	const w = 240;
+	const h = 80;
+	const crcTable = Array.from({ length: 256 }, (_, n) => {
+		let c = n;
+		for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+		return c >>> 0;
+	});
+	const crc = (buf: Buffer) => {
+		let c = 0xffffffff;
+		for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8);
+		return (c ^ 0xffffffff) >>> 0;
+	};
+	const chunk = (type: string, data: Buffer) => {
+		const len = Buffer.alloc(4);
+		len.writeUInt32BE(data.length);
+		const body = Buffer.concat([Buffer.from(type), data]);
+		const sum = Buffer.alloc(4);
+		sum.writeUInt32BE(crc(body));
+		return Buffer.concat([len, body, sum]);
+	};
+	const rows: Buffer[] = [];
+	for (let y = 0; y < h; y++) {
+		const row = Buffer.alloc(1 + w * 3);
+		for (let x = 0; x < w; x++) {
+			const inCircle = (x - 40) ** 2 + (y - 40) ** 2 < 30 ** 2;
+			const stripe = x > 85 && x < 225 && ((y > 22 && y < 36) || (y > 46 && y < 58 && x < 180));
+			const [r, g, b] = inCircle ? [255, 255, 255] : stripe ? [255, 255, 255] : [15, 118, 110];
+			row.writeUInt8(r, 1 + x * 3);
+			row.writeUInt8(g, 2 + x * 3);
+			row.writeUInt8(b, 3 + x * 3);
+		}
+		rows.push(row);
+	}
+	const ihdr = Buffer.alloc(13);
+	ihdr.writeUInt32BE(w, 0);
+	ihdr.writeUInt32BE(h, 4);
+	ihdr.writeUInt8(8, 8);
+	ihdr.writeUInt8(2, 9);
+	return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(Buffer.concat(rows))), chunk('IEND', Buffer.alloc(0))]);
+};
+
 const main = async (): Promise<void> => {
 	if (config.essentials.env !== 'development') fail(`NODE_ENV is "${config.essentials.env}", not "development"`);
 	const v4 = !process.argv.includes('--v4-off');
@@ -223,6 +290,9 @@ const main = async (): Promise<void> => {
 		UserGBP.syncIndexes(),
 		Organization.syncIndexes(),
 		Membership.syncIndexes(),
+		Report.syncIndexes(),
+		ReportShare.syncIndexes(),
+		ReportSnapshot.syncIndexes(),
 	]);
 
 	await removePreviousDemo();
@@ -302,7 +372,55 @@ const main = async (): Promise<void> => {
 		expires_at: new Date(now + 7 * DAY),
 		invited_by: agency._id,
 	});
-	await Organization.updateMany({ _id: { $in: [businessOrg._id, orgId] } }, { $set: { 'onboarding.completed_at': new Date(now - 90 * DAY), 'onboarding.skipped': ['reporting_brand'] } });
+	await Organization.updateMany({ _id: { $in: [businessOrg._id, orgId] } }, { $set: { 'onboarding.completed_at': new Date(now - 90 * DAY), 'onboarding.skipped': [] } });
+
+	// ---- Reports center (Phase 12): branding, reports rendered offline, a schedule, a share link ----
+	const logo = demoLogoPng();
+	await reportStorage.write(reportStorage.logoPath(String(orgId), 'png'), logo);
+	await Organization.updateOne(
+		{ _id: orgId },
+		{
+			$set: {
+				branding: {
+					agency_name: 'Northern Local SEO',
+					logo: { file: 'logo.png', mime: 'image/png', bytes: logo.length, sha256: createHash('sha256').update(logo).digest('hex') },
+					primary_color: '#0f766e',
+					secondary_color: '#b45309',
+					footer_text: 'Northern Local SEO · Toronto, ON',
+					contact_text: 'hello@northernlocalseo.example · (416) 555-0199',
+					hide_mypageseo: true,
+					email_sender_name: 'Northern Local SEO',
+					email_reply_to: 'hello@northernlocalseo.example',
+					updated_at: new Date(now),
+				},
+			},
+		},
+	);
+	const reports = createReportService({ enqueue: async () => undefined });
+	const makeReport = async (location: ILocation, type: ReportType, userId: Types.ObjectId) => {
+		const fresh = (await Location.findById(location._id)) as ILocation;
+		const created = await reports.createFor(fresh, { type }, { trigger: 'manual', created_by: userId });
+		await reports.generate(created.report_id);
+		return created.report_id;
+	};
+	const reportIds: string[] = [];
+	reportIds.push(await makeReport(bLoc, 'rank_tracker', business._id), await makeReport(bLoc, 'full', business._id));
+	const auditId = await makeReport(a1, 'gbp_audit', agency._id);
+	reportIds.push(await makeReport(a1, 'rank_tracker', agency._id), auditId, await makeReport(a1, 'competitor_analysis', agency._id), await makeReport(a3, 'full', agency._id));
+	const schedule = await ReportSchedule.create({
+		organization_id: orgId,
+		scope: 'client',
+		client_id: clientA._id,
+		type: 'gbp_audit',
+		sections: [],
+		range: '28d',
+		recipients: ['owner@mapleleafgroup.example', 'marketing@mapleleafgroup.example'],
+		created_by: agency._id,
+		cycles: { [String(a1._id)]: new Date(now - 10 * DAY), [String(a2._id)]: new Date(now - 10 * DAY) },
+		last_sent_at: new Date(now - 10 * DAY + 3600_000),
+		last_report_id: new Types.ObjectId(auditId),
+	});
+	const share = await createShareService().createFor((await Report.findById(auditId)) as never, { expiresInDays: 30, purpose: 'share', createdBy: String(agency._id) });
 
 	const tokenOf = async (user: IUser) => (await generateAuthTokens(user)).access.token as string;
 	const base = `http://localhost:${config.essentials.port}/api/v1`;
@@ -328,6 +446,14 @@ const main = async (): Promise<void> => {
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/locations/${String(a1._id)}/overview`);
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_BUSINESS" "${base}/locations/${String(bLoc._id)}/gbp/report?range=28d"`);
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_CLIENT" ${base}/locations`);
+	out();
+	out(`Reports center: ${reportIds.length} reports rendered to ${reportStorage.root}; schedule ${String(schedule._id)} (client Maple Leaf Group, GBP Audit).`);
+	out(`  Share link (30 days, no login): ${share.url}`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/reports`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" -o gbp-audit.pdf ${base}/reports/${auditId}/pdf`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/report-schedules`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/organization/branding`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_CLIENT" ${base}/reports   (Danforth Services' reports only)`);
 
 	await mongoose.disconnect();
 	process.exit(0);

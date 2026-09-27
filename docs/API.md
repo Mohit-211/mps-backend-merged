@@ -1706,14 +1706,14 @@ A business organization gets **403** `{ "reason": "agency_only" }`. A `client_us
 ```json
 { "organization": { "id": "…", "type": "agency",
     "steps": [ { "id": "agency_info", "status": "done" }, { "id": "google", "status": "done" }, { "id": "first_client", "status": "done" },
-               { "id": "first_location", "status": "done" }, { "id": "location_setup", "status": "done" }, { "id": "reporting_brand", "status": "not_available" } ],
+               { "id": "first_location", "status": "done" }, { "id": "location_setup", "status": "done" }, { "id": "reporting_brand", "status": "done" } ],
     "next_step": null, "completed": true, "completed_at": "…" },
   "empty_states": { "no_locations": false, "google_not_connected": false, "no_ranking_data": false, "no_keywords": false, "no_competitors": false, "no_reports": false },
   "gbp": { "connected": true, "connections": [ "…" ] },
   "locations": [ { "location_id": "…", "name": "…", "source": "gbp", "client_id": "…", "onboarding": { "step": "completed", "…": "…" } } ] }
 ```
 
-- **Business steps:** `organization_info` → `google` → `first_location` → `location_setup`. **Agency:** `agency_info` → `google` → `first_client` → `first_location` → `location_setup` → `reporting_brand` (`not_available` until white-label exists). Status: `done | pending | skipped | not_available`.
+- **Business steps:** `organization_info` → `google` → `first_location` → `location_setup`. **Agency:** `agency_info` → `google` → `first_client` → `first_location` → `location_setup` → `reporting_brand` (Phase 12: `done` once any branding is saved with `PUT /organization/branding`; skippable). Status: `done | pending | skipped | not_available`.
 - `POST /onboarding/skip { "step": "google" | "reporting_brand" }` (owner/member): skip Google to add locations from a Places search.
 - **Location steps:** `profile_selected` (GBP) or `place_selected` (Places search) → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`.
 - `POST /onboarding/select-profile` accepts `client_id` (agency) and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind-with-user`).

@@ -37,6 +37,8 @@ const fmtPct = (v: number | null | undefined): string => (v === null || v === un
 const fmtRankChange = (v: number | null | undefined): string => (v === null || v === undefined ? '-' : v > 0 ? `▲ ${fmtNum(v, 1)}` : v < 0 ? `▼ ${fmtNum(-v, 1)}` : '0');
 const fmtRelChange = (v: number | null | undefined): string => (v === null || v === undefined ? '-' : `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`);
 const toneOf = (v: number | null | undefined): Tone => (v === null || v === undefined || v === 0 ? 'neutral' : v > 0 ? 'good' : 'bad');
+/** Tone of a fractional change as displayed (a change that rounds to 0% is neutral). */
+const toneRel = (v: number | null | undefined): Tone => toneOf(v === null || v === undefined ? null : Math.round(v * 100));
 const yesNo = (v: boolean | null | undefined): string => (v === null || v === undefined ? '-' : v ? 'Yes' : 'No');
 const avgRank = (v: number | null | undefined): string => (v === null || v === undefined ? '-' : v > 60 ? '60+' : fmtNum(v, 1));
 
@@ -138,8 +140,8 @@ export const gbpAuditBlocks = (d: GbpAuditData): Block[] => {
 			...(c.top_fixes.length ? [{ kind: 'heading' as const, level: 2 as const, text: 'Top fixes' }, { kind: 'list' as const, items: c.top_fixes.map((f) => (f.fix_hint ? `${f.label}: ${f.fix_hint}` : f.label)) }] : []),
 			{
 				kind: 'table',
-				columns: [{ label: 'Check', weight: 3 }, { label: 'Pillar', weight: 1.2 }, { label: 'Points', align: 'right' }, { label: 'Detail', weight: 4 }],
-				rows: c.checks.map((x) => [x.label, x.pillar, x.status === 'scored' ? `${fmtNum(x.points, 1)}/${x.max}` : 'n/a', x.status === 'scored' ? x.detail : 'Not available yet']),
+				columns: [{ label: 'Check', weight: 3 }, { label: 'Pillar', weight: 1.7 }, { label: 'Points', align: 'right' }, { label: 'Detail', weight: 4 }],
+				rows: c.checks.map((x) => [x.label, x.pillar.charAt(0).toUpperCase() + x.pillar.slice(1), x.status === 'scored' ? `${fmtNum(x.points, 1)}/${x.max}` : 'n/a', x.status === 'scored' ? x.detail : 'Not available yet']),
 			},
 		]),
 	);
@@ -149,9 +151,9 @@ export const gbpAuditBlocks = (d: GbpAuditData): Block[] => {
 			{
 				kind: 'kpis',
 				items: [
-					{ label: 'Impressions', value: fmtNum(p.totals.impressions), sub: `${fmtRelChange(p.previous_change.impressions)} vs previous period`, tone: toneOf(p.previous_change.impressions) },
-					{ label: 'Actions', value: fmtNum(p.totals.actions), sub: `${fmtRelChange(p.previous_change.actions)} vs previous period`, tone: toneOf(p.previous_change.actions) },
-					{ label: 'Actions per 1,000', value: fmtNum(p.actions_per_1000, 1), sub: p.actions_per_1000_change === null ? null : `${fmtRelChange(p.actions_per_1000_change)} vs previous`, tone: toneOf(p.actions_per_1000_change) },
+					{ label: 'Impressions', value: fmtNum(p.totals.impressions), sub: `${fmtRelChange(p.previous_change.impressions)} vs previous period`, tone: toneRel(p.previous_change.impressions) },
+					{ label: 'Actions', value: fmtNum(p.totals.actions), sub: `${fmtRelChange(p.previous_change.actions)} vs previous period`, tone: toneRel(p.previous_change.actions) },
+					{ label: 'Actions per 1,000', value: fmtNum(p.actions_per_1000, 1), sub: p.actions_per_1000_change === null ? null : `${fmtRelChange(p.actions_per_1000_change)} vs previous`, tone: toneRel(p.actions_per_1000_change) },
 				],
 			},
 			{
@@ -308,8 +310,10 @@ export const buildDocument = (input: { type: ReportType; location: SnapshotLocat
 	if (type === 'full') {
 		blocks = [];
 		for (const key of ['rank_tracker', 'gbp_audit', 'competitor_analysis'] as const) {
-			if (!data[key]) continue;
-			if (blocks.length) blocks.push({ kind: 'page_break' });
+			const part = data[key];
+			if (!part) continue;
+			// A part that is only an "unavailable" note doesn't start a new page.
+			if (blocks.length && isAvailable(part as Part<object>)) blocks.push({ kind: 'page_break' });
 			blocks.push({ kind: 'heading', level: 1, text: PART_TITLES[key] }, ...partOf(key, data[key]));
 		}
 	} else {
