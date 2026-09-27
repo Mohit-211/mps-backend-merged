@@ -77,7 +77,14 @@ const envVarsSchema = Joi.object({
 		.when('NODE_ENV', { is: 'production', then: Joi.required().invalid('') })
 		.description('32-byte hex key (AES-256-GCM) for stored OAuth tokens'),
 
-	JWT_SECRET: Joi.string().required().description('JWT secret key'),
+	JWT_SECRET: Joi.string()
+		.required()
+		.when('NODE_ENV', { is: 'production', then: Joi.string().min(32) })
+		.description('JWT secret for user tokens (Phase 10: at least 32 characters in production)'),
+	ADMIN_JWT_SECRET: Joi.string()
+		.allow('')
+		.when('NODE_ENV', { is: 'production', then: Joi.string().min(32).required().invalid('', Joi.ref('JWT_SECRET')) })
+		.description('Phase 10: separate secret for admin tokens (required in production, ≥ 32 characters, not JWT_SECRET)'),
 	JWT_ACCESS_EXPIRATION_DAYS: Joi.number()
 		.default(7)
 		.description('days after which access tokens expire'),
@@ -236,6 +243,8 @@ interface Config {
 	constants: {
 		jwt: {
 			secret: string;
+			/** Phase 10: admin token key; empty in development/test (derived from JWT_SECRET there). */
+			adminSecret: string;
 			accessExpirationDays: number;
 			refreshExpirationDays: number;
 		};
@@ -367,6 +376,7 @@ const config: Config = {
 	constants: {
 		jwt: {
 			secret: envVars.JWT_SECRET,
+			adminSecret: envVars.ADMIN_JWT_SECRET ?? '',
 			accessExpirationDays: envVars.JWT_ACCESS_EXPIRATION_DAYS,
 			refreshExpirationDays: envVars.JWT_REFRESH_EXPIRATION_DAYS,
 		},

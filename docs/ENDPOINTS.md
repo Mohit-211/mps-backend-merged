@@ -22,6 +22,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.manage` (Phase 16; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -55,23 +56,23 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/admin/auth/register` | none | Create Admin User | legacy | live |
-| POST | `/api/v1/admin/auth/login` | none | Login Admin User | legacy | live |
-| POST | `/api/v1/admin/auth/sendOTP` | none | Send OTP | legacy | live |
-| POST | `/api/v1/admin/auth/verifyOTP` | none | Verify OTP | legacy | live |
-| POST | `/api/v1/admin/auth/resetPassword` | admin | Reset Admin Password | legacy | live |
-| POST | `/api/v1/admin/auth/forgotPassword` | none | Forgot Admin Password | legacy | live |
-| GET | `/api/v1/admin/auth/getAllAdmins` | none | Get All Admins | legacy | live |
-| GET | `/api/v1/admin/auth/getAdminById/:id` | none | Find Admin By Id | legacy | live |
+| POST | `/api/v1/admin/auth/register` | admin (`admins.manage`) | Create Admin User (crypto temporary password, emailed) | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/login` | none (rate-limited) | Login Admin User: an admin session token (12 h, `ADMIN_JWT_SECRET`) | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/sendOTP` | none (rate-limited) | Send OTP (10 min, 5 attempts; same answer for unknown emails) | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/verifyOTP` | none (rate-limited) | Verify OTP; with `otp_type=FORGOT_PASSWORD` returns a single-use 15-min reset token | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/resetPassword` | admin | Change the signed-in admin's password (other sessions revoked; returns a new token) | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/forgotPassword` | none (reset token) | Set a new password with the reset token (sessions revoked) | legacy, changed 10 | live |
+| GET | `/api/v1/admin/auth/getAllAdmins` | admin (`admins.manage`) | Get All Admins (no password/OTP/token fields) | legacy, changed 10 | live |
+| GET | `/api/v1/admin/auth/getAdminById/:id` | admin (`admins.manage`) | Find Admin By Id | legacy, changed 10 | live |
 | GET | `/api/v1/admin/auth/getProfile` | admin | Get Profile | legacy | live |
-| PUT | `/api/v1/admin/auth/updateAdmin` | none | Update Admin | legacy | live |
-| DELETE | `/api/v1/admin/auth/deleteAdmin` | none | Delete Admin | legacy | live |
-| GET | `/api/v1/admin/operations/getAllAgencies` | none | Get All Agencies | legacy | live |
-| GET | `/api/v1/admin/operations/getAgencyById/:id` | none | Get Agency By Id | legacy | live |
-| PUT | `/api/v1/admin/operations/updateAgencyStatus` | none | Update Agency Status | legacy | live |
-| GET | `/api/v1/admin/operations/getAllBusinesses` | none | Get All Businesses | legacy | live |
-| GET | `/api/v1/admin/operations/getBusinessesById/:id` | none | Get Businesses By Id | legacy | live |
-| GET | `/api/v1/admin/operations/getAllClients` | none | Get All Clients | legacy | live |
+| PUT | `/api/v1/admin/auth/updateAdmin` | admin (`admins.manage`) | Update Admin (not your own role; a role or email change revokes that admin's tokens) | legacy, changed 10 | live |
+| DELETE | `/api/v1/admin/auth/deleteAdmin` | admin (`admins.manage`) | Delete Admin (not yourself, not the last super admin) | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getAllAgencies` | admin (`platform.read`) | Get All Agencies | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getAgencyById/:id` | admin (`platform.read`) | Get Agency By Id | legacy, changed 10 | live |
+| PUT | `/api/v1/admin/operations/updateAgencyStatus` | admin (`platform.write`) | Update Agency Status | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getAllBusinesses` | admin (`platform.read`) | Get All Businesses | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getBusinessesById/:id` | admin (`platform.read`) | Get Businesses By Id | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getAllClients` | admin (`platform.read`) | Get All Clients | legacy, changed 10 | live |
 
 ### Auth (rebuilt app)
 
