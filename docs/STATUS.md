@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, **planned pause**. Everything through Phases 12.5, 10 and 8.1 is merged and pushed; the sanitation pass is done. **Phase 16 (citations) has an approved plan ([plans/phase-16-citations.md](plans/phase-16-citations.md)); its build is paused** (Mohit: "we will get back to citation and other stuff later on"). **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27. **Phase 16 in progress** on `claude/phase-16-citations` (resumed after a planned pause). Everything through Phases 12.5, 10 and 8.1 is merged and pushed; the sanitation pass is done. **Phase 16 (citations) is being built from the approved plan ([plans/phase-16-citations.md](plans/phase-16-citations.md)).** After it: Phase 13 (billing & plans + the admin panel backend) in plan mode. **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
 
 ## Product goal
 
@@ -34,7 +34,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
-| **16** | **Citations**: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | **paused (plan approved 2026-09-27; not built)** | `claude/phase-16-citations` (not created yet) | – | M5 |
+| **16** | **Citations**: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | **in progress** | `claude/phase-16-citations` | – | M5 |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
@@ -213,7 +213,7 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Paused (Mohit, 2026-09-27).** When work resumes, Mohit picks the next phase. The candidates toward M5 are **16 Citations** (plan approved: [plans/phase-16-citations.md](plans/phase-16-citations.md)), **13 Billing & plans** (spec to be written) and **14 Production readiness**. **Phase 8.1 at deploy:** run `npm run migrate:email-verified -- --confirm` **before** starting the new code, and set `FRONTEND_URL` (OPERATIONS.md deploy checklist step 12). The frontend needs the `/verify-email` page (API.md).
+1. **Phase 16 (citations), in progress** ([plans/phase-16-citations.md](plans/phase-16-citations.md)). **Then Phase 13** (billing & plans, plus the admin panel backend for launch: users, organizations, subscriptions, support tickets) in plan mode. **Phase 8.1 at deploy:** run `npm run migrate:email-verified -- --confirm` **before** starting the new code, and set `FRONTEND_URL` (OPERATIONS.md deploy checklist step 12). The frontend needs the `/verify-email` page (API.md).
 2. **Then** 13 (billing & plans) and 14 (production readiness) toward M5.
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
