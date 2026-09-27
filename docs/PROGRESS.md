@@ -1085,3 +1085,20 @@ Branch `claude/phase-16-citations` (from `claude/rebuild` at `c921dc2`). Plan: [
   - Phase 13 decides whether the legacy citation credits survive
 
 **API calls:** none.
+
+## Junk-file cleanup (2026-09-27, on `claude/phase-16-citations`)
+
+Asked by Mohit before Phase 13. Every file was checked for references before deletion.
+- **Deleted:**
+  - `fix_ids.sh`: a one-off `_id` type codemod from the initial import; never run, referenced nowhere.
+  - `src/utils/timezone.ts`: a hardcoded time-zone list, imported nowhere.
+  - `public/assets/404image.jpg`, `public/assets/404.jpeg`: unused; only `404file.jpg` is served (`src/app.ts`).
+  - `tests/fixtures/gbp/error_location_forbidden.json`: an unused fixture.
+- **README.md:** the generic "Node + Mongo skeleton" template text was replaced by a short, accurate README pointing to STATUS, PROJECT_SUMMARY, CLAUDE.md and OPERATIONS.
+- **Kept:**
+  - `dumps/*` (seeded by `mongo-migrate` / `seed:citation-directories`)
+  - `swagger.json` (served at `/docs`; rewritten in 9b)
+  - `public/assets/404file.jpg`
+  - all configs
+- **Local only:** `.DS_Store`, `build/`, `logs/` and `storage/` are gitignored and never committed.
+- **Note:** the `precommit` npm script runs `lint-fix` + `prettier --write` over all files, against the "never run prettier on existing files" rule. It isn't wired to a git hook, so it only runs when called by hand. Don't run it.
