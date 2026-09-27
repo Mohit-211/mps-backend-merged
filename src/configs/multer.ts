@@ -6,6 +6,7 @@ import fs from 'fs';
 import { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../utils';
 import httpStatus from 'http-status';
+import handleImageCompression from '../utils/compressImage';
 
 const createDirectory = (dir: string) => {
 	if (!fs.existsSync(dir)) {
@@ -104,9 +105,12 @@ const getFileExtension = (file: Express.Multer.File): string => {
 	return mimeToExtMap[file.mimetype] || 'txt';
 };
 
-// Init upload
+// Phase 10 (AUDIT S7): uploads only on the routes that take files, after authentication, with limits.
+export const UPLOAD_LIMITS = { fileSize: 10 * 1024 * 1024, files: 10, fields: 100, fieldSize: 1024 * 1024 };
+
 const upload = multer({
 	storage: storage,
+	limits: UPLOAD_LIMITS,
 	fileFilter: (
 		req: Request,
 		file: Express.Multer.File,
@@ -122,18 +126,40 @@ const upload = multer({
 	{ name: 'audios', maxCount: 10 },
 ]);
 
-const uploadMiddleware = (req: Request, res: Response, next: NextFunction) => {
-	upload(req, res, (err: any) => {
-		if (err instanceof multer.MulterError) {
-			if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-				return next();
-			}
-			return next(new ApiError(httpStatus.BAD_REQUEST, err.message));
-		} else if (err) {
-			return next(new ApiError(httpStatus.INTERNAL_SERVER_ERROR, err.message));
+const toApiError = (err: unknown): ApiError =>
+	err instanceof multer.MulterError
+		? new ApiError(httpStatus.BAD_REQUEST, err.code === 'LIMIT_FILE_SIZE' ? 'A file is larger than 10 MB.' : err.message)
+		: new ApiError(httpStatus.BAD_REQUEST, err instanceof Error ? err.message : 'Invalid upload');
+
+/** Files (and text fields) for the upload routes; images are then compressed. Mount AFTER the auth middleware. */
+export const uploadFiles = [
+	(req: Request, res: Response, next: NextFunction) => upload(req, res, (err: unknown) => (err ? next(toApiError(err)) : next())),
+	handleImageCompression,
+];
+
+/** The routes that accept files (they mount uploadFiles themselves, after auth). */
+const FILE_ROUTES: { method: string; path: RegExp }[] = [
+	{ method: 'POST', path: /^\/api\/v1\/blog\/?$/ },
+	{ method: 'PUT', path: /^\/api\/v1\/blog\/[^/]+\/?$/ },
+	{ method: 'POST', path: /^\/api\/v1\/white-label-profiles\/?$/ },
+	{ method: 'PATCH', path: /^\/api\/v1\/white-label-profiles\/?$/ },
+	{ method: 'POST', path: /^\/api\/v1\/gbp\/post\/add\/?$/ },
+];
+
+const fieldsOnly = multer({ limits: { ...UPLOAD_LIMITS, files: 0 } }).none();
+
+/**
+ * Global on /api/v1: parses the text fields of multipart requests (the old global upload did, and forms
+ * may still post FormData) but refuses files; no disk writes before authentication.
+ */
+export const multipartFieldsOnly = (req: Request, res: Response, next: NextFunction) => {
+	if (!req.is('multipart/form-data')) return next();
+	const url = req.originalUrl.split('?')[0];
+	if (FILE_ROUTES.some((r) => r.method === req.method && r.path.test(url))) return next();
+	fieldsOnly(req, res, (err: unknown) => {
+		if (err instanceof multer.MulterError && (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT')) {
+			return next(new ApiError(httpStatus.BAD_REQUEST, 'This endpoint does not accept files.'));
 		}
-		next();
+		return err ? next(toApiError(err)) : next();
 	});
 };
-
-export default uploadMiddleware;

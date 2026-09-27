@@ -71,6 +71,7 @@ const envVarsSchema = Joi.object({
 	REPORT_RENDER_CONCURRENCY: Joi.number().integer().min(1).max(2).default(1).description('report-generate jobs at once per process'),
 	REPORT_EMAIL_MAX_ATTACHMENT_MB: Joi.number().min(1).max(25).default(10).description('Larger report PDFs are emailed as a 30-day share link instead of an attachment'),
 	SHARE_BASE_URL: Joi.string().uri().allow('').default('').description('Public base URL of this API for report share links (/r/<token>); empty = API_BASE_URL'),
+	TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(5).default(1).description('Phase 10: reverse proxies in front of the app (nginx = 1), so req.ip is the client'),
 	TOKEN_ENCRYPTION_KEY: Joi.string()
 		.allow('')
 		.pattern(/^[0-9a-fA-F]{64}$/)
@@ -238,6 +239,9 @@ interface Config {
 	security: {
 		/** Empty when unset (development/test): token encryption then throws on use. */
 		tokenEncryptionKey: string;
+		/** Phase 10: `trust proxy` hops and the JSON / urlencoded body limit. */
+		trustProxyHops: number;
+		bodyLimit: string;
 	};
 
 	constants: {
@@ -371,6 +375,8 @@ const config: Config = {
 
 	security: {
 		tokenEncryptionKey: envVars.TOKEN_ENCRYPTION_KEY ?? '',
+		trustProxyHops: envVars.TRUST_PROXY_HOPS,
+		bodyLimit: '1mb',
 	},
 
 	constants: {
