@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, Phase 12.5 (Ranking & data quality) built on `claude/phase-12.5-quality`, awaiting merge; the live variance test is pending (Mohit)._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, Phase 12.5 merged and pushed, with its follow-ups on `claude/rebuild` (sampling defaults, attribution wording, decisions, Phase 16 spec); next is Phase 10 in plan mode._
 
 ## Product goal
 
@@ -31,15 +31,15 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | yes (`819dfd8`) | M4 |
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | yes (`0786801`) | M4 (pushed 2026-09-27) |
 | 12 | Reports center | done | `claude/phase-12-reports` | yes (`3f1e192`) | M5 (pushed 2026-09-27) |
-| **12.5** | **Ranking & data quality** (full depth, repeated sampling, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | **built, awaiting merge** (variance test pending) | `claude/phase-12.5-quality` | – | M5 |
-| 10 | Security hardening (all Deferred-P10 items incl. S19, S30) | planned (after 12.5) | – | – | M5 |
+| 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
+| **10** | **Security hardening** (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | **next (plan mode)** | – | – | M5 |
+| 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f); right after Phase 10 | planned | – | – | – |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 13 + 14 + pre-launch live validation + Google approvals) | – | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
 | 15 | Notifications & automations | planned | – | – | – |
-| 16 | Citations (data-source decision first) | planned | – | – | – |
-| 17 | Ranking extras (keyword groups, Dallas + variance validation, larger grids) | planned | – | – | – |
+| 17 | Ranking extras (keyword groups, larger grids) | planned | – | – | – |
 | 9b | Cleanup | ongoing | – | – | – |
 
 **Live test with MyPageSEO:** paused. The connect passed; the rest is blocked on Google (GBP API access), see "Blocked on Google".
@@ -108,7 +108,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - Map Ranking at the center and N/S/E/W; competitor reviews (with authors) and photo counts; two new insights.
   - Cluster-wide Places limit (8/s), long-run safety (expected duration, heartbeat), `RANK_MAX_CALLS_PER_RUN` 16,000.
   - Usage ledger for every Google call, `api_usage` in `/organization/usage`, `npm run cost:report`; Google attribution in responses, PDFs and share pages.
-- **Tests:** 645 pass with no API key and no network. Lint baseline is 32.
+- **Tests:** 646 pass with no API key and no network. Lint baseline is 32.
 
 ## Key decisions
 
@@ -133,6 +133,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 2026-09-26 | Phases 6–7 live GBP calls: free but quota-limited, max 5 requests/second, only against the account Mohit connects, and nothing live until Mohit says so (first step: `gbp:preflight`, triggered by Mohit). |
 | 2026-09-26 | **7c:** GBP Score 5 pillars (completeness 25, activity 20, reviews 25, visibility 20, engagement 10) with rescaling; Public Score from Place Details + map-list center ranks for everyone; `editorialSummary` off (Atmosphere tier); one report per location (no Places history); report after each sync and rank run, debounced 120 s; competitor Place Details once per monthly cycle, or on a manual refresh after 24 h. Thresholds are starting values until calibrated on real data. |
 | 2026-09-27 | **Phase 8:** organizations own locations and clients (roles owner / member / client_user); plan limits from optional `location_limit` / `keyword_limit` on the subscription plan (default 1 location); the legacy location routes replaced at the same paths and the unauthenticated `google-locations` proxies deleted; new `/auth` endpoints beside the deprecated `/user/auth` ones; a bind to a location with a different place is refused. |
+| 2026-09-27 | **After Phase 12.5 (Mohit):**<br>• **Map Ranking stays at 5 points** (`MAP_RANKING_POINTS=all`); a monthly refresh of ≈ $1.75 (10 keywords) to ≈ $3.35 (20) is accepted: quality first.<br>• **Attribution wording:** Google's policy text "Google Maps" in-app, in PDFs and on share pages.<br>• **Public Score shift** from editorial summaries: accepted; dated in [CHANGELOG.md](CHANGELOG.md) (`public_score_editorial`) for chart markers.<br>• **Sampling:** 3 samples 60 s apart (`RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`) from the variance test; the one-time rank shift from medians is dated in CHANGELOG.md (`ranking_median_3x60`).<br>• **Places cap** stays at 8 req/s; Mohit is confirming the 600/min quota in Cloud.<br>• **Prices** in `pricing.ts`: Mohit is checking them against Google's pricing page.<br>• **Citations = Phase 16**, right after Phase 10: manual, admin-managed tracking, no external citation APIs (CLAUDE.md §12f). Phase 10 must include the admin auth and roles it needs.<br>• **Nothing lives only in chat:** every summary with numbers, decisions or setup steps is written into the matching doc in the same commit. |
 | 2026-09-27 | **Push after every merged phase** (GitHub is the only off-machine backup). **Maps ToS: accepted risk for now** (stores listed below; Google attribution added in 12.5). **Quality over cost:** about $1 per refresh is acceptable; cost-saving behaviour that lowers data quality is removed in 12.5 (full depth, samples, Map Ranking at 5 points, competitor reviews and photos); no monthly manual-refresh cap (the 24 h guard stays). |
 | 2026-09-27 | **Phase 12:** PDFKit (pure Node) over headless Chrome: small RAM, no Chromium per pm2 instance, no system packages. Reports are frozen snapshots (branding and logo included). White-label is agency-only. Schedules fire once per monthly auto-refresh cycle per location (not on manual refreshes). Share tokens are hashed, shown once and redacted from logs. Legacy white-label routes deprecated, not deleted. |
 | 2026-09-27 | **Phase 11 / M4:** dashboards read stored per-location summaries only (`Location.summary`, written after runs and reports); team management is owner-only; accepting an invitation as an existing account doesn't log in; invitation tokens travel in the body and are stored hashed; in development the invitation link is logged with the email masked. |
@@ -144,13 +145,15 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 3. **Google Cloud:**
    - Add the **Authorised JavaScript origins** to the OAuth client: the frontend's, and `http://localhost:5055` for the dev test page.
    - `.env`: `TOKEN_ENCRYPTION_KEY` (currently empty, so connecting would fail) and, for the redirect fallback only, `GOOGLE_GBP_REDIRECT_URI` on port 5055 (currently 5000).
-4. **Live steps, when you say so:** the variance test and the GBP live test (see "Next up").
+4. **Live steps, when you say so:** the GBP live test (see "Next up"). The variance test is done (2026-09-27); an optional rerun of the 10-minute spacing: `npm run variance:test -- --confirm-live --spacings=600` (90 calls).
+   - **Price check (Mohit, in progress):** `src/configs/pricing.ts` against Google's pricing page; send corrections.
+   - **Quota check (Mohit, in progress):** Places API (New) Text Search and Place Details at ≥ 600 requests/minute in Cloud (the 8 req/s cap assumes it).
    - **Google Cloud checklist** (OPERATIONS.md, "Ranking quality, Google API usage and cost"): budget alerts, quotas ≥ 600/min, key restrictions.
 5. **Google approvals:** see "Blocked on Google" below.
 6. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 7. **Maps ToS: accepted risk for now**, revisit before launch: see "Maps ToS: accepted risk" below.
 8. **Rotate the DataForSEO credential** (AUDIT S13).
-9. **Security Phase 10:** planned after Phase 12.5, required before launch (all Deferred-P10 items, including S19, S30 and the Search Console parts of S11, S12 and S29).
+9. **Security Phase 10:** next, in plan mode; must include the admin auth and roles Phase 16 relies on; required before launch (all Deferred-P10 items, including S19, S30 and the Search Console parts of S11, S12 and S29).
 
 ## Blocked on Google
 
@@ -162,7 +165,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 
 ## Maps ToS: accepted risk
 
-**Accepted risk (Mohit, 2026-09-27), revisit before launch.** Places content is stored and shown as below. Mitigation (Phase 12.5): Google attribution wherever it appears. Switching to IDs-only storage later is a known task: each store below would keep only `place_id`s and resolve names at view time (the Phase 5 `resolveNames` path shows how).
+**Accepted risk (Mohit, 2026-09-27), revisit before launch.** Places content is stored and shown as below. Mitigation (Phase 12.5): Google attribution, wording "Google Maps" (Mohit, 2026-09-27), wherever it appears. Switching to IDs-only storage later is a known task: each store below would keep only `place_id`s and resolve names at view time (the Phase 5 `resolveNames` path shows how).
 
 | # | Store | Places content | Kept for |
 |---|---|---|---|
@@ -178,7 +181,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 Required for M5; not part of Phase 12.5's build:
 - **Big-market test (Dallas):** Workman Plumbing (`ChIJjcMu_6CZToYRXut5OjLd6V4`, 2310 N Henderson Ave #522, 32.814438, -96.777703; the "#522" may be a mailbox suite, so confirm the storefront first). Keywords "plumber", "emergency plumber", "plumber dallas", 3×3 at 1.5 km.
 - **Formal `calibrate:score`:** fill in the manual columns (tracker rows are enough: `--tracker-only`) and record the verdict.
-- The Phase 12.5 **variance test** (MyPageSEO, 2 keywords, 5 tracker points, 3 samples at 0 s / 60 s / 10 min, ≤ 300 IDs-only calls, 0 Pro) decides the default number of samples.
+- ~~The Phase 12.5 variance test~~ **done 2026-09-27** (0 s: 90 % identical, max spread 2; 60 s: 80 %, max spread 5; 10 min not completed) → 3 samples 60 s apart. See `docs/calibration/variance-2026-09-27.md`.
 
 ## Backlog (not now)
 
@@ -190,9 +193,9 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Merge and push Phase 12.5** (commands in the phase summary).
-2. **Variance test, when Mohit says so:** `npm run variance:test -- --confirm-live` (≤ 300 IDs-only calls, 0 Pro, ~22 min). Its result sets `RANK_SAMPLES_PER_POINT` / `RANK_SAMPLE_SPACING_SEC` (Mohit confirms).
-3. **Then Phase 10 (security)**, in plan mode (all Deferred-P10 items incl. S19, S30; the unauthenticated legacy `GET /white-label-profiles/:id` too), then 13 (billing & plans) and 14 (production readiness) toward M5 launch-ready.
+1. **Phase 10 (security)**, in plan mode (all Deferred-P10 items incl. S19, S30, the unauthenticated legacy `GET /white-label-profiles/:id`, and the admin authentication and roles Phase 16 needs).
+2. **Then Phase 16 (citations)**, in plan mode (CLAUDE.md §12f; the plan audits the old citation module), then 13 (billing & plans) and 14 (production readiness) toward M5.
+3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
@@ -216,6 +219,7 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 | Topic | File |
 |---|---|
 | Current state and next step | this file |
+| Methodology changes (dates for chart markers) | [CHANGELOG.md](CHANGELOG.md) |
 | History and commit hashes | [PROGRESS.md](PROGRESS.md) |
 | Findings and their status | [AUDIT.md](AUDIT.md) |
 | Endpoints (current) | [ENDPOINTS.md](ENDPOINTS.md); [ROUTES.md](ROUTES.md) is the frozen Phase 1 snapshot |

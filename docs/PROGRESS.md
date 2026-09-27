@@ -856,3 +856,15 @@ Branch `claude/phase-12.5-quality`. Decisions (Mohit, 2026-09-27): push after ev
 **Tests:** 645 pass (was 619), no key, no network; build 0 errors; lint 32. Dev server (key empty): map-ranking `point=N` and `all`, sample fields on grid cells, `api_usage` in `/organization/usage`, attribution on the dashboard, `cost:report`, `variance:test` refuses without `--confirm-live`; 0 Google calls. `seed:demo-orgs` re-rendered the reports (Map Ranking table, reviews, photos insight, attribution in the footer checked visually).
 
 **API calls consumed:** 0.
+
+## On `claude/rebuild` after the Phase 12.5 merge (2026-09-27)
+
+Phase 12.5 merged (`c5aee43`) and pushed by Mohit; `COMPETITOR_DETAILS_ATMOSPHERE` removed from his `.env`. Follow-ups committed on `claude/rebuild` at Mohit's request:
+- **Sampling defaults:** 3 samples 60 s apart, from the variance test (0 s: 90 % of points identical, max spread 2; 60 s: 80 %, max spread 5; 10 min interrupted). `estimateCalls` defaults follow the config, and tests pin 1 sample.
+- **Variance test record:** the script only wrote its file at the end and the run was interrupted, so `docs/calibration/variance-2026-09-27.md` was written from the reported numbers. The Ctrl-C also skipped the usage flush, so `api_usage` has no record of those ~180+ calls. The script now writes and flushes after each spacing and on Ctrl-C; `--spacings=600` reruns one spacing into its own file.
+- **Attribution text:** "Google Maps".
+- **Decisions:** recorded with dates in STATUS.md; methodology changes dated in the new `docs/CHANGELOG.md` for chart markers.
+- **OPERATIONS.md:** decided defaults, durations, storage per run, cost per refresh (accepted), limits and quota assumption, post-deploy steps.
+- **CLAUDE.md:** Phase 12.5 done; the "nothing lives only in chat" rule; Phase 16 (citations) spec, right after Phase 10; Phase 10 must include the admin auth and roles.
+
+Tests 646 pass, build 0 errors, lint 32. **API calls:** the variance test, run by Mohit: ≥ 180 IDs-only (free SKU) plus part of the last round, 0 Pro.

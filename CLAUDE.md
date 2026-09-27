@@ -27,15 +27,15 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | M4 |
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | M4 |
 | 12 | Reports center: reports as PDF, email, schedules, white-label, share links | done | `claude/phase-12-reports` | M5 (pushed) |
-| **12.5** | **Ranking & data quality**: full depth, repeated sampling, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | **built, awaiting merge** (variance test pending) | `claude/phase-12.5-quality` | M5 |
-| 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30. Required before launch; runs after 12.5. | planned | – | M5 |
+| 12.5 | Ranking & data quality: full depth, repeated sampling (3 samples, 60 s), richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | done | `claude/phase-12.5-quality` | M5 (pushed) |
+| **10** | **Security hardening**: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on. Required before launch. | **next (plan mode)** | – | M5 |
+| 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f). Builds right after Phase 10 (Mohit, 2026-09-27). | planned | – | – |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, app verification) | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
 | 15 | Notifications & automations | planned | – | – |
-| 16 | Citations (a data-source decision by Mohit comes first) | planned | – | – |
-| 17 | Ranking extras: keyword groups, Dallas + variance validation, larger grids | planned | – | – |
+| 17 | Ranking extras: keyword groups, larger grids (the variance test is done; Dallas is a pre-launch item) | planned | – | – |
 | 9b | Cleanup (swagger, ARCHITECTURE.md, final docs pass) | ongoing | – | – |
 
 There is no Phase 2 (security moved to Phase 10, 2026-09-25). Milestone pushes: M1 after 3, M2 after 5, M3 after 7c, M4 after 11 (all pushed). **Since Phase 12, every merged phase is pushed** (Mohit, 2026-09-27: GitHub is the only off-machine backup); M5 marks launch-ready.
@@ -86,7 +86,7 @@ All three ranking pages are powered by **one ranking engine** and **one fixed ke
 - Security fixes, **only in Phase 10 and only after explicit approval** (see §13a). Exception: Phase 6 builds the signed OAuth state and encrypted token storage as part of GBP.
 
 ### OUT of scope (do not modify, do not refactor, do not reformat)
-- Citations (all `citation*` files and models), blog, blog categories, FAQ, support, contact-us, white-label, countries/states/cities, languages, timezones, roles, business categories.
+- Citations (all `citation*` files and models) **until Phase 16** (spec §12f), blog, blog categories, FAQ, support, contact-us, white-label, countries/states/cities, languages, timezones, roles, business categories.
 - Payments and subscriptions (Square, PayPal, Razorpay, coupons, plans, credits), **except** the security items listed in Phase 10 if approved.
 - Admin panel features, except the Phase 10 security items if approved.
 
@@ -138,9 +138,11 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 Reports center done. Next: **12.5 Ranking & data quality** → 10 Security → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 16, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 done. Next: **10 Security** → **16 Citations** (right after 10, Mohit 2026-09-27) → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 **Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
+
+**Standing rule (Mohit, 2026-09-27): nothing lives only in chat.** Every summary sent to Mohit that contains numbers, decisions or setup steps is written into the matching doc **in the same commit** (numbers and runbooks → `docs/OPERATIONS.md`; decisions, pending items and risks → `docs/STATUS.md` with dates; phase scope → this file; results of live tests → `docs/calibration/` or `docs/LIVE_TEST.md`; methodology changes that shift historical numbers → `docs/CHANGELOG.md`).
 
 At the end of every phase:
 1. Stop.
@@ -191,7 +193,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 ### Ranking
 - **Search surface**: Places API (New) Text Search. Treated as the proxy for Google Maps local ranking.
 - **Rank**: 1-based index of the target `place_id` in the result list (honour `movedPlaceId`). Max measurable rank = **60**. Since Phase 12.5 every search fetches **all pages** (up to 60 results; no `stopWhenFound` in ranking), and each point's full ordered list is stored (`RankResultList`).
-- **Samples (Phase 12.5):** each point is searched `RANK_SAMPLES_PER_POINT` times (1–5), at least `RANK_SAMPLE_SPACING_SEC` apart. The point's cell is the **median** of the samples: `not_found` counts as 61, errored samples are excluded, more than half errored → `error`, an even count takes the mean of the two middle values rounded up, a median of 61 is `not_found`. Every sample's value and the `spread` (max − min) are stored on the cell. All metrics below use the median cell.
+- **Samples (Phase 12.5):** each point is searched `RANK_SAMPLES_PER_POINT` times (1–5; **default 3**), at least `RANK_SAMPLE_SPACING_SEC` apart (**default 60**; decided by Mohit on 2026-09-27 from the variance test). The point's cell is the **median** of the samples: `not_found` counts as 61, errored samples are excluded, more than half errored → `error`, an even count takes the mean of the two middle values rounded up, a median of 61 is `not_found`. Every sample's value and the `spread` (max − min) are stored on the cell. All metrics below use the median cell.
 - **RankCell**: `{ rank: number | null, status: 'ok' | 'not_found' | 'error' }`.
   - `ok`: found, rank 1–60.
   - `not_found`: search succeeded, target not in top 60. Displayed as **"60+"**.
@@ -708,7 +710,7 @@ Branch `claude/phase-12-reports` from `claude/rebuild`. **Plan mode first; wait 
 
 ## 12d. PHASE 12.5 — Ranking & data quality
 
-**Built** on `claude/phase-12.5-quality` (awaiting merge; the live variance test is pending, Mohit triggers it). As built:
+**Done** (merged `c5aee43`, pushed 2026-09-27). Follow-ups on `claude/rebuild` the same day: sampling defaults 3 samples 60 s apart (variance test: `docs/calibration/variance-2026-09-27.md`), attribution wording "Google Maps", Map Ranking at 5 points and its cost accepted (decisions in `docs/STATUS.md`, methodology dates in `docs/CHANGELOG.md`). As built:
 - **Engine** (`src/ranking/engine.ts`, `samples.ts`): full depth (`maxPages: 3`, no `stopWhenFound`), N samples per point with spacing (sleeping holds no concurrency slot), median cells with `samples` and `spread`, `RANK_SEARCH_CONCURRENCY` (≤ 8). The run cache keys include the sample.
 - **Stored lists:** `RankResultList` (`rank_result_lists`), one document per run and keyword: a dictionary of place IDs + uint16 index lists per point and sample (`services/ranking/resultLists.ts`); the center is stored once as `C`. ~0.45 MB per 20 × 7×7 run (1 sample).
 - **Map Ranking** at C/N/S/E/W (`mapList[].point`; `MAP_RANKING_POINTS`); `GET map-ranking ?point=`; center-only consumers use `centerSections()`. Rank Tracker report section `map_ranking`.
@@ -724,7 +726,7 @@ Branch `claude/phase-12.5-quality` from `claude/rebuild`. **Plan mode first; wai
 
 **Decisions this phase builds on (Mohit, 2026-09-27):**
 - **Quality over cost:** report quality comes first; about $1 per refresh is acceptable. Remove cost-saving behaviour that reduces data quality. No monthly manual-refresh cap; the 24 h guard per type stays.
-- **Maps ToS: accepted risk for now** (revisit before launch; the affected stores are listed in `docs/STATUS.md`). Keep `STORE_PLACE_NAMES=true`, the competitor-suggestion cache and the frozen competitor data in reports. Cheap mitigation built here: **Google attribution** wherever Places content appears (an `attribution` field in in-app responses; "Business data © Google" in PDFs and share pages near business names and ratings; review author attribution kept).
+- **Maps ToS: accepted risk for now** (revisit before launch; the affected stores are listed in `docs/STATUS.md`). Keep `STORE_PLACE_NAMES=true`, the competitor-suggestion cache and the frozen competitor data in reports. Cheap mitigation built here: **Google attribution** wherever Places content appears (an `attribution` field in in-app responses; the text in PDFs and share pages near business names and ratings; review author attribution kept). Wording: Google's policy text **"Google Maps"** (Mohit, 2026-09-27; first built as "Business data © Google").
 
 **Scope:**
 1. **Full depth:** every ranking search fetches all available pages (up to 60 results) at every point, for every keyword. `stopWhenFound` is no longer used by ranking runs (the client keeps the option). Store per point `result_count` and the full ordered list of place IDs, in their own collection if a RankRun document would get too big. The plan shows the size estimate for 20 keywords × 7×7.
@@ -738,6 +740,45 @@ Branch `claude/phase-12.5-quality` from `claude/rebuild`. **Plan mode first; wai
 7. **Pending live validation** (Mohit triggers later; not part of this build): the Dallas big-market test and a formal `calibrate:score`. Tracked in `docs/STATUS.md` as a pre-launch item.
 
 **End of phase:** STATUS / PROGRESS / CLAUDE.md (roadmap) and ENDPOINTS / API / FRONTEND_BACKEND_MAP updated, the merge and push commands, then stop. Next: Phase 10 (security) in plan mode.
+
+**Gate.**
+
+## 12f. PHASE 16 — Citations (manual, admin-managed tracking)
+
+**Planned; builds right after Phase 10** (Mohit, 2026-09-27). Branch `claude/phase-16-citations` from `claude/rebuild`. **Plan mode first; wait for approval.** It needs Phase 10's admin authentication and roles.
+
+**Model:** manual, admin-managed citation tracking. **No external citation APIs.**
+
+1. **Admin panel** (platform admins only: admin auth + role; new endpoints built correctly, on Phase 10's admin auth):
+   - **Directory master list** CRUD:
+     - name, URL
+     - type: `general | niche | aggregator | social | government_chamber`
+     - categories: many, mapped to our business categories
+     - countries: US, CA
+     - authority: an optional number
+     - notes, active/inactive
+     - CSV import and export
+   - **Category management** for directories, reusing business categories where possible.
+2. **Per-location citation list:**
+   - **Suggestions:** when a location is set up (or on an admin action), suggest the directories that match its business category and country. The admin adds or removes directories per location, so every client's list can be unique.
+   - **Per entry:**
+     - status: `not_checked | live_correct | nap_wrong | not_found | duplicate | submitted | pending | removed`
+     - listing URL
+     - NAP found (name, address, phone, website as seen)
+     - mismatch fields
+     - notes, `last_checked_at`, `checked_by`
+   - **History:** every status change is logged (who, when, from → to, note).
+3. **Admin work queue:**
+   - locations with unchecked citations
+   - citations not checked in N days (configurable)
+   - recently changed citations
+   - filters by organization, client, status and directory
+4. **Customer side** (read-only for organization users; a client_user sees its assigned clients only):
+   - a citation dashboard per location: the Citation Health score, counts by status, recent changes
+   - the citation table: directory, type, status, NAP issues, listing link, last checked
+5. **Citation Health score:** a configurable formula (weights per status, optional directory-authority weighting) in a config file, like `src/gbp/scoring.config.ts`.
+6. **Citation Report** in the Reports center (PDF, email, schedules, share links), plus a Citations section in the Full report. FRONTEND_BACKEND_MAP.md: the citation screens are "planned (Phase 16)".
+7. **The old citation module** (campaigns, pricing, tracker, builder, `serpapi` usage): the plan audits it and lists what is reused, replaced or retired. `serpapi` is removed if nothing else needs it.
 
 **Gate.**
 
@@ -778,7 +819,7 @@ Original spec (the deletions below were done in 9a):
 
 ## 13a. PHASE 10 — Security hardening (gated)
 
-Runs after Phase 12.5 and before Phase 13 (see the Phase roadmap); required before launch (M5). Covers all Deferred-P10 audit items, including S19 and S30. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
+Runs after Phase 12.5 and before Phase 16 (see the Phase roadmap); required before launch (M5). **The plan must include the admin authentication and roles that Phase 16's admin endpoints rely on** (Mohit, 2026-09-27): a correct admin auth guard, platform-admin roles (e.g. super admin / admin / support) with a permission check usable per route, and regression tests. Covers all Deferred-P10 audit items, including S19 and S30. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
 
 Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S30, see `docs/AUDIT.md`). Apply minimal, targeted fixes:
 
@@ -801,12 +842,12 @@ Each fix = its own commit. Add a regression test per auth fix (request without t
 
 **Quality over cost (Mohit, 2026-09-27):** about $1 per refresh is acceptable. Measured counts: the usage ledger (`api_usage`) and `npm run cost:report` (prices in `src/configs/pricing.ts`); the cost model per location is in `docs/OPERATIONS.md`.
 
-- Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Full depth since Phase 12.5: 3 calls per point, keyword and sample (fewer only in markets with under 41 results).
+- Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Full depth since Phase 12.5: 3 calls per point, keyword and sample (fewer only in markets with under 41 results); 3 samples per point by default.
   - Unique points per keyword = tracker (5) ∪ grid (size²), with the center shared: 13 / 29 / 53 for 3×3 / 5×5 / 7×7 at 1 km spacing (fewer if tracker points land on grid points). Use `estimateCalls()` from `src/ranking/estimate.ts`.
   - 2 keywords × 3×3 = 78 calls; 20 keywords × 7×7 = **3,180** calls per run per sample, **15,900** with 5 samples (`RANK_MAX_CALLS_PER_RUN` 16,000; the one retry can at most double this).
 - Text Search with `displayName` (Pro SKU, $32 per 1,000 list): 1 call per keyword per Map Ranking point: 5 per keyword with `MAP_RANKING_POINTS=all` (Phase 12.5), 1 with `center`.
 - Place Details for the competitor comparison: ~(1 + competitors) calls per monthly cycle, with reviews, photos and editorial summary: **Enterprise + Atmosphere** SKU ($25 per 1,000 list).
-- A monthly refresh at 10 keywords × 5×5 costs about **$1.75** at list price ($3.35 at 20 keywords); IDs-only samples are free.
+- A monthly refresh at 10 keywords × 5×5 costs about **$1.75** at list price ($3.35 at 20 keywords); IDs-only samples are free. **Accepted by Mohit on 2026-09-27** (quality first; Map Ranking stays at 5 points).
 - Places throughput: `PLACES_MAX_QPS` (8/s) across all processes, under the assumed default quota of 600 requests per minute per method.
 - GBP APIs: no per-call charge; quota-limited. Keep ≤ 5 req/s per job.
 

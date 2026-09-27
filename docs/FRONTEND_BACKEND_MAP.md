@@ -32,7 +32,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Business dashboard | `GET /dashboard` (business shape) | **available (11)**: visibility (average rank, change, top-3 rate, trend), GBP Score + grade + change, rating/reviews (public numbers until v4), ranking movement, key competitor, top 5 recommended actions, last/next refresh. "Local Visibility score" = the average-rank block (no separate score). "Citation health": **not supported**. |
+| Business dashboard | `GET /dashboard` (business shape) | **available (11)**: visibility (average rank, change, top-3 rate, trend), GBP Score + grade + change, rating/reviews (public numbers until v4), ranking movement, key competitor, top 5 recommended actions, last/next refresh. "Local Visibility score" = the average-rank block (no separate score). "Citation health": **planned (Phase 16)**. |
 | Agency dashboard | `GET /dashboard` (agency shape) | **available (11)**: client and location counts, portfolio averages (rank, GBP Score), statuses (reconnect / setup), locations with ranking declines, GBP issues, recommended actions, portfolio table (paged, sortable). "Unanswered reviews across portfolio" needs v4; "Reports ready/scheduled/failed": use `GET /reports?status=` and `GET /report-schedules` (Phase 12; not in the dashboard response). |
 
 ## Locations
@@ -74,8 +74,10 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Citation overview / table / details | legacy `/citation/*` (tracker via SerpAPI, broken, AUDIT C13) | **not supported for now**: legacy and out of scope. Citation intelligence (health, NAP consistency, authority) is to be decided after Phase 8. |
-| Campaign UI | legacy `/citation/campaign/*` | legacy, out of scope; not planned |
+| Citation dashboard per location (Citation Health score, counts by status, recent changes) | – | **planned (Phase 16)**: manual, admin-managed citation tracking (no external citation APIs). Read-only for organization users; a client_user sees its assigned clients only. |
+| Citation table (directory, type, status, NAP issues, listing link, last checked) | – | **planned (Phase 16)** |
+| Admin: directory master list, categories, per-location citation lists, work queue | – | **planned (Phase 16)**, platform admins only (needs Phase 10's admin auth and roles) |
+| Legacy citation screens / campaign UI | legacy `/citation/*` (tracker via SerpAPI, broken, AUDIT C13) | legacy; Phase 16 audits it and lists what's reused, replaced or retired. Don't build on it. |
 
 ## Competitors
 
@@ -95,7 +97,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | Download / email / archive | `GET /reports/:id/pdf`, `POST /reports/:id/email { recipients, message? }`, `DELETE /reports/:id` | **available (12)**. Emails above 10 MB carry a 30-day link instead of the attachment. |
 | Share link | `POST /reports/:id/share { expires_in_days? }`, `GET /reports/:id/shares`, `DELETE /reports/:id/shares/:shareId`; public page `/r/<token>` | **available (12)**. The URL is shown once; branded, noindex, revocable. |
 | Scheduled reports | `GET/POST /report-schedules`, `GET/PATCH/DELETE /report-schedules/:id` (`next_expected`, `last_sent_at`, `last_error`) | **available (12)**: monthly only, after each covered location's automatic refresh; location or client (agency) scope. |
-| Citation Report | – | **planned (Phase 16)**, after Mohit's data-source decision. |
+| Citation Report | – | **planned (Phase 16)**: in the Reports center (PDF, email, schedules, share links), plus a Citations section in the Full report. Data source decided (Mohit, 2026-09-27): manual, admin-managed tracking. |
 
 ## Agency
 
