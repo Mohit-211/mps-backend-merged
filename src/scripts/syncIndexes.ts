@@ -9,7 +9,9 @@
  */
 import mongoose, { Model } from 'mongoose';
 import config from '../configs/config';
+import { PlacesRate } from '../clients/placesRateLimiter';
 import {
+	ApiUsage,
 	AuthCode,
 	Client,
 	GbpKeywordMonthly,
@@ -25,6 +27,7 @@ import {
 	Organization,
 	PlacesUsage,
 	RankRun,
+	RankResultList,
 	RateLimit,
 	Report,
 	ReportSchedule,
@@ -57,6 +60,9 @@ const MODELS: Record<string, Model<never>> = {
 	ReportSnapshot,
 	ReportShare,
 	ReportSchedule,
+	RankResultList,
+	ApiUsage,
+	PlacesRate,
 } as unknown as Record<string, Model<never>>;
 
 const main = async (): Promise<number> => {

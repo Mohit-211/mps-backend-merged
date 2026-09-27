@@ -27,7 +27,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | M4 |
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | M4 |
 | 12 | Reports center: reports as PDF, email, schedules, white-label, share links | done | `claude/phase-12-reports` | M5 (pushed) |
-| **12.5** | **Ranking & data quality**: full depth, repeated sampling, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | **in progress (planning)** | `claude/phase-12.5-quality` | M5 |
+| **12.5** | **Ranking & data quality**: full depth, repeated sampling, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | **built, awaiting merge** (variance test pending) | `claude/phase-12.5-quality` | M5 |
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30. Required before launch; runs after 12.5. | planned | – | M5 |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
@@ -180,6 +180,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - Location model (`src/models/location.model.ts`): `name, address, city, state, country, zip_code, lat, lng, mobile, place_id, website_URL, business_category, client_id, created_by, is_active`, plus (Phase 8) `organization_id, source (gbp|places_search|legacy), gbp_connected, summary, deleted_at/by` and a unique `(organization_id, place_id)` index for active locations.
 - **Organizations (Phase 8):** models `Organization`, `Membership` (roles `owner | member | client_user`), `AuthCode`, `RateLimit`. Access: `src/services/org/access.ts` (`findLocationForUser`, `locationScope`, `clientScope`); the current organization: `loadOrgContext` (`X-Organization-Id` or the default). `loadOwnedLocation` (ranking middleware) checks membership of the location's organization and makes a client_user read-only. Limits: `src/services/org/limits.ts`. New code never checks `created_by` for access.
 - Old ranking, GBP audit, Reputation Manager, white-label report links and the Search Console connect were **removed** in the legacy cleanup (branch `claude/phase-9a-legacy-cleanup`); see `docs/LEGACY_FEATURES.md` (last commit with that code: `1695187`) and `docs/MIGRATION.md` (unused collections, removed env vars).
+- **Ranking quality + usage (Phase 12.5):** `src/ranking/samples.ts`, `src/services/ranking/{resultLists,variance}.ts`, model `RankResultList`; `src/services/usage/` + model `ApiUsage`; `src/clients/placesRateLimiter.ts`; `src/configs/pricing.ts`; `src/constants/attribution.ts`; scripts `cost:report`, `variance:test`.
 - **Reports center (Phase 12):** `src/services/reports/` (snapshot sections → document blocks → PDFKit / HTML renderers), jobs in `src/jobs/reports.job.ts`, routes `/reports`, `/report-schedules`, `/organization/branding`, public `/r/:token`. Files in the private `REPORTS_STORAGE_DIR` (never under `public/`).
 - GBP posting (legacy, kept until Phase 8): `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda). Its token comes from `gbpClient` through the binding's connection.
 
@@ -189,7 +190,8 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 
 ### Ranking
 - **Search surface**: Places API (New) Text Search. Treated as the proxy for Google Maps local ranking.
-- **Rank**: 1-based index of the target `place_id` in the result list (honour `movedPlaceId`). Max measurable rank = **60**.
+- **Rank**: 1-based index of the target `place_id` in the result list (honour `movedPlaceId`). Max measurable rank = **60**. Since Phase 12.5 every search fetches **all pages** (up to 60 results; no `stopWhenFound` in ranking), and each point's full ordered list is stored (`RankResultList`).
+- **Samples (Phase 12.5):** each point is searched `RANK_SAMPLES_PER_POINT` times (1–5), at least `RANK_SAMPLE_SPACING_SEC` apart. The point's cell is the **median** of the samples: `not_found` counts as 61, errored samples are excluded, more than half errored → `error`, an even count takes the mean of the two middle values rounded up, a median of 61 is `not_found`. Every sample's value and the `spread` (max − min) are stored on the cell. All metrics below use the median cell.
 - **RankCell**: `{ rank: number | null, status: 'ok' | 'not_found' | 'error' }`.
   - `ok`: found, rank 1–60.
   - `not_found`: search succeeded, target not in top 60. Displayed as **"60+"**.
@@ -704,7 +706,19 @@ Branch `claude/phase-12-reports` from `claude/rebuild`. **Plan mode first; wait 
 
 **Gate.**
 
-## 12d. PHASE 12.5 — Ranking & data quality (next)
+## 12d. PHASE 12.5 — Ranking & data quality
+
+**Built** on `claude/phase-12.5-quality` (awaiting merge; the live variance test is pending, Mohit triggers it). As built:
+- **Engine** (`src/ranking/engine.ts`, `samples.ts`): full depth (`maxPages: 3`, no `stopWhenFound`), N samples per point with spacing (sleeping holds no concurrency slot), median cells with `samples` and `spread`, `RANK_SEARCH_CONCURRENCY` (≤ 8). The run cache keys include the sample.
+- **Stored lists:** `RankResultList` (`rank_result_lists`), one document per run and keyword: a dictionary of place IDs + uint16 index lists per point and sample (`services/ranking/resultLists.ts`); the center is stored once as `C`. ~0.45 MB per 20 × 7×7 run (1 sample).
+- **Map Ranking** at C/N/S/E/W (`mapList[].point`; `MAP_RANKING_POINTS`); `GET map-ranking ?point=`; center-only consumers use `centerSections()`. Rank Tracker report section `map_ranking`.
+- **Runtime:** `estimateCalls` (samples, map points), `estimateDuration`, `RankRun.expected_duration_ms`, stuck guard max(30 min, 2 × expected + 10 min), heartbeat (`job.touch()` + usage flush). `PLACES_MAX_QPS` via `src/clients/placesRateLimiter.ts` (MongoDB `places_rate`, cluster-wide).
+- **Competitors:** Place Details add `reviews`, `photos`, `editorialSummary` (Enterprise + Atmosphere; `COMPETITOR_DETAILS_ATMOSPHERE` removed); rows gain `photo_count`, `photos_capped`, `reviews` (author attribution kept), `recent_review_at`; insights `photos_gap`, `review_freshness`; Competitor Analysis report section `reviews`.
+- **Usage ledger:** `ApiUsage` (`api_usage`); `src/services/usage/` (`skus`, `scope` (AsyncLocalStorage; `/api/v1` middleware + `setUsageContext` in the access helpers), `jobScope`, `cost`); the Places client and `gbpClient` report every HTTP attempt. `GET /organization/usage` → `api_usage`; `npm run cost:report`; `src/configs/pricing.ts` (`PRICING_FILE`).
+- **Attribution:** `src/constants/attribution.ts`; `attribution` on responses with Places content; PDFs and share pages print it under those blocks and in the footer.
+- **Variance test:** `npm run variance:test -- --confirm-live` (`src/scripts/varianceTest.ts`, `services/ranking/variance.ts`), budget-guarded at 300 IDs-only calls, writes `docs/calibration/variance-<date>.md` with the recommendation.
+
+Original spec:
 
 Branch `claude/phase-12.5-quality` from `claude/rebuild`. **Plan mode first; wait for approval.** Runs **before Phase 10**. All tests offline; the only live step is the variance test (item 2), when Mohit says so.
 
@@ -785,11 +799,15 @@ Each fix = its own commit. Add a regression test per auth fix (request without t
 
 ## 14. Cost & quota reference (for estimates in PROGRESS.md)
 
-- Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Up to 3 calls per point per keyword (usually fewer with `stopWhenFound`).
+**Quality over cost (Mohit, 2026-09-27):** about $1 per refresh is acceptable. Measured counts: the usage ledger (`api_usage`) and `npm run cost:report` (prices in `src/configs/pricing.ts`); the cost model per location is in `docs/OPERATIONS.md`.
+
+- Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Full depth since Phase 12.5: 3 calls per point, keyword and sample (fewer only in markets with under 41 results).
   - Unique points per keyword = tracker (5) ∪ grid (size²), with the center shared: 13 / 29 / 53 for 3×3 / 5×5 / 7×7 at 1 km spacing (fewer if tracker points land on grid points). Use `estimateCalls()` from `src/ranking/estimate.ts`.
-  - 2 keywords × 3×3 ≈ 26–78 calls; 20 keywords × 7×7 ≈ **1,060–3,180** calls per run (the one retry can at most double this).
-- Text Search with `displayName` (Pro SKU): 1 call per keyword per run (Map Ranking only).
-- Place Details for competitor comparison: ~(1 + competitors) calls per report generation; Enterprise-tier fields. No reviews/photos by default.
+  - 2 keywords × 3×3 = 78 calls; 20 keywords × 7×7 = **3,180** calls per run per sample, **15,900** with 5 samples (`RANK_MAX_CALLS_PER_RUN` 16,000; the one retry can at most double this).
+- Text Search with `displayName` (Pro SKU, $32 per 1,000 list): 1 call per keyword per Map Ranking point: 5 per keyword with `MAP_RANKING_POINTS=all` (Phase 12.5), 1 with `center`.
+- Place Details for the competitor comparison: ~(1 + competitors) calls per monthly cycle, with reviews, photos and editorial summary: **Enterprise + Atmosphere** SKU ($25 per 1,000 list).
+- A monthly refresh at 10 keywords × 5×5 costs about **$1.75** at list price ($3.35 at 20 keywords); IDs-only samples are free.
+- Places throughput: `PLACES_MAX_QPS` (8/s) across all processes, under the assumed default quota of 600 requests per minute per method.
 - GBP APIs: no per-call charge; quota-limited. Keep ≤ 5 req/s per job.
 
 Log `api_calls` on every run/report so real costs can be measured.

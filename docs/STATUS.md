@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, Phase 12 merged and pushed; Phase 12.5 (Ranking & data quality) in planning._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, Phase 12.5 (Ranking & data quality) built on `claude/phase-12.5-quality`, awaiting merge; the live variance test is pending (Mohit)._
 
 ## Product goal
 
@@ -31,7 +31,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | yes (`819dfd8`) | M4 |
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | yes (`0786801`) | M4 (pushed 2026-09-27) |
 | 12 | Reports center | done | `claude/phase-12-reports` | yes (`3f1e192`) | M5 (pushed 2026-09-27) |
-| **12.5** | **Ranking & data quality** (full depth, repeated sampling, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | **in progress (planning)** | `claude/phase-12.5-quality` | – | M5 |
+| **12.5** | **Ranking & data quality** (full depth, repeated sampling, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | **built, awaiting merge** (variance test pending) | `claude/phase-12.5-quality` | – | M5 |
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30) | planned (after 12.5) | – | – | M5 |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
@@ -103,7 +103,12 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - Rank Tracker, GBP Audit, Competitor Analysis and Full reports, frozen in a snapshot and rendered once to PDF with **PDFKit** (no browser, no system packages; about 50 ms CPU and 40 MB per 8-page report). The in-app viewer gets the same blocks.
   - Library, download, archive, email (attachment or 30-day link), revocable share links (`/r/<token>`, noindex, no ids, rate-limited), monthly schedules after each location's automatic refresh, retention (24 months).
   - Agency white-label branding (logo, colours, footer, hide MyPageSEO, email sender and reply-to); the legacy white-label routes are deprecated and `npm run migrate:branding` carries them over.
-- **Tests:** 619 pass with no API key and no network. Lint baseline is 32.
+- **Ranking & data quality (Phase 12.5), offline:**
+  - Full-depth searches (up to 60 results) at every point, every point's full list stored; repeated sampling with median ranks (default 1 sample until the variance test).
+  - Map Ranking at the center and N/S/E/W; competitor reviews (with authors) and photo counts; two new insights.
+  - Cluster-wide Places limit (8/s), long-run safety (expected duration, heartbeat), `RANK_MAX_CALLS_PER_RUN` 16,000.
+  - Usage ledger for every Google call, `api_usage` in `/organization/usage`, `npm run cost:report`; Google attribution in responses, PDFs and share pages.
+- **Tests:** 645 pass with no API key and no network. Lint baseline is 32.
 
 ## Key decisions
 
@@ -139,7 +144,8 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 3. **Google Cloud:**
    - Add the **Authorised JavaScript origins** to the OAuth client: the frontend's, and `http://localhost:5055` for the dev test page.
    - `.env`: `TOKEN_ENCRYPTION_KEY` (currently empty, so connecting would fail) and, for the redirect fallback only, `GOOGLE_GBP_REDIRECT_URI` on port 5055 (currently 5000).
-4. **Live test, when you say so:** see "Next up".
+4. **Live steps, when you say so:** the variance test and the GBP live test (see "Next up").
+   - **Google Cloud checklist** (OPERATIONS.md, "Ranking quality, Google API usage and cost"): budget alerts, quotas ≥ 600/min, key restrictions.
 5. **Google approvals:** see "Blocked on Google" below.
 6. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 7. **Maps ToS: accepted risk for now**, revisit before launch: see "Maps ToS: accepted risk" below.
@@ -184,9 +190,10 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Phase 12.5 (Ranking & data quality)**, in plan mode (spec in CLAUDE.md §12d); the variance test when Mohit says so.
-2. **Then Phase 10 (security)**, in plan mode (all Deferred-P10 items incl. S19, S30; the unauthenticated legacy `GET /white-label-profiles/:id` too), then 13 (billing & plans) and 14 (production readiness) toward M5 launch-ready.
-3. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
+1. **Merge and push Phase 12.5** (commands in the phase summary).
+2. **Variance test, when Mohit says so:** `npm run variance:test -- --confirm-live` (≤ 300 IDs-only calls, 0 Pro, ~22 min). Its result sets `RANK_SAMPLES_PER_POINT` / `RANK_SAMPLE_SPACING_SEC` (Mohit confirms).
+3. **Then Phase 10 (security)**, in plan mode (all Deferred-P10 items incl. S19, S30; the unauthenticated legacy `GET /white-label-profiles/:id` too), then 13 (billing & plans) and 14 (production readiness) toward M5 launch-ready.
+4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
 
