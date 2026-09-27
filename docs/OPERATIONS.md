@@ -309,6 +309,12 @@ On any database that already has data, in this order, **before the new version s
 
 1. **Back up** `users`, `locations`, `clients`, `organizations` and `user_auths` (and, from Phase 12, `REPORTS_STORAGE_DIR`).
 2. **`.env`:** set the new settings (see `.env.example`). In production `TOKEN_ENCRYPTION_KEY` is required; losing or changing it forces every user to reconnect GBP.
+   **Phase 10 (security), the app refuses to start in production without these:**
+   - **`JWT_SECRET`: rotate it.** At least 32 characters (`openssl rand -hex 32`); the current production secret is 12 characters. **Every user is signed out once** and signs in again.
+   - **`ADMIN_JWT_SECRET`:** new, at least 32 characters, different from `JWT_SECRET`. Existing admin tokens stop working; admins sign in again.
+   - **`PAYPAL_WEBHOOK_ID`:** from the PayPal developer dashboard (your app → Webhooks). Without it every webhook is refused.
+   - **`TRUST_PROXY_HOPS=1`** behind nginx (so rate limits and logs see the client IP); **`ACCESSDOMAINS`** must list every frontend origin (the wildcard CORS header is gone).
+   - `JWT_ACCESS_EXPIRATION_DAYS=1` (was 7; refresh tokens stay 30 days).
 3. **Install and build:** `npm ci` (the migration scripts run with ts-node, a dev dependency, so don't install with `--omit=dev` / `NODE_ENV=production`), then `npm run build`.
 4. **`npm run migrate:refresh -- --confirm`** (7b): tracking frequencies → `auto_monthly | manual_only`, plus the monthly refresh schedule. Idempotent.
 5. **`npm run migrate:organizations -- --confirm`** (Phase 8): every account gets an organization; locations and clients get theirs. **Required**: until it has run, existing locations can't be reached. Exit code 3 means duplicate `place_id`s within an organization: delete one of each pair it lists, then run it again (it syncs the unique index only when there are none). Idempotent.
@@ -318,6 +324,7 @@ On any database that already has data, in this order, **before the new version s
 9. **Reports storage (Phase 12):** create `REPORTS_STORAGE_DIR` (default `storage/reports` under the repo root), writable by the pm2 user and **not** under `public/`; add it to the backups. Set `SHARE_BASE_URL` to the public API origin, and make nginx forward `/r/` to the app. No system packages are needed (no Chromium).
 10. **`npm run migrate:branding -- --confirm`** (Phase 12): legacy white-label profiles → organization branding (agencies without branding only; copies logos into the storage directory). Idempotent. Run `db:sync-indexes` (step 6) after this release too: it builds the report indexes (Phase 12.5: also `rank_result_lists`, `api_usage` and the `places_rate` TTL index).
     **Phase 12.5 `.env`:** `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60` (decided 2026-09-27); remove `COMPETITOR_DETAILS_ATMOSPHERE`. Do the Google Cloud checklist (Ranking quality section) before the first monthly refresh.
-11. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention`) and `Recurring job scheduled: monthly-refresh` / `report-retention`.
+11. **Phase 10 data cleanup:** delete the old Search Console token rows, which may hold plaintext tokens (the feature was removed in 9a): `db.user_auths.deleteMany({ token_type: "ANALYTICS" })` (back up first, step 1). Check the `roles` collection holds role_id 1 (super admin), 2 (admin) and 4 (editor) as in `SUP_ADM_ROLE_ID` / `ADM_ROLE_ID` / `EDTR_ROLE_ID`: admin permissions are derived from them.
+12. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention`) and `Recurring job scheduled: monthly-refresh` / `report-retention`.
 
 `--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.

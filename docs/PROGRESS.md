@@ -868,3 +868,56 @@ Phase 12.5 merged (`c5aee43`) and pushed by Mohit; `COMPETITOR_DETAILS_ATMOSPHER
 - **CLAUDE.md:** Phase 12.5 done; the "nothing lives only in chat" rule; Phase 16 (citations) spec, right after Phase 10; Phase 10 must include the admin auth and roles.
 
 Tests 646 pass, build 0 errors, lint 32. **API calls:** the variance test, run by Mohit: ≥ 180 IDs-only (free SKU) plus part of the last round, 0 Pro.
+
+## Phase 10: Security hardening
+
+Branch `claude/phase-10-security`. Plan approved 2026-09-27; all Deferred-P10 items plus the admin auth and roles Phase 16 relies on. Offline: **0 Google calls**.
+
+**What changed** (one commit per area; statuses per item in AUDIT.md):
+- **Admin auth (S1, S14, S19, S22 admin):**
+  - one token module (`ADMIN_JWT_SECRET`, HS256, audience `mps-admin`, 12 h sessions, 15-minute single-use reset tokens, `token_version` revocation)
+  - roles → permissions (`admins.manage`, `platform.read` / `write`, `content.manage`, `system.read`, `citations.manage`)
+  - crypto passwords and OTPs, rate limits, no account enumeration
+  - a password change uses the signed-in admin (it took `admin_id` from the body)
+  - no self role change, the last super admin protected, no secret fields in responses
+- **Guards (S2, S3, S17, S27):** 49 admin-only routes; the white-label profile detail needs its owner. The guard test is generated from ENDPOINTS.md.
+- **Transport (S5, S7, S8, S9, S10, S16, S28):**
+  - trust proxy; full helmet; no wildcard CORS (unknown origins get no headers instead of a 500)
+  - 1 MB bodies; uploads only on 5 routes after auth (text fields still parsed elsewhere); file routes contained
+  - the error handler: generic 500s, 4xx kept, one log line
+- **Input and payments (S4, S6):** request sanitiser instead of `sanitizeFilter` (explained in §13a); PayPal webhooks verified with PayPal; checkout routes rate-limited.
+- **Tokens and legacy auth (S15, S22–S25):**
+  - user `token_version`, HS256 pinned, bad tokens 401 (were 500), 1-day access tokens
+  - legacy OTP attempts / expiry / hashed reset tokens
+  - account deletion disconnects Google
+  - post delete and legacy citation routes check organization access
+- **Logging (S21, S30):** 68 `console.*` calls → logger without payloads; no super-admin password in the seed log; query-value redaction.
+- **Closed:** S11 / S12 / S29 (Search Console gone), S18, S20; S13 code done (the credential rotation stays on Mohit's list).
+
+**Found on the way:**
+- The admin forgot-password token could never work (signed with a different key than it was checked with).
+- `verifyToken` turned bad signatures into 500s.
+- The OTP model reset its expiry on every save.
+
+All three are fixed.
+
+**Files touched (out of scope, security items only, as approved for Phase 10):**
+- **routes:** roles, business categories, subscription, payments, supports, contact-us, blog, blog categories, FAQs, citation, system, white-label
+- **services:** subscription / PayPal / payment (webhook verification, logging), citation middleware, admin services
+- **shared:** `app.ts`, `configs/{multer,morgan,corsConfigs,config,mongoMigrate}.ts`, `utils/errorHandler.ts`
+
+**Deploy (OPERATIONS.md):**
+- rotate `JWT_SECRET` (≥ 32 characters; users sign in again once)
+- new `ADMIN_JWT_SECRET` (admins sign in again), `PAYPAL_WEBHOOK_ID`, `TRUST_PROXY_HOPS=1`, `ACCESSDOMAINS` complete
+- delete the old `ANALYTICS` token rows; check the `roles` collection
+
+**Tests:** 734 pass (was 646), no key, no network; build 0 errors; lint 32.
+
+**Dev server:**
+- user dashboard / reports / usage 200
+- admin routes 401 without a token
+- traversal 404, bad token 401, operator key 400, oversize body 413
+- no wildcard CORS, strict CSP, HSTS
+- 0 Google calls
+
+**API calls consumed:** 0.
