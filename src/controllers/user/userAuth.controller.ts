@@ -23,30 +23,6 @@ export const verifyOTP = catchAsync(async (req, res) => {
   );
 });
 
-export const register = catchAsync(async (req, res) => {
-  const body = pick(req.body, [
-    "user_type",
-    "role_id",
-    "name",
-    "email",
-    "mobile",
-    "password",
-    "confirm_password",
-    "country_id",
-    "city_id",
-    "state_id",
-    "country_name",
-    "city_name",
-    "state_name",
-    "business_address",
-    "business_name",
-    "website_url",
-    "zip_code",
-  ]);
-  const message = await userAuthService.register(body);
-  return responseWrapper(res, "", message, httpStatus.CREATED);
-});
-
 export const login = catchAsync(async (req, res) => {
   const body = pick(req.body, ["email", "password", "ip_address"]);
   const header = pick(req.headers, ["time_zone", "fcm_token"]);

@@ -83,6 +83,7 @@ const main = async (): Promise<void> => {
 		role_id: config.roles.user,
 		user_type: userTypes.business,
 		status: userStatusTypes.ACCEPTED,
+		email_verified_at: new Date(),
 	});
 	await Profile.create({ user_id: user._id, name: 'Rank Demo', business_name: 'Maple Leaf Plumbing & Heating' });
 

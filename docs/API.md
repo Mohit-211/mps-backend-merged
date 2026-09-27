@@ -1563,7 +1563,18 @@ Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
 ### Auth (`/api/v1/auth`)
 
-Codes are 6 digits, stored hashed, valid 15 minutes (`AUTH_CODE_TTL_MINUTES`), 5 attempts, single use. Rate limits (per email, and per IP once `trust proxy` is set in Phase 10): signup 5/h per IP, login 10/15 min per email + IP, verify 10/15 min, resend 3/h, forgot 3/h per email and 20/h per IP, reset 10/15 min. Above a limit: **429** `{ "reason": "rate_limited", "retry_after_seconds": 3599 }`.
+**Email verification is by link (Phase 8.1).** Signup emails `FRONTEND_URL/verify-email?token=<token>`. The token is random, stored only as a hash, single use, and valid 24 h (`EMAIL_VERIFICATION_TTL_HOURS`). An account not verified within 24 h of signup is deleted (hourly job), and the email can sign up again. Password-reset codes are still 6 digits, stored hashed, valid 15 minutes (`AUTH_CODE_TTL_MINUTES`), 5 attempts, single use.
+
+**Rate limits** (per email, and per IP): above a limit → **429** `{ "reason": "rate_limited", "retry_after_seconds": 3599 }`.
+
+| Action | Limit |
+|---|---|
+| Signup | 5/h per IP |
+| Login | 10/15 min per email + IP |
+| Verify | 30/15 min per IP |
+| Resend | 3/h per email, 10/h per IP |
+| Forgot | 3/h per email, 20/h per IP |
+| Reset | 10/15 min |
 
 `POST /auth/signup`
 
@@ -1571,12 +1582,28 @@ Codes are 6 digits, stored hashed, valid 15 minutes (`AUTH_CODE_TTL_MINUTES`), 5
 { "account_type": "agency", "name": "Pat Owner", "email": "pat@agency.example", "password": "secret123",
   "organization_name": "Pat Agency", "country": "US", "accept_terms": true }
 ```
-→ **201** `{ "user_id": "…", "organization_id": "…", "email_verification": "sent" }`. The password needs 8+ characters with a letter and a digit. A taken email → **409** `{ "reason": "email_taken" }`.
+→ **201** `{ "user_id": "…", "organization_id": "…", "email_verification": "sent", "verify_before": "2026-09-28T10:00:00.000Z" }`.
+- The password needs 8+ characters with a letter and a digit.
+- A taken email → **409** `{ "reason": "email_taken" }`. An unverified account past its 24 h is removed first, so its email is free again.
+- The frontend shows "Check your email" with a **Resend link** button (`POST /auth/resend-verification`).
 
-`POST /auth/verify-email` `{ "email", "code" }` → the session (logs in directly):
+**The `/verify-email` page (frontend):**
+1. Read `token` from the query string and call `POST /auth/verify-email { "token": "…" }` once, on load.
+2. Handle the answer:
+
+| Answer | Meaning | Page |
+|---|---|---|
+| **200** `{ verified: true, already_verified: false, tokens, user, organizations, current_organization_id, onboarding }` | Verified now | Store the tokens and continue to onboarding (`onboarding.next_step`) |
+| **200** `{ verified: true, already_verified: true }` (no tokens) | The link was used before | "Your email is already verified." + a **Log in** button (not an error page) |
+| **400** `{ reason: "link_expired" }` | The link is older than 24 h, or the account's 24 h ran out | "This link has expired." + an email field and **Send a new link** |
+| **400** `{ reason: "link_invalid" }` | Unknown token, or a newer link was sent | "This link isn't valid." + **Send a new link** (only the newest link works) |
+| **400** (validation message, no reason) | No or malformed `token` | Same as `link_invalid` |
+| **429** `rate_limited` | Too many tries | "Try again in a few minutes." |
+
+`POST /auth/verify-email` `{ "token" }`, first time:
 
 ```json
-{ "verified": true,
+{ "verified": true, "already_verified": false,
   "tokens": { "access": { "token": "…", "expires": "…" }, "refresh": { "token": "…", "expires": "…" } },
   "user": { "id": "…", "email": "pat@agency.example", "name": "Pat Owner", "user_type": "AGENCY" },
   "organizations": [ { "organization_id": "…", "name": "Pat Agency", "type": "agency", "role": "owner" } ],
@@ -1585,14 +1612,14 @@ Codes are 6 digits, stored hashed, valid 15 minutes (`AUTH_CODE_TTL_MINUTES`), 5
                   "next_step": "google", "completed": false, "completed_at": null } }
 ```
 
-A wrong code → **400** `{ "reason": "invalid_code", "attempts_left": 4 }`; expired or used up → **400** `{ "reason": "code_expired", "attempts_left": 0 }`; already verified → **400** `{ "reason": "already_verified" }`.
-
 | Endpoint | Body | Response |
 |---|---|---|
-| `POST /auth/verify-email/resend` | `{ email }` | **200** `{ "email_verification": "sent_if_pending" }`, the same whether or not the account exists |
-| `POST /auth/login` | `{ email, password }` | The session (as above, without `verified`). Unverified → **403** `{ "reason": "email_not_verified" }` (call resend). Wrong email or password → **401** (one message for both). Disabled → **403** `account_disabled`. |
+| `POST /auth/resend-verification` | `{ email }` | **200** `{ "email_verification": "sent_if_pending" }`, the same for unknown, already-verified or expired accounts. A new link makes every older link `link_invalid`. |
+| `POST /auth/login` | `{ email, password }` | The session (as above, without `verified` / `already_verified`). Unverified (after a correct password) → **403** `{ "reason": "email_not_verified", "resend": "/api/v1/auth/resend-verification" }`, no tokens: show "Verify your email" + **Send a new link**. Wrong email or password → **401** (one message for both). Disabled → **403** `account_disabled`. |
 | `POST /auth/forgot-password` | `{ email }` | **200** `{ "reset": "sent_if_account_exists" }` |
-| `POST /auth/reset-password` | `{ email, code, password }` | **200** `{ "reset": true }`; every refresh token is revoked (log in again) |
+| `POST /auth/reset-password` | `{ email, code, password }` | **200** `{ "reset": true }`; every refresh token is revoked (log in again). The code proves the mailbox, so a still-unverified email becomes verified. |
+
+Accepting a team invitation also verifies the email (a new account is created verified; an existing unverified one is marked verified). **Legacy (8.1):** `POST /user/auth/register` is removed (404); `/user/auth/otp` and `/verify-otp` take only `FORGOT_PASSWORD` (`EMAIL_VERIFICATION` → **400** `{ "reason": "verification_by_link" }`); `/user/auth/login` refuses unverified accounts with the same 403.
 
 #### Session tokens and refresh (Phase 10)
 

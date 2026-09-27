@@ -7,11 +7,14 @@ import { catchAsync, responseWrapper } from '../../utils';
 const meta = (req: { ip?: string }) => ({ ip: req.ip ?? 'unknown' });
 
 export const signup = catchAsync(async (req, res) =>
-	responseWrapper(res, await authService.signup(res.locals.authInput, meta(req)), 'Account created. Check your email for the verification code.', httpStatus.CREATED),
+	responseWrapper(res, await authService.signup(res.locals.authInput, meta(req)), 'Account created. Check your email for the verification link.', httpStatus.CREATED),
 );
-export const verifyEmail = catchAsync(async (req, res) => responseWrapper(res, await authService.verifyEmail(res.locals.authInput), 'Email verified.'));
+export const verifyEmail = catchAsync(async (req, res) => {
+	const result = await authService.verifyEmail(res.locals.authInput, meta(req));
+	return responseWrapper(res, result, result.already_verified ? 'Your email is already verified. Please log in.' : 'Email verified.');
+});
 export const resendVerification = catchAsync(async (req, res) =>
-	responseWrapper(res, await authService.resendVerification(res.locals.authInput), 'If the account is waiting for verification, a new code was sent.'),
+	responseWrapper(res, await authService.resendVerification(res.locals.authInput, meta(req)), 'If the account is waiting for verification, a new link was sent.'),
 );
 export const login = catchAsync(async (req, res) => responseWrapper(res, await authService.login(res.locals.authInput, meta(req)), 'Logged in.'));
 export const forgotPassword = catchAsync(async (req, res) =>

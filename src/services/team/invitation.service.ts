@@ -9,6 +9,7 @@ import { Client, IInvitation, IOrganization, IUser, Invitation, InvitationRole, 
 import { ApiError, apiErrorWithData } from '../../utils';
 import { sendInvitationEmail } from '../common/email.service';
 import { sessionFor } from '../auth/auth.service';
+import { markVerified } from '../auth/emailVerification';
 import { LIMITS, hit } from '../auth/rateLimit';
 import { OrgContext } from '../org/context';
 
@@ -165,6 +166,8 @@ export const createInvitationService = (deps: InvitationDeps = {}) => {
 		let created = false;
 		if (user) {
 			account = user;
+			// Phase 8.1: accepting a link sent to this mailbox verifies an account that wasn't yet.
+			if (!user.email_verified_at) await markVerified(user._id, at);
 		} else {
 			account = await User.create({
 				email: inv.email,
@@ -173,6 +176,7 @@ export const createInvitationService = (deps: InvitationDeps = {}) => {
 				user_type: inv.role === 'client_user' ? userTypes.client : userTypes.employee,
 				// The link was delivered to this mailbox, so the email counts as verified.
 				status: userStatusTypes.ACCEPTED,
+				email_verified_at: at,
 			});
 			await Profile.create({ user_id: account._id, name: input.name });
 			created = true;

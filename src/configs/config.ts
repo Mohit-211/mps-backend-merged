@@ -64,7 +64,8 @@ const envVarsSchema = Joi.object({
 	DEFAULT_KEYWORD_LIMIT: Joi.number().integer().min(1).empty('').default(null).description('Org-wide tracked-keyword limit without a plan value; empty = no org-wide cap'),
 	INVITATION_TTL_DAYS: Joi.number().integer().min(1).max(30).default(7).description('Lifetime of team invitation links'),
 	FRONTEND_URL: Joi.string().uri().allow('').default('').description('Base URL of the web app (invitation links, PayPal return URLs)'),
-	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of email-verification and password-reset codes'),
+	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of password-reset codes'),
+	EMAIL_VERIFICATION_TTL_HOURS: Joi.number().integer().min(1).max(168).default(24).description('Phase 8.1: verification link lifetime; unverified signups are deleted after it'),
 	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
 	REPORTS_STORAGE_DIR: Joi.string().default('./storage/reports').description('Reports center (Phase 12): private directory for report PDFs and branding logos (never served statically)'),
 	REPORT_RETENTION_MONTHS: Joi.number().integer().min(1).max(120).default(24).description('Generated reports (PDF + snapshot) are deleted after this many months'),
@@ -219,6 +220,8 @@ interface Config {
 
 	auth: {
 		codeTtlMinutes: number;
+		/** Phase 8.1: verification link lifetime and the unverified-account deadline, in hours. */
+		emailVerificationTtlHours: number;
 		/** Team invitation lifetime in days (Phase 11). */
 		invitationTtlDays: number;
 		/** Base URL of the web app, for links in emails. */
@@ -366,6 +369,7 @@ const config: Config = {
 
 	auth: {
 		codeTtlMinutes: envVars.AUTH_CODE_TTL_MINUTES,
+		emailVerificationTtlHours: envVars.EMAIL_VERIFICATION_TTL_HOURS,
 		invitationTtlDays: envVars.INVITATION_TTL_DAYS,
 		frontendUrl: envVars.FRONTEND_URL ?? '',
 	},

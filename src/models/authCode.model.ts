@@ -1,7 +1,8 @@
 import { Document, Model, Schema, Types, model } from 'mongoose';
 
-// One-time auth codes (Phase 8): email verification and password reset. Only an HMAC of the code is
-// stored; codes expire (TTL index), allow a few attempts and are single-use.
+// One-time auth codes (Phase 8): password reset codes (an HMAC of the 6-digit code) and, since Phase 8.1,
+// email verification links (purpose verify_email: a SHA-256 of the link token). Rows expire (TTL index)
+// and are single-use.
 
 export const AUTH_CODE_PURPOSES = ['verify_email', 'reset_password'] as const;
 export type AuthCodePurpose = (typeof AUTH_CODE_PURPOSES)[number];
@@ -32,5 +33,7 @@ const AuthCodeSchema = new Schema<IAuthCode>(
 // One active code per user and purpose; expired documents are removed by MongoDB.
 AuthCodeSchema.index({ user_id: 1, purpose: 1 }, { unique: true });
 AuthCodeSchema.index({ expires_at: 1 }, { expireAfterSeconds: 0 });
+// Phase 8.1: verification links are looked up by their hash.
+AuthCodeSchema.index({ purpose: 1, code_hash: 1 });
 
 export const AuthCode: Model<IAuthCode> = model<IAuthCode>('AuthCode', AuthCodeSchema);
