@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27. Phase 10 is merged (`3c776fd`) and pushed. Follow-ups on `claude/rebuild`: Phase 16 joins M5, frontend notes (token refresh, admin sign-in, CORS), the keyword-volume vendor fully removed. Phase 8.1 (email verification by link) is merged (`604f8d6`) and pushed. Sanitation pass done (editor TypeScript, lint scope; PROGRESS.md). Next: Phase 16, plan approved._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, **planned pause**. Everything through Phases 12.5, 10 and 8.1 is merged and pushed; the sanitation pass is done. **Phase 16 (citations) has an approved plan ([plans/phase-16-citations.md](plans/phase-16-citations.md)); its build is paused** (Mohit: "we will get back to citation and other stuff later on"). **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
 
 ## Product goal
 
@@ -34,7 +34,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
-| **16** | **Citations**: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f); right after 8.1 | **next (plan approved 2026-09-27)** | `claude/phase-16-citations` | – | M5 |
+| **16** | **Citations**: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | **paused (plan approved 2026-09-27; not built)** | `claude/phase-16-citations` (not created yet) | – | M5 |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
@@ -82,7 +82,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - **Sync:** the `gbp-sync` job stores performance (18-month backfill, then 40 days rolling), search keywords (6 months, then 2), the full profile, attributes, pending Google edits and verification, each type with its own status. Reviews, media and posts are built but behind `GBP_V4_ENABLED`.
   - **Refresh:** one `monthly-refresh` scheduler (per location, on its setup day at about 03:00 local) replaced the 15-minute rank scheduler. `POST/GET /locations/:id/refresh` (manual, 24 h per type). `GET /locations/:id/gbp/sync`.
   - **Settings:** `tracking.frequency` is `auto_monthly | manual_only`, with `npm run migrate:refresh`.
-- **Endpoint docs rule (2026-09-26):** [ENDPOINTS.md](ENDPOINTS.md) lists every current endpoint (161 + 1 dev-only) and `npm run check:endpoints` (part of `npm test`) fails when it drifts from the code. ROUTES.md is a frozen Phase 1 snapshot. A dev-only popup-connect page `GET /dev/gbp-connect` for the live test.
+- **Endpoint docs rule (2026-09-26):** [ENDPOINTS.md](ENDPOINTS.md) lists every current endpoint (208 on 2026-09-27) and `npm run check:endpoints` (part of `npm test`) fails when it drifts from the code. ROUTES.md is a frozen Phase 1 snapshot. A dev-only popup-connect page `GET /dev/gbp-connect` for the live test.
 - **GBP Score + report (7c), offline so far:**
   - **GBP Score** (private): 5 pillars, 26 checks, rescaled when data is missing (`partial`); today (v4 off) it runs on completeness, visibility and engagement. **Public Score** for the client and competitors alike.
   - **Competitor comparison** (client + tracked + top 3 of the map list) with gap insights; Place Details at most once per monthly cycle per business.
@@ -105,7 +105,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - Library, download, archive, email (attachment or 30-day link), revocable share links (`/r/<token>`, noindex, no ids, rate-limited), monthly schedules after each location's automatic refresh, retention (24 months).
   - Agency white-label branding (logo, colours, footer, hide MyPageSEO, email sender and reply-to); the legacy white-label routes are deprecated and `npm run migrate:branding` carries them over.
 - **Ranking & data quality (Phase 12.5), offline:**
-  - Full-depth searches (up to 60 results) at every point, every point's full list stored; repeated sampling with median ranks (default 1 sample until the variance test).
+  - Full-depth searches (up to 60 results) at every point, every point's full list stored; repeated sampling with median ranks (3 samples 60 s apart, from the variance test).
   - Map Ranking at the center and N/S/E/W; competitor reviews (with authors) and photo counts; two new insights.
   - Cluster-wide Places limit (8/s), long-run safety (expected duration, heartbeat), `RANK_MAX_CALLS_PER_RUN` 16,000.
   - Usage ledger for every Google call, `api_usage` in `/organization/usage`, `npm run cost:report`; Google attribution in responses, PDFs and share pages.
@@ -113,7 +113,15 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - Platform admins: separate admin token secret, roles → permissions (incl. `citations.manage` for Phase 16), every admin-only route guarded and tested from ENDPOINTS.md.
   - Transport: trust proxy, full helmet, no wildcard CORS, 1 MB bodies, uploads only on 5 routes after auth, no path traversal, operator-key sanitiser, PayPal webhook verification.
   - Tokens: revocable user and admin sessions, 1-day access tokens, hardened legacy OTP / reset flows; no secrets or payloads in logs.
-- **Tests:** 734 pass with no API key and no network. Lint baseline is 32.
+- **Email verification by link (Phase 8.1):**
+  - a 24 h link at signup; login is blocked (403 `email_not_verified`) until the email is verified
+  - resend invalidates older links
+  - an hourly job deletes unverified signups after 24 h (and their empty organization)
+  - invitations and password resets verify the email
+  - `migrate:email-verified` marks existing users verified; legacy register removed
+- **Sanitation pass (2026-09-27):** the editor uses the workspace TypeScript 5.9 (`.vscode/settings.json`), the tsconfigs state their defaults, and the lint script covers every file. PROGRESS.md "Sanitation pass".
+- **Tests:** 743 pass (76 suites) with no API key and no network. Lint: 169 errors, all legacy (0 in rebuilt code and tests). Build: 0 errors.
+- **Endpoints:** 208 (193 live, 14 deprecated, 1 dev-only), all in [ENDPOINTS.md](ENDPOINTS.md).
 
 ## Key decisions
 
@@ -141,6 +149,9 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 2026-09-27 | **After Phase 12.5 (Mohit):**<br>• **Map Ranking stays at 5 points** (`MAP_RANKING_POINTS=all`); a monthly refresh of ≈ $1.75 (10 keywords) to ≈ $3.35 (20) is accepted: quality first.<br>• **Attribution wording:** Google's policy text "Google Maps" in-app, in PDFs and on share pages.<br>• **Public Score shift** from editorial summaries: accepted; dated in [CHANGELOG.md](CHANGELOG.md) (`public_score_editorial`) for chart markers.<br>• **Sampling:** 3 samples 60 s apart (`RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`) from the variance test; the one-time rank shift from medians is dated in CHANGELOG.md (`ranking_median_3x60`).<br>• **Places cap** stays at 8 req/s; Mohit is confirming the 600/min quota in Cloud.<br>• **Prices** in `pricing.ts`: Mohit is checking them against Google's pricing page.<br>• **Citations = Phase 16**, right after Phase 10: manual, admin-managed tracking, no external citation APIs (CLAUDE.md §12f). Phase 10 must include the admin auth and roles it needs.<br>• **Nothing lives only in chat:** every summary with numbers, decisions or setup steps is written into the matching doc in the same commit. |
 | 2026-09-27 | **Push after every merged phase** (GitHub is the only off-machine backup). **Maps ToS: accepted risk for now** (stores listed below; Google attribution added in 12.5). **Quality over cost:** about $1 per refresh is acceptable; cost-saving behaviour that lowers data quality is removed in 12.5 (full depth, samples, Map Ranking at 5 points, competitor reviews and photos); no monthly manual-refresh cap (the 24 h guard stays). |
 | 2026-09-27 | **Phase 12:** PDFKit (pure Node) over headless Chrome: small RAM, no Chromium per pm2 instance, no system packages. Reports are frozen snapshots (branding and logo included). White-label is agency-only. Schedules fire once per monthly auto-refresh cycle per location (not on manual refreshes). Share tokens are hashed, shown once and redacted from logs. Legacy white-label routes deprecated, not deleted. |
+| 2026-09-27 | **Phase 8.1:** email verification by link (not a code), valid 24 h. Unverified accounts get no tokens and are deleted after 24 h. Only 8.1 signups carry the deadline, so older accounts can never be deleted. Legacy `/user/auth/register` removed (disabled rather than ported). |
+| 2026-09-27 | **Phase 16 in M5** (the Citation Report is one of the four mandatory reports). **Plan approved, then build paused** by Mohit; resume from [plans/phase-16-citations.md](plans/phase-16-citations.md). Decisions in the plan: retire the legacy citation module and `serpapi`; `citations.view` + `citations.manage`; directory category groups; score defaults; CSV via `csv-parse` / `csv-stringify`. |
+| 2026-09-27 | **Tooling:** the editor uses the workspace TypeScript (5.9.3), not VS Code's bundled 6.0. The lint baseline is corrected to 169 legacy errors (the old script skipped nested folders). The TypeScript 7 move is backlog. |
 | 2026-09-27 | **Phase 11 / M4:** dashboards read stored per-location summaries only (`Location.summary`, written after runs and reports); team management is owner-only; accepting an invitation as an existing account doesn't log in; invitation tokens travel in the body and are stored hashed; in development the invitation link is logged with the email masked. |
 
 ## Open items (owner: Mohit)
@@ -202,7 +213,7 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Phase 16 (citations)**: plan approved 2026-09-27 (audit, data model, endpoints, score formula, report, CSV, seed); build on `claude/phase-16-citations`. **Phase 8.1 at deploy:** run `npm run migrate:email-verified -- --confirm` **before** starting the new code, and set `FRONTEND_URL` (OPERATIONS.md deploy checklist step 12). The frontend needs the `/verify-email` page (API.md).
+1. **Paused (Mohit, 2026-09-27).** When work resumes, Mohit picks the next phase. The candidates toward M5 are **16 Citations** (plan approved: [plans/phase-16-citations.md](plans/phase-16-citations.md)), **13 Billing & plans** (spec to be written) and **14 Production readiness**. **Phase 8.1 at deploy:** run `npm run migrate:email-verified -- --confirm` **before** starting the new code, and set `FRONTEND_URL` (OPERATIONS.md deploy checklist step 12). The frontend needs the `/verify-email` page (API.md).
 2. **Then** 13 (billing & plans) and 14 (production readiness) toward M5.
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
@@ -228,6 +239,8 @@ See [OPERATIONS.md](OPERATIONS.md) for:
 | Topic | File |
 |---|---|
 | Current state and next step | this file |
+| Big picture: what works, what doesn't, what's left | [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) |
+| Approved plans not built yet | [plans/](plans/) |
 | Methodology changes (dates for chart markers) | [CHANGELOG.md](CHANGELOG.md) |
 | History and commit hashes | [PROGRESS.md](PROGRESS.md) |
 | Findings and their status | [AUDIT.md](AUDIT.md) |

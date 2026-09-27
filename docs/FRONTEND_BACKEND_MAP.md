@@ -6,7 +6,7 @@ For the frontend team (Lovable). Every screen in the roadmap's **§16 Master Scr
 
 Every current endpoint (legacy included) is in [ENDPOINTS.md](ENDPOINTS.md); request and response shapes are in [API.md](API.md).
 
-Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
+Status as of 2026-09-27: everything through Phases 12.5, 10 and 8.1 is merged and pushed. Citations (Phase 16) and billing (Phase 13) are not built yet; their screens stay "planned". Summary: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md).
 
 ## Notes for the frontend team (Phase 10, 2026-09-27)
 

@@ -1,6 +1,6 @@
 # CLAUDE.md — MyPageSEO backend (mps-backend-merged)
 
-**Session start: read `docs/STATUS.md` first (current state + next step), then this file. Update `STATUS.md` at the end of every phase.**
+**Session start: read `docs/STATUS.md` first (current state + next step), then `docs/PROJECT_SUMMARY.md` (big picture: what works, what doesn't, what's left), then this file. Approved-but-unbuilt plans are in `docs/plans/`. Update `STATUS.md` (and the summary) at the end of every phase.**
 
 Read this whole file at the start of every session. It defines what the product is, what you may and may not touch, and the exact order of work. Work **bottom to top**: foundations first, features after. Never skip a phase gate.
 
@@ -30,7 +30,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 12.5 | Ranking & data quality: full depth, repeated sampling (3 samples, 60 s), richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | done | `claude/phase-12.5-quality` | M5 (pushed) |
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
 | 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
-| **16** | **Citations**: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f). Right after 8.1. | **next (plan approved 2026-09-27)** | `claude/phase-16-citations` | M5 |
+| **16** | **Citations**: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | **paused (plan approved 2026-09-27; not built)** | `claude/phase-16-citations` (not created yet) | M5 |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
@@ -139,7 +139,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 done. Next: **8.1 Email verification by link** → **16 Citations** (in M5, Mohit 2026-09-27) → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 done. **Paused 2026-09-27** (Mohit): on return Mohit picks the next phase among **16 Citations** (plan approved, `docs/plans/phase-16-citations.md`) → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 **Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
 
@@ -185,6 +185,11 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - Old ranking, GBP audit, Reputation Manager, white-label report links and the Search Console connect were **removed** in the legacy cleanup (branch `claude/phase-9a-legacy-cleanup`); see `docs/LEGACY_FEATURES.md` (last commit with that code: `1695187`) and `docs/MIGRATION.md` (unused collections, removed env vars).
 - **Ranking quality + usage (Phase 12.5):** `src/ranking/samples.ts`, `src/services/ranking/{resultLists,variance}.ts`, model `RankResultList`; `src/services/usage/` + model `ApiUsage`; `src/clients/placesRateLimiter.ts`; `src/configs/pricing.ts`; `src/constants/attribution.ts`; scripts `cost:report`, `variance:test`.
 - **Reports center (Phase 12):** `src/services/reports/` (snapshot sections → document blocks → PDFKit / HTML renderers), jobs in `src/jobs/reports.job.ts`, routes `/reports`, `/report-schedules`, `/organization/branding`, public `/r/:token`. Files in the private `REPORTS_STORAGE_DIR` (never under `public/`).
+- **Security and auth (Phases 10, 8.1):**
+  - **Admin auth:** `src/services/admin/adminToken.ts`, the permission matrix in `src/configs/adminPermissions.ts`, and `adminOnly(permission)` in `src/middlewares/auth/adminAuth.middleware.ts`. ENDPOINTS.md's `admin (permission)` column drives `tests/routes/adminGuards.routes.test.ts`.
+  - **User tokens:** revocable via `token_version`; access tokens last 1 day, refresh tokens 30 days.
+  - **Email verification by link:** `src/services/auth/emailVerification.ts` (`User.email_verified_at`, `verification_deadline`), job `unverified-cleanup`, script `migrate:email-verified`.
+- **Tooling:** the editor uses the workspace TypeScript 5.9.3 (`.vscode/settings.json`, committed), not VS Code's bundled 6.0. `npm run lint` covers `src`, `tests` and `index.ts`; the baseline is 169 legacy errors, and rebuilt code must stay at 0.
 - GBP posting (legacy, kept until Phase 8): `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda). Its token comes from `gbpClient` through the binding's connection.
 
 ---
@@ -746,7 +751,7 @@ Branch `claude/phase-12.5-quality` from `claude/rebuild`. **Plan mode first; wai
 
 ## 12g. PHASE 8.1 — Email verification by link
 
-Branch `claude/phase-8.1-email-verify` from `claude/rebuild`, before Phase 16 (Mohit, 2026-09-27). Small; short plan, then build. Offline, no Google calls. Replaces the Phase 8 code-based verification.
+**Done** (merged `604f8d6`, pushed 2026-09-27). Branch `claude/phase-8.1-email-verify` from `claude/rebuild`, before Phase 16 (Mohit, 2026-09-27). Small; short plan, then build. Offline, no Google calls. Replaces the Phase 8 code-based verification.
 
 **Spec (Mohit):**
 - **Signup** emails a link, not a code: `FRONTEND_URL/verify-email?token=…`. The token is random, stored only as a hash, single use, valid 24 h.
@@ -801,7 +806,7 @@ Branch `claude/phase-8.1-email-verify` from `claude/rebuild`, before Phase 16 (M
 
 ## 12f. PHASE 16 — Citations (manual, admin-managed tracking)
 
-**Planned; builds right after Phase 10** (Mohit, 2026-09-27). Branch `claude/phase-16-citations` from `claude/rebuild`. **Plan mode first; wait for approval.** It needs Phase 10's admin authentication and roles.
+**Plan approved (Mohit, 2026-09-27); build paused** the same day. Resume from **`docs/plans/phase-16-citations.md`** (the audit of the old module, data model, endpoints and permissions, score formula with a worked example, report, CSV format, seed, file list, verification, decisions). Branch `claude/phase-16-citations` from `claude/rebuild`. It needs Phase 10's admin authentication and roles (merged).
 
 **Model:** manual, admin-managed citation tracking. **No external citation APIs.**
 
@@ -875,7 +880,7 @@ Original spec (the deletions below were done in 9a):
 
 ## 13a. PHASE 10 — Security hardening (gated)
 
-**Built** on `claude/phase-10-security` (awaiting merge). As built:
+**Done** (merged `3c776fd`, pushed 2026-09-27). As built:
 - **Admin auth:** `src/services/admin/adminToken.ts` (the only admin sign/verify), `src/configs/adminPermissions.ts` (role → permission matrix), `validateAdminJWTToken` + `requireAdminPermission` / `adminOnly(permission)` in `src/middlewares/auth/adminAuth.middleware.ts`. **Phase 16 uses `adminOnly('citations.manage')`.**
 - **Guards:** every admin-only route (ENDPOINTS.md auth column `admin (permission)`); `tests/routes/adminGuards.routes.test.ts` reads that column and checks every route (no token / user token → 401, wrong role → 403, right role → through), so docs and guards can't drift.
 - **Transport:** `trust proxy`, full helmet, no wildcard CORS, 1 MB bodies, per-route uploads (`src/configs/multer.ts`: `uploadFiles` after auth; `multipartFieldsOnly` elsewhere), file-route containment, request sanitiser (`src/middlewares/common/sanitizeRequest.ts`), PayPal webhook verification (`src/services/common/paypalWebhook.ts`).

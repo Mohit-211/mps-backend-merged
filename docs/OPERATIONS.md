@@ -235,7 +235,8 @@ npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 acces
   - It prints the mapping (user ids and organization names, no emails). **Run it once when deploying Phase 8**, before the app serves requests: locations without an organization are not reachable.
 - **Plan limits:** from the organization owner's active plan (`subscription_plans.location_limit`, `keyword_limit`; set them per plan in the database, the payment code is unchanged). Otherwise `DEFAULT_LOCATION_LIMIT` (1) and `DEFAULT_KEYWORD_LIMIT` (empty = no org-wide cap).
 - **Team invitations (Phase 11):** links are `${FRONTEND_URL}/invite?token=…`, valid `INVITATION_TTL_DAYS` (7). Emails use the SMTP settings. In development nothing is sent: the link is logged with the recipient masked.
-- **Auth codes:** `AUTH_CODE_TTL_MINUTES` (15). Codes are HMAC-hashed with a key derived from `JWT_SECRET` (changing `JWT_SECRET` invalidates pending codes). Rate-limit counters are in `rate_limits` (TTL); IP-based limits need `trust proxy` (Phase 10).
+- **Email verification (Phase 8.1):** a link `${FRONTEND_URL}/verify-email?token=…`, valid `EMAIL_VERIFICATION_TTL_HOURS` (24); the token is stored as a SHA-256 hash. The hourly `unverified-cleanup` job deletes signups not verified in time. In development the link is logged with the email masked.
+- **Auth codes** (password reset only since 8.1): `AUTH_CODE_TTL_MINUTES` (15). Codes are HMAC-hashed with a key derived from `JWT_SECRET` (changing `JWT_SECRET` invalidates pending codes). Rate-limit counters are in `rate_limits` (TTL); IP-based limits need `trust proxy` (Phase 10).
 
 ## Ranking jobs
 

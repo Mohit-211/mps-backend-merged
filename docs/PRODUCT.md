@@ -27,7 +27,7 @@ Organization (type: business | agency; name; country; plan)
       ├─ Rankings    (Rank Tracker, Map Rankings, Local Search Grid: one ranking engine)
       ├─ GBP         (overview, audit/health, reviews, posts: needs a GBP connection)
       ├─ Competitors (public comparison, gaps)
-      ├─ Citations   (legacy module, out of scope for now)
+      ├─ Citations   (Phase 16: manual, admin-managed tracking; plan approved, build paused)
       └─ Reports
 ```
 
@@ -75,14 +75,14 @@ Since Phase 8 the backend keys ownership by **organization**: users act through 
 | GBP overview, audit (health), search keywords, performance | `gbp-sync` → stored metrics, keywords, profile snapshot, verification (7b) → GBP report (7c) |
 | Reviews, media, posts (GBP) | GBP v4 API, behind `GBP_V4_ENABLED` (access pending at Google) |
 | Competitors | Places Details for tracked competitors + ranks from the same `RankRun` (7c) |
-| Dashboard (business and agency) | Aggregates of the above (after Phase 8) |
-| Reports | Report center / scheduling: after Phase 8, to be decided |
-| Citations | Legacy module (out of scope); citation intelligence is to be decided |
+| Dashboard (business and agency) | Stored per-location summaries (Phase 11, `GET /dashboard`) |
+| Reports | Reports center (Phase 12): snapshots, PDF, email, share links, monthly schedules, agency white-label |
+| Citations | Phase 16 (decided 2026-09-27): manual, admin-managed tracking, no external citation APIs; plan approved, build paused ([plans/phase-16-citations.md](plans/phase-16-citations.md)) |
 | Automations, AI replies, posts calendar | Later (posting is Phase 9, needs v4) |
 
 ## Reports (PDF §13)
 
-The mandatory reports are the Rank Tracker Report, GBP Audit Report, Competitor Analysis Report and Citation Report, plus a report center (list, view, download, email, schedule). The **data** for the first three comes from 7b/7c. The **report center** (PDF export, email, scheduling, white-label rendering) is not planned yet (to pick after Phase 8). The Citation Report depends on the citation decision.
+The mandatory reports are the Rank Tracker Report, GBP Audit Report, Competitor Analysis Report and Citation Report, plus a report center (list, view, download, email, schedule). The first three are **built** (Phase 12: the Reports center with snapshots, PDF, email, share links, schedules and white-label). The **Citation Report** comes with Phase 16 and is required for launch (M5).
 
 ## What the backend will not provide
 
@@ -98,10 +98,7 @@ The PDF's benchmark (BrightLocal-style) shows metrics we deliberately don't have
 
 ## Phase map (backend)
 
-- **7b:** GBP sync (monthly).
-- **7c:** scoring, report and competitors (**M3**).
-- **8:** Auth, Organization, Onboarding & Locations.
-- **9:** GBP posting (needs v4).
-- **9b:** remaining cleanup.
-- **10:** security.
-- **After 8:** the next feature is picked with Mohit (reports center, dashboards or citations).
+- **Done:** 3–7c (ranking, GBP connection, sync, score and report), 8 (auth, organizations, locations), 11 (dashboards and team), 12 (reports center), 12.5 (ranking quality), 10 (security), 8.1 (email verification by link).
+- **Remaining for launch (M5):** 16 citations (plan approved, paused), 13 billing & plans, 14 production readiness, plus the Google approvals and the pre-launch live validation.
+- **Later:** 9 GBP posting and reviews (needs v4), 15 notifications & automations, 17 ranking extras, 9b cleanup.
+- The authoritative table is the Phase roadmap in [CLAUDE.md](../CLAUDE.md) and [STATUS.md](STATUS.md); the big picture is in [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md).

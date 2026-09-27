@@ -1006,3 +1006,20 @@ Mohit saw red lines in `tsconfig.json`, `tests/tsconfig.json`, `app.ts`, `server
 - No Google calls.
 
 **Left for later:** the TypeScript 7 migration (OPERATIONS.md "Lint and editor setup"; STATUS backlog).
+
+## Pause point (2026-09-27)
+
+Mohit paused the work: "we will get back to citation and other stuff later on". The context was brought up to date so the work can resume cleanly.
+
+**New docs:**
+- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md): the entry point after a break. It has the reading order, a quick self-check, numbers, what was built per phase, what works (offline and live), what doesn't or isn't verified, the remaining roadmap, Mohit's pending items, an architecture overview and the key decisions.
+- [plans/phase-16-citations.md](plans/phase-16-citations.md): the approved Phase 16 plan, copied into the repo so it isn't only in a local session file. Status header: approved, build paused, how to resume.
+- [plans/README.md](plans/README.md): an index of approved but unbuilt plans.
+
+**Updated:**
+- **STATUS.md:** the pause, Phase 16 paused, done-so-far (8.1, sanitation, tests 743, lint 169 legacy, 208 endpoints, the 12.5 sampling line), decisions (8.1, Phase 16 plan and pause, tooling), next up (Mohit picks among 16 / 13 / 14), the index of where facts live.
+- **CLAUDE.md:** the session-start reading order (STATUS → PROJECT_SUMMARY → CLAUDE), roadmap row 16 paused, the phase-order paragraph, the §12f pointer to the plan, Phase 10 / 8.1 marked done with their merge hashes, and a repository-map entry for security, auth and tooling.
+- **ENDPOINTS.md:** a summary block (208 endpoints by status, origin and auth; coming changes), the legacy citation routes marked "to be retired in Phase 16", and the Phase 8.1 removals listed.
+- **FRONTEND_BACKEND_MAP.md:** the status line (2026-09-27). **PRODUCT.md:** the module table, the reports paragraph and the phase map. **OPERATIONS.md:** email verification by link (auth codes are now for password reset only).
+
+**Checks:** `npm run check:endpoints` passes; docs only, no code changes. **API calls:** none.

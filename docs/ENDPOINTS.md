@@ -48,6 +48,16 @@
 
 ---
 
+## Summary (2026-09-27)
+
+**208 endpoints:** 193 live, 14 deprecated, 1 dev-only.
+- **By origin:** 72 rebuilt or new, 136 legacy.
+- **By auth:** 107 user, 52 platform admin (each with a permission), 47 none, 2 refresh token.
+
+**Coming changes** (approved plans, not built):
+- **Phase 16** retires the 13 legacy `/citation/*` routes and adds `/admin/citations/*` plus `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
+- **Phase 9b** removes the 14 deprecated routes once the frontend has moved.
+
 ## Catalogue: all current endpoints
 
 Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (acts in the current organization), `user + owner` (member of the location's organization, otherwise 404), `refresh token`, `admin`. The security findings for legacy routes (S1–S30) are in [AUDIT.md](AUDIT.md) and the [ROUTES.md](ROUTES.md) snapshot.
@@ -253,6 +263,8 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile. Replaced by #76 / #79 | legacy | deprecated |
 
 ### Citations
+
+**Legacy, to be retired in Phase 16** (plan approved, build paused: [plans/phase-16-citations.md](plans/phase-16-citations.md)). The tracker returns SerpAPI sample data and the builder is a stub; the frontend must not build on these routes.
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
@@ -587,5 +599,7 @@ No new endpoints; changed responses (examples in [API.md](API.md#ranking--data-q
 ## Removed endpoints
 
 Removed in Phase 8: `GET /locations/google-locations/:name` and `GET /locations/google-locations/details/:placeId` (unauthenticated proxies to the old paid Places API; use `GET /places/search`), and `PUT /locations` (now `PATCH /locations/:locationId`).
+
+Removed in Phase 8.1: `POST /api/v1/auth/verify-email/resend` (now `POST /api/v1/auth/resend-verification`) and the legacy `POST /api/v1/user/auth/register` (use `POST /api/v1/auth/signup`).
 
 Removed in the legacy cleanup (Phase 9a): the old ranking routes (`/rank-tracker`, `/local-search-grid`, `/local-map-ranking`), `/gbp-audit`, `/reputation-manager`, the white-label report links and the Search Console connect. See [LEGACY_FEATURES.md](LEGACY_FEATURES.md).
