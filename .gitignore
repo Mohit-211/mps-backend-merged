@@ -1,5 +1,7 @@
 .idea/
-.vscode/
+.vscode/*
+# Shared editor settings: use the project's TypeScript (see docs/OPERATIONS.md, "Editor setup").
+!.vscode/settings.json
 node_modules/
 build/
 tmp/

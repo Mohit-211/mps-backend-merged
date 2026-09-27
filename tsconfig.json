@@ -10,7 +10,9 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "strict": false,
+    "rootDir": "."
   },
   "include": [
     "src/**/*.ts",
