@@ -136,12 +136,38 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/organization/invitations` | user + org (owner) | Invite by email (`member`, or `client_user` with clients); 7-day single-use link | 11 | live |
 | GET | `/api/v1/organization/invitations` | user + org (owner) | Invitations with status (`pending`, `accepted`, `revoked`, `expired`) | 11 | live |
 | DELETE | `/api/v1/organization/invitations/:invitationId` | user + org (owner) | Revoke a pending invitation | 11 | live |
+| GET | `/api/v1/organization/branding` | user + org | Report branding with defaults filled (`white_label` false for a business) | 12 | live |
+| PUT | `/api/v1/organization/branding` | user + org (owner, agency) | White-label: agency name, colours, footer/contact text, hide MyPageSEO, email sender name and reply-to | 12 | live |
+| GET | `/api/v1/organization/branding/logo` | user + org | The logo image (private storage) | 12 | live |
+| PUT | `/api/v1/organization/branding/logo` | user + org (owner, agency) | Upload the logo `{ data }` (base64 PNG/JPEG, ≤ 512 KB) | 12 | live |
+| DELETE | `/api/v1/organization/branding/logo` | user + org (owner, agency) | Remove the logo | 12 | live |
 
 ### Dashboard
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/dashboard` | user + org | Business or Agency dashboard from stored summaries (visibility, GBP Score, reviews, movement, key competitor, actions; agency: portfolio, statuses, declines, GBP issues, table) | 11 | live |
+
+### Reports center
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/reports` | user + org (owner/member) | Create a report (Rank Tracker, GBP Audit, Competitor Analysis, Full); generated in the `report-generate` job | 12 | live |
+| GET | `/api/v1/reports` | user + org | Report library: filters, pagination (a client_user sees its clients' reports) | 12 | live |
+| GET | `/api/v1/reports/:reportId` | user + org | One report: status, frozen snapshot and the document blocks | 12 | live |
+| GET | `/api/v1/reports/:reportId/pdf` | user + org | Download the PDF | 12 | live |
+| DELETE | `/api/v1/reports/:reportId` | user + org (owner/member) | Archive (hidden from the library; share links stop working) | 12 | live |
+| POST | `/api/v1/reports/:reportId/email` | user + org (owner/member) | Email the report (attachment, or a 30-day link above 10 MB); 20 / hour per organization | 12 | live |
+| POST | `/api/v1/reports/:reportId/share` | user + org (owner/member) | Create a public share link (token shown once, optional expiry) | 12 | live |
+| GET | `/api/v1/reports/:reportId/shares` | user + org (owner/member) | The report's share links (no tokens) with views | 12 | live |
+| DELETE | `/api/v1/reports/:reportId/shares/:shareId` | user + org (owner/member) | Revoke a share link | 12 | live |
+| POST | `/api/v1/report-schedules` | user + org (owner/member) | Monthly scheduled report for a location or a client (agency) | 12 | live |
+| GET | `/api/v1/report-schedules` | user + org | Schedules with `next_expected`, `last_sent_at`, `last_error` | 12 | live |
+| GET | `/api/v1/report-schedules/:scheduleId` | user + org | One schedule | 12 | live |
+| PATCH | `/api/v1/report-schedules/:scheduleId` | user + org (owner/member) | Edit recipients, type, sections, range, or pause/resume | 12 | live |
+| DELETE | `/api/v1/report-schedules/:scheduleId` | user + org (owner/member) | Delete a schedule | 12 | live |
+| GET | `/r/:token` | none (share token) | Public branded HTML view of a shared report; noindex, rate-limited, no internal ids | 12 | live |
+| GET | `/r/:token/pdf` | none (share token) | Public PDF download of a shared report | 12 | live |
 
 ### Clients (agency)
 
@@ -220,11 +246,11 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/white-label-profiles` | user | Create New Profile | legacy | live |
-| PATCH | `/api/v1/white-label-profiles` | user | Update White Label Profile | legacy | live |
-| GET | `/api/v1/white-label-profiles` | user | Get White Label Profile | legacy | live |
-| GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | none | Get White Label Profile Detail | legacy | live |
-| DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile | legacy | live |
+| POST | `/api/v1/white-label-profiles` | user | Create New Profile. Replaced by organization branding (#76, #78); data carried over by `npm run migrate:branding` | legacy | deprecated |
+| PATCH | `/api/v1/white-label-profiles` | user | Update White Label Profile. Replaced by #76 | legacy | deprecated |
+| GET | `/api/v1/white-label-profiles` | user | Get White Label Profile. Replaced by #75 | legacy | deprecated |
+| GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | none | Get White Label Profile Detail (unauthenticated; removal in Phase 10). Replaced by #75 | legacy | deprecated |
+| DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile. Replaced by #76 / #79 | legacy | deprecated |
 
 ### Citations
 
@@ -505,6 +531,48 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 - **#29–#34:** codes are stored hashed, expire in 15 minutes, allow 5 attempts, single use; rate-limited per email (and IP) with **429** `rate_limited`.
 - **#40:** 1 Place Details call (US/CA only), after the limit and duplicate checks.
 - **#44:** soft delete; history is kept and the plan slot freed at once.
+
+### Reports center (Phase 12)
+
+A report freezes stored data (rank runs, the GBP report, the profile snapshot) and the organization's branding in a snapshot, and its PDF is rendered once (PDFKit, no browser). Shapes and examples: [API.md](API.md#reports-center-phase-12).
+
+| # | Method | Path | Auth | Params / body | Returns |
+|---|---|---|---|---|---|
+| 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_data` |
+| 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), page, limit` | `{ reports: [view], page, limit, total }` |
+| 63 | GET | `/reports/:reportId` | user + org | – | `{ report, snapshot: { location, data, sources } \| null, document: { title, period, generated_at, branding, blocks } \| null }` |
+| 64 | GET | `/reports/:reportId/pdf` | user + org | – | `application/pdf` attachment; **409** `not_ready` / `expired` |
+| 65 | DELETE | `/reports/:reportId` | user + org (owner/member) | – | `{ archived, report_id }` |
+| 66 | POST | `/reports/:reportId/email` | user + org (owner/member) | `{ recipients: [email] (1–10), message? }` | `{ sent, recipients, delivery: attachment\|link }`; **429** `rate_limited` |
+| 67 | POST | `/reports/:reportId/share` | user + org (owner/member) | `{ expires_in_days?: 1–365 \| null }` | **201** `{ share_id, url, expires_at }`; **409** unless ready and unarchived |
+| 68 | GET | `/reports/:reportId/shares` | user + org (owner/member) | – | `[{ share_id, purpose, created_at, expires_at, revoked_at, active, views, last_viewed_at }]` |
+| 69 | DELETE | `/reports/:reportId/shares/:shareId` | user + org (owner/member) | – | `{ revoked, share_id }` |
+| 70 | POST | `/report-schedules` | user + org (owner/member) | `{ scope: location\|client, location_id \| client_id, type, sections?, range?, recipients (1–10) }` | **201** schedule view; **400** `manual_only`, `gbp_not_connected`; **403** `agency_only` (client scope) |
+| 71 | GET | `/report-schedules` | user + org | `location_id, client_id, status` | `[schedule view]` |
+| 72 | GET | `/report-schedules/:scheduleId` | user + org | – | `{ schedule_id, scope, location_id, client_id, type, sections, range, recipients, frequency, status, locations, next_expected, last_sent_at, last_error, last_report_id, created_at }` |
+| 73 | PATCH | `/report-schedules/:scheduleId` | user + org (owner/member) | `{ type?, sections?, range?, recipients?, status?: active\|paused }` | schedule view |
+| 74 | DELETE | `/report-schedules/:scheduleId` | user + org (owner/member) | – | `{ deleted, schedule_id }` |
+| 75 | GET | `/organization/branding` | user + org | – | `{ white_label, name, agency_name, primary_color, secondary_color, footer_text, contact_text, hide_mypageseo, email_sender_name, email_reply_to, logo: { mime, bytes, url } \| null, updated_at }` |
+| 76 | PUT | `/organization/branding` | user + org (owner, agency) | any of `agency_name, primary_color (#rrggbb), secondary_color, footer_text, contact_text, hide_mypageseo, email_sender_name, email_reply_to` (`""` clears) | as #75; **403** `agency_only` / `owner_only` |
+| 77 | GET | `/organization/branding/logo` | user + org | – | the image; **404** without a logo |
+| 78 | PUT | `/organization/branding/logo` | user + org (owner, agency) | `{ data: "data:image/png;base64,…" }` | as #75; **400** `logo_type`, `logo_too_large` |
+| 79 | DELETE | `/organization/branding/logo` | user + org (owner, agency) | – | as #75 |
+
+Public share links (outside `/api/v1`, no login):
+
+| # | Method | Public path | Auth | Returns |
+|---|---|---|---|---|
+| 80 | GET | `/r/:token` | share token | Branded HTML (no scripts, CSP `default-src 'none'`, `X-Robots-Tag: noindex`, no internal ids); the same **404** page for an unknown, revoked, expired or archived link; **429** above 60 requests / minute per IP |
+| 81 | GET | `/r/:token/pdf` | share token | `application/pdf` attachment (views are counted on #80 only) |
+
+**Notes:**
+- **#61:** one active (queued / generating) report per location and type: a second request returns it with `existing: true`. A report stuck for 30 minutes is marked failed. `run_id` pins a rank run (default: the latest done/partial). A Full report includes each part that exists; a missing one (e.g. GBP not connected) is an "unavailable" block.
+- **GBP v4:** reviews, photos and posts say "Not available yet: this needs Google My Business v4 access" until `GBP_V4_ENABLED`; never sample data.
+- **#63:** the snapshot is written once; later rank runs, GBP reports or branding changes never alter a generated report.
+- **#66:** in development nothing is sent (`sent: false`); the delivery is logged with the recipients masked.
+- **#67:** the token (32 random bytes) is stored as a SHA-256 hash and returned only in this response. The request log redacts `/r/<token>`.
+- **#70:** a schedule fires once per monthly automatic refresh of each covered location, after that location's GBP report is generated (job `report-schedule-dispatch`); the report is emailed when ready (job `report-email`). Manual refreshes don't fire schedules. `next_expected` is the next monthly refresh of the covered location(s).
+- **Retention:** reports older than `REPORT_RETENTION_MONTHS` (24) lose their PDF and snapshot (status `expired`, daily job `report-retention`).
 
 ## Removed endpoints
 

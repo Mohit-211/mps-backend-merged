@@ -6,6 +6,7 @@ import { defineRankRunJob } from './rankRun.job';
 import { defineGbpSyncJob } from './gbpSync.job';
 import { defineGbpReportJob } from './gbpReport.job';
 import { MONTHLY_REFRESH_INTERVAL, defineMonthlyRefreshJob } from './monthlyRefresh.job';
+import { REPORT_RETENTION_INTERVAL, defineReportJobs } from './reports.job';
 
 // The single job registry. src/server.ts calls defineAllJobs() before startAgenda(), then
 // scheduleRecurringJobs() once agenda is running.
@@ -17,6 +18,7 @@ export const defineAllJobs = (agenda: Agenda): string[] => {
 	defineGbpSyncJob(agenda);
 	defineGbpReportJob(agenda);
 	defineMonthlyRefreshJob(agenda);
+	defineReportJobs(agenda);
 	const names = Object.keys((agenda as unknown as { _definitions: Record<string, unknown> })._definitions);
 	logger.info(`Agenda jobs defined: ${names.join(', ')}`);
 	return names;
@@ -31,4 +33,6 @@ export const scheduleRecurringJobs = async (agenda: Agenda): Promise<void> => {
 	if (removed) logger.info(`Cancelled ${removed} old ${JOB_NAMES.RANK_SCHEDULER} job document(s)`);
 	await agenda.every(MONTHLY_REFRESH_INTERVAL, JOB_NAMES.MONTHLY_REFRESH, {});
 	logger.info(`Recurring job scheduled: ${JOB_NAMES.MONTHLY_REFRESH} every ${MONTHLY_REFRESH_INTERVAL}`);
+	await agenda.every(REPORT_RETENTION_INTERVAL, JOB_NAMES.REPORT_RETENTION, {});
+	logger.info(`Recurring job scheduled: ${JOB_NAMES.REPORT_RETENTION} every ${REPORT_RETENTION_INTERVAL}`);
 };

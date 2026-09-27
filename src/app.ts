@@ -28,6 +28,7 @@ import {
 } from './utils';
 import routes from './routes/v1';
 import devConnectRoutes from './routes/dev/devConnect.route';
+import shareRoutes from './routes/share.route';
 import { queryTypesArr } from './configs/constantTypes';
 
 const app = express();
@@ -133,6 +134,9 @@ app.get('/ping', (req: Request, res: Response) => {
 
 // Added multer with all v1 api routes
 app.use('/api/v1', upload, handleImageCompression, routes);
+
+// Phase 12: public report share links (/r/<token>), outside /api/v1 and without multer.
+app.use('/r', shareRoutes);
 
 // Development-only helper pages (never mounted in test or production); listed in docs/ENDPOINTS.md.
 if (config.essentials.env === 'development') {
