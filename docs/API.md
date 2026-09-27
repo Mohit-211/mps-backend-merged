@@ -1826,3 +1826,139 @@ The owner can't be changed or removed: **403** `{ "reason": "owner_protected" }`
 | `{ token }` for an **existing** account | `{ "accepted": true, "organization_id": "…", "login_required": true }`: the membership is added; log in normally (the link alone isn't a login) |
 
 A new email without `name` / `password` → **400** `account_details_required`. Rate limit: 20 per 15 minutes per IP (inspect + accept).
+
+## Reports center (Phase 12)
+
+A report freezes stored data (the rank run, the GBP report, the profile snapshot) and the organization's branding in a **snapshot** when it is generated; the PDF is rendered once from it (PDFKit, no browser) and stored privately (`REPORTS_STORAGE_DIR`). Later rank runs, GBP reports or branding changes never change a generated report. Reports older than `REPORT_RETENTION_MONTHS` (24) lose their PDF and snapshot (`status: "expired"`).
+
+**Types and sections** (`sections` optional; default all, in this order):
+
+| Type | Sections |
+|---|---|
+| `rank_tracker` | `summary`, `keywords`, `history` (last 12 runs), `grid` (heatmap per keyword), `movers` |
+| `gbp_audit` | `score`, `checks` (with top fixes), `performance` (`range` 28d/90d/12m), `keywords`, `profile` (with name/phone/website consistency), `verification`, `pending_edits`, `reviews_media_posts` (needs v4) |
+| `competitor_analysis` | `public_scores`, `table`, `ranks`, `insights` |
+| `full` | the report types it combines: `rank_tracker`, `gbp_audit`, `competitor_analysis` |
+
+A part that can't be shown is `{ available: false, reason }` in `snapshot.data` and an `unavailable` block in the document: `gbp_not_connected`, `v4_access_pending` ("Not available yet: this needs Google My Business v4 access"), `not_synced_yet`, `no_rank_run`, `no_gbp_report`. **Never sample data.**
+
+### `POST /api/v1/reports`
+
+```json
+{ "location_id": "6ab8ad2e7c446457a3999f95", "type": "gbp_audit", "range": "90d" }
+```
+
+**202**:
+
+```json
+{ "report_id": "6ab8ad550854cb0157d88bdf", "type": "gbp_audit", "sections": ["score", "checks", "performance", "keywords", "profile", "verification", "pending_edits", "reviews_media_posts"],
+  "status": "queued", "trigger": "manual", "schedule_id": null,
+  "location": { "location_id": "6ab8ad2e7c446457a3999f95", "name": "Maple Leaf Plumbing & Heating" },
+  "client": { "client_id": "6ab8ad2e7c446457a3999f8f", "name": null },
+  "range": "90d", "run_id": null, "pdf": null, "failure_reason": null,
+  "created_at": "2026-09-27T05:44:53.101Z", "generated_at": null, "expires_at": null, "archived_at": null, "existing": false }
+```
+
+- One active (queued/generating) report per location and type: a repeat returns the active one with `existing: true`.
+- **400** `{ reason }`: `invalid_section` (with `allowed`), `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_data`. **404** for a location outside the organization. **403** `read_only` for a client_user.
+- Poll `GET /reports/:id` until `status` is `ready` (or `failed` with `failure_reason`).
+
+### `GET /api/v1/reports[?location_id=&client_id=&type=&status=&page=&limit=]`
+
+`status`: `queued | generating | ready | failed | expired | archived` (archived reports are listed only with `status=archived`).
+
+```json
+{ "reports": [ { "report_id": "…", "type": "full", "status": "ready", "trigger": "manual",
+                 "location": { "location_id": "…", "name": "Danforth Drain Pros" }, "client": { "client_id": "…", "name": "Danforth Services" },
+                 "range": "28d", "run_id": "…", "pdf": { "bytes": 36594, "pages": 5 }, "created_at": "…", "generated_at": "…", "expires_at": "2028-09-27T05:41:18.424Z", "archived_at": null } ],
+  "page": 1, "limit": 20, "total": 1 }
+```
+
+### `GET /api/v1/reports/:reportId`
+
+```json
+{ "report": { "report_id": "…", "type": "rank_tracker", "status": "ready", "…": "as in the list" },
+  "snapshot": {
+    "location": { "name": "Maple Leaf Plumbing & Heating", "address": "100 Queen St E", "city": "Toronto", "state": "ON", "country": "Canada", "client_name": "Maple Leaf Group" },
+    "data": { "rank_tracker": { "available": true, "run": { "run_at": "…", "finished_at": "…", "partial": false, "grid_size": 5, "spacing_km": 1 },
+                                 "summary": { "overall_avg_rank": 21.3, "change": -1.4, "top3_rate": 0.07, "found_rate": 0.93, "keywords": 3 },
+                                 "keywords": [ { "keyword": "Emergency Plumber", "avg_rank": 11.7, "found_rate": 1, "top3_rate": 0, "change": -2, "label": "declined" } ],
+                                 "history": [ { "run_at": "…", "overall_avg_rank": 19.9 } ],
+                                 "grid": [ { "keyword": "Emergency Plumber", "size": 5, "spacing_km": 1, "cells": [ { "row": 0, "col": 0, "rank": 13, "status": "ok" } ], "avg_rank": 11.7, "found_rate": 1, "top3_rate": 0 } ],
+                                 "movers": { "improved": [], "declined": [ { "keyword": "Emergency Plumber", "change": -2 } ], "entered": [], "dropped": [] } } },
+    "sources": { "rank_run_id": "…", "gbp_report_generated_at": "…" } },
+  "document": {
+    "title": "Rank Tracker Report", "period": "Rank run of 26 Sep 2026", "generated_at": "…",
+    "branding": { "name": "Northern Local SEO", "primary_color": "#0f766e", "secondary_color": "#b45309", "footer_text": "…", "contact_text": "…", "hide_mypageseo": true, "logo": { "mime": "image/png" } },
+    "blocks": [
+      { "kind": "heading", "level": 2, "text": "Summary" },
+      { "kind": "kpis", "items": [ { "label": "Average rank", "value": "21.3", "sub": "▼ 1.4 vs previous run", "tone": "bad" }, { "label": "Top-3 rate", "value": "7%" } ] },
+      { "kind": "table", "columns": [ { "label": "Keyword", "weight": 3 }, { "label": "Avg rank", "align": "right" } ], "rows": [ ["Emergency Plumber", "11.7"] ] },
+      { "kind": "line_chart", "title": "Average rank (lower is better)", "points": [ { "label": "28 Jul 2026", "value": 19.9 } ], "lower_is_better": true },
+      { "kind": "heatmap", "title": "Emergency Plumber: average 11.7, top-3 0%", "size": 5, "cells": [ { "row": 0, "col": 0, "text": "13", "bucket": "low" } ] },
+      { "kind": "unavailable", "title": "Reviews", "message": "Not available yet: this needs Google My Business v4 access." } ] } }
+```
+
+- Block kinds: `heading` (level 1 = a part of a Full report), `paragraph` (`muted`), `kpis`, `table` (`highlight` = row indexes, e.g. your business or a NAP mismatch), `line_chart`, `heatmap` (buckets `pack | visible | low | invisible | not_found | error`; text `60+` = not found, `!` = search failed), `list`, `unavailable`, `page_break`.
+- `snapshot` and `document` are `null` until `ready`. The logo bytes are at `GET /organization/branding/logo` (current logo) and inside the PDF (the frozen one).
+
+### `GET /api/v1/reports/:reportId/pdf`
+
+`application/pdf`, `Content-Disposition: attachment; filename="maple-leaf-plumbing-heating-gbp-audit-2026-09-27.pdf"`. **409** `{ reason: "not_ready" | "expired" }`.
+
+### `POST /api/v1/reports/:reportId/email`
+
+```json
+{ "recipients": ["owner@mapleleafgroup.example"], "message": "Here is this month's report." }
+```
+
+→ `{ "sent": true, "recipients": 1, "delivery": "attachment" }` (`"link"` above `REPORT_EMAIL_MAX_ATTACHMENT_MB`, with a 30-day share link in the email). Sender: `"<email_sender_name>"` or `"<agency name> via MyPageSEO"` from the `EMAIL_FROM` address; `Reply-To` from branding. In development nothing is sent: `sent: false` and the delivery is logged with masked recipients. **429** `rate_limited` above 20 per hour per organization.
+
+### Share links
+
+`POST /api/v1/reports/:reportId/share { "expires_in_days": 30 }` (1–365, or `null` / omitted for no expiry) → **201**:
+
+```json
+{ "share_id": "6ab8…", "url": "https://api.mypageseo.com/r/Qm9n…43 characters", "expires_at": "2026-10-27T05:44:53.600Z" }
+```
+
+The URL (token) is returned **only here**; only its SHA-256 is stored. `GET /reports/:id/shares` → `[{ share_id, purpose: "share"|"email_link", created_at, expires_at, revoked_at, active, views, last_viewed_at }]`; `DELETE /reports/:id/shares/:shareId` → `{ revoked: true }`.
+
+**Public** `GET /r/<token>`: a branded HTML page (header with logo, KPIs, tables, SVG charts, "Download PDF"); `GET /r/<token>/pdf`: the PDF. `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer`, CSP `default-src 'none'` (no scripts), no internal ids. Unknown, revoked, expired or archived links give the same **404** page; **429** above 60 requests per minute per IP. The base URL comes from `SHARE_BASE_URL` (else `API_BASE_URL`).
+
+### Scheduled reports (`/api/v1/report-schedules`)
+
+```json
+{ "scope": "client", "client_id": "6ab8ad2e7c446457a3999f8f", "type": "gbp_audit", "range": "28d",
+  "recipients": ["owner@mapleleafgroup.example", "marketing@mapleleafgroup.example"] }
+```
+
+→ **201**:
+
+```json
+{ "schedule_id": "…", "scope": "client", "location_id": null, "client_id": "…", "type": "gbp_audit", "sections": ["score", "…"], "range": "28d",
+  "recipients": ["owner@mapleleafgroup.example", "marketing@mapleleafgroup.example"], "frequency": "monthly", "status": "active",
+  "locations": [ { "location_id": "…", "name": "Maple Leaf Plumbing & Heating" }, { "location_id": "…", "name": "Queen West Plumbing Co." } ],
+  "next_expected": "2026-10-17T07:00:00.000Z", "last_sent_at": null, "last_error": null, "last_report_id": null, "created_at": "…" }
+```
+
+- **When:** once per monthly automatic refresh of each covered location, right after that location's GBP report is generated; the report is emailed when ready. A client schedule sends one email per location. Manual refreshes don't send.
+- `next_expected`: the next monthly refresh of the covered location(s) (the email follows within minutes).
+- **400**: `manual_only` (the location never refreshes automatically), `gbp_not_connected` (a GBP Audit schedule for an unbound location). **403** `agency_only` for client scope in a business organization. A failure later (e.g. a client location without GBP) is kept in `last_error`.
+- `PATCH { status: "paused" | "active", recipients?, type?, sections?, range? }`; `DELETE` → `{ deleted: true }`. A client_user can read the schedules of its clients.
+
+### Branding (`/api/v1/organization/branding`, white-label: agency only)
+
+`GET` (any member):
+
+```json
+{ "white_label": true, "name": "Northern Local SEO", "agency_name": "Northern Local SEO", "primary_color": "#0f766e", "secondary_color": "#b45309",
+  "footer_text": "Northern Local SEO · Toronto, ON", "contact_text": "hello@northernlocalseo.example · (416) 555-0199", "hide_mypageseo": true,
+  "email_sender_name": "Northern Local SEO", "email_reply_to": "hello@northernlocalseo.example",
+  "logo": { "mime": "image/png", "bytes": 559, "url": "/api/v1/organization/branding/logo" }, "updated_at": "…" }
+```
+
+A business organization gets `{ "white_label": false, "name": "MyPageSEO", "primary_color": "#1d4ed8", "secondary_color": "#0f766e", "hide_mypageseo": false, … }`.
+
+- `PUT` (owner, agency): any of the fields above; colours `#rrggbb`; `""` clears a text field. **403** `agency_only` / `owner_only`.
+- `PUT /logo { "data": "data:image/png;base64,…" }`: PNG or JPEG (checked by content), ≤ 512 KB. **400** `logo_type`, `logo_too_large`. `GET /logo` returns the image (private, not a public URL); `DELETE /logo` removes it.

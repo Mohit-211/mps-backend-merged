@@ -26,7 +26,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 7c | GBP Score, report, competitors | done | `claude/phase-7c-scoring-report` | M3 |
 | 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | M4 |
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | M4 |
-| **12** | **Reports center**: reports as PDF, email, schedules, white-label, share links | **in progress (planning)** | `claude/phase-12-reports` | M5 |
+| **12** | **Reports center**: reports as PDF, email, schedules, white-label, share links | **built, awaiting merge** | `claude/phase-12-reports` | M5 |
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30. Required before launch; runs after 12. | planned | – | M5 |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
@@ -182,6 +182,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - Location model (`src/models/location.model.ts`): `name, address, city, state, country, zip_code, lat, lng, mobile, place_id, website_URL, business_category, client_id, created_by, is_active`, plus (Phase 8) `organization_id, source (gbp|places_search|legacy), gbp_connected, summary, deleted_at/by` and a unique `(organization_id, place_id)` index for active locations.
 - **Organizations (Phase 8):** models `Organization`, `Membership` (roles `owner | member | client_user`), `AuthCode`, `RateLimit`. Access: `src/services/org/access.ts` (`findLocationForUser`, `locationScope`, `clientScope`); the current organization: `loadOrgContext` (`X-Organization-Id` or the default). `loadOwnedLocation` (ranking middleware) checks membership of the location's organization and makes a client_user read-only. Limits: `src/services/org/limits.ts`. New code never checks `created_by` for access.
 - Old ranking, GBP audit, Reputation Manager, white-label report links and the Search Console connect were **removed** in the legacy cleanup (branch `claude/phase-9a-legacy-cleanup`); see `docs/LEGACY_FEATURES.md` (last commit with that code: `1695187`) and `docs/MIGRATION.md` (unused collections, removed env vars).
+- **Reports center (Phase 12):** `src/services/reports/` (snapshot sections → document blocks → PDFKit / HTML renderers), jobs in `src/jobs/reports.job.ts`, routes `/reports`, `/report-schedules`, `/organization/branding`, public `/r/:token`. Files in the private `REPORTS_STORAGE_DIR` (never under `public/`).
 - GBP posting (legacy, kept until Phase 8): `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda). Its token comes from `gbpClient` through the binding's connection.
 
 ---
@@ -669,7 +670,19 @@ As built:
 - **`npm run db:sync-indexes`:** syncs the rebuilt collections' indexes. It found and dropped the stale Phase 6 `user_auths` index (one Google account per user) that blocked multi-account connections on older databases; it's in the deploy checklist.
 - **Seeds:** `seed:demo-orgs` gives both dashboards data: rank movement both ways, GBP Score trends, an unverified profile on a revoked connection (`reconnect_required`), and a pending invitation.
 
-## 12c. PHASE 12 — Reports center (next)
+## 12c. PHASE 12 — Reports center
+
+**Built** on `claude/phase-12-reports` (awaiting merge). As built:
+- **PDF engine: PDFKit** (pure Node, DejaVu Sans embedded), chosen over Puppeteer: no Chromium or system packages, about 50 ms CPU and 40 MB transient memory for an 8-page report, nothing extra per pm2 instance. One **document model** (typed blocks: heading, paragraph, kpis, table, line_chart, heatmap, list, unavailable, page_break) feeds both renderers: `render/pdf.ts` and `render/html.ts` (share page, email body). `GET /reports/:id` returns the same blocks for the in-app viewer.
+- **Code:** `src/services/reports/` (`sections/{rankTracker,gbpAudit,competitors}`, `blocks`, `render/`, `storage`, `report.service` (create, list, view, PDF, archive, generate, retention), `share.service`, `reportEmail.service`, `schedule.service`, `dispatch`, `branding.service`, `migrateBranding`), `src/jobs/reports.job.ts`, `src/routes/share.route.ts` (mounted at `/r`, outside `/api/v1`).
+- **Models:** `Report` (one active per location + type), `ReportSnapshot` (written once; holds the frozen branding, logo included), `ReportShare` (SHA-256 token hash), `ReportSchedule` (`cycles`: the monthly cycle handled per location), `Organization.branding`.
+- **Jobs:** `report-generate` (`REPORT_RENDER_CONCURRENCY`, default 1), `report-email`, `report-schedule-dispatch` (requested after each GBP report generation; one report per schedule per location per monthly auto-refresh cycle, compare-and-set), `report-retention` (daily).
+- **White-label:** agency only (business = default branding); owner edits. Logo as base64 JSON (PNG/JPEG by magic bytes, ≤ 512 KB) into private storage. Legacy `/white-label-profiles` deprecated; `npm run migrate:branding` copies them. The agency onboarding step `reporting_brand` is now real (done once branding is saved).
+- **Share links:** `/r/:token` with noindex, CSP `default-src 'none'`, no-referrer, 60 / min per IP, one 404 for every failure; the morgan request log redacts `/r/<token>` (shared-file edit, flagged).
+- **Email:** `sendReportEmail` added to `email.service.ts` (shared, flagged); From stays `EMAIL_FROM` with the branding's display name; above 10 MB a 30-day share link; development only logs (masked).
+- **Config:** `REPORTS_STORAGE_DIR`, `REPORT_RETENTION_MONTHS`, `REPORT_RENDER_CONCURRENCY`, `REPORT_EMAIL_MAX_ATTACHMENT_MB`, `SHARE_BASE_URL`. Endpoints #61–#81 (ENDPOINTS.md, API.md).
+
+Original spec:
 
 Branch `claude/phase-12-reports` from `claude/rebuild`. **Plan mode first; wait for approval.** Roadmap PDF §13 (reports) and §14 (white-label). Offline only: no Google or Places calls; PDF rendering tested locally. Next after 12: Phase 10 (security); the next milestone push is agreed then.
 
