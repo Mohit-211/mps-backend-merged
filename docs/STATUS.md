@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27. Phase 10 is merged (`3c776fd`) and pushed. Follow-ups on `claude/rebuild`: Phase 16 joins M5, frontend notes (token refresh, admin sign-in, CORS), the keyword-volume vendor fully removed. Next: Phase 8.1 (email verification by link), then the Phase 16 plan._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27. Phase 10 is merged (`3c776fd`) and pushed. Follow-ups on `claude/rebuild`: Phase 16 joins M5, frontend notes (token refresh, admin sign-in, CORS), the keyword-volume vendor fully removed. Phase 8.1 (email verification by link) is built on `claude/phase-8.1-email-verify`, awaiting merge. Next: the Phase 16 plan._
 
 ## Product goal
 
@@ -33,7 +33,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 12 | Reports center | done | `claude/phase-12-reports` | yes (`3f1e192`) | M5 (pushed 2026-09-27) |
 | 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
-| **8.1** | **Email verification by link** (CLAUDE.md §12g) | **next** | `claude/phase-8.1-email-verify` | – | M5 |
+| **8.1** | **Email verification by link** (CLAUDE.md §12g) | **built, awaiting merge** | `claude/phase-8.1-email-verify` | – | M5 |
 | 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f); right after 8.1 | planned | `claude/phase-16-citations` | – | M5 |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
@@ -200,7 +200,7 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Phase 8.1: email verification by link** (CLAUDE.md §12g), on `claude/phase-8.1-email-verify`.
+1. **Merge and push Phase 8.1** (commands in the phase summary). **At deploy:** run `npm run migrate:email-verified -- --confirm` **before** starting the new code, and set `FRONTEND_URL` (OPERATIONS.md deploy checklist step 12). The frontend needs the `/verify-email` page (API.md).
 2. **Then Phase 16 (citations)**, in plan mode (CLAUDE.md §12f; the plan audits the old citation module), then 13 (billing & plans) and 14 (production readiness) toward M5.
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.

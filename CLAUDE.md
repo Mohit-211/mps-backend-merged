@@ -29,7 +29,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 12 | Reports center: reports as PDF, email, schedules, white-label, share links | done | `claude/phase-12-reports` | M5 (pushed) |
 | 12.5 | Ranking & data quality: full depth, repeated sampling (3 samples, 60 s), richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | done | `claude/phase-12.5-quality` | M5 (pushed) |
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
-| **8.1** | **Email verification by link** (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | **next** | `claude/phase-8.1-email-verify` | M5 |
+| **8.1** | **Email verification by link** (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | **built, awaiting merge** | `claude/phase-8.1-email-verify` | M5 |
 | 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f). Right after 8.1. | planned | `claude/phase-16-citations` | M5 |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
@@ -743,6 +743,61 @@ Branch `claude/phase-12.5-quality` from `claude/rebuild`. **Plan mode first; wai
 **End of phase:** STATUS / PROGRESS / CLAUDE.md (roadmap) and ENDPOINTS / API / FRONTEND_BACKEND_MAP updated, the merge and push commands, then stop. Next: Phase 10 (security) in plan mode.
 
 **Gate.**
+
+## 12g. PHASE 8.1 — Email verification by link
+
+Branch `claude/phase-8.1-email-verify` from `claude/rebuild`, before Phase 16 (Mohit, 2026-09-27). Small; short plan, then build. Offline, no Google calls. Replaces the Phase 8 code-based verification.
+
+**Spec (Mohit):**
+- **Signup** emails a link, not a code: `FRONTEND_URL/verify-email?token=…`. The token is random, stored only as a hash, single use, valid 24 h.
+- **`POST /auth/verify-email { token }`** marks the email verified. For an already-verified account it is idempotent: a clear message, no error page.
+- **Login** is refused until the email is verified: **403** `email_not_verified`, with a resend option. Unverified users get no access or refresh tokens.
+- **`POST /auth/resend-verification { email }`** is rate-limited, always gives the same generic answer and invalidates older links.
+- **Cleanup:** accounts not verified within 24 h of signup are deleted by an hourly, cluster-safe agenda job.
+  - It deletes the user, their organization (only if it has no other members), their memberships, pending invitations they sent, and everything else created at signup.
+  - It logs counts only. The email can then sign up again.
+- **Invited users** who accept an invitation link are marked verified.
+- **Existing users:** a migration marks them verified. It is in the deploy checklist and runs before the cleanup job can run on a real database.
+- **Legacy `/user/auth/register`:** apply the same rule, or disable it.
+- **Development:** no real email; the link is logged with the email masked.
+
+**Plan (as decided):**
+- **User fields:**
+  - `email_verified_at` (Date | null) is the only source of truth for "verified". Verifying also moves status `PENDING` → `ACCEPTED`, which the token middleware still requires.
+  - `verification_deadline` (Date | null) is set **only** by `POST /auth/signup` (signup + `EMAIL_VERIFICATION_TTL_HOURS`, default 24) and cleared on verification.
+- **Cleanup safety:** the cleanup deletes only `email_verified_at: null` users whose `verification_deadline` has passed. Pre-8.1, legacy and invited users never have a deadline, so the job can't touch them even before the migration runs. The migration is still needed so existing users can log in.
+- **Links:**
+  - Stored in `AuthCode` (purpose `verify_email`, `code_hash` = SHA-256 of a 32-byte token, one row per user). Resending replaces the row, so older links stop working.
+  - A link expires at the account's deadline, or after 24 h for an account without one.
+  - A used row is kept for 7 days, so a second click answers "already verified".
+- **Verify:**
+  - A first verification returns the session (as in Phase 8), so the verify page can continue into onboarding.
+  - Already verified → **200** `{ verified: true, already_verified: true }`, no tokens (go to login).
+  - Expired → **400** `link_expired`; unknown or replaced → **400** `link_invalid` (both: offer resend).
+- **Resend:** `POST /auth/resend-verification` replaces `POST /auth/verify-email/resend`. It is limited to 3 per email per hour and 10 per IP per hour, and always answers `{ email_verification: "sent_if_pending" }`.
+- **Signup** with the email of an unverified account past its deadline deletes that account first (the same cleanup routine), so the address is free at once rather than after the next hourly run.
+- **Password reset** proves the mailbox, so a pending account becomes verified. Invitation accept marks the account verified: a new account at creation, an existing unverified one on accept.
+- **Legacy routes:**
+  - **`POST /user/auth/register` is removed**; the rebuilt app uses `/auth/signup` and nothing else needs it.
+  - The legacy `/user/auth/otp` and `/verify-otp` accept only `FORGOT_PASSWORD`; `EMAIL_VERIFICATION` → 400. That removes the last code-based verification path.
+  - Legacy `/user/auth/login` refuses unverified accounts (403 `email_not_verified`, after the password check) and sends no code.
+  - Legacy employee add creates verified accounts.
+- **Job `unverified-cleanup`:** hourly via `agenda.every` (one Mongo-locked document, so one process runs it), concurrency 1, batches of 200. Per user it deletes:
+  - Profile, auth codes, tokens, legacy OTPs, memberships and the invitations they sent
+  - owned organizations with no other members and no locations, plus their invitations and clients
+  - then the user itself (a hard delete)
+
+  An organization with other members or locations is kept and counted. It logs counts only.
+- **Migration** `npm run migrate:email-verified`: sets `email_verified_at` (= `created_at`, else now) on every user without it and moves `PENDING` / `REVIEWING` → `ACCEPTED`. Idempotent; `--confirm` outside `mps_rebuild`. Deploy checklist: run it before the new code starts on a real database.
+- **Config:** `EMAIL_VERIFICATION_TTL_HOURS` (default 24). `FRONTEND_URL` builds the link.
+- **Removed:** the verify-email code path (`AuthCode` purpose `verify_email` now holds link hashes; the 6-digit code helpers remain for password reset).
+
+**As built:**
+- **Code:** `src/services/auth/emailVerification.ts` (link tokens, verify, cleanup, migration), job `unverified-cleanup` (`src/jobs/unverifiedCleanup.job.ts`), script `migrate:email-verified` (it also creates the `users` indexes, add-only; `db:sync-indexes` doesn't cover `users`).
+- **Removed:** `sendEmailVerification` and its OTP template (`src/constants/sendEmailVerificationFormat.ts`, a shared constants edit); the legacy register service, controller and middlewares.
+- **Legacy error bodies:** the legacy `sendOTP` / `verifyOTP` / `login` now rethrow `ApiError` unchanged, so reason data reaches the client.
+
+**Gate.** Merge + push commands, then the Phase 16 plan.
 
 ## 12f. PHASE 16 — Citations (manual, admin-managed tracking)
 

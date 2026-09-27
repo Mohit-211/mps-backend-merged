@@ -31,6 +31,7 @@
     "migrate:refresh": "ts-node --transpile-only src/scripts/migrateRefresh.ts",
     "migrate:organizations": "ts-node --transpile-only src/scripts/migrateOrganizations.ts",
     "migrate:branding": "ts-node --transpile-only src/scripts/migrateBranding.ts",
+    "migrate:email-verified": "ts-node --transpile-only src/scripts/migrateEmailVerified.ts",
     "summaries:rebuild": "ts-node --transpile-only src/scripts/rebuildSummaries.ts",
     "db:sync-indexes": "ts-node --transpile-only src/scripts/syncIndexes.ts",
     "cost:report": "ts-node --transpile-only src/scripts/costReport.ts",

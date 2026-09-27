@@ -23,12 +23,6 @@ import { City, Client, Country, OTP, Role, State, User } from "../../models";
 import { tokenService } from "../../services";
 import mongoose from "mongoose";
 
-export const insertUserRoleId = catchAsync(async (req, res, next) => {
-  req.body.role_id = config.roles.user;
-  next();
-});
-
-
 export const verifyAuthJWTToken = catchAsync(async (req, res, next) => {
   try {
     const authHeader = req.headers["authorization"];
@@ -153,124 +147,6 @@ export const verifyRefreshAuthJWTToken = catchAsync(async (req, res, next) => {
         error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
         error.message
       )
-    );
-  }
-});
-
-export const validateRegisterUserBody = catchAsync(async (req, res, next) => {
-  try {
-    const {
-      user_type,
-      role_id,
-      name,
-      email,
-      mobile,
-      password,
-      confirm_password,
-      country_id,
-      city_id,
-      state_id,
-      business_address,
-      business_name,
-      zip_code,
-    } = req.body;
-    // return res.send(req.body);
-    if (
-      !user_type ||
-      !name ||
-      !email ||
-      !password ||
-      !confirm_password ||
-      !business_name
-    ) {
-      return responseWrapper(
-        res,
-        "",
-        "Please Enter Required Fields: [user_type, name, email, password, confirm_password, business_name]",
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    const roleDoc = await Role.findOne({ role_id: role_id, is_active: true });
-    if (!roleDoc)
-      return responseWrapper(
-        res,
-        "",
-        "Invalid Role Id.",
-        httpStatus.BAD_REQUEST
-      );
-
-    // if (!['AGENCY', 'BUSINESS'].includes(user_type)) {
-    //   return responseWrapper(
-    //     res,
-    //     "",
-    //     `Invalid user_type required fields : ${['AGENCY', 'BUSINESS']}`,
-    //     httpStatus.BAD_REQUEST
-    //   );
-    // }
-
-    if (role_id !== config.roles.user) {
-      return responseWrapper(
-        res,
-        "",
-        "Invalid role_id",
-        httpStatus.BAD_REQUEST
-      );
-    }
-    if (isValidMongoObjectId(country_id)) {
-      const countryDoc = await Country.findOne({
-        _id: country_id,
-        is_active: true,
-      });
-      req.body.country_name = countryDoc.name;
-    }
-
-    if (isValidMongoObjectId(state_id)) {
-      const stateDoc = await State.findOne({ _id: state_id, is_active: true });
-      req.body.state_name = stateDoc.name;
-    }
-
-    if (isValidMongoObjectId(city_id)) {
-      const cityDoc = await City.findOne({ _id: city_id, is_active: true });
-      req.body.city_name = cityDoc.name;
-    }
-
-    if (!validator.isEmail(email) || name.length === 0) {
-      return responseWrapper(res, "", "Invalid Email", httpStatus.BAD_REQUEST);
-    }
-
-    if (await User.isEmailTaken(email)) {
-      return responseWrapper(
-        res,
-        "",
-        "Email already taken",
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    if (!validatePassword(password)) {
-      return responseWrapper(
-        res,
-        "",
-        "Password should have a minimum length of 8 characters and must have at least 2 digits and No Blank Space",
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    if (password !== confirm_password) {
-      return responseWrapper(
-        res,
-        "",
-        "Password and Confirm Password must be equal.",
-        httpStatus.BAD_REQUEST
-      );
-    }
-    req.headers.ip_address = req.clientIp;
-    next();
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
     );
   }
 });

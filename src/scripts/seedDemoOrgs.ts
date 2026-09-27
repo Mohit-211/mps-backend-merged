@@ -140,6 +140,7 @@ const createDemoUser = async (email: string, name: string, type: string, passwor
 		role_id: config.roles.user,
 		user_type: type,
 		status: userStatusTypes.ACCEPTED,
+		email_verified_at: new Date(),
 	});
 	await Profile.create({ user_id: user._id, name, business_name: name });
 	return user;

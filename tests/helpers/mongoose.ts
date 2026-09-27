@@ -35,6 +35,7 @@ export const createUser = async (email: string): Promise<{ user: IUser; token: s
 		role_id: config.roles.user,
 		user_type: userTypes.business,
 		status: userStatusTypes.ACCEPTED,
+		email_verified_at: new Date(),
 	});
 	const token = generateToken(
 		user._id,

@@ -17,6 +17,8 @@ export const JOB_NAMES = {
 	REPORT_SCHEDULE_DISPATCH: 'report-schedule-dispatch',
 	/** Phase 12: daily, deletes reports past REPORT_RETENTION_MONTHS. */
 	REPORT_RETENTION: 'report-retention',
+	/** Phase 8.1: hourly, deletes signups not verified within EMAIL_VERIFICATION_TTL_HOURS. */
+	UNVERIFIED_CLEANUP: 'unverified-cleanup',
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];

@@ -4,7 +4,7 @@ import { Types } from 'mongoose';
 import { queryTypesArr } from '../../src/configs/constantTypes';
 import logger from '../../src/configs/logger';
 import { ApiUsage, AuthCode, Client, GbpReport, Location, Membership, Organization, RankRun, SubscriptionPlan, User, UserGBP } from '../../src/models';
-import { hashCode } from '../../src/services/auth/codes';
+import { hashLinkToken } from '../../src/services/auth/emailVerification';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { loadPlacesFixture } from '../helpers/fakeTransport';
 import { addMember, clearDb, createLocation, createUser, ensureOrg, keywordsOf, startTestDb } from '../helpers/mongoose';
@@ -19,7 +19,8 @@ jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: sch
 const sentCodes: { to: string; code: string; kind: string }[] = [];
 jest.mock('../../src/services/common/email.service', () => ({
 	...jest.requireActual('../../src/services/common/email.service'),
-	sendEmailVerification: jest.fn(async (to: string, code: string) => sentCodes.push({ to, code, kind: 'verify' }) > 0),
+	// Phase 8.1: verification is a link; `code` holds the link's token.
+	sendVerificationLinkEmail: jest.fn(async (to: string, link: string) => sentCodes.push({ to, code: new URL(link).searchParams.get('token') ?? '', kind: 'verify' }) > 0),
 	sendForgotPasswordOTP: jest.fn(async (to: string, code: string) => sentCodes.push({ to, code, kind: 'reset' }) > 0),
 }));
 
@@ -94,7 +95,7 @@ const signupBody = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('auth', () => {
-	it('signup → verify → login; codes are stored hashed; logs carry no email, code or password', async () => {
+	it('signup → verify (link) → login; link tokens are stored hashed; logs carry no email, token or password', async () => {
 		const info = jest.spyOn(logger, 'info');
 		const res = await request(app).post('/api/v1/auth/signup').send(signupBody());
 		expect(res.status).toBe(201);
@@ -107,14 +108,14 @@ describe('auth', () => {
 
 		const { code } = sentCodes[0];
 		const stored = await AuthCode.findOne({ user_id: user?._id }).lean();
-		expect(stored?.code_hash).toBe(hashCode(code));
+		expect(stored?.code_hash).toBe(hashLinkToken(code));
 		expect(JSON.stringify(stored)).not.toContain(`"${code}"`);
 
 		const unverified = await request(app).post('/api/v1/auth/login').send({ email: 'pat@agency.test', password: 'secret123' });
 		expect(unverified.status).toBe(403);
-		expect(unverified.body.data).toEqual({ reason: 'email_not_verified' });
+		expect(unverified.body.data).toEqual({ reason: 'email_not_verified', resend: '/api/v1/auth/resend-verification' });
 
-		const verified = await request(app).post('/api/v1/auth/verify-email').send({ email: 'pat@agency.test', code });
+		const verified = await request(app).post('/api/v1/auth/verify-email').send({ token: code });
 		expect(verified.status).toBe(200);
 		expect(verified.body.data).toMatchObject({
 			verified: true,
@@ -142,46 +143,24 @@ describe('auth', () => {
 		expect((await request(app).post('/api/v1/auth/signup').send(signupBody())).status).toBe(201);
 		const dup = await request(app).post('/api/v1/auth/signup').send(signupBody({ email: 'pat@agency.test' }));
 		expect(dup.status).toBe(409);
-		await User.updateOne({ email: 'pat@agency.test' }, { $set: { status: 'ACCEPTED' } });
+		await User.updateOne({ email: 'pat@agency.test' }, { $set: { status: 'ACCEPTED', email_verified_at: new Date() } });
 		const wrong = await request(app).post('/api/v1/auth/login').send({ email: 'pat@agency.test', password: 'nope12345' });
 		const unknown = await request(app).post('/api/v1/auth/login').send({ email: 'ghost@agency.test', password: 'nope12345' });
 		expect([wrong.status, unknown.status]).toEqual([401, 401]);
 		expect(wrong.body.message).toBe(unknown.body.message);
 	});
 
-	it('a wrong code counts attempts; after 5 the code is used up; resend issues a new one', async () => {
-		await request(app).post('/api/v1/auth/signup').send(signupBody());
-		const code = sentCodes[0].code;
-		const wrong = code === '000000' ? '111111' : '000000';
-		const first = await request(app).post('/api/v1/auth/verify-email').send({ email: 'pat@agency.test', code: wrong });
-		expect(first.status).toBe(400);
-		expect(first.body.data).toEqual({ reason: 'invalid_code', attempts_left: 4 });
-		for (let i = 0; i < 4; i += 1) await request(app).post('/api/v1/auth/verify-email').send({ email: 'pat@agency.test', code: wrong });
-		const locked = await request(app).post('/api/v1/auth/verify-email').send({ email: 'pat@agency.test', code });
-		expect(locked.body.data).toEqual({ reason: 'code_expired', attempts_left: 0 });
-
-		expect((await request(app).post('/api/v1/auth/verify-email/resend').send({ email: 'pat@agency.test' })).status).toBe(200);
-		const fresh = sentCodes[sentCodes.length - 1].code;
-		expect((await request(app).post('/api/v1/auth/verify-email').send({ email: 'pat@agency.test', code: fresh })).status).toBe(200);
-		// A code works once.
-		expect((await request(app).post('/api/v1/auth/verify-email').send({ email: 'pat@agency.test', code: fresh })).body.data).toEqual({ reason: 'already_verified' });
-	});
-
-	it('an expired code fails', async () => {
-		await request(app).post('/api/v1/auth/signup').send(signupBody());
-		await AuthCode.updateMany({}, { $set: { expires_at: new Date(Date.now() - 1000) } });
-		const res = await request(app).post('/api/v1/auth/verify-email').send({ email: 'pat@agency.test', code: sentCodes[0].code });
-		expect(res.body.data).toEqual({ reason: 'code_expired', attempts_left: 0 });
-	});
+	// Link expiry, reuse, resend and cleanup: tests/routes/emailVerification.routes.test.ts (Phase 8.1).
 
 	it('resend and forgot answer the same for unknown accounts; reset changes the password and signs out', async () => {
-		const unknownResend = await request(app).post('/api/v1/auth/verify-email/resend').send({ email: 'ghost@x.test' });
+		const unknownResend = await request(app).post('/api/v1/auth/resend-verification').send({ email: 'ghost@x.test' });
 		const unknownForgot = await request(app).post('/api/v1/auth/forgot-password').send({ email: 'ghost@x.test' });
 		expect([unknownResend.status, unknownForgot.status]).toEqual([200, 200]);
 		expect(sentCodes).toHaveLength(0);
 
 		await request(app).post('/api/v1/auth/signup').send(signupBody());
-		await User.updateOne({ email: 'pat@agency.test' }, { $set: { status: 'ACCEPTED' } });
+		sentCodes.length = 0;
+		await User.updateOne({ email: 'pat@agency.test' }, { $set: { status: 'ACCEPTED', email_verified_at: new Date() } });
 		const forgot = await request(app).post('/api/v1/auth/forgot-password').send({ email: 'pat@agency.test' });
 		expect(forgot.body.message).toBe(unknownForgot.body.message);
 		const reset = sentCodes.find((c) => c.kind === 'reset');

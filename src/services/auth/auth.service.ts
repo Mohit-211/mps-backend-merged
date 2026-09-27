@@ -6,25 +6,29 @@ import { userStatusTypes, userTypes } from '../../configs/constantTypes';
 import { IUser, OrganizationCountry, Profile, User, UserToken } from '../../models';
 import { ApiError, apiErrorWithData } from '../../utils';
 import { generateAuthTokens } from '../common/token.service';
-import { sendEmailVerification, sendForgotPasswordOTP } from '../common/email.service';
+import { sendForgotPasswordOTP, sendVerificationLinkEmail } from '../common/email.service';
 import { createOrganizationForOwner, listMemberships, resolveOrgContext } from '../org/context';
 import { orgOnboardingState } from '../org/onboardingState';
+import { maskEmail } from '../team/invitation.service';
 import { checkCode, issueCode } from './codes';
+import { consumeLinkToken, deleteUnverifiedAccount, emailNotVerifiedError, issueLinkToken, markVerified, ttlMs, verificationLink } from './emailVerification';
 import { LIMITS, hit } from './rateLimit';
 
 // Auth for the rebuilt app (Phase 8): signup as Business or Agency (user + organization + owner
-// membership), email verification, login, forgot / reset password. Codes are stored hashed with an
-// expiry and attempt limit; every endpoint is rate-limited; logs carry user ids only (never emails,
-// codes, passwords or tokens). The legacy /user/auth routes stay until Phase 10.
+// membership), email verification by link (Phase 8.1), login, forgot / reset password. Link tokens and
+// codes are stored hashed with an expiry; every endpoint is rate-limited; logs carry user ids only
+// (never emails, codes, passwords or tokens). Unverified accounts get no tokens.
 
 export interface Mailer {
-	sendVerification: (to: string, code: string) => Promise<boolean>;
+	sendVerification: (to: string, link: string) => Promise<boolean>;
 	sendReset: (to: string, code: string) => Promise<boolean>;
 }
 
 export interface AuthDeps {
 	mailer?: Mailer;
 	now?: () => Date;
+	/** Defaults to NODE_ENV. In development nothing is sent: the link is logged with the email masked. */
+	env?: string;
 }
 
 export interface RequestMeta {
@@ -40,12 +44,11 @@ export interface SignupInput {
 	country: OrganizationCountry;
 }
 
-const PENDING_STATUSES = [userStatusTypes.PENDING, userStatusTypes.REVIEWING];
 const BLOCKED_STATUSES = [userStatusTypes.REJECTED, userStatusTypes.BLOCKED, userStatusTypes.SUSPENDED, userStatusTypes.DEACTIVATED, userStatusTypes.INACTIVE];
 /** Compared against when the email is unknown, so both answers take about as long. */
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
-const defaultMailer: Mailer = { sendVerification: sendEmailVerification, sendReset: sendForgotPasswordOTP };
+const defaultMailer: Mailer = { sendVerification: sendVerificationLinkEmail, sendReset: sendForgotPasswordOTP };
 
 const normaliseEmail = (email: string): string => email.trim().toLowerCase();
 
@@ -81,53 +84,84 @@ export const sessionFor = async (user: IUser) => {
 export const createAuthService = (deps: AuthDeps = {}) => {
 	const mailer = deps.mailer ?? defaultMailer;
 	const now = deps.now ?? (() => new Date());
+	const env = deps.env ?? config.essentials.env;
+
+	const sendLink = async (email: string, token: string): Promise<boolean> => {
+		const link = verificationLink(token);
+		if (env === 'development') {
+			logger.info(`email verification for ${maskEmail(email)}: ${link}`);
+			return true;
+		}
+		return mailer.sendVerification(email, link);
+	};
+
 
 	const signup = async (input: SignupInput, meta: RequestMeta) => {
-		await hit(LIMITS.signupPerIp, [meta.ip], now());
+		const at = now();
+		await hit(LIMITS.signupPerIp, [meta.ip], at);
 		const email = normaliseEmail(input.email);
-		if (await User.exists({ email })) {
+		const existing = await User.findOne({ email }).select({ _id: 1 }).lean();
+		// An unverified signup past its deadline frees the address at once (the hourly job would delete it anyway).
+		if (existing && !(await deleteUnverifiedAccount(existing._id, at)).deleted) {
 			throw apiErrorWithData(httpStatus.CONFLICT, 'An account with this email already exists.', { reason: 'email_taken' });
 		}
+		const deadline = new Date(at.getTime() + ttlMs());
 		const user = await User.create({
 			email,
 			password: bcrypt.hashSync(input.password, 10),
 			role_id: config.roles.user,
 			user_type: input.account_type === 'agency' ? userTypes.agency : userTypes.business,
 			status: userStatusTypes.PENDING,
+			email_verified_at: null,
+			verification_deadline: deadline,
 		});
 		await Profile.create({ user_id: user._id, name: input.name, business_name: input.organization_name, country: input.country });
 		const organization = await createOrganizationForOwner(user._id, { name: input.organization_name, type: input.account_type, country: input.country });
-		const code = await issueCode(user._id, 'verify_email', now());
-		const sent = await mailer.sendVerification(email, code);
+		const sent = await sendLink(email, await issueLinkToken(user._id, deadline, at));
 		logger.info(`auth: signup user ${String(user._id)} organization ${String(organization._id)} (${input.account_type}) verification_sent=${sent}`);
-		return { user_id: String(user._id), organization_id: String(organization._id), email_verification: sent ? 'sent' : 'failed' };
+		return {
+			user_id: String(user._id),
+			organization_id: String(organization._id),
+			email_verification: sent ? 'sent' : 'failed',
+			verify_before: deadline.toISOString(),
+		};
 	};
 
-	const verifyEmail = async (input: { email: string; code: string }) => {
-		const email = normaliseEmail(input.email);
-		await hit(LIMITS.verifyPerEmail, [email], now());
-		const user = await User.findOne({ email });
-		if (!user) throw codeError('code_expired', 0);
-		if (!PENDING_STATUSES.includes(user.status)) {
-			throw apiErrorWithData(httpStatus.BAD_REQUEST, 'This email is already verified. Log in instead.', { reason: 'already_verified' });
+	/**
+	 * Verifies an email from the link. The first time it returns the session; an already-verified account
+	 * gets { verified: true, already_verified: true } and no tokens (the page sends the user to login).
+	 */
+	const verifyEmail = async (input: { token: string }, meta: RequestMeta) => {
+		const at = now();
+		await hit(LIMITS.verifyLinkPerIp, [meta.ip], at);
+		const check = await consumeLinkToken(input.token, at);
+		if ('reason' in check) {
+			throw apiErrorWithData(
+				httpStatus.BAD_REQUEST,
+				check.reason === 'link_expired' ? 'This verification link has expired. Ask for a new one.' : 'This verification link is not valid. Ask for a new one.',
+				{ reason: check.reason },
+			);
 		}
-		const check = await checkCode(user._id, 'verify_email', input.code, now());
-		if ('reason' in check) throw codeError(check.reason, check.attempts_left);
-		user.status = userStatusTypes.ACCEPTED;
-		await user.save();
+		const user = await User.findById(check.userId);
+		if (!user) throw apiErrorWithData(httpStatus.BAD_REQUEST, 'This verification link is not valid. Ask for a new one.', { reason: 'link_invalid' });
+		if (check.alreadyVerified) return { verified: true, already_verified: true };
 		logger.info(`auth: user ${String(user._id)} verified their email`);
-		return { verified: true, ...(await sessionFor(user)) };
+		if (!user.is_active || BLOCKED_STATUSES.includes(user.status)) return { verified: true, already_verified: false };
+		return { verified: true, already_verified: false, ...(await sessionFor(user)) };
 	};
 
 	/** Always answers the same, whether or not the account exists or is pending. */
-	const resendVerification = async (input: { email: string }) => {
+	const resendVerification = async (input: { email: string }, meta: RequestMeta) => {
 		const email = normaliseEmail(input.email);
-		await hit(LIMITS.resendPerEmail, [email], now());
+		const at = now();
+		await hit(LIMITS.resendPerIp, [meta.ip], at);
+		await hit(LIMITS.resendPerEmail, [email], at);
 		const user = await User.findOne({ email });
-		if (user && PENDING_STATUSES.includes(user.status)) {
-			const code = await issueCode(user._id, 'verify_email', now());
-			await mailer.sendVerification(email, code);
-			logger.info(`auth: verification code re-sent for user ${String(user._id)}`);
+		const pastDeadline = user?.verification_deadline && user.verification_deadline.getTime() <= at.getTime();
+		if (user && !user.email_verified_at && !pastDeadline && user.is_active && !BLOCKED_STATUSES.includes(user.status)) {
+			// A new link replaces the old one, so earlier links stop working.
+			await sendLink(email, await issueLinkToken(user._id, user.verification_deadline, at));
+			logger.info(`auth: verification link re-sent for user ${String(user._id)}`);
 		}
 		return { email_verification: 'sent_if_pending' };
 	};
@@ -138,9 +172,7 @@ export const createAuthService = (deps: AuthDeps = {}) => {
 		const user = await User.findOne({ email });
 		const match = await bcrypt.compare(input.password, user?.password ?? DUMMY_HASH);
 		if (!user || !match) throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password.');
-		if (PENDING_STATUSES.includes(user.status)) {
-			throw apiErrorWithData(httpStatus.FORBIDDEN, 'Please verify your email first.', { reason: 'email_not_verified' });
-		}
+		if (!user.email_verified_at) throw emailNotVerifiedError();
 		if (!user.is_active || BLOCKED_STATUSES.includes(user.status)) {
 			throw apiErrorWithData(httpStatus.FORBIDDEN, 'This account is disabled.', { reason: 'account_disabled' });
 		}
@@ -171,9 +203,9 @@ export const createAuthService = (deps: AuthDeps = {}) => {
 		const check = await checkCode(user._id, 'reset_password', input.code, now());
 		if ('reason' in check) throw codeError(check.reason, check.attempts_left);
 		user.password = bcrypt.hashSync(input.password, 10);
-		// A reset code proves the mailbox, so a still-pending account counts as verified.
-		if (PENDING_STATUSES.includes(user.status)) user.status = userStatusTypes.ACCEPTED;
 		await user.save();
+		// A reset code proves the mailbox, so a still-unverified account counts as verified.
+		await markVerified(user._id, now());
 		// Phase 10: access tokens stop working at once too (token_version).
 		await User.updateOne({ _id: user._id }, { $inc: { token_version: 1 } });
 		const revoked = await UserToken.deleteMany({ user_id: user._id });

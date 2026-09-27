@@ -34,7 +34,11 @@ export const validateSignup = validator(
 	['account_type', 'name', 'email', 'password', 'organization_name', 'country', 'accept_terms'],
 );
 
-export const validateVerifyEmail = validator(Joi.object({ email: email.required(), code: code.required() }), ['email', 'code']);
+// Phase 8.1: the token from the verification link (base64url, 43 characters for 32 bytes).
+export const validateVerifyEmail = validator(
+	Joi.object({ token: Joi.string().trim().pattern(/^[A-Za-z0-9_-]{20,128}$/).required().messages({ 'string.pattern.base': 'token is not valid' }) }),
+	['token'],
+);
 export const validateEmailOnly = validator(Joi.object({ email: email.required() }), ['email']);
 export const validateLogin = validator(Joi.object({ email: email.required(), password: Joi.string().max(128).required() }), ['email', 'password']);
 export const validateResetPassword = validator(Joi.object({ email: email.required(), code: code.required(), password: password.required() }), [

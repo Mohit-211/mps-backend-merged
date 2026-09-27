@@ -175,6 +175,7 @@ class DataSeeder {
 				password: bcrypt.hashSync(config.superAdmin.password, salt),
 				role_id: config.roles.superAdmin,
 				status: userStatusTypes.ACCEPTED,
+				email_verified_at: new Date(),
 			};
 
 			let adminDoc = await User.findOne({

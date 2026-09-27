@@ -33,7 +33,6 @@ import {
   QueryDefinition,
 } from "../../types/RouteDefinition";
 import {
-  sendEmailVerification,
   sendForgotPasswordOTP,
 } from "../common/email.service";
 import {
@@ -42,13 +41,21 @@ import {
   revokeUserSessions,
 } from "../common/token.service";
 import { LIMITS, hit } from "../auth/rateLimit";
+import { emailNotVerifiedError } from "../auth/emailVerification";
+import { apiErrorWithData } from "../../utils";
 import { TokenDefination } from "../../types/interfaces";
 import config from "../../configs/config";
 import { gbpOAuthService } from "../gbp/oauth.service";
-import { addMemberToOwnedOrganizations, createOrganizationForOwner, normaliseOrgCountry } from "../org/context";
+import { addMemberToOwnedOrganizations } from "../org/context";
 import { Membership } from "../../models";
 import { bindingService } from "../gbp/binding.service";
 import { tokenStore } from "../gbp/tokenStore";
+
+/** Phase 8.1: the legacy OTP routes only reset passwords; email verification is by link. */
+const emailVerificationByLinkError = () =>
+  apiErrorWithData(httpStatus.BAD_REQUEST, "Email verification is by link. Use POST /api/v1/auth/resend-verification.", {
+    reason: "verification_by_link",
+  });
 
 export const sendOTP = async (body: BodyDefinition) => {
   try {
@@ -57,6 +64,8 @@ export const sendOTP = async (body: BodyDefinition) => {
     if (typeof email !== "string" || !validator.isEmail(email) || !otpTypesArr.includes(type)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid Email or Type.");
     }
+    // Phase 8.1: email verification is by link (POST /api/v1/auth/resend-verification); codes only reset passwords.
+    if (type !== otpTypes.FORGOT_PASSWORD) throw emailVerificationByLinkError();
     // Phase 10 (AUDIT S22): legacy OTP requests are rate-limited per email.
     await hit(LIMITS.legacyOtpPerEmail, [email]);
 
@@ -78,13 +87,10 @@ export const sendOTP = async (body: BodyDefinition) => {
         "Failed to generate new OTP."
       );
     }
-    if (type === otpTypes.FORGOT_PASSWORD) {
-      await sendForgotPasswordOTP(email, generatedOTP);
-    } else if (type === otpTypes.EMAIL_VERIFICATION) {
-      await sendEmailVerification(email, generatedOTP);
-    }
+    await sendForgotPasswordOTP(email, generatedOTP);
     return "";
   } catch (error) {
+    if (error instanceof ApiError) throw error; // keeps reason data (Phase 8.1)
     throw new ApiError(
       error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
       error.message
@@ -105,6 +111,7 @@ export const verifyOTP = async (body: BodyDefinition) => {
     if (!otpTypesArr.includes(type)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid otp type");
     }
+    if (type !== otpTypes.FORGOT_PASSWORD) throw emailVerificationByLinkError();
 
     const otpDoc = await OTP.findOne({
       email: email,
@@ -131,102 +138,17 @@ export const verifyOTP = async (body: BodyDefinition) => {
     }
 
     otpDoc.is_verified = true;
-    let token = "";
-
-    if (type !== otpTypes.FORGOT_PASSWORD) {
-      await User.updateOne(
-        { email: email },
-        { $set: { status: userStatusTypes.ACCEPTED } }
-      );
-    } else {
-      // Phase 10 (AUDIT S22): a random single-use reset token, stored hashed, valid 30 minutes.
-      token = crypto.randomBytes(32).toString("base64url");
-      otpDoc.code = crypto.createHash("sha256").update(token).digest("hex");
-      otpDoc.otp_expiration_time = new Date(Date.now() + 30 * 60 * 1000);
-    }
+    // Phase 10 (AUDIT S22): a random single-use reset token, stored hashed, valid 30 minutes.
+    const token = crypto.randomBytes(32).toString("base64url");
+    otpDoc.code = crypto.createHash("sha256").update(token).digest("hex");
+    otpDoc.otp_expiration_time = new Date(Date.now() + 30 * 60 * 1000);
     await otpDoc.save();
 
-    return token ? token : "";
+    return token;
   } catch (error) {
+    if (error instanceof ApiError) throw error; // keeps reason data (Phase 8.1)
     throw new ApiError(
       error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-};
-
-export const register = async (body: BodyDefinition) => {
-  try {
-    const {
-      user_type,
-      role_id,
-      name,
-      email,
-      mobile,
-      password,
-      country_name,
-      city_name,
-      state_name,
-      business_address,
-      business_name,
-      website_url,
-      zip_code,
-    } = body;
-
-    const salt = bcrypt.genSaltSync(10);
-    const userObj = {
-      email,
-      password: bcrypt.hashSync(password, salt),
-      role_id,
-      user_type,
-    };
-    const userDoc = await User.create(userObj);
-    if (!userDoc) {
-      throw new ApiError(
-        httpStatus.INTERNAL_SERVER_ERROR,
-        "Failed to create new user account"
-      );
-    }
-    const profileObj = {
-      user_id: userDoc._id,
-      name,
-      mobile: mobile ? mobile : null,
-      business_address: business_address ? business_address : null,
-      business_name,
-      website_url: website_url ? website_url : null,
-      zip_code: zip_code ? zip_code : null,
-    };
-    if (country_name) {
-      profileObj["country"] = country_name;
-    }
-    if (state_name) {
-      profileObj["state"] = state_name;
-    }
-    if (city_name) {
-      profileObj["city"] = city_name;
-    }
-
-    const profileDoc = await Profile.create(profileObj);
-    if (!profileDoc) {
-      throw new ApiError(
-        httpStatus.INTERNAL_SERVER_ERROR,
-        "Failed to create new user profile"
-      );
-    }
-
-    // Phase 8: every account gets an organization (legacy signup; the rebuilt app uses POST /auth/signup).
-    await createOrganizationForOwner(userDoc._id, {
-      name: business_name || name || email.split("@")[0],
-      type: user_type === userTypes.agency ? "agency" : "business",
-      country: normaliseOrgCountry(country_name),
-    });
-
-    await sendOTP({ email, type: otpTypes.EMAIL_VERIFICATION });
-
-    return "User Created Successfully. Please Verify Your Email to continue.";
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
       error.message
     );
   }
@@ -264,6 +186,7 @@ export const login = async (body: BodyDefinition, header: HeaderDefinition) => {
           email: 1,
           password: 1,
           status: 1,
+          email_verified_at: 1,
           user_type: 1,
           role_id: 1,
           "user_profile._id": 1,
@@ -279,25 +202,7 @@ export const login = async (body: BodyDefinition, header: HeaderDefinition) => {
     }
 
     userDoc = userDoc[0];
-    if (userDoc.status === userStatusTypes.REVIEWING || userDoc.status === userStatusTypes.PENDING) {
-      await OTP.deleteMany({ email, type: otpTypes.EMAIL_VERIFICATION }).exec();
-      const generatedOTP = String(crypto.randomInt(100000, 1000000));
-      const otpObj = {
-        email: email,
-        code: generatedOTP,
-        type: otpTypes.EMAIL_VERIFICATION,
-        user_id: userDoc.id,
-      };
-      const otpDoc = await OTP.create(otpObj);
-      if (!otpDoc) {
-        throw new ApiError(
-          httpStatus.INTERNAL_SERVER_ERROR,
-          "Failed to generate new OTP."
-        );
-      }
-      await sendEmailVerification(email, generatedOTP);
-      throw new ApiError(httpStatus.BAD_REQUEST, "User is not verified yet.Please verify your otp first");
-    } else if (userDoc.status === userStatusTypes.REJECTED) {
+    if (userDoc.status === userStatusTypes.REJECTED) {
       throw new ApiError(httpStatus.BAD_REQUEST, "User rejected.");
     }
 
@@ -306,6 +211,8 @@ export const login = async (body: BodyDefinition, header: HeaderDefinition) => {
     if (!passwordMatch) {
       throw new ApiError(httpStatus.UNAUTHORIZED, "Incorrect Password.");
     }
+    // Phase 8.1: no tokens until the email is verified (by link; no code is sent from here).
+    if (!userDoc.email_verified_at) throw emailNotVerifiedError();
     if (fcm_token) userDoc.fcm_token = fcm_token;
 
     const tokens = await generateAuthTokens(userDoc);
@@ -323,6 +230,7 @@ export const login = async (body: BodyDefinition, header: HeaderDefinition) => {
       role_id: userDoc.role_id,
     };
   } catch (error) {
+    if (error instanceof ApiError) throw error; // keeps reason data (Phase 8.1)
     throw new ApiError(
       error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
       error.message
@@ -591,6 +499,8 @@ export const addEmployee = async (body: BodyDefinition) => {
       user_type: userTypes.employee,
       owner_id: user._id,
       status: userStatusTypes.ACCEPTED,
+      // Phase 8.1: created by the owner, so no verification step (and never cleaned up).
+      email_verified_at: new Date(),
     };
     const userDoc = await User.create(userObj);
     if (!userDoc) {

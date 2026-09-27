@@ -78,10 +78,10 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/auth/signup` | none | Signup as Business or Agency: user + organization + owner membership; sends a verification code | 8 | live |
-| POST | `/api/v1/auth/verify-email` | none | Verify the email with the 6-digit code; returns the session (tokens, organizations, onboarding) | 8 | live |
-| POST | `/api/v1/auth/verify-email/resend` | none | New verification code (same answer whether or not the account exists) | 8 | live |
-| POST | `/api/v1/auth/login` | none | Login; returns tokens, organizations and onboarding (403 `email_not_verified`) | 8 | live |
+| POST | `/api/v1/auth/signup` | none | Signup as Business or Agency: user + organization + owner membership; emails a verification link (`FRONTEND_URL/verify-email?token=…`, 24 h; unverified accounts are deleted after 24 h) | 8, changed 8.1 | live |
+| POST | `/api/v1/auth/verify-email` | none (rate-limited) | Verify the email with the link token; the first time returns the session, then `already_verified` (400 `link_expired` / `link_invalid`) | 8, changed 8.1 | live |
+| POST | `/api/v1/auth/resend-verification` | none (rate-limited) | New verification link; older links stop working (same answer whether or not the account exists). Replaces `/auth/verify-email/resend` | 8.1 | live |
+| POST | `/api/v1/auth/login` | none | Login; returns tokens, organizations and onboarding (403 `email_not_verified`: no tokens until the email is verified) | 8 | live |
 | POST | `/api/v1/auth/forgot-password` | none | Password reset code by email (same answer whether or not the account exists) | 8 | live |
 | POST | `/api/v1/auth/reset-password` | none | New password with the reset code; signs out every session | 8 | live |
 | POST | `/api/v1/auth/invitations/inspect` | none | What a team invitation is for (`{ token }` in the body): organization, email, role, account exists | 11 | live |
@@ -91,10 +91,9 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/user/auth/register` | none | Register (legacy; since Phase 8 it also creates an organization). Replaced by `/auth/signup` | legacy | deprecated |
-| POST | `/api/v1/user/auth/otp` | none | Send OTP (plaintext codes). Replaced by `/auth/verify-email/resend` and `/auth/forgot-password` | legacy | deprecated |
-| POST | `/api/v1/user/auth/verify-otp` | none | Verify OTP. Replaced by `/auth/verify-email` | legacy | deprecated |
-| POST | `/api/v1/user/auth/login` | none | Login. Replaced by `/auth/login` | legacy | deprecated |
+| POST | `/api/v1/user/auth/otp` | none | Send a password-reset OTP (`FORGOT_PASSWORD` only since 8.1; `EMAIL_VERIFICATION` → 400 `verification_by_link`). Replaced by `/auth/forgot-password` | legacy | deprecated |
+| POST | `/api/v1/user/auth/verify-otp` | none | Verify a password-reset OTP (`FORGOT_PASSWORD` only since 8.1). Replaced by `/auth/reset-password` | legacy | deprecated |
+| POST | `/api/v1/user/auth/login` | none | Login (403 `email_not_verified` since 8.1). Replaced by `/auth/login` | legacy | deprecated |
 | POST | `/api/v1/user/auth/reset-password` | user | Reset Password | legacy | live |
 | POST | `/api/v1/user/auth/forgot-password` | none | Forgot Password. Replaced by `/auth/forgot-password` + `/auth/reset-password` | legacy | deprecated |
 | POST | `/api/v1/user/auth/refresh-auth` | refresh token | Refresh Auth | legacy | live |
@@ -488,9 +487,9 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
-| 29 | POST | `/auth/signup` | none | `{ account_type: business\|agency, name, email, password, organization_name, country: US\|CA, accept_terms: true }` | **201** `{ user_id, organization_id, email_verification }` |
-| 30 | POST | `/auth/verify-email` | none | `{ email, code }` | Session: `{ verified, tokens, user, organizations, current_organization_id, onboarding }` |
-| 31 | POST | `/auth/verify-email/resend` | none | `{ email }` | `{ email_verification: 'sent_if_pending' }` |
+| 29 | POST | `/auth/signup` | none | `{ account_type: business\|agency, name, email, password, organization_name, country: US\|CA, accept_terms: true }` | **201** `{ user_id, organization_id, email_verification, verify_before }` |
+| 30 | POST | `/auth/verify-email` | none | `{ token }` | First time: `{ verified, already_verified: false, tokens, user, organizations, current_organization_id, onboarding }`; then `{ verified: true, already_verified: true }`; **400** `link_expired` / `link_invalid` |
+| 31 | POST | `/auth/resend-verification` | none | `{ email }` | `{ email_verification: 'sent_if_pending' }` |
 | 32 | POST | `/auth/login` | none | `{ email, password }` | Session; **403** `email_not_verified` |
 | 33 | POST | `/auth/forgot-password` | none | `{ email }` | `{ reset: 'sent_if_account_exists' }` |
 | 34 | POST | `/auth/reset-password` | none | `{ email, code, password }` | `{ reset: true }` (sessions revoked) |

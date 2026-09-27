@@ -41,6 +41,10 @@ export interface IUser extends Document {
 	default_organization_id?: mongoose.Types.ObjectId | null;
 	/** Phase 10: the `tv` claim of every user token; incrementing it revokes all issued tokens. */
 	token_version?: number;
+	/** Phase 8.1: when the email was verified (null = not verified: no login, no tokens). */
+	email_verified_at?: Date | null;
+	/** Phase 8.1: set only by POST /auth/signup; an account still unverified after it is deleted. */
+	verification_deadline?: Date | null;
 	is_active: boolean;
 	created_at: Date;
 	created_by?: Schema.Types.ObjectId;
@@ -184,6 +188,8 @@ const userSchema = new Schema<IUser>(
 			default: null,
 		},
 		token_version: { type: Number, default: 0 },
+		email_verified_at: { type: Date, default: null },
+		verification_deadline: { type: Date, default: null },
 		deleted_by: {
 			type: Schema.Types.ObjectId,
 			default: null,
@@ -193,6 +199,9 @@ const userSchema = new Schema<IUser>(
 		collection: 'users',
 	},
 );
+
+// Phase 8.1: the unverified-cleanup job's query (only signups carry a deadline).
+userSchema.index({ verification_deadline: 1 }, { partialFilterExpression: { verification_deadline: { $type: 'date' } } });
 
 userSchema.plugin(globalQueryFilters);
 userSchema.plugin(toJSON);

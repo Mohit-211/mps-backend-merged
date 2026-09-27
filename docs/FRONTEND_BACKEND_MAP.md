@@ -40,10 +40,10 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Screen | Backend | Status |
 |---|---|---|
 | Login | `POST /auth/login` (returns organizations + onboarding), `POST /user/auth/refresh-auth`, `POST /user/auth/logout` | **available (8)**. The legacy `/user/auth/login` is deprecated. |
-| Signup | `POST /auth/signup` (Business or Agency, user details, organization name, country, terms) | **available (8)**: creates the user, the organization and the owner membership, and emails a code |
+| Signup | `POST /auth/signup` (Business or Agency, user details, organization name, country, terms) | **available (8, 8.1)**: creates the user, the organization and the owner membership, and emails a **verification link**. Then show "Check your email" with a resend button (`POST /auth/resend-verification`). Unverified accounts are deleted after 24 h. |
 | Forgot password | `POST /auth/forgot-password` | **available (8)**: a 6-digit code by email (not a link); same answer whether or not the account exists |
 | Reset password | `POST /auth/reset-password` `{ email, code, password }` | **available (8)**; signs out every session. (Changing the password while logged in: legacy `POST /user/auth/reset-password`.) |
-| Verify email | `POST /auth/verify-email`, `POST /auth/verify-email/resend` | **available (8)**: 6-digit code, 15 minutes, 5 attempts; verify logs the user in |
+| Verify email (`/verify-email?token=…`) | `POST /auth/verify-email { token }`, `POST /auth/resend-verification { email }` | **available (8.1)**: the page the email link opens. Call verify once on load. The first time it logs the user in (continue to onboarding); `already_verified` → "already verified" + Log in (no error page); `link_expired` / `link_invalid` → "Send a new link". Login before verifying is **403** `email_not_verified` (offer resend). Full table: API.md "The `/verify-email` page". |
 | Social login ("optional") | – | not supported (not planned) |
 
 ## Onboarding

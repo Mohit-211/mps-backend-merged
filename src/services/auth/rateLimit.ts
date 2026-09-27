@@ -18,6 +18,9 @@ export const LIMITS = {
 	loginPerEmailIp: { name: 'login:email+ip', max: 10, windowSeconds: 900 },
 	verifyPerEmail: { name: 'verify:email', max: 10, windowSeconds: 900 },
 	resendPerEmail: { name: 'resend:email', max: 3, windowSeconds: 3600 },
+	// Phase 8.1: verification links and resends per IP.
+	resendPerIp: { name: 'resend:ip', max: 10, windowSeconds: 3600 },
+	verifyLinkPerIp: { name: 'verify-link:ip', max: 30, windowSeconds: 900 },
 	forgotPerEmail: { name: 'forgot:email', max: 3, windowSeconds: 3600 },
 	forgotPerIp: { name: 'forgot:ip', max: 20, windowSeconds: 3600 },
 	resetPerEmail: { name: 'reset:email', max: 10, windowSeconds: 900 },

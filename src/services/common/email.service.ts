@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 import httpStatus from 'http-status';
 import config from '../../configs/config';
 import logger from '../../configs/logger';
-import { forgotPasswordSendOTPFormat, emailVerificationFormat, adminCredentialsEmailFormat } from '../../constants';
+import { forgotPasswordSendOTPFormat, adminCredentialsEmailFormat } from '../../constants';
 import { ApiError } from '../../utils';
 import subscriptionWelcomeEmailFormat from '../../constants/subscriptionwelcomeemailformat';
 import { contactUsAdminEmailFormat, contactUsConfirmationEmailFormat } from '../../constants/Contactusemailformat';
@@ -37,19 +37,20 @@ const sendEmail = async (to: string, subject: string, text: string): Promise<voi
   }
 };
 
-export const sendEmailVerification = async (to: string, otp: string): Promise<boolean> => {
+/** Phase 8.1: the email verification link (FRONTEND_URL/verify-email?token=…). The link is never logged here. */
+export const sendVerificationLinkEmail = async (to: string, link: string): Promise<boolean> => {
   try {
-    const message: EmailOptions = {
+    const hours = config.auth.emailVerificationTtlHours;
+    await transport.sendMail({
       from: `${config.email.from}`,
-      to: `${to}`,
-      subject: 'Please verify your email',
-      text: `Please click on the following link to verify your email`,
-      html: emailVerificationFormat(otp),
-    };
-    await transport.sendMail(message);
+      to,
+      subject: 'Verify your email for MyPageSEO',
+      text: `Welcome to MyPageSEO. Verify your email to activate your account: ${link}\nThe link expires in ${hours} hours. If you didn't sign up, ignore this email and the account will be deleted.`,
+      html: `<p>Welcome to MyPageSEO.</p><p><a href="${link}">Verify your email</a> to activate your account.</p><p>The link expires in ${hours} hours. If you didn't sign up, ignore this email and the account will be deleted.</p>`,
+    });
     return true;
-  } catch (error: any) {
-    logger.error('Email sent error: ', error);
+  } catch {
+    logger.error('Verification email could not be sent');
     return false;
   }
 };

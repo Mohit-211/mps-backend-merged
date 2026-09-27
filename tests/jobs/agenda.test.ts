@@ -80,7 +80,7 @@ describe('agenda (own connection, C25)', () => {
 	it('registers post-to-gbp, rank-run, gbp-sync, gbp-report and monthly-refresh through the job registry (no rank-scheduler)', async () => {
 		const { defineAllJobs } = await import('../../src/jobs');
 		const names = defineAllJobs(agenda);
-		expect(names).toEqual(expect.arrayContaining(['post-to-gbp', 'rank-run', 'gbp-sync', 'gbp-report', 'monthly-refresh']));
+		expect(names).toEqual(expect.arrayContaining(['post-to-gbp', 'rank-run', 'gbp-sync', 'gbp-report', 'monthly-refresh', 'unverified-cleanup']));
 		expect(names).not.toContain('rank-scheduler');
 	});
 
