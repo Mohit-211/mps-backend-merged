@@ -124,7 +124,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Download / email / archive | `GET /reports/:id/pdf`, `POST /reports/:id/email { recipients, message? }`, `DELETE /reports/:id` | **available (12)**. Emails above 10 MB carry a 30-day link instead of the attachment. |
 | Share link | `POST /reports/:id/share { expires_in_days? }`, `GET /reports/:id/shares`, `DELETE /reports/:id/shares/:shareId`; public page `/r/<token>` | **available (12)**. The URL is shown once; branded, noindex, revocable. |
 | Scheduled reports | `GET/POST /report-schedules`, `GET/PATCH/DELETE /report-schedules/:id` (`next_expected`, `last_sent_at`, `last_error`) | **available (12)**: monthly only, after each covered location's automatic refresh; location or client (agency) scope. |
-| Citation Report | – | **planned (Phase 16)**: in the Reports center (PDF, email, schedules, share links), plus a Citations section in the Full report. Data source decided (Mohit, 2026-09-27): manual, admin-managed tracking. |
+| Citation Report | `POST /reports { type: "citation" }`, then the usual report endpoints (PDF, email, share, `POST /report-schedules { type: "citation" }`) | **available (16)**: sections `score`, `table`, `nap_issues`, `changes`; the Full report has a Citations part. Needs a citation list (else **400** `no_citations_yet`). |
 
 ## Agency
 

@@ -1893,7 +1893,8 @@ A report freezes stored data (the rank run, the GBP report, the profile snapshot
 | `rank_tracker` | `summary`, `keywords`, `history` (last 12 runs), `grid` (heatmap per keyword), `movers` |
 | `gbp_audit` | `score`, `checks` (with top fixes), `performance` (`range` 28d/90d/12m), `keywords`, `profile` (with name/phone/website consistency), `verification`, `pending_edits`, `reviews_media_posts` (needs v4) |
 | `competitor_analysis` | `public_scores`, `table`, `ranks`, `insights` |
-| `full` | the report types it combines: `rank_tracker`, `gbp_audit`, `competitor_analysis` |
+| `citation` (Phase 16) | `score` (Citation Health, coverage, counts), `table` (every listing: directory, type, status, NAP issues, last checked), `nap_issues` (listed as vs should be), `changes` (the report's `range`) |
+| `full` | the report types it combines: `rank_tracker`, `gbp_audit`, `competitor_analysis`, `citation` (Phase 16) |
 
 A part that can't be shown is `{ available: false, reason }` in `snapshot.data` and an `unavailable` block in the document: `gbp_not_connected`, `v4_access_pending` ("Not available yet: this needs Google My Business v4 access"), `not_synced_yet`, `no_rank_run`, `no_gbp_report`. **Never sample data.**
 
@@ -2304,4 +2305,21 @@ It never removes anything and never re-adds a directory an admin took off the li
 
 - **Not available:** `{ "available": false, "reason": "no_citations_yet" | "not_checked_yet" }`.
 - **Recommended actions** gain `citations:nap_wrong` ("N listings show the wrong name, address or phone") and `citations:not_found` ("Not listed on N directories"), with `source: "citations"`.
+
+### Citation Report (Reports center)
+
+`POST /reports { location_id, type: "citation", sections?, range? }` works like the other types. Its PDF, email, share link and monthly schedule behave the same (`type: "citation"` in `POST /report-schedules`).
+- **Sections:** `score`, `table`, `nap_issues`, `changes` (the changes within `range`: 28d, 90d or 12m).
+- **No list yet:** a location without a citation list → **400** `{ "reason": "no_citations_yet" }`.
+- **Full report:** has a fourth part, **Citations**. It shows "No citations have been tracked for this location yet." when the list is empty.
+- **Snapshot:** holds our own data only: directory names, statuses, the NAP as recorded, change dates. No admin names, no internal notes and no Google content, so the Citation Report carries no Google attribution.
+
+```json
+"citation": { "available": true, "as_of": "2026-09-27T…", "range": "28d",
+  "score": { "score": 50, "grade": "D", "coverage": 0.83, "total": 6, "counts": { "live_correct": 2, "nap_wrong": 1, "…": 0 } },
+  "nap_issues": { "expected": { "name": "…", "address": "…", "phone": "4165550100", "website": "…" },
+                  "rows": [ { "directory": "Data Axle", "field": "phone", "found": "(416) 555-0199", "expected": "4165550100" } ] },
+  "table": [ { "directory": "Data Axle", "type": "aggregator", "status": "nap_wrong", "listing_url": "https://…", "last_checked_at": "…", "nap_issues": ["phone"] } ],
+  "changes": [ { "at": "…", "directory": "Data Axle", "action": "status_changed", "from": "not_checked", "to": "nap_wrong" } ] }
+```
 

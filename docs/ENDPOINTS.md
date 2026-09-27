@@ -566,7 +566,7 @@ A report freezes stored data (rank runs, the GBP report, the profile snapshot) a
 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
-| 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_data` |
+| 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|citation (16)\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_citations_yet` (16), `no_data` |
 | 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), page, limit` | `{ reports: [view], page, limit, total }` |
 | 63 | GET | `/reports/:reportId` | user + org | – | `{ report, snapshot: { location, data, sources } \| null, document: { title, period, generated_at, branding, blocks } \| null }` |
 | 64 | GET | `/reports/:reportId/pdf` | user + org | – | `application/pdf` attachment; **409** `not_ready` / `expired` |
