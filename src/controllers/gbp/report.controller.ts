@@ -1,4 +1,5 @@
 import httpStatus from 'http-status';
+import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
 import { ReportRange } from '../../gbp/report/performance';
 import { ILocation } from '../../models';
 import { getReportView } from '../../services/gbp/report.service';
@@ -13,5 +14,5 @@ export const getGbpReport = catchAsync(async (req, res) => {
 	if (!view) {
 		return responseWrapper(res, null, 'No GBP report yet: it is generated after the first rank run or GBP sync.', httpStatus.NOT_FOUND);
 	}
-	return responseWrapper(res, view);
+	return responseWrapper(res, { ...view, attribution: GOOGLE_ATTRIBUTION });
 });

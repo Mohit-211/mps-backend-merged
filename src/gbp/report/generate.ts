@@ -29,7 +29,7 @@ import { updateSummaryFromReport } from '../../services/locations/summary';
 import { COMPETITOR_DETAILS_FIELDS, SCORE_HISTORY_MAX } from '../scoring.config';
 import { computeGbpScore } from '../score/gbpScore';
 import { HolidayCountry } from '../score/holidays';
-import { CompetitorRow, EMPTY_FACTS, MapListSection, competitorSet, factsFromDetails, needsFetch, scoreRow } from './competitors';
+import { CompetitorRow, EMPTY_FACTS, MapListSection, centerSections, competitorSet, factsFromDetails, needsFetch, scoreRow } from './competitors';
 import { gapInsights } from './insights';
 import { keywordsSection } from './keywords';
 import { performanceSection, scorePerformance } from './performance';
@@ -43,7 +43,6 @@ export interface GenerateDeps {
 	places?: Pick<PlacesClient, 'getPlaceDetails'>;
 	now?: () => Date;
 	v4Enabled?: boolean;
-	withEditorialSummary?: boolean;
 }
 
 export interface GenerateResult {
@@ -77,8 +76,7 @@ const ownRanking = (run: RunLean | null) => {
 	};
 };
 
-const detailsFields = (withEditorialSummary: boolean): PlaceDetailsField[] =>
-	withEditorialSummary ? [...COMPETITOR_DETAILS_FIELDS, 'editorialSummary'] : [...COMPETITOR_DETAILS_FIELDS];
+const DETAILS_FIELDS: PlaceDetailsField[] = [...COMPETITOR_DETAILS_FIELDS];
 
 /** Competitor rows: fetch stale or missing Place Details, reuse the rest from the previous report. */
 const buildCompetitors = async (
@@ -87,7 +85,6 @@ const buildCompetitors = async (
 	previous: IGbpReport | null,
 	places: Pick<PlacesClient, 'getPlaceDetails'>,
 	now: Date,
-	withEditorialSummary: boolean,
 ): Promise<{ section: CompetitorsSection | Unavailable; calls: number }> => {
 	if (!location.place_id) return { section: unavailable('no_place_id'), calls: 0 };
 	const refs = competitorSet(location.place_id, withDefaults(location.tracking).competitors, mapList);
@@ -120,9 +117,9 @@ const buildCompetitors = async (
 			continue;
 		}
 		try {
-			const result = await places.getPlaceDetails(ref.place_id, detailsFields(withEditorialSummary));
+			const result = await places.getPlaceDetails(ref.place_id, DETAILS_FIELDS);
 			calls += result.apiCalls;
-			rows.push(scoreRow({ ...base, ...factsFromDetails(result.details, withEditorialSummary), fetched_at: now, stale: false, error: null }, mapList));
+			rows.push(scoreRow({ ...base, ...factsFromDetails(result.details), fetched_at: now, stale: false, error: null }, mapList));
 		} catch (err) {
 			if (err instanceof PlacesConfigError) {
 				warning = 'places_not_configured';
@@ -149,6 +146,11 @@ const pickFacts = (row: CompetitorRow) => ({
 	has_phone: row.has_phone,
 	has_editorial_summary: row.has_editorial_summary,
 	business_status: row.business_status,
+	// Rows stored before Phase 12.5 have no photos or reviews: refetched on the next cycle.
+	photo_count: row.photo_count ?? null,
+	photos_capped: row.photos_capped ?? false,
+	reviews: row.reviews ?? [],
+	recent_review_at: row.recent_review_at ? new Date(row.recent_review_at) : null,
 });
 
 /** Private (GBP-owner) sections: only for a bound location. */
@@ -227,7 +229,6 @@ const privateSections = async (location: ILocation, now: Date, v4: boolean, rank
 export const generateGbpReport = async (locationId: string, trigger: ReportTrigger, deps: GenerateDeps = {}): Promise<GenerateResult | null> => {
 	const now = deps.now?.() ?? new Date();
 	const v4 = deps.v4Enabled ?? config.gbp.v4Enabled;
-	const withEditorialSummary = deps.withEditorialSummary ?? config.report.detailsAtmosphere;
 	const location = await Location.findOne({ _id: locationId, is_active: true }).lean<ILocation>();
 	if (!location) return null;
 
@@ -238,11 +239,11 @@ export const generateGbpReport = async (locationId: string, trigger: ReportTrigg
 	]);
 	const bound = Boolean(binding);
 	const ranking = ownRanking(run);
-	const mapList = run?.mapList ?? [];
+	const mapList = centerSections(run?.mapList ?? []);
 
 	const notConnected = unavailable('gbp_not_connected');
 	const priv = bound ? await privateSections(location, now, v4, ranking) : null;
-	const { section: competitors, calls } = await buildCompetitors(location, mapList, previous, deps.places ?? placesClient, now, withEditorialSummary);
+	const { section: competitors, calls } = await buildCompetitors(location, mapList, previous, deps.places ?? placesClient, now);
 
 	const gbpScore = priv ? priv.sections.gbp_score : notConnected;
 	const selfRow = competitors.available ? competitors.rows.find((r) => r.is_self) : undefined;

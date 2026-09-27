@@ -75,10 +75,18 @@ describe('needsFetch', () => {
 });
 
 describe('rows', () => {
-	it('facts from Place Details (editorial summary only when requested)', () => {
-		const details = { displayName: 'Queen West Plumbing', rating: 4.6, userRatingCount: 212, primaryType: 'plumber', primaryTypeDisplayName: 'Plumber', regularOpeningHours: { weekdayDescriptions: ['Mon: 8–5'] }, websiteUri: 'https://q.test', businessStatus: 'OPERATIONAL', editorialSummary: 'Family run' };
-		expect(factsFromDetails(details, false)).toMatchObject({ name: 'Queen West Plumbing', has_hours: true, has_website: true, has_phone: false, has_editorial_summary: null });
-		expect(factsFromDetails(details, true).has_editorial_summary).toBe(true);
+	it('facts from Place Details: editorial summary always (Atmosphere SKU), photo count capped at 10, reviews with author attribution', () => {
+		const review = (days: number, name: string) => ({ rating: 5, text: 'Great', publishTime: new Date(Date.UTC(2026, 8, 20) - days * 86_400_000).toISOString(), relativeTime: `${days} days ago`, author: { name, uri: `https://maps.test/${name}` } });
+		const details = {
+			displayName: 'Queen West Plumbing', rating: 4.6, userRatingCount: 212, primaryType: 'plumber', primaryTypeDisplayName: 'Plumber',
+			regularOpeningHours: { weekdayDescriptions: ['Mon: 8–5'] }, websiteUri: 'https://q.test', businessStatus: 'OPERATIONAL', editorialSummary: 'Family run',
+			photoCount: 10, reviews: [review(30, 'Ann'), review(3, 'Bo')],
+		};
+		const facts = factsFromDetails(details);
+		expect(facts).toMatchObject({ name: 'Queen West Plumbing', has_hours: true, has_website: true, has_phone: false, has_editorial_summary: true, photo_count: 10, photos_capped: true });
+		expect(facts.reviews[1]).toMatchObject({ rating: 5, text: 'Great', relative_time: '3 days ago', author: { name: 'Bo', uri: 'https://maps.test/Bo' } });
+		expect(facts.recent_review_at?.toISOString()).toBe(new Date(Date.UTC(2026, 8, 17)).toISOString());
+		expect(factsFromDetails({ displayName: 'X' })).toMatchObject({ photo_count: 0, photos_capped: false, reviews: [], recent_review_at: null, has_editorial_summary: false });
 	});
 
 	it('a never-fetched row has no public score; a fetched one is scored with its center ranks', () => {

@@ -93,7 +93,20 @@ export type PlaceDetailsField =
 	| 'nationalPhoneNumber'
 	| 'businessStatus'
 	| 'editorialSummary'
-	| 'addressComponents';
+	| 'addressComponents'
+	/** Phase 12.5 (competitors): up to 10 photo references; only the count is used. */
+	| 'photos'
+	/** Phase 12.5 (competitors): up to 5 reviews (Enterprise + Atmosphere SKU). */
+	| 'reviews';
+
+/** One Google review with its author attribution (which must be shown with the text). */
+export interface PlaceReview {
+	rating: number | null;
+	text: string | null;
+	publishTime: string | null;
+	relativeTime: string | null;
+	author: { name: string | null; uri: string | null };
+}
 
 /** One address part (Phase 8: city, state, postal code and country of a location added from Places). */
 export interface AddressComponent {
@@ -118,6 +131,9 @@ export interface PlaceDetails {
 	businessStatus?: string;
 	editorialSummary?: string;
 	addressComponents?: AddressComponent[];
+	/** Number of photo references returned (Google returns at most 10). */
+	photoCount?: number;
+	reviews?: PlaceReview[];
 }
 
 export interface PlaceDetailsResult {
@@ -171,4 +187,13 @@ export interface RawPlaceDetails {
 	businessStatus?: string;
 	editorialSummary?: RawLocalizedText;
 	addressComponents?: { longText?: string; shortText?: string; types?: string[] }[];
+	photos?: unknown[];
+	reviews?: {
+		rating?: number;
+		text?: RawLocalizedText;
+		originalText?: RawLocalizedText;
+		publishTime?: string;
+		relativePublishTimeDescription?: string;
+		authorAttribution?: { displayName?: string; uri?: string; photoUri?: string };
+	}[];
 }

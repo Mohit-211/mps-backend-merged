@@ -2,7 +2,8 @@ import { Agenda } from 'agenda';
 import { Types } from 'mongoose';
 import config from '../../../src/configs/config';
 import { PlacesConfigError } from '../../../src/clients/placesClient';
-import { ILocation, IRankRun, Location, RankRun } from '../../../src/models';
+import { ILocation, IRankRun, Location, RankResultList, RankRun } from '../../../src/models';
+import { decodeResultList } from '../../../src/services/ranking/resultLists';
 import { createScriptedPlaces, PlacesScript, ScriptContext } from '../../../src/ranking/demo/scriptedPlaces';
 import { enqueueRankRun, RunOverCapError } from '../../../src/services/ranking/rankRun.service';
 import { executeRankRun } from '../../../src/services/ranking/rankRunExecutor';
@@ -80,24 +81,30 @@ describe('rank-run: full run (2 keywords × 3×3)', () => {
 		expect(run.grid).toHaveLength(2);
 		expect(run.tracker[0].cells).toHaveLength(5);
 		expect(run.grid[0].points).toHaveLength(9);
-		// 13 unique points per keyword (center shared), 1 page each; 1 Pro call per keyword
-		expect(run.api_calls).toEqual({ ids_only: 26, pro: 2, details: 0 });
-		expect(places.calls).toEqual({ ids_only: 26, pro: 2, details: 0 });
+		// 13 unique points per keyword (center shared), full depth = 3 pages each; Pro at 5 points per keyword
+		expect(run.api_calls).toEqual({ ids_only: 78, pro: 10, details: 0 });
+		expect(places.calls).toEqual({ ids_only: 78, pro: 10, details: 0 });
 
 		const summary = run.tracker[0].summary as unknown as Record<string, Record<string, unknown>>;
 		expect(summary.self).toMatchObject({ avgRank: 4.4, foundRate: 1, top3Rate: 0.2, change: null, changeLabel: null });
 		expect(summary.competitor_1).toMatchObject({ avgRank: 10, foundRate: 1, top3Rate: 0 });
 		const center = run.tracker[0].cells[0];
 		expect(center.point.label).toBe('C');
-		expect((center.byTarget as unknown as Record<string, unknown>).self).toEqual({ rank: 2, status: 'ok' });
+		expect((center.byTarget as unknown as Record<string, unknown>).self).toEqual({ rank: 2, status: 'ok', samples: [2], spread: null });
 		// The first 3 IDs at each point are stored for calibration; self is 2nd at the center.
 		expect(center.top3).toHaveLength(3);
 		expect(center.top3?.[1]).toBe(SELF_PLACE_ID);
 		expect(run.grid[0].points[0].top3).toHaveLength(3);
-		// Search depth per point: found on page 1 of a longer list, so paging stopped early.
-		expect(center).toMatchObject({ result_count: 20, more_results: true });
+		// Full depth (Phase 12.5): every point returns all 60 results.
+		expect(center).toMatchObject({ result_count: 60, more_results: false });
 		expect(run.grid[0].points[0].result_count).toBeGreaterThan(0);
 
+		// Map Ranking at the 5 tracker points, center first.
+		expect(run.mapList.map((m) => `${m.keyword}:${m.point}`)).toEqual([
+			'Emergency Plumber:C', 'Emergency Plumber:N', 'Emergency Plumber:S', 'Emergency Plumber:E', 'Emergency Plumber:W',
+			'Drain Cleaning:C', 'Drain Cleaning:N', 'Drain Cleaning:S', 'Drain Cleaning:E', 'Drain Cleaning:W',
+		]);
+		expect(run.mapList[1].results[4]).toMatchObject({ rank: 5, is_self: true }); // rank 5 away from the center
 		expect(run.mapList[0].results).toHaveLength(20);
 		expect(run.mapList[0].results[1]).toMatchObject({
 			rank: 2,
@@ -184,7 +191,7 @@ describe('rank-run: errors', () => {
 			(p) => (p.byTarget as unknown as Record<string, { status: string }>).self.status === 'error',
 		);
 		expect(errorCells).toHaveLength(1);
-		expect(run.api_calls.ids_only).toBe(25 + 2); // 25 good pages + the failed search (2 attempts)
+		expect(run.api_calls.ids_only).toBe(25 * 3 + 2); // 25 good searches × 3 pages + the failed search (2 attempts)
 	});
 
 	it('is partial when the Map Ranking names search fails', async () => {
@@ -192,8 +199,8 @@ describe('rank-run: errors', () => {
 		const { run } = await runOnce(location, baseScript({ failNames: (k) => k.startsWith('Drain') }), new Date());
 		expect(run.status).toBe('partial');
 		expect(run.run_errors[0]).toMatchObject({ keyword: 'Drain Cleaning', section: 'map' });
-		expect(run.mapList[1].results).toEqual([]);
-		expect(run.api_calls.pro).toBe(1 + 2);
+		expect(run.mapList.filter((m) => m.keyword === 'Drain Cleaning').every((m) => m.results.length === 0)).toBe(true);
+		expect(run.api_calls.pro).toBe(5 + 5 * 2);
 	});
 
 	it('is failed only when every search failed', async () => {
@@ -326,5 +333,64 @@ describe('enqueue', () => {
 		});
 		const run = await RankRun.findOne({ location_id: location._id });
 		expect(run).toMatchObject({ status: 'failed', active: false });
+	});
+});
+
+describe('rank-run: Phase 12.5 full lists, samples, map points, heartbeat', () => {
+	it('stores every point\'s full ordered list (center once) compactly, and decodes it', async () => {
+		const location = await newLocation();
+		const { run } = await runOnce(location, baseScript({ depth: (c) => (isCenter(c) ? 60 : 33) }), new Date('2026-09-26T10:00:00Z'));
+		const docs = await RankResultList.find({ run_id: run._id }).lean();
+		expect(docs.map((d) => d.keyword).sort()).toEqual(['Drain Cleaning', 'Emergency Plumber']);
+		const doc = docs.find((d) => d.keyword === 'Emergency Plumber');
+		expect(doc?.points.map((p) => p.point)).toEqual(['C', 'N', 'S', 'E', 'W', 'g:0,0', 'g:0,1', 'g:0,2', 'g:1,0', 'g:1,2', 'g:2,0', 'g:2,1', 'g:2,2']);
+		const c = doc?.points.find((p) => p.point === 'C');
+		const ids = decodeResultList(doc?.places ?? [], (c?.ids ?? null) as Buffer | null);
+		expect(ids).toHaveLength(60);
+		expect(ids?.[1]).toBe(SELF_PLACE_ID);
+		expect(doc?.points.find((p) => p.point === 'N')?.result_count).toBe(33);
+		expect(run.tracker[0].cells[1].result_count).toBe(33);
+		// Dictionary encoding: 2 bytes per result, not a 27-character ID.
+		expect((c?.ids as unknown as { length?: number; buffer?: { length: number } })?.buffer?.length ?? (c?.ids as unknown as Buffer).length).toBe(120);
+	});
+
+	it('takes N samples per point (median, samples and spread stored) and records the config', async () => {
+		const location = await newLocation();
+		const { agenda } = fakeAgenda();
+		const queued = await enqueueRankRun(await reload(location._id as Types.ObjectId), userId, 'manual', { agenda, planOptions: { env: 'production', samples: 3, mapRankingPoints: 'center' } });
+		let n = 0;
+		const places = createScriptedPlaces(baseScript({ rank: ({ placeId }) => (placeId === SELF_PLACE_ID ? [2, 6, 3][n++ % 3] : 10) }));
+		await executeRankRun(queued.run_id, { places, engine: { sleep: noSleep } });
+		const run = (await RankRun.findById(queued.run_id).lean()) as unknown as IRankRun;
+		expect(run.config).toMatchObject({ samples: 3, sample_spacing_sec: 0, map_points: 1 });
+		expect(run.expected_duration_ms).toBeGreaterThan(0);
+		expect(run.estimate).toMatchObject({ samples: 3, mapPoints: 1, idsOnly: { max: 2 * 13 * 3 * 3 } });
+		const self = (run.tracker[0].cells[0].byTarget as unknown as Record<string, { rank: number; samples: number[]; spread: number }>).self;
+		expect(self.samples).toHaveLength(3);
+		expect(self.rank).toBe([...self.samples].sort((a, b) => a - b)[1]);
+		expect(self.spread).toBe(Math.max(...self.samples) - Math.min(...self.samples));
+		expect(run.mapList).toHaveLength(2);
+		expect(run.api_calls.ids_only).toBe(2 * 13 * 3 * 3);
+		expect(await RankResultList.countDocuments({ run_id: run._id })).toBe(2);
+	});
+
+	it('calls the heartbeat while it works', async () => {
+		jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+		try {
+			const location = await newLocation();
+			const { agenda } = fakeAgenda();
+			const queued = await enqueueRankRun(await reload(location._id as Types.ObjectId), userId, 'manual', { agenda, planOptions: { env: 'production' } });
+			const heartbeat = jest.fn(async () => undefined);
+			const slow = createScriptedPlaces(baseScript());
+			const inner = slow.searchTextIds;
+			slow.searchTextIds = async (p) => {
+				jest.advanceTimersByTime(40);
+				return inner(p);
+			};
+			await executeRankRun(queued.run_id, { places: slow, engine: { sleep: noSleep }, heartbeat, heartbeatMs: 100 });
+			expect(heartbeat).toHaveBeenCalled();
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });

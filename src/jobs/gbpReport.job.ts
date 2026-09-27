@@ -1,6 +1,7 @@
 import { Agenda } from 'agenda';
 import { REPORT_TRIGGERS, ReportTrigger } from '../models';
 import { runReportJob } from '../services/gbp/report.service';
+import { withLocationUsage } from '../services/usage/jobScope';
 import { defineJob } from './defineJob';
 import { JOB_NAMES } from './jobNames';
 
@@ -13,6 +14,6 @@ export const defineGbpReportJob = (agenda: Agenda): void =>
 		lockLifetimeMs: 10 * 60 * 1000,
 		handler: async ({ location_id, trigger }) => {
 			const known = (REPORT_TRIGGERS as readonly string[]).includes(trigger) ? (trigger as ReportTrigger) : 'gbp_sync';
-			await runReportJob(location_id, known);
+			await withLocationUsage(location_id, () => runReportJob(location_id, known));
 		},
 	});

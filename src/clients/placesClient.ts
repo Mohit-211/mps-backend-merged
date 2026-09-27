@@ -30,6 +30,9 @@ import {
 	SearchTextParams,
 	SearchTextWithNamesResult,
 } from './types/places';
+import { AsyncLimiter, createMongoLimiter } from './placesRateLimiter';
+import { PlacesSku, detailsSkuFor } from '../services/usage/skus';
+import { recordUsage } from '../services/usage/scope';
 
 // Places API (New) client. Every call goes through withRetry (15 s timeout, 1 retry).
 // The API key is sent only in the X-Goog-Api-Key header and never logged or put in errors.
@@ -134,6 +137,15 @@ const mapDetails = (raw: RawPlaceDetails): PlaceDetails => ({
 	businessStatus: raw.businessStatus,
 	editorialSummary: raw.editorialSummary?.text,
 	addressComponents: raw.addressComponents?.map((c) => ({ long: c.longText ?? '', short: c.shortText ?? '', types: c.types ?? [] })),
+	photoCount: raw.photos ? raw.photos.length : undefined,
+	// Author name and profile link are kept (Google requires the attribution with the text); the author photo is not.
+	reviews: raw.reviews?.map((r) => ({
+		rating: typeof r.rating === 'number' ? r.rating : null,
+		text: (r.text?.text ?? r.originalText?.text ?? null)?.slice(0, 500) ?? null,
+		publishTime: r.publishTime ?? null,
+		relativeTime: r.relativePublishTimeDescription ?? null,
+		author: { name: r.authorAttribution?.displayName ?? null, uri: r.authorAttribution?.uri ?? null },
+	})),
 });
 
 const toEntry = (raw: { id?: string; movedPlaceId?: string }): PlaceIdEntry | null => {
@@ -149,6 +161,10 @@ export interface PlacesClientOptions {
 	sleep?: Sleep;
 	retryBaseDelayMs?: number;
 	defaultRadiusM?: number;
+	/** Phase 12.5: waits before every HTTP attempt (the default client shares a cluster-wide limit). */
+	limiter?: AsyncLimiter;
+	/** Phase 12.5: called with the billing SKU and HTTP attempts of every request (the usage ledger). */
+	onCall?: (sku: PlacesSku, attempts: number) => void;
 }
 
 export type PlacesClient = ReturnType<typeof createPlacesClient>;
@@ -159,6 +175,13 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 	const retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
 	const defaultRadiusM = options.defaultRadiusM ?? 5000;
 	const stats: PlacesCallStats = { ids_only: 0, pro: 0, enterprise: 0, details: 0 };
+	const limiter = options.limiter;
+	const onCall = options.onCall;
+	const skuOf: Record<Exclude<keyof PlacesCallStats, 'details'>, PlacesSku> = {
+		ids_only: 'places.text.ids_only',
+		pro: 'places.text.pro',
+		enterprise: 'places.text.enterprise',
+	};
 
 	const requireKey = (): string => {
 		if (!options.apiKey) throw new PlacesConfigError();
@@ -172,28 +195,33 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 		request: Omit<HttpRequest, 'headers'>,
 		fieldMask: string,
 		apiKey: string,
+		usageSku: PlacesSku = sku === 'details' ? 'places.details.enterprise_atmosphere' : skuOf[sku],
 	): Promise<{ data: T; attempts: number }> => {
 		const started = Date.now();
 		try {
 			const { value, attempts } = await withRetry(
-				() =>
-					transport<T>({
+				async () => {
+					if (limiter) await limiter.acquire();
+					return transport<T>({
 						...request,
 						headers: {
 							'Content-Type': 'application/json',
 							'X-Goog-Api-Key': apiKey,
 							'X-Goog-FieldMask': fieldMask,
 						},
-					}),
+					});
+				},
 				{ sleep, baseDelayMs: retryBaseDelayMs },
 			);
 			stats[sku] += attempts;
+			onCall?.(usageSku, attempts);
 			logger.debug(`places ${label} status=${value.status} attempts=${attempts} ${Date.now() - started}ms`);
 			return { data: value.data, attempts };
 		} catch (err) {
 			if (!isTransportError(err)) throw err;
 			const error = toHttpRequestError(err);
 			stats[sku] += error.attempts;
+			onCall?.(usageSku, error.attempts);
 			logger.warn(
 				`places ${label} failed status=${error.status ?? error.code} attempts=${error.attempts} ${Date.now() - started}ms`,
 			);
@@ -374,6 +402,7 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 				{ method: 'GET', url: `${BASE_URL}/places/${encodeURIComponent(id)}` },
 				fields.join(','),
 				apiKey,
+				detailsSkuFor(fields),
 			);
 			return { details: mapDetails(data), apiCalls: attempts };
 		} catch (err) {
@@ -392,4 +421,7 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 export const placesClient: PlacesClient = createPlacesClient({
 	apiKey: config.googleApis.placeApi.keySecret,
 	defaultRadiusM: config.ranking.searchRadiusM,
+	// Phase 12.5: every process shares PLACES_MAX_QPS through MongoDB, and every call is counted in the usage ledger.
+	limiter: createMongoLimiter({ maxPerSecond: config.ranking.placesMaxQps }),
+	onCall: (sku, attempts) => recordUsage(sku, attempts),
 });

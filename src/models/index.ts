@@ -48,6 +48,8 @@ export * from "./report.model";
 export * from "./reportSnapshot.model";
 export * from "./reportShare.model";
 export * from "./reportSchedule.model";
+export * from "./rankResultList.model";
+export * from "./apiUsage.model";
 
 
 // location service — citations

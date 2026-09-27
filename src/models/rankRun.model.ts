@@ -12,6 +12,9 @@ export type ChangeLabelValue = 'improved' | 'declined' | 'unchanged' | 'entered_
 export interface RankCellDoc {
 	rank: number | null;
 	status: CellStatus;
+	/** Phase 12.5: every sample's value (1–60, 61 = not found, null = failed) and their spread. Absent on older runs. */
+	samples?: (number | null)[];
+	spread?: number | null;
 }
 
 export interface SummaryDoc {
@@ -49,6 +52,8 @@ export interface MapListResultDoc {
 
 export interface MapListSectionDoc {
 	keyword: string;
+	/** Phase 12.5: the tracker point ('C' | 'N' | 'S' | 'E' | 'W'); absent on older runs = center. */
+	point?: string;
 	results: MapListResultDoc[];
 }
 
@@ -74,6 +79,8 @@ export interface RankRunEstimateDoc {
 	keywords: number;
 	gridSize: number;
 	points: number;
+	samples: number;
+	mapPoints: number;
 	idsOnly: CallRangeDoc;
 	pro: CallRangeDoc;
 	details: CallRangeDoc;
@@ -103,7 +110,13 @@ export interface RankRunData {
 		tracker_offset_km: number;
 		radius_m: number;
 		store_place_names: boolean;
+		/** Phase 12.5 (absent on older runs = 1 sample, no spacing, center-only map list). */
+		samples?: number;
+		sample_spacing_sec?: number;
+		map_points?: number;
 	};
+	/** Phase 12.5: expected duration from the estimate (the stuck guard allows twice this plus 10 minutes). */
+	expected_duration_ms?: number | null;
 	targets: { key: string; place_id: string }[];
 	estimate: RankRunEstimateDoc;
 	dev_capped: boolean;
@@ -128,6 +141,8 @@ const rankCellSchema = new Schema<RankCellDoc>(
 	{
 		rank: { type: Number, default: null },
 		status: { type: String, enum: ['ok', 'not_found', 'error'], required: true },
+		samples: { type: [Number], default: undefined },
+		spread: { type: Number, default: undefined },
 	},
 	{ _id: false },
 );
@@ -178,12 +193,18 @@ const rankRunSchema = new Schema<IRankRun>(
 			tracker_offset_km: { type: Number, required: true },
 			radius_m: { type: Number, required: true },
 			store_place_names: { type: Boolean, required: true },
+			samples: { type: Number, default: 1 },
+			sample_spacing_sec: { type: Number, default: 0 },
+			map_points: { type: Number, default: 1 },
 		},
+		expected_duration_ms: { type: Number, default: null },
 		targets: { type: [{ _id: false, key: String, place_id: String }], default: [] },
 		estimate: {
 			keywords: Number,
 			gridSize: Number,
 			points: Number,
+			samples: Number,
+			mapPoints: Number,
 			idsOnly: callRangeSchema,
 			pro: callRangeSchema,
 			details: callRangeSchema,
@@ -242,6 +263,7 @@ const rankRunSchema = new Schema<IRankRun>(
 				{
 					_id: false,
 					keyword: String,
+					point: { type: String, default: 'C' },
 					results: [
 						{
 							_id: false,

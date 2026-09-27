@@ -271,6 +271,22 @@ export const renderPdf = (report: ReportDocument, opts: RenderOptions = {}): Pro
 			gap(6);
 		};
 
+		const quotes = (b: Extract<Block, { kind: 'quotes' }>) => {
+			for (const q of b.items) {
+				doc.font('R').fontSize(9.5);
+				const h = doc.heightOfString(q.text, { width: W - 14 }) + 16;
+				ensure(h + 6);
+				const y = doc.y;
+				doc.rect(MARGIN, y, 2, h - 4).fill(brand.secondary_color);
+				doc.fillColor(TEXT);
+				write(q.text, MARGIN + 12, y, { width: W - 14 });
+				doc.font('R').fontSize(8).fillColor(MUTED);
+				write(q.meta, MARGIN + 12, doc.y + 2, { width: W - 14 });
+				gap(8);
+			}
+			gap(4);
+		};
+
 		const unavailable = (b: Extract<Block, { kind: 'unavailable' }>) => {
 			ensure(46);
 			const y = doc.y;
@@ -297,6 +313,7 @@ export const renderPdf = (report: ReportDocument, opts: RenderOptions = {}): Pro
 			else if (b.kind === 'line_chart') lineChart(b);
 			else if (b.kind === 'list') list(b);
 			else if (b.kind === 'unavailable') unavailable(b);
+			else if (b.kind === 'quotes') quotes(b);
 			else if (b.kind === 'page_break' && doc.y > MARGIN + 10) doc.addPage();
 		}
 		if (report.blocks.length === 0) paragraph({ kind: 'paragraph', text: 'No data for this report.', muted: true });
@@ -313,6 +330,8 @@ export const renderPdf = (report: ReportDocument, opts: RenderOptions = {}): Pro
 			write(brand.footer_text ?? brand.name, MARGIN, y, { width: W * 0.7, lineBreak: false, ellipsis: true });
 			write(`Page ${i - range.start + 1} of ${range.count}`, MARGIN + W * 0.7, y, { width: W * 0.3, align: 'right', lineBreak: false });
 			if (!brand.hide_mypageseo) write('Powered by MyPageSEO', MARGIN + W * 0.5, y + 11, { width: W * 0.5, align: 'right', lineBreak: false });
+			// Phase 12.5: Google attribution on every page of a report that shows Places content.
+			if (report.attribution) write(report.attribution, MARGIN, y + 11, { width: W * 0.5, lineBreak: false });
 			doc.page.margins.bottom = saved;
 		}
 		const pages = range.count;

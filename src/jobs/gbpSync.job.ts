@@ -1,5 +1,7 @@
 import { Agenda } from 'agenda';
 import { executeGbpSync } from '../gbp/sync.executor';
+import { GbpSync } from '../models';
+import { withLocationUsage } from '../services/usage/jobScope';
 import { defineJob } from './defineJob';
 import { JOB_NAMES } from './jobNames';
 
@@ -11,6 +13,7 @@ export const defineGbpSyncJob = (agenda: Agenda): void =>
 		concurrency: 2,
 		lockLifetimeMs: 20 * 60 * 1000,
 		handler: async ({ sync_id }) => {
-			await executeGbpSync(sync_id);
+			const sync = await GbpSync.findById(sync_id).select({ location_id: 1 }).lean<{ location_id: unknown }>();
+			await withLocationUsage(sync ? String(sync.location_id) : null, () => executeGbpSync(sync_id));
 		},
 	});

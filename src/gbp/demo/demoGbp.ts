@@ -198,15 +198,42 @@ const KNOWN_DETAILS: Record<string, PlaceDetails> = {
 	},
 };
 
+const DEMO_REVIEW_TEXTS = [
+	'Came the same day and fixed the leak quickly. Fair price and very tidy work.',
+	'Friendly technician, explained everything before starting. Would call again.',
+	'Took two visits to sort out the water heater, but they got there in the end.',
+	'Great service on a Sunday night emergency. Highly recommend.',
+	'Booked online, showed up on time, job done in an hour.',
+];
+const DEMO_AUTHORS = ['Alex M.', 'Priya S.', 'Jordan T.', 'Sam K.', 'Taylor R.'];
+
+/** Deterministic photo count and 5 review excerpts per place (demo only). */
+const demoExtras = (placeId: string, random: () => number) => {
+	const photoCount = random() < 0.5 ? 10 : Math.floor(random() * 10);
+	const newestDaysAgo = Math.floor(random() * 120);
+	return {
+		photoCount,
+		reviews: DEMO_REVIEW_TEXTS.map((text, i) => ({
+			rating: Math.max(1, Math.min(5, Math.round(3 + random() * 2.4))),
+			text,
+			publishTime: new Date(Date.now() - (newestDaysAgo + i * 21) * 86_400_000).toISOString(),
+			relativeTime: `${Math.max(1, Math.round((newestDaysAgo + i * 21) / 7))} weeks ago`,
+			author: { name: DEMO_AUTHORS[(i + placeId.length) % DEMO_AUTHORS.length], uri: null },
+		})),
+	};
+};
+
 /** Offline Place Details: known demo businesses, and deterministic facts for any other place ID. */
 export const createDemoDetailsClient = () => {
 	let calls = 0;
 	return {
 		getPlaceDetails: async (placeId: string): Promise<PlaceDetailsResult> => {
 			calls += 1;
-			const known = KNOWN_DETAILS[placeId];
-			if (known) return { details: { id: placeId, ...known }, apiCalls: 1 };
 			const random = rng(hash(placeId));
+			// Phase 12.5: photo count and review excerpts (made-up demo names, never real people).
+			const extras = demoExtras(placeId, random);
+			const known = KNOWN_DETAILS[placeId];
+			if (known) return { details: { id: placeId, ...known, ...extras }, apiCalls: 1 };
 			return {
 				details: {
 					id: placeId,
@@ -219,6 +246,7 @@ export const createDemoDetailsClient = () => {
 					websiteUri: random() < 0.7 ? 'https://example.test' : undefined,
 					nationalPhoneNumber: '(416) 555-0199',
 					businessStatus: 'OPERATIONAL',
+					...extras,
 				},
 				apiCalls: 1,
 			};

@@ -1,4 +1,5 @@
 import { ILocation } from '../../models/location.model';
+import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
 import { OrgContext } from '../../services/org/context';
 import { skipStep as skipOrgStep } from '../../services/org/onboardingState';
 import { centerService, onboardingService, placesSearchService, suggestionsService } from '../../services/onboarding';
@@ -34,17 +35,20 @@ export const competitorSuggestions = catchAsync(async (req, res) => {
 	const result = await suggestionsService.getSuggestions(res.locals.location as ILocation, res.locals.userId as string, {
 		refresh: res.locals.refresh as boolean,
 	});
-	return responseWrapper(res, result);
+	return responseWrapper(res, { ...result, attribution: GOOGLE_ATTRIBUTION });
 });
 
 export const searchPlaces = catchAsync(async (req, res) => {
 	const location = res.locals.location as ILocation | null;
 	if (location) {
-		return responseWrapper(res, await placesSearchService.search(location, res.locals.userId as string, res.locals.q as string));
+		return responseWrapper(res, { ...(await placesSearchService.search(location, res.locals.userId as string, res.locals.q as string)), attribution: GOOGLE_ATTRIBUTION });
 	}
 	const ctx = orgOf(res);
 	const country = (res.locals.country as string | null) ?? ctx.organization.country;
-	return responseWrapper(res, await placesSearchService.searchForNewLocation(ctx.organization._id, country, res.locals.userId as string, res.locals.q as string));
+	return responseWrapper(res, {
+		...(await placesSearchService.searchForNewLocation(ctx.organization._id, country, res.locals.userId as string, res.locals.q as string)),
+		attribution: GOOGLE_ATTRIBUTION,
+	});
 });
 
 export const setCenter = catchAsync(async (req, res) => {

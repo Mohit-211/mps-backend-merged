@@ -828,3 +828,31 @@ Branch `claude/phase-12-reports`. Offline only: **0 Google calls, 0 Places calls
 **Tests:** 619 pass (was 590; 29 new across `tests/services/reports/*` and `tests/routes/reports.routes.test.ts`, plus the onboarding step); build 0 errors; lint 32 (baseline). Dev server, Places key empty: library (agency and client user), create → agenda job → ready in ~1 s → PDF download, email in development (masked log), share → public HTML (headers checked, 0 ids, 0 scripts) and PDF → revoke → 404, schedules with `next_expected`, branding and logo; tokens redacted in the request log; 0 Google calls.
 
 **API calls consumed:** 0.
+
+## Phase 12.5: Ranking & data quality
+
+Branch `claude/phase-12.5-quality`. Decisions (Mohit, 2026-09-27): push after every merged phase; Maps ToS accepted risk for now (stores listed in STATUS.md, attribution added); quality over cost (about $1 per refresh acceptable; no monthly manual-refresh cap existed, the 24 h guard stays). Offline build: **0 Google calls**. The live variance test is built and waiting for Mohit.
+
+**What changed**
+- **Full depth:** ranking searches fetch every page (up to 60 results); `stopWhenFound` stays in the client for other uses. Per point `result_count` is now meaningful, and the full ordered list of every point and sample is stored in `rank_result_lists` (one document per run and keyword; dictionary of place IDs + uint16 indexes: 120 bytes per 60-result list, ~22 KB per keyword at 7×7, ~0.45 MB per 20 × 7×7 run with 1 sample, ~1.2 MB with 5; plain arrays would be ~2.3 / ~11.5 MB).
+- **Repeated sampling:** `RANK_SAMPLES_PER_POINT` (1–5, default 1) and `RANK_SAMPLE_SPACING_SEC`; the point's cell is the median (61 = not found, errors excluded, error majority → error, even count rounded up), with every sample and the spread stored on the cell and shown by the rank-tracker and grid endpoints.
+- **Map Ranking at 5 points:** the named top 20 at C/N/S/E/W (`MAP_RANKING_POINTS=all|center`); `GET map-ranking ?point=`; the Rank Tracker report's "Who ranks across the area" table. Center-only consumers (competitor set, center ranks, Public Score) filter the center lists.
+- **Competitors:** Place Details now include reviews (up to 5, author name + profile link kept), photos (count, "10+") and editorial summary (Enterprise + Atmosphere; the flag is gone, so every Public Score's editorial part is now available and scores shift once). Insights `photos_gap`, `review_freshness`; the Competitor Analysis report gets a Photos column and "What customers say".
+- **Runtime:** `estimateCalls` counts samples and map points; `estimateDuration`; `RANK_MAX_CALLS_PER_RUN` 16,000 (20 × 7×7 × 3 pages × 5 samples = 15,900); `RANK_SEARCH_CONCURRENCY` (4); `PLACES_MAX_QPS` (8/s) enforced across all pm2 processes by a MongoDB per-second counter, assuming the default 600/min per method; `expected_duration_ms` on runs, the stuck guard waits max(30 min, 2 × expected + 10 min), and the rank-run job renews its agenda lock every minute. Expected: 10 keywords × 5×5 ≈ 2 min (1 sample), 5.5 min (3 samples 60 s apart), 22 min (3 samples 10 min apart); the maximum ≈ 33 min.
+- **Cost visibility:** `api_usage` ledger (organization, location, month, SKU) for every Places and GBP HTTP call, attributed through AsyncLocalStorage scopes (every `/api/v1` request, filled in by the org and location access helpers; the rank-run, gbp-sync and gbp-report jobs). `GET /organization/usage` → `api_usage`; `npm run cost:report`; list prices in `src/configs/pricing.ts` (`PRICING_FILE`). OPERATIONS.md: cost model (≈ $1.75 per monthly refresh at 10 keywords, $3.35 at 20; `MAP_RANKING_POINTS=center` → ≈ $0.47) and the Google Cloud checklist.
+- **Attribution:** `attribution: { provider: "Google", text: "Business data © Google" }` on map-ranking, competitor-suggestions, places/search, the GBP report, locations list/overview, dashboard and report view; PDFs and share pages print it under Places tables and in every page footer when the report shows Places content.
+- **Variance test** (`npm run variance:test -- --confirm-live`): MyPageSEO, "marketing agency" + "digital marketing agency fredericton", 5 tracker points, 3 samples at 0 s / 60 s / 600 s; worst case 270 IDs-only calls, stopped before 300; writes `docs/calibration/variance-<date>.md` with the % identical and max spread per spacing and target, and the recommendation by Mohit's rule.
+
+**Files touched (shared, called out):** `src/app.ts` (the usage scope middleware on `/api/v1`), `src/services/org/access.ts` and `src/middlewares/org/org.middleware.ts` (fill in the usage scope), `src/clients/gbpClient.ts` (counts each call), controllers for attribution (dashboard, locations, onboarding, GBP report, reports).
+
+**Decisions:** as approved in the plan (compact list storage; median rounded up on an even count; editorial summary always fetched; Map Ranking at 5 points as the default with a center switch; 8 req/s cluster-wide; Mohit's attribution wording, with Google's "Google Maps" wording one constant away; default 1 sample until the variance test).
+
+**Open for Mohit:**
+- Trigger the variance test and confirm the resulting sampling default.
+- Do the Google Cloud checklist (OPERATIONS.md) before the first monthly refresh on the server.
+- Prices in `src/configs/pricing.ts` are list prices as I know them; check them against Google's current pricing page.
+- The monthly refresh cost with Map Ranking at 5 points is ≈ $1.75 (10 keywords) to $3.35 (20 keywords), above the "about $1" guide; `MAP_RANKING_POINTS=center` halves the Pro calls if needed.
+
+**Tests:** 645 pass (was 619), no key, no network; build 0 errors; lint 32. Dev server (key empty): map-ranking `point=N` and `all`, sample fields on grid cells, `api_usage` in `/organization/usage`, attribution on the dashboard, `cost:report`, `variance:test` refuses without `--confirm-live`; 0 Google calls. `seed:demo-orgs` re-rendered the reports (Map Ranking table, reviews, photos insight, attribution in the footer checked visually).
+
+**API calls consumed:** 0.

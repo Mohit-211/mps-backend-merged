@@ -43,6 +43,8 @@ export interface RankTrackerData {
 	history?: { run_at: Date; overall_avg_rank: number | null }[];
 	grid?: RtGrid[];
 	movers?: { improved: { keyword: string; change: number }[]; declined: { keyword: string; change: number }[]; entered: string[]; dropped: string[] };
+	/** Phase 12.5: the named top 5 at each Map Ranking point, and the client's rank there (null = not in the top 20). */
+	map_ranking?: { keyword: string; points: { point: string; top: { rank: number; name: string | null; is_self: boolean }[]; self_rank: number | null }[] }[];
 }
 
 // ---- GBP Audit ----
@@ -94,9 +96,24 @@ export interface CompetitorData {
 	available: true;
 	generated_at: Date;
 	public_scores?: { name: string; is_self: boolean; score: number | null; flag: string | null }[];
-	table?: { name: string; is_self: boolean; rating: number | null; reviews: number | null; category: string | null; has_hours: boolean; has_website: boolean; has_phone: boolean; status: string | null }[];
+	table?: {
+		name: string;
+		is_self: boolean;
+		rating: number | null;
+		reviews: number | null;
+		category: string | null;
+		has_hours: boolean;
+		has_website: boolean;
+		has_phone: boolean;
+		status: string | null;
+		/** Phase 12.5: photos Google returns (max 10 = "10+"); null before the data was fetched. */
+		photos?: number | null;
+		photos_capped?: boolean;
+	}[];
 	ranks?: { name: string; is_self: boolean; overall_avg_rank: number | null; top3_rate: number | null; center_avg: number | null; center_top3_rate: number | null }[];
 	insights?: string[];
+	/** Phase 12.5: up to 2 recent Google reviews per business, with the author attribution. */
+	reviews?: { name: string; is_self: boolean; items: { rating: number | null; text: string | null; when: string | null; author: string | null; author_uri: string | null }[] }[];
 }
 
 export interface SnapshotData {
@@ -118,6 +135,8 @@ export type Block =
 	| { kind: 'heatmap'; title: string; size: number; cells: { row: number; col: number; text: string; bucket: RankBucket }[] }
 	| { kind: 'list'; items: string[] }
 	| { kind: 'unavailable'; title: string; message: string }
+	/** Quoted text with an attribution line (Google reviews: author name, linked in HTML). */
+	| { kind: 'quotes'; items: { text: string; meta: string; link: string | null }[] }
 	| { kind: 'page_break' };
 
 export interface ReportDocument {
@@ -129,4 +148,6 @@ export interface ReportDocument {
 	period: string | null;
 	branding: FrozenBranding;
 	blocks: Block[];
+	/** Phase 12.5: "Business data © Google" when the document shows Places content (printed in the footer). */
+	attribution: string | null;
 }

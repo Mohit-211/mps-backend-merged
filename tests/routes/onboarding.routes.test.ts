@@ -170,7 +170,11 @@ describe('onboarding flow over HTTP', () => {
 		expect(cached.body.data.cached).toBe(true);
 
 		const search = await request(app).get(`/api/v1/places/search?q=rival&locationId=${locationId}`).set(auth(token));
-		expect(search.body.data).toEqual({ results: [{ place_id: 'ChIJrouteSearch000000001', name: 'Rival Search', address: '9 Elm St' }], api_calls: 1 });
+		expect(search.body.data).toEqual({
+			results: [{ place_id: 'ChIJrouteSearch000000001', name: 'Rival Search', address: '9 Elm St' }],
+			api_calls: 1,
+			attribution: { provider: 'Google', text: 'Business data © Google' },
+		});
 
 		const comps = await request(app)
 			.put(`/api/v1/locations/${locationId}/tracking`)

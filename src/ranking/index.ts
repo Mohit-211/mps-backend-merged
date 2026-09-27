@@ -30,10 +30,13 @@ export {
 export {
 	countKeywords,
 	estimateCalls,
+	estimateDuration,
 	uniquePointCount,
 	type CallEstimate,
 	type CallRange,
 	type EstimateOptions,
+	type DurationOptions,
 } from './estimate';
+export { NOT_FOUND_VALUE, aggregateSamples, medianRank, type SampledCell } from './samples';
 export { regionFromCountry, type RegionCode } from './region';
 export { applyDevKeywordCap, type DevCapResult } from './limits';

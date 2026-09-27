@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { FrozenBranding, ReportType, SnapshotLocation } from '../../models';
 import { bucket, displayRank } from '../../ranking/rankCell';
+import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
 import { Block, CompetitorData, GbpAuditData, Part, RankTrackerData, ReportDocument, SnapshotData, Tone, isAvailable } from './types';
 
 // Reports center (Phase 12): turns frozen snapshot data into the document model (typed blocks). Pure.
@@ -52,6 +53,12 @@ const LABELS: Record<string, string> = {
 
 const unavailable = (title: string, part: { reason: string }): Block => ({ kind: 'unavailable', title, message: unavailableText(part.reason) });
 
+/** Printed under every block with Places content (business names, ratings, reviews). */
+const attributionBlock = (): Block => ({ kind: 'paragraph', text: GOOGLE_ATTRIBUTION.text, muted: true });
+
+const stars = (rating: number | null): string => (rating === null ? '' : `${'★'.repeat(Math.round(rating))}${'☆'.repeat(5 - Math.round(rating))} `);
+const POINT_NAMES: Record<string, string> = { C: 'Center', N: 'North', S: 'South', E: 'East', W: 'West' };
+
 // ---- Rank Tracker ----
 
 export const rankTrackerBlocks = (d: RankTrackerData): Block[] => {
@@ -97,6 +104,20 @@ export const rankTrackerBlocks = (d: RankTrackerData): Block[] => {
 		];
 		out.push({ kind: 'heading', level: 2, text: 'Biggest movers' });
 		out.push(items.length ? { kind: 'list', items } : { kind: 'paragraph', text: 'No comparable movement since the previous run.', muted: true });
+	}
+	if (d.map_ranking && d.map_ranking.length) {
+		out.push({ kind: 'heading', level: 2, text: 'Who ranks across the area' });
+		out.push({ kind: 'paragraph', text: 'The top 5 on Google Maps at the center and at the four compass points around your business.', muted: true });
+		for (const k of d.map_ranking) {
+			const pts = k.points;
+			const depth = Math.max(0, ...pts.map((p) => p.top.length));
+			const rows: string[][] = [];
+			for (let i = 0; i < depth; i++) rows.push([String(i + 1), ...pts.map((p) => (p.top[i] ? `${p.top[i].name ?? '(name not stored)'}${p.top[i].is_self ? ' (you)' : ''}` : '-'))]);
+			rows.push(['You', ...pts.map((p) => (p.self_rank === null ? '20+' : `#${p.self_rank}`))]);
+			out.push({ kind: 'heading', level: 2, text: k.keyword });
+			out.push({ kind: 'table', columns: [{ label: '#', weight: 0.75 }, ...pts.map((p) => ({ label: POINT_NAMES[p.point] ?? p.point, weight: 2 }))], rows, highlight: [rows.length - 1] });
+		}
+		out.push(attributionBlock());
 	}
 	if (d.grid && d.grid.length) {
 		out.push({ kind: 'page_break' });
@@ -260,8 +281,26 @@ export const competitorBlocks = (d: CompetitorData): Block[] => {
 		out.push({ kind: 'heading', level: 2, text: 'Side by side' });
 		out.push({
 			kind: 'table',
-			columns: [{ label: 'Business', weight: 3 }, { label: 'Rating', align: 'right' }, { label: 'Reviews', align: 'right' }, { label: 'Category', weight: 2 }, { label: 'Hours' }, { label: 'Website' }, { label: 'Phone' }],
-			rows: d.table.map((r) => [r.name + (r.is_self ? ' (you)' : ''), fmtNum(r.rating, 1), fmtNum(r.reviews), r.category ?? '-', yesNo(r.has_hours), yesNo(r.has_website), yesNo(r.has_phone)]),
+			columns: [
+				{ label: 'Business', weight: 3 },
+				{ label: 'Rating', align: 'right' },
+				{ label: 'Reviews', align: 'right' },
+				{ label: 'Photos', align: 'right' },
+				{ label: 'Category', weight: 2 },
+				{ label: 'Hours' },
+				{ label: 'Website' },
+				{ label: 'Phone' },
+			],
+			rows: d.table.map((r) => [
+				r.name + (r.is_self ? ' (you)' : ''),
+				fmtNum(r.rating, 1),
+				fmtNum(r.reviews),
+				r.photos === null || r.photos === undefined ? '-' : r.photos_capped ? '10+' : String(r.photos),
+				r.category ?? '-',
+				yesNo(r.has_hours),
+				yesNo(r.has_website),
+				yesNo(r.has_phone),
+			]),
 			highlight: d.table.map((r, i) => (r.is_self ? i : -1)).filter((i) => i >= 0),
 		});
 	}
@@ -279,6 +318,23 @@ export const competitorBlocks = (d: CompetitorData): Block[] => {
 		out.push({ kind: 'heading', level: 2, text: 'Insights' });
 		out.push(d.insights.length ? { kind: 'list', items: d.insights } : { kind: 'paragraph', text: 'No gaps found against these competitors.', muted: true });
 	}
+	if (d.reviews && d.reviews.length) {
+		out.push({ kind: 'heading', level: 2, text: 'What customers say' });
+		out.push({ kind: 'paragraph', text: 'Recent Google reviews of each business (up to 2).', muted: true });
+		out.push({
+			kind: 'quotes',
+			items: d.reviews.flatMap((b) =>
+				b.items
+					.filter((v) => v.text)
+					.map((v) => ({
+						text: `${stars(v.rating)}“${v.text}”`,
+						meta: `${b.name}${b.is_self ? ' (you)' : ''}: ${v.author ?? 'A Google user'}${v.when ? `, ${v.when}` : ''} (Google review)`,
+						link: v.author_uri,
+					})),
+			),
+		});
+	}
+	if (d.public_scores || d.table || d.ranks || d.reviews) out.push(attributionBlock());
 	return out;
 };
 
@@ -319,5 +375,16 @@ export const buildDocument = (input: { type: ReportType; location: SnapshotLocat
 	} else {
 		blocks = partOf(type, data[type]);
 	}
-	return { title: TYPE_TITLES[type], type, location: input.location, generated_at: input.generated_at, period: periodOf(type, data), branding: input.branding, blocks };
+	const rt = data.rank_tracker && isAvailable(data.rank_tracker) ? data.rank_tracker : null;
+	const placesContent = Boolean(rt?.map_ranking?.length) || Boolean(data.competitor_analysis && isAvailable(data.competitor_analysis));
+	return {
+		title: TYPE_TITLES[type],
+		type,
+		location: input.location,
+		generated_at: input.generated_at,
+		period: periodOf(type, data),
+		branding: input.branding,
+		blocks,
+		attribution: placesContent ? GOOGLE_ATTRIBUTION.text : null,
+	};
 };

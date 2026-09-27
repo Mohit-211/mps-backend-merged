@@ -1,6 +1,9 @@
 import { Agenda } from 'agenda';
 import { onRankRunFinished } from '../gbp/hooks';
+import { RankRun } from '../models/rankRun.model';
 import { executeRankRun } from '../services/ranking/rankRunExecutor';
+import { withLocationUsage } from '../services/usage/jobScope';
+import { flushUsage } from '../services/usage/scope';
 import { defineJob } from './defineJob';
 import { JOB_NAMES } from './jobNames';
 
@@ -12,8 +15,17 @@ export const defineRankRunJob = (agenda: Agenda): void =>
 		name: JOB_NAMES.RANK_RUN,
 		concurrency: 2,
 		lockLifetimeMs: 35 * 60 * 1000,
-		handler: async ({ run_id }) => {
-			await executeRankRun(run_id);
+		handler: async ({ run_id }, job) => {
+			const run = await RankRun.findById(run_id).select({ location_id: 1 }).lean<{ location_id: unknown }>();
+			// Phase 12.5: long runs keep their agenda lock (touch) and write usage every minute.
+			await withLocationUsage(run ? String(run.location_id) : null, () =>
+				executeRankRun(run_id, {
+					heartbeat: async () => {
+						await job.touch();
+						await flushUsage();
+					},
+				}),
+			);
 			await onRankRunFinished(run_id);
 		},
 	});

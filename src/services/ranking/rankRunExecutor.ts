@@ -3,6 +3,8 @@ import logger from '../../configs/logger';
 import { Sleep } from '../../clients/http';
 import { PlacesApiError, PlacesClient, placesClient } from '../../clients/placesClient';
 import { ILocation, Location } from '../../models/location.model';
+import { RankResultList } from '../../models/rankResultList.model';
+import { encodeResultLists, ListInput } from './resultLists';
 import {
 	GridSectionDoc,
 	IRankRun,
@@ -30,8 +32,9 @@ import {
 } from '../../ranking';
 
 // The rank-run job body (CLAUDE.md §9.3). Loads the run, resolves the center, runs every keyword
-// over tracker ∪ grid points through ONE engine (shared cache), builds the Map Ranking list,
-// computes metrics and change vs the previous comparable run, and saves everything.
+// over tracker ∪ grid points through ONE engine (shared cache; Phase 12.5: full depth and N samples
+// per point), stores every point's full result list (RankResultList), builds the Map Ranking lists
+// (Phase 12.5: at the 5 tracker points), computes metrics and change vs the previous comparable run.
 
 export type RunPlaces = Pick<PlacesClient, 'searchTextIds' | 'searchTextWithNames' | 'getPlaceDetails'>;
 
@@ -39,7 +42,10 @@ export interface ExecuteDeps {
 	places?: RunPlaces;
 	now?: () => Date;
 	/** Engine timing overrides (tests and the offline demo use no jitter). */
-	engine?: { sleep?: Sleep; random?: () => number };
+	engine?: { sleep?: Sleep; random?: () => number; now?: () => number };
+	/** Called every heartbeatMs while the run works (the job touches its agenda lock and flushes usage). */
+	heartbeat?: () => Promise<void>;
+	heartbeatMs?: number;
 }
 
 export interface ExecuteResult {
@@ -105,6 +111,11 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 
 	const apiCalls = { ids_only: 0, pro: 0, details: 0 };
 	const runErrors: RunErrorDoc[] = [];
+	const beat = deps.heartbeat
+		? setInterval(() => {
+				deps.heartbeat?.().catch((err: Error) => logger.warn(`rank-run ${runId}: heartbeat failed: ${err.message}`));
+			}, deps.heartbeatMs ?? 60_000)
+		: null;
 
 	try {
 		const location: ILocation | null = await Location.findOne({ _id: run.location_id });
@@ -136,6 +147,8 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 			region: run.region,
 			targets: run.targets.map((t) => ({ key: t.key as 'self', placeId: t.place_id })),
 			radiusM: run.config.radius_m,
+			samples: run.config.samples ?? 1,
+			sampleSpacingMs: (run.config.sample_spacing_sec ?? 0) * 1000,
 			...deps.engine,
 		});
 		const tPoints = trackerPoints(center, run.config.tracker_offset_km);
@@ -156,36 +169,54 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 			runErrors.push({ keyword: e.keyword, section: onTracker ? 'tracker' : 'grid', point: e.point, message: e.message });
 		}
 
-		// 3. Map Ranking list: top 20 with names at the center, 1 page (Pro SKU).
+		// 2b. Every point's full ordered result list (all samples), one document per keyword. The center
+		// is stored once, as tracker point 'C' (the grid's center cell is the same search).
+		await RankResultList.deleteMany({ run_id: run._id });
+		const listDocs = ranked.map(({ keyword, tracker: tRanks, grid: gRanks }) => {
+			const inputs: ListInput[] = [];
+			for (const r of tRanks) r.samples.forEach((smp, i) => inputs.push({ point: r.point.label, sample: i, entries: smp.entries }));
+			for (const r of gRanks) {
+				if (tPoints.some((p) => samePoint(p, r.point))) continue;
+				r.samples.forEach((smp, i) => inputs.push({ point: `g:${r.point.row},${r.point.col}`, sample: i, entries: smp.entries }));
+			}
+			return { run_id: run._id, location_id: run.location_id, keyword, ...encodeResultLists(inputs) };
+		});
+		if (listDocs.length) await RankResultList.insertMany(listDocs);
+
+		// 3. Map Ranking lists: top 20 with names (Pro SKU, 1 page) at the 5 tracker points, or the center only.
 		const mapList: MapListSectionDoc[] = [];
 		const targetByPlace = new Map(run.targets.map((t) => [t.place_id, t.key]));
+		const mapPoints = (run.config.map_points ?? 1) >= 5 ? tPoints : tPoints.filter((p) => p.label === 'C');
 		for (const keyword of run.keywords) {
-			try {
-				const result = await places.searchTextWithNames({
-					textQuery: keyword,
-					regionCode: run.region,
-					center: { latitude: center.lat, longitude: center.lng },
-					radiusM: run.config.radius_m,
-				});
-				apiCalls.pro += result.apiCalls;
-				mapList.push({
-					keyword,
-					results: result.places.slice(0, 20).map((p, i) => {
-						const key = targetByPlace.get(p.id) ?? (p.movedPlaceId ? targetByPlace.get(p.movedPlaceId) : undefined);
-						return {
-							rank: i + 1,
-							place_id: p.id,
-							name: run.config.store_place_names ? p.name : null,
-							is_self: key === 'self',
-							target_key: key ?? null,
-						};
-					}),
-				});
-			} catch (err) {
-				if (!(err instanceof PlacesApiError)) throw err;
-				apiCalls.pro += err.apiCalls;
-				runErrors.push({ keyword, section: 'map', point: center, message: err.message });
-				mapList.push({ keyword, results: [] });
+			for (const mp of mapPoints) {
+				try {
+					const result = await places.searchTextWithNames({
+						textQuery: keyword,
+						regionCode: run.region,
+						center: { latitude: mp.lat, longitude: mp.lng },
+						radiusM: run.config.radius_m,
+					});
+					apiCalls.pro += result.apiCalls;
+					mapList.push({
+						keyword,
+						point: mp.label,
+						results: result.places.slice(0, 20).map((p, i) => {
+							const key = targetByPlace.get(p.id) ?? (p.movedPlaceId ? targetByPlace.get(p.movedPlaceId) : undefined);
+							return {
+								rank: i + 1,
+								place_id: p.id,
+								name: run.config.store_place_names ? p.name : null,
+								is_self: key === 'self',
+								target_key: key ?? null,
+							};
+						}),
+					});
+				} catch (err) {
+					if (!(err instanceof PlacesApiError)) throw err;
+					apiCalls.pro += err.apiCalls;
+					runErrors.push({ keyword, section: 'map', point: { lat: mp.lat, lng: mp.lng }, message: err.message });
+					mapList.push({ keyword, point: mp.label, results: [] });
+				}
 			}
 		}
 
@@ -267,5 +298,7 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 		await finish(run, 'failed', clock(), { api_calls: apiCalls, run_errors: runErrors }, message);
 		logger.error(`rank-run ${runId}: failed: ${message}`);
 		return { status: 'failed', runId };
+	} finally {
+		if (beat) clearInterval(beat);
 	}
 };

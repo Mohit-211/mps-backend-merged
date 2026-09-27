@@ -18,7 +18,7 @@ import { Block, GbpAuditData, RankTrackerData } from '../../../src/services/repo
 
 const BRAND: FrozenBranding = { name: 'Acme Agency', primary_color: '#1d4ed8', secondary_color: '#0f766e', footer_text: 'Acme footer', contact_text: 'hello@acme.test', hide_mypageseo: true, logo: null };
 const LOCATION = { name: 'Café Montréal Plombier', address: '1 Rue Principale', city: 'Montréal', state: 'QC', country: 'Canada', client_name: 'Maple Group' };
-const ALL_RT = ['summary', 'keywords', 'history', 'grid', 'movers'];
+const ALL_RT = ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking'];
 
 const cell = (rank: number | null, status: 'ok' | 'not_found' | 'error' = rank === null ? 'not_found' : 'ok') => ({ rank, status });
 const run = (): RunForReport =>
@@ -234,5 +234,55 @@ describe('request log redaction', () => {
 	it('never logs a share token', () => {
 		expect(redactUrl('/r/AbC_123-xyz/pdf?x=1')).toBe('/r/[redacted]/pdf?x=1');
 		expect(redactUrl('/api/v1/reports/abc')).toBe('/api/v1/reports/abc');
+	});
+});
+
+describe('Phase 12.5 report content: Map Ranking across the area, reviews, Google attribution', () => {
+	const withMaps = () =>
+		({
+			...run(),
+			mapList: ['C', 'N', 'S', 'E', 'W'].map((point, p) => ({
+				keyword: 'plumber',
+				point,
+				results: Array.from({ length: 20 }, (_, i) => ({ rank: i + 1, place_id: `P${i}`, name: i === p ? 'Café Montréal Plombier' : `Rival ${i}`, is_self: i === p, target_key: i === p ? 'self' : null })),
+			})),
+		}) as unknown as RunForReport;
+
+	it('map_ranking: top 5 at each point in C N S E W order, with your rank; the table ends with a "You" row and the attribution follows', () => {
+		const d = buildRankTrackerData(withMaps(), [], ['map_ranking']);
+		expect(d.map_ranking?.[0].points.map((p) => `${p.point}:${p.self_rank}`)).toEqual(['C:1', 'N:2', 'S:3', 'E:4', 'W:5']);
+		const blocks = rankTrackerBlocks(d);
+		const table = blocks.find((b) => b.kind === 'table') as Extract<Block, { kind: 'table' }>;
+		expect(table.columns.map((c) => c.label)).toEqual(['#', 'Center', 'North', 'South', 'East', 'West']);
+		expect(table.rows[0][1]).toBe('Café Montréal Plombier (you)');
+		expect(table.rows.at(-1)).toEqual(['You', '#1', '#2', '#3', '#4', '#5']);
+		expect(blocks.at(-1)).toEqual({ kind: 'paragraph', text: 'Business data © Google', muted: true });
+	});
+
+	it('competitor reviews become quotes with the author; photos show "10+"; the document carries the attribution to every page and the share page', async () => {
+		const row = (name: string, isSelf: boolean, photos: number) => ({
+			name, place_id: `id-${name}`, is_self: isSelf, source: isSelf ? 'self' : 'tracking', rating: 4.5, user_rating_count: 20, primary_type: 'plumber', primary_type_label: 'Plumber',
+			has_hours: true, has_website: true, has_phone: true, has_editorial_summary: true, business_status: 'OPERATIONAL', fetched_at: new Date(), stale: false, error: null,
+			center_rank: { avg: 3, top3_rate: 0.5, keywords_found: 1, keywords: 1 }, public_score: { score: 70, parts: [], flag: null },
+			photo_count: photos, photos_capped: photos >= 10, recent_review_at: null,
+			reviews: [1, 2, 3].map((n) => ({ rating: 5, text: `Review ${n} of ${name}`, publish_time: new Date(Date.UTC(2026, 8, 30 - n)), relative_time: `${n} days ago`, author: { name: `Author ${n}`, uri: `https://maps.test/a${n}` } })),
+		});
+		const data = buildCompetitorData({ available: true, generated_at: new Date(), rows: [row('Me', true, 4), row('Rival', false, 10)] as never, insights: [], warning: null }, null, ['table', 'reviews']);
+		expect(data.table?.map((r) => r.photos)).toEqual([4, 10]);
+		expect(data.reviews?.[1].items.map((i) => i.author)).toEqual(['Author 1', 'Author 2']); // newest 2
+		const doc = buildDocument({ type: 'competitor_analysis', location: LOCATION, branding: BRAND, data: { competitor_analysis: data }, generated_at: new Date('2026-09-30T00:00:00Z') });
+		expect(doc.attribution).toBe('Business data © Google');
+		const side = doc.blocks.find((b) => b.kind === 'table') as Extract<Block, { kind: 'table' }>;
+		expect(side.rows.map((r) => r[3])).toEqual(['4', '10+']);
+		const quotes = doc.blocks.find((b) => b.kind === 'quotes') as Extract<Block, { kind: 'quotes' }>;
+		expect(quotes.items[0]).toEqual({ text: '★★★★★ “Review 1 of Me”', meta: 'Me (you): Author 1, 1 days ago (Google review)', link: 'https://maps.test/a1' });
+		const pdf = await renderPdf(doc, { collectText: true });
+		expect(pdf.text.filter((t) => t === 'Business data © Google').length).toBeGreaterThanOrEqual(pdf.pages + 1); // every footer + under the tables
+		expect(pdf.text).toContain('Me (you): Author 1, 1 days ago (Google review)');
+		const html = renderSharePage(doc, 'https://api.test/r/t/pdf');
+		expect(html).toContain('<a href="https://maps.test/a1" rel="nofollow noopener noreferrer" target="_blank">');
+		expect(html.match(/Business data © Google/g)?.length).toBeGreaterThanOrEqual(2);
+		const rtOnly = buildDocument({ type: 'rank_tracker', location: LOCATION, branding: BRAND, data: { rank_tracker: buildRankTrackerData(run(), [], ['summary']) }, generated_at: new Date() });
+		expect(rtOnly.attribution).toBeNull();
 	});
 });

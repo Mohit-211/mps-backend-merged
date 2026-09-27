@@ -11,12 +11,23 @@ import { nextRefreshAt, zoneFor } from './cadence';
 export const STUCK_AFTER_MS = 30 * 60 * 1000;
 const DUE_BATCH_LIMIT = 200;
 
-/** Fails rank runs stuck in running (> 30 min) or never started (queued > 30 min), freeing their locations. */
+/** Extra time a running run gets beyond twice its expected duration (Phase 12.5). */
+export const STUCK_GRACE_MS = 10 * 60 * 1000;
+
+/**
+ * Fails rank runs stuck in running or never started (queued > 30 min), freeing their locations.
+ * Phase 12.5: a running run is stuck after max(30 min, 2 × expected_duration_ms + 10 min), since full
+ * depth and spaced samples can make a run legitimately long.
+ */
 export const failStuckRuns = async (now: Date = new Date()): Promise<{ running: number; queued: number }> => {
 	const cutoff = new Date(now.getTime() - STUCK_AFTER_MS);
 	const running = await RankRun.updateMany(
-		{ status: 'running', started_at: { $lt: cutoff } },
-		{ $set: { status: 'failed', active: false, finished_at: now, failure_reason: 'stuck: running > 30 min' } },
+		{
+			status: 'running',
+			started_at: { $lt: cutoff },
+			$expr: { $lt: [{ $add: ['$started_at', { $multiply: [{ $ifNull: ['$expected_duration_ms', 0] }, 2] }, STUCK_GRACE_MS] }, now] },
+		},
+		{ $set: { status: 'failed', active: false, finished_at: now, failure_reason: 'stuck: running longer than expected' } },
 	);
 	const queued = await RankRun.updateMany(
 		{ status: 'queued', run_at: { $lt: cutoff } },

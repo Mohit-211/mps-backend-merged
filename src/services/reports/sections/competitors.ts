@@ -5,7 +5,9 @@ import { CompetitorData } from '../types';
 // report (7c) joined with the latest rank run's overall rank per tracked target. Names only: place
 // ids are not copied into the snapshot.
 
-type Section = 'public_scores' | 'table' | 'ranks' | 'insights';
+type Section = 'public_scores' | 'table' | 'ranks' | 'insights' | 'reviews';
+
+const REVIEWS_PER_BUSINESS = 2;
 
 export type RunForCompetitors = Pick<LeanRankRun, 'targets' | 'overall' | 'tracker'>;
 
@@ -38,6 +40,8 @@ export const buildCompetitorData = (section: CompetitorsSection, run: RunForComp
 			has_website: r.has_website,
 			has_phone: r.has_phone,
 			status: r.business_status,
+			photos: r.photo_count ?? null,
+			photos_capped: r.photos_capped ?? false,
 		}));
 	}
 	if (want('ranks')) {
@@ -55,5 +59,17 @@ export const buildCompetitorData = (section: CompetitorsSection, run: RunForComp
 		});
 	}
 	if (want('insights')) data.insights = section.insights.map((i) => i.message);
+	if (want('reviews')) {
+		data.reviews = rows
+			.filter((r) => (r.reviews ?? []).length > 0)
+			.map((r) => ({
+				name: nameOf(r),
+				is_self: r.is_self,
+				items: [...(r.reviews ?? [])]
+					.sort((a, b) => (b.publish_time ? new Date(b.publish_time).getTime() : 0) - (a.publish_time ? new Date(a.publish_time).getTime() : 0))
+					.slice(0, REVIEWS_PER_BUSINESS)
+					.map((v) => ({ rating: v.rating, text: v.text, when: v.relative_time, author: v.author.name, author_uri: v.author.uri })),
+			}));
+	}
 	return data;
 };

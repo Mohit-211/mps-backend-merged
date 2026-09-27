@@ -26,18 +26,19 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 7c | GBP Score, report, competitors | done | `claude/phase-7c-scoring-report` | M3 |
 | 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | M4 |
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | M4 |
-| **12** | **Reports center**: reports as PDF, email, schedules, white-label, share links | **built, awaiting merge** | `claude/phase-12-reports` | M5 |
-| 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30. Required before launch; runs after 12. | planned | – | M5 |
+| 12 | Reports center: reports as PDF, email, schedules, white-label, share links | done | `claude/phase-12-reports` | M5 (pushed) |
+| **12.5** | **Ranking & data quality**: full depth, repeated sampling, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | **built, awaiting merge** (variance test pending) | `claude/phase-12.5-quality` | M5 |
+| 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30. Required before launch; runs after 12.5. | planned | – | M5 |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
-| – | **M5 Launch-ready** = 12 + 10 + 13 + 14 done, plus the Google approvals (GBP API access, app verification) | – | – | M5 |
+| – | **M5 Launch-ready** = 12 + 12.5 + 10 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, app verification) | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
 | 15 | Notifications & automations | planned | – | – |
 | 16 | Citations (a data-source decision by Mohit comes first) | planned | – | – |
 | 17 | Ranking extras: keyword groups, Dallas + variance validation, larger grids | planned | – | – |
 | 9b | Cleanup (swagger, ARCHITECTURE.md, final docs pass) | ongoing | – | – |
 
-There is no Phase 2 (security moved to Phase 10, 2026-09-25). Milestone pushes: M1 after 3, M2 after 5, M3 after 7c, M4 after 11 (all pushed); M5 when launch-ready.
+There is no Phase 2 (security moved to Phase 10, 2026-09-25). Milestone pushes: M1 after 3, M2 after 5, M3 after 7c, M4 after 11 (all pushed). **Since Phase 12, every merged phase is pushed** (Mohit, 2026-09-27: GitHub is the only off-machine backup); M5 marks launch-ready.
 
 **Blocked on Google** (details in `docs/STATUS.md`):
 
@@ -103,13 +104,10 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - Base branch for all work: `claude/rebuild`. One sub-branch per phase: `claude/phase-<n>-<slug>`, created from `claude/rebuild`.
 - Commit freely on `claude/phase-*` branches. Never commit to or push `main`.
 - At the end of each phase, ask Mohit to approve the local merge into `claude/rebuild` (`git merge --no-ff`), giving him the exact command. Mohit runs it or grants permission. Do not push.
-- Push only at milestones, and only when Mohit says so:
-  - **M1:** after Phase 3 (Foundations).
-  - **M2:** after Phase 5 (Ranking reports: all three pages working).
-  - **M3:** after Phase 7c (GBP sync + report).
-  - **M4:** after Phase 11 (Dashboards + team), agreed 2026-09-27.
-  - **M5 (launch-ready):** after Phases 12, 10, 13 and 14, plus the Google approvals (see the Phase roadmap).
-- At a milestone, give Mohit one push command covering `claude/rebuild` and every phase branch since the last milestone, plus a short summary for his developers.
+- **Push after every merged phase** (Mohit, 2026-09-27: GitHub is the only off-machine backup). At the end of each phase, give Mohit the merge command **and** one push command covering `claude/rebuild` and that phase's branch, plus a short summary for his developers. Mohit runs both. Never push anything else, and never push `main`.
+- Milestones (history and launch):
+  - **M1:** after Phase 3 (Foundations). **M2:** after Phase 5. **M3:** after Phase 7c. **M4:** after Phase 11. (Pushed at the time; before Phase 12 pushes happened only at milestones.)
+  - **M5 (launch-ready):** after Phases 12, 12.5, 10, 13 and 14, the pre-launch live validation, and the Google approvals (see the Phase roadmap).
 - Small commits, one concern each. Message format: `<phase>: <area>: <what>` e.g. `p4: ranking: add IDs-only text search client`.
 - Never rewrite history on shared branches. Never force-push `claude/rebuild`.
 - The old code is backed up separately by Mohit. Deleting old in-scope code is allowed **only in the phase that explicitly says so**.
@@ -140,7 +138,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). Next: **12 Reports center** → 10 Security → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 16, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 Reports center done. Next: **12.5 Ranking & data quality** → 10 Security → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 16, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 **Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
 
@@ -182,6 +180,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - Location model (`src/models/location.model.ts`): `name, address, city, state, country, zip_code, lat, lng, mobile, place_id, website_URL, business_category, client_id, created_by, is_active`, plus (Phase 8) `organization_id, source (gbp|places_search|legacy), gbp_connected, summary, deleted_at/by` and a unique `(organization_id, place_id)` index for active locations.
 - **Organizations (Phase 8):** models `Organization`, `Membership` (roles `owner | member | client_user`), `AuthCode`, `RateLimit`. Access: `src/services/org/access.ts` (`findLocationForUser`, `locationScope`, `clientScope`); the current organization: `loadOrgContext` (`X-Organization-Id` or the default). `loadOwnedLocation` (ranking middleware) checks membership of the location's organization and makes a client_user read-only. Limits: `src/services/org/limits.ts`. New code never checks `created_by` for access.
 - Old ranking, GBP audit, Reputation Manager, white-label report links and the Search Console connect were **removed** in the legacy cleanup (branch `claude/phase-9a-legacy-cleanup`); see `docs/LEGACY_FEATURES.md` (last commit with that code: `1695187`) and `docs/MIGRATION.md` (unused collections, removed env vars).
+- **Ranking quality + usage (Phase 12.5):** `src/ranking/samples.ts`, `src/services/ranking/{resultLists,variance}.ts`, model `RankResultList`; `src/services/usage/` + model `ApiUsage`; `src/clients/placesRateLimiter.ts`; `src/configs/pricing.ts`; `src/constants/attribution.ts`; scripts `cost:report`, `variance:test`.
 - **Reports center (Phase 12):** `src/services/reports/` (snapshot sections → document blocks → PDFKit / HTML renderers), jobs in `src/jobs/reports.job.ts`, routes `/reports`, `/report-schedules`, `/organization/branding`, public `/r/:token`. Files in the private `REPORTS_STORAGE_DIR` (never under `public/`).
 - GBP posting (legacy, kept until Phase 8): `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda). Its token comes from `gbpClient` through the binding's connection.
 
@@ -191,7 +190,8 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 
 ### Ranking
 - **Search surface**: Places API (New) Text Search. Treated as the proxy for Google Maps local ranking.
-- **Rank**: 1-based index of the target `place_id` in the result list (honour `movedPlaceId`). Max measurable rank = **60**.
+- **Rank**: 1-based index of the target `place_id` in the result list (honour `movedPlaceId`). Max measurable rank = **60**. Since Phase 12.5 every search fetches **all pages** (up to 60 results; no `stopWhenFound` in ranking), and each point's full ordered list is stored (`RankResultList`).
+- **Samples (Phase 12.5):** each point is searched `RANK_SAMPLES_PER_POINT` times (1–5), at least `RANK_SAMPLE_SPACING_SEC` apart. The point's cell is the **median** of the samples: `not_found` counts as 61, errored samples are excluded, more than half errored → `error`, an even count takes the mean of the two middle values rounded up, a median of 61 is `not_found`. Every sample's value and the `spread` (max − min) are stored on the cell. All metrics below use the median cell.
 - **RankCell**: `{ rank: number | null, status: 'ok' | 'not_found' | 'error' }`.
   - `ok`: found, rank 1–60.
   - `not_found`: search succeeded, target not in top 60. Displayed as **"60+"**.
@@ -327,7 +327,7 @@ Branch `claude/phase-1.6-build-green`. Type-level fixes only; nothing that chang
 
 ## 6. (moved) Security hardening
 
-Security work is deferred. It is now **Phase 10**, see §13a, and runs after Phase 12 (see the Phase roadmap). Do not start it until Mohit explicitly approves it.
+Security work is deferred. It is now **Phase 10**, see §13a, and runs after Phase 12.5 (see the Phase roadmap). Do not start it until Mohit explicitly approves it.
 
 ---
 
@@ -672,7 +672,7 @@ As built:
 
 ## 12c. PHASE 12 — Reports center
 
-**Built** on `claude/phase-12-reports` (awaiting merge). As built:
+**Done** (merged `3f1e192`, pushed 2026-09-27). As built:
 - **PDF engine: PDFKit** (pure Node, DejaVu Sans embedded), chosen over Puppeteer: no Chromium or system packages, about 50 ms CPU and 40 MB transient memory for an 8-page report, nothing extra per pm2 instance. One **document model** (typed blocks: heading, paragraph, kpis, table, line_chart, heatmap, list, unavailable, page_break) feeds both renderers: `render/pdf.ts` and `render/html.ts` (share page, email body). `GET /reports/:id` returns the same blocks for the in-app viewer.
 - **Code:** `src/services/reports/` (`sections/{rankTracker,gbpAudit,competitors}`, `blocks`, `render/`, `storage`, `report.service` (create, list, view, PDF, archive, generate, retention), `share.service`, `reportEmail.service`, `schedule.service`, `dispatch`, `branding.service`, `migrateBranding`), `src/jobs/reports.job.ts`, `src/routes/share.route.ts` (mounted at `/r`, outside `/api/v1`).
 - **Models:** `Report` (one active per location + type), `ReportSnapshot` (written once; holds the frozen branding, logo included), `ReportShare` (SHA-256 token hash), `ReportSchedule` (`cycles`: the monthly cycle handled per location), `Organization.branding`.
@@ -703,6 +703,41 @@ Branch `claude/phase-12-reports` from `claude/rebuild`. **Plan mode first; wait 
 8. **Docs and seeds:** ENDPOINTS.md, API.md and FRONTEND_BACKEND_MAP.md kept in sync; `seed:demo-orgs` gains a few generated reports, one schedule and one share link. In development no real emails are sent (masked log, as with invitations).
 9. **The plan must include:** report types and their sections, the data model, the PDF rendering approach (compare headless Chrome via Puppeteer with a pure-Node PDF library, including RAM/CPU impact on a single Ubuntu VPS under pm2 cluster mode), storage, endpoints, job flow and the file list.
 10. **End of phase:** STATUS / PROGRESS / CLAUDE.md (roadmap table) updated, the deploy checklist updated with any new system dependency (e.g. Chromium libraries on Ubuntu), the merge command, then stop.
+
+**Gate.**
+
+## 12d. PHASE 12.5 — Ranking & data quality
+
+**Built** on `claude/phase-12.5-quality` (awaiting merge; the live variance test is pending, Mohit triggers it). As built:
+- **Engine** (`src/ranking/engine.ts`, `samples.ts`): full depth (`maxPages: 3`, no `stopWhenFound`), N samples per point with spacing (sleeping holds no concurrency slot), median cells with `samples` and `spread`, `RANK_SEARCH_CONCURRENCY` (≤ 8). The run cache keys include the sample.
+- **Stored lists:** `RankResultList` (`rank_result_lists`), one document per run and keyword: a dictionary of place IDs + uint16 index lists per point and sample (`services/ranking/resultLists.ts`); the center is stored once as `C`. ~0.45 MB per 20 × 7×7 run (1 sample).
+- **Map Ranking** at C/N/S/E/W (`mapList[].point`; `MAP_RANKING_POINTS`); `GET map-ranking ?point=`; center-only consumers use `centerSections()`. Rank Tracker report section `map_ranking`.
+- **Runtime:** `estimateCalls` (samples, map points), `estimateDuration`, `RankRun.expected_duration_ms`, stuck guard max(30 min, 2 × expected + 10 min), heartbeat (`job.touch()` + usage flush). `PLACES_MAX_QPS` via `src/clients/placesRateLimiter.ts` (MongoDB `places_rate`, cluster-wide).
+- **Competitors:** Place Details add `reviews`, `photos`, `editorialSummary` (Enterprise + Atmosphere; `COMPETITOR_DETAILS_ATMOSPHERE` removed); rows gain `photo_count`, `photos_capped`, `reviews` (author attribution kept), `recent_review_at`; insights `photos_gap`, `review_freshness`; Competitor Analysis report section `reviews`.
+- **Usage ledger:** `ApiUsage` (`api_usage`); `src/services/usage/` (`skus`, `scope` (AsyncLocalStorage; `/api/v1` middleware + `setUsageContext` in the access helpers), `jobScope`, `cost`); the Places client and `gbpClient` report every HTTP attempt. `GET /organization/usage` → `api_usage`; `npm run cost:report`; `src/configs/pricing.ts` (`PRICING_FILE`).
+- **Attribution:** `src/constants/attribution.ts`; `attribution` on responses with Places content; PDFs and share pages print it under those blocks and in the footer.
+- **Variance test:** `npm run variance:test -- --confirm-live` (`src/scripts/varianceTest.ts`, `services/ranking/variance.ts`), budget-guarded at 300 IDs-only calls, writes `docs/calibration/variance-<date>.md` with the recommendation.
+
+Original spec:
+
+Branch `claude/phase-12.5-quality` from `claude/rebuild`. **Plan mode first; wait for approval.** Runs **before Phase 10**. All tests offline; the only live step is the variance test (item 2), when Mohit says so.
+
+**Decisions this phase builds on (Mohit, 2026-09-27):**
+- **Quality over cost:** report quality comes first; about $1 per refresh is acceptable. Remove cost-saving behaviour that reduces data quality. No monthly manual-refresh cap; the 24 h guard per type stays.
+- **Maps ToS: accepted risk for now** (revisit before launch; the affected stores are listed in `docs/STATUS.md`). Keep `STORE_PLACE_NAMES=true`, the competitor-suggestion cache and the frozen competitor data in reports. Cheap mitigation built here: **Google attribution** wherever Places content appears (an `attribution` field in in-app responses; "Business data © Google" in PDFs and share pages near business names and ratings; review author attribution kept).
+
+**Scope:**
+1. **Full depth:** every ranking search fetches all available pages (up to 60 results) at every point, for every keyword. `stopWhenFound` is no longer used by ranking runs (the client keeps the option). Store per point `result_count` and the full ordered list of place IDs, in their own collection if a RankRun document would get too big. The plan shows the size estimate for 20 keywords × 7×7.
+2. **Repeated sampling (config-driven, decided by data):**
+   - Engine support: `RANK_SAMPLES_PER_POINT` (1–5) and `RANK_SAMPLE_SPACING_SEC`. A point's rank = the **median** of its samples (`not_found` = 61, errors excluded; if most samples error → `error`). All sample ranks and the spread are stored per point.
+   - **Live variance test** (Mohit triggers it): MyPageSEO, keywords "marketing agency" and "digital marketing agency fredericton", the 5 tracker points, 3 samples at spacings 0 s, 60 s and 10 min. Report the % of points with identical ranks and the max spread per spacing. Budget: max **300 IDs-only calls**, **0 Pro**. No variance at any spacing → the default stays 1 sample; otherwise the smallest spacing that shows variance, with 3 samples.
+3. **Richer competitor data:** competitor Place Details also request `reviews` (up to 5, author attribution kept) and `photos` (count only; Google caps it at 10, shown "10+"). Used in the competitor comparison and the Competitor Analysis report. Field masks, SKU notes and cost docs updated.
+4. **Map Ranking at all 5 tracker points:** the named top 20 (Pro search) at the center and N/S/E/W. The API adds a point selector (default center); pages and reports show how the list changes across the area.
+5. **Runtime and limits:** `estimateCalls` updated; `RANK_MAX_CALLS_PER_RUN` sized for 20 keywords × 7×7 × full depth × max samples; search concurrency configurable and kept under the Places per-minute quota (the plan states the assumed quota). Runs stay background jobs; the plan gives the expected duration for 10 keywords × 5×5.
+6. **Cost visibility (not limits):** a usage ledger per organization + location + month for every Places SKU and GBP call (counts only); `api_usage` in `GET /organization/usage`; `npm run cost:report -- [--month=YYYY-MM]` with configurable list prices; an OPERATIONS.md section with the cost model per location per month and a Google Cloud checklist for Mohit (budget alerts, daily quota caps high enough not to block normal runs).
+7. **Pending live validation** (Mohit triggers later; not part of this build): the Dallas big-market test and a formal `calibrate:score`. Tracked in `docs/STATUS.md` as a pre-launch item.
+
+**End of phase:** STATUS / PROGRESS / CLAUDE.md (roadmap) and ENDPOINTS / API / FRONTEND_BACKEND_MAP updated, the merge and push commands, then stop. Next: Phase 10 (security) in plan mode.
 
 **Gate.**
 
@@ -743,7 +778,7 @@ Original spec (the deletions below were done in 9a):
 
 ## 13a. PHASE 10 — Security hardening (gated)
 
-Runs after Phase 12 and before Phase 13 (see the Phase roadmap); required before launch (M5). Covers all Deferred-P10 audit items, including S19 and S30. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
+Runs after Phase 12.5 and before Phase 13 (see the Phase roadmap); required before launch (M5). Covers all Deferred-P10 audit items, including S19 and S30. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
 
 Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S30, see `docs/AUDIT.md`). Apply minimal, targeted fixes:
 
@@ -764,11 +799,15 @@ Each fix = its own commit. Add a regression test per auth fix (request without t
 
 ## 14. Cost & quota reference (for estimates in PROGRESS.md)
 
-- Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Up to 3 calls per point per keyword (usually fewer with `stopWhenFound`).
+**Quality over cost (Mohit, 2026-09-27):** about $1 per refresh is acceptable. Measured counts: the usage ledger (`api_usage`) and `npm run cost:report` (prices in `src/configs/pricing.ts`); the cost model per location is in `docs/OPERATIONS.md`.
+
+- Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Full depth since Phase 12.5: 3 calls per point, keyword and sample (fewer only in markets with under 41 results).
   - Unique points per keyword = tracker (5) ∪ grid (size²), with the center shared: 13 / 29 / 53 for 3×3 / 5×5 / 7×7 at 1 km spacing (fewer if tracker points land on grid points). Use `estimateCalls()` from `src/ranking/estimate.ts`.
-  - 2 keywords × 3×3 ≈ 26–78 calls; 20 keywords × 7×7 ≈ **1,060–3,180** calls per run (the one retry can at most double this).
-- Text Search with `displayName` (Pro SKU): 1 call per keyword per run (Map Ranking only).
-- Place Details for competitor comparison: ~(1 + competitors) calls per report generation; Enterprise-tier fields. No reviews/photos by default.
+  - 2 keywords × 3×3 = 78 calls; 20 keywords × 7×7 = **3,180** calls per run per sample, **15,900** with 5 samples (`RANK_MAX_CALLS_PER_RUN` 16,000; the one retry can at most double this).
+- Text Search with `displayName` (Pro SKU, $32 per 1,000 list): 1 call per keyword per Map Ranking point: 5 per keyword with `MAP_RANKING_POINTS=all` (Phase 12.5), 1 with `center`.
+- Place Details for the competitor comparison: ~(1 + competitors) calls per monthly cycle, with reviews, photos and editorial summary: **Enterprise + Atmosphere** SKU ($25 per 1,000 list).
+- A monthly refresh at 10 keywords × 5×5 costs about **$1.75** at list price ($3.35 at 20 keywords); IDs-only samples are free.
+- Places throughput: `PLACES_MAX_QPS` (8/s) across all processes, under the assumed default quota of 600 requests per minute per method.
 - GBP APIs: no per-call charge; quota-limited. Keep ≤ 5 req/s per job.
 
 Log `api_calls` on every run/report so real costs can be measured.

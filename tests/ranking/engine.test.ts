@@ -91,25 +91,24 @@ describe('ranking engine: targets and requests', () => {
 		expect(fake.calls).toHaveLength(5);
 		for (const { byTarget } of ranks) {
 			expect(byTarget).toEqual({
-				self: { rank: 4, status: 'ok' },
-				competitor_1: { rank: 26, status: 'ok' },
-				competitor_2: { rank: null, status: 'not_found' },
+				self: { rank: 4, status: 'ok', samples: [4], spread: null },
+				competitor_1: { rank: 26, status: 'ok', samples: [26], spread: null },
+				competitor_2: { rank: null, status: 'not_found', samples: [61], spread: null },
 			});
 		}
 		expect(engine.getStats().apiCalls.ids_only).toBe(10);
 	});
 
-	it('reports how many results each point returned, and whether paging stopped early', async () => {
-		const fake = fakePlaces((p) =>
-			p.center.latitude === CENTER.lat ? { ...list(page1Target), stoppedEarly: true } : list(page1Target.slice(0, 7)),
-		);
+	it('reports how many results each point returned (full depth: moreResults is always false) and keeps the lists', async () => {
+		const fake = fakePlaces((p) => (p.center?.latitude === CENTER.lat ? list(page1Target) : list(page1Target.slice(0, 7))));
 		const engine = createRankingEngine({ places: fake.places, region: 'ca', targets, sleep: noSleep });
 		const ranks = await engine.rankKeywordAtPoints('plumber', trackerPoints(CENTER, 1.5));
-		expect(ranks[0]).toMatchObject({ resultCount: page1Target.length, moreResults: true });
+		expect(ranks[0]).toMatchObject({ resultCount: page1Target.length, moreResults: false });
 		expect(ranks[1]).toMatchObject({ resultCount: 7, moreResults: false });
+		expect(ranks[1].samples).toEqual([{ entries: page1Target.slice(0, 7) }]);
 	});
 
-	it('sends stopWhenFound = all target IDs, the region, radius and point', async () => {
+	it('Phase 12.5: full depth (maxPages 3, no stopWhenFound), the region, radius and point', async () => {
 		const fake = fakePlaces(() => list(page1Target));
 		const engine = createRankingEngine({ places: fake.places, region: 'us', targets, radiusM: 3000, sleep: noSleep });
 		const point = gridPoints(CENTER, 3, 1)[0];
@@ -119,7 +118,7 @@ describe('ranking engine: targets and requests', () => {
 			regionCode: 'us',
 			center: { latitude: point.lat, longitude: point.lng },
 			radiusM: 3000,
-			stopWhenFound: targets.map((t) => t.placeId),
+			maxPages: 3,
 		});
 	});
 
@@ -136,9 +135,8 @@ describe('ranking engine: targets and requests', () => {
 		expect(() =>
 			createRankingEngine({ places: fake.places, region: 'ca', targets: [targets[0], targets[0]] }),
 		).toThrow('unique');
-		expect(() => createRankingEngine({ places: fake.places, region: 'ca', targets, concurrency: 5 })).toThrow(
-			'concurrency',
-		);
+		expect(() => createRankingEngine({ places: fake.places, region: 'ca', targets, concurrency: 9 })).toThrow('concurrency');
+		expect(() => createRankingEngine({ places: fake.places, region: 'ca', targets, samples: 6 })).toThrow('samples');
 	});
 });
 
@@ -152,9 +150,9 @@ describe('ranking engine: errors', () => {
 		const ranks = await engine.rankKeywordAtPoints('plumber', trackerPoints(CENTER, 1.5));
 		const south = ranks.find((r) => r.point.label === 'S');
 		expect(south?.byTarget).toEqual({
-			self: { rank: null, status: 'error' },
-			competitor_1: { rank: null, status: 'error' },
-			competitor_2: { rank: null, status: 'error' },
+			self: { rank: null, status: 'error', samples: [null], spread: null },
+			competitor_1: { rank: null, status: 'error', samples: [null], spread: null },
+			competitor_2: { rank: null, status: 'error', samples: [null], spread: null },
 		});
 		expect(ranks.filter((r) => r.byTarget.self.status === 'ok')).toHaveLength(4);
 		expect(south).toMatchObject({ top3: [], resultCount: null, moreResults: false });
@@ -249,5 +247,65 @@ describe('createPool', () => {
 		const run = createPool(1);
 		await expect(run(async () => Promise.reject(new Error('boom')))).rejects.toThrow('boom');
 		await expect(run(async () => 'next')).resolves.toBe('next');
+	});
+});
+
+describe('ranking engine: repeated sampling (Phase 12.5)', () => {
+	const at = (rank: number | null): PlaceIdEntry[] =>
+		rank === null ? page2Filler.slice(0, 3) : [...page2Filler.slice(0, rank - 1), { id: placeIds.target }];
+
+	it('searches every point N times; the rank is the median, with every sample and the spread', async () => {
+		const seq = [3, 5, 4];
+		let i = 0;
+		const fake = fakePlaces(() => list(at(seq[i++ % 3])));
+		const engine = createRankingEngine({ places: fake.places, region: 'ca', targets: [targets[0]], sleep: noSleep, samples: 3 });
+		const [c] = await engine.rankKeywordAtPoints('plumber', [{ label: 'C' as const, ...CENTER }]);
+		expect(fake.calls).toHaveLength(3);
+		expect(c.byTarget.self).toEqual({ rank: 4, status: 'ok', samples: [3, 5, 4], spread: 2 });
+		expect(c.samples).toHaveLength(3);
+		expect(engine.getStats()).toMatchObject({ searches: 3, cacheHits: 0 });
+	});
+
+	it('samples of one point are spaced by at least the spacing; other points proceed meanwhile', async () => {
+		let clock = 0;
+		const waits: number[] = [];
+		const sleep = async (ms: number) => {
+			waits.push(ms);
+			clock += ms;
+		};
+		const fake = fakePlaces(() => list(page1Target));
+		const engine = createRankingEngine({
+			places: fake.places,
+			region: 'ca',
+			targets: [targets[0]],
+			sleep,
+			jitterMs: [0, 0],
+			samples: 3,
+			sampleSpacingMs: 60_000,
+			now: () => clock,
+		});
+		await engine.rankKeywordAtPoints('plumber', [{ label: 'C' as const, ...CENTER }]);
+		expect(fake.calls).toHaveLength(3);
+		expect(waits.filter((w) => w >= 59_000)).toHaveLength(2);
+	});
+
+	it('a point where most samples failed is an error; one failed sample of three is left out', async () => {
+		let n = 0;
+		const failing = fakePlaces(() => (n++ % 3 === 0 ? list(at(2)) : apiError(1)));
+		const engine = createRankingEngine({ places: failing.places, region: 'ca', targets: [targets[0]], sleep: noSleep, samples: 3 });
+		const [c] = await engine.rankKeywordAtPoints('plumber', [{ label: 'C' as const, ...CENTER }]);
+		expect(c.byTarget.self).toEqual({ rank: null, status: 'error', samples: [2, null, null], spread: null });
+		let m = 0;
+		const one = fakePlaces(() => (m++ === 1 ? apiError(1) : list(at(m === 1 ? 2 : 7))));
+		const e2 = createRankingEngine({ places: one.places, region: 'ca', targets: [targets[0]], sleep: noSleep, samples: 3 });
+		const [d] = await e2.rankKeywordAtPoints('plumber', [{ label: 'C' as const, ...CENTER }]);
+		expect(d.byTarget.self).toEqual({ rank: 5, status: 'ok', samples: [2, null, 7], spread: 5 }); // even count: ceil((2+7)/2)
+	});
+
+	it('the center is sampled once per keyword and shared by tracker and grid', async () => {
+		const fake = fakePlaces(() => list(page1Target));
+		const engine = createRankingEngine({ places: fake.places, region: 'ca', targets, sleep: noSleep, samples: 2 });
+		await Promise.all([engine.rankKeywordAtPoints('plumber', trackerPoints(CENTER, 1.5)), engine.rankKeywordAtPoints('plumber', gridPoints(CENTER, 3, 1))]);
+		expect(fake.calls).toHaveLength(13 * 2);
 	});
 });

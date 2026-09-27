@@ -65,7 +65,7 @@ describe('generateGbpReport', () => {
 	it('bound, v4 off: private sections from stored data, v4 sections pending, score partial; competitors fetched once each', async () => {
 		const id = await setup(true);
 		const places = createDemoDetailsClient();
-		const result = await generateGbpReport(id, 'gbp_sync', { places, now: () => NOW, v4Enabled: false, withEditorialSummary: false });
+		const result = await generateGbpReport(id, 'gbp_sync', { places, now: () => NOW, v4Enabled: false });
 		expect(result?.places_details).toBe(5); // self + 1 tracking + 3 from the map list
 		const r = await load(id);
 		expect(r).toMatchObject({ gbp_connected: true, v4_enabled: false, trigger: 'gbp_sync', api_calls: { places_details: 5 } });
@@ -93,7 +93,7 @@ describe('generateGbpReport', () => {
 
 	it('v4 on: reviews, media and posts are filled and every pillar counts', async () => {
 		const id = await setup(true);
-		await generateGbpReport(id, 'seed', { places: createDemoDetailsClient(), now: () => NOW, v4Enabled: true, withEditorialSummary: false });
+		await generateGbpReport(id, 'seed', { places: createDemoDetailsClient(), now: () => NOW, v4Enabled: true });
 		const r = await load(id);
 		expect(r.reviews).toMatchObject({ available: true, average_rating: 4.6, total: 64 });
 		expect(r.media).toMatchObject({ available: true, owner_count: 14 });
@@ -103,7 +103,7 @@ describe('generateGbpReport', () => {
 
 	it('unbound (Places-search) location: private sections gbp_not_connected, public comparison still works', async () => {
 		const id = await setup(false);
-		await generateGbpReport(id, 'rank_run', { places: createDemoDetailsClient(), now: () => NOW, v4Enabled: false, withEditorialSummary: false });
+		await generateGbpReport(id, 'rank_run', { places: createDemoDetailsClient(), now: () => NOW, v4Enabled: false });
 		const r = await load(id);
 		for (const section of ['performance', 'keywords', 'gbp_score', 'reviews', 'media', 'posts', 'pending_google_edits', 'verification', 'sync'] as const) {
 			expect(r[section]).toEqual({ available: false, reason: 'gbp_not_connected' });
