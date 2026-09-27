@@ -935,3 +935,49 @@ Phase 10 was merged as `3c776fd` and pushed by Mohit. Follow-ups, committed on `
   - The remaining docs mentions (CLAUDE.md, AUDIT, FRONTEND_BACKEND_MAP, LEGACY_FEATURES, MIGRATION, PRODUCT, STATUS) now read "keyword search-volume vendor (removed 2026-09-27)" or similar.
   - Outside this history file, the only remaining mention is Mohit's STATUS item: "DataForSEO password change by the account owner (old credential in git history)".
 - **Pending on Mohit's side** (STATUS.md open items): the price check, the quota check, the Dallas test + formal `calibrate:score`, the Google approvals (GBP API access, v4, app verification).
+
+## Phase 8.1: Email verification by link
+
+Branch `claude/phase-8.1-email-verify` (from `claude/rebuild` at `e9c36ee`). Spec and decisions: CLAUDE.md §12g. Offline; 0 Google calls.
+
+**What changed:**
+- **Signup** emails `FRONTEND_URL/verify-email?token=…` instead of a 6-digit code.
+  - The token is 32 random bytes, stored as a SHA-256 hash in `auth_codes` (purpose `verify_email`, one row per user), single use.
+  - The link expires at the account's deadline: signup + `EMAIL_VERIFICATION_TTL_HOURS` (24).
+  - A signup response includes `verify_before`.
+- **`POST /auth/verify-email { token }`:**
+  - the first time, it verifies and returns the session
+  - a second click: 200 `{ verified: true, already_verified: true }`, no tokens (a used link row is kept 7 days)
+  - otherwise 400 `link_expired` / `link_invalid`
+- **`POST /auth/resend-verification { email }`** (replaces `/auth/verify-email/resend`): 3/h per email, 10/h per IP. It always gives the same answer, and a new link replaces the old one.
+- **Login** (new and legacy) refuses unverified accounts after the password check: 403 `{ reason: "email_not_verified", resend }`, with no tokens.
+- **User fields:** `email_verified_at` (the truth for "verified"; verifying also sets status `ACCEPTED`) and `verification_deadline` (set only by the 8.1 signup, cleared on verify).
+- **`unverified-cleanup` job**, hourly and cluster-safe. It deletes signups past their deadline with:
+  - their profile, codes, tokens, legacy OTPs and memberships, and the invitations they sent
+  - owned organizations with no other members and no locations, with their invitations and clients
+
+  Organizations with other members or locations are kept. It logs counts only.
+- **Signup** with the email of an expired unverified account deletes it first, so the address is free at once.
+- **Invitations:** accepting one verifies the email (new accounts are created verified; existing unverified ones are marked). Password reset also verifies.
+- **Migration** `npm run migrate:email-verified`: existing users → verified, `PENDING` / `REVIEWING` → `ACCEPTED`. It also creates the `users` indexes. Deploy checklist step 12, **before** the new code starts.
+- **Legacy:**
+  - `POST /user/auth/register` removed (the rebuilt app uses `/auth/signup`; nothing else needs it)
+  - `/user/auth/otp` and `/verify-otp` take `FORGOT_PASSWORD` only (`verification_by_link` otherwise)
+  - legacy login gives 403 `email_not_verified` and sends no code
+  - employee add creates verified accounts
+- **Development:** no email; the link is logged with the email masked (`p***@example.com`).
+- **Removed:** the verify-email code path, `sendEmailVerification` and its OTP HTML template (`src/constants/sendEmailVerificationFormat.ts`, a shared-constants edit).
+
+**Tests:** `tests/routes/emailVerification.routes.test.ts`:
+- signup → login refused → verify → login OK
+- already verified; expired, wrong and malformed tokens
+- resend invalidates the old link and answers the same for anyone; the rate limit
+- development logging
+- cleanup: only unverified signups past 24 h and their empty organizations; an organization with another member is kept; never verified, invited or legacy users; idempotent; the email can sign up again
+- expired-email signup; invitations verify; the migration; the legacy routes
+
+`org.routes.test.ts` was moved to the link flow.
+
+**Docs:** ENDPOINTS.md (rows 29–31, legacy rows, register removed), API.md (the `/verify-email` page flow and codes), FRONTEND_BACKEND_MAP.md (Signup, `/verify-email`), OPERATIONS.md (deploy step 12), `.env.example` (`EMAIL_VERIFICATION_TTL_HOURS`, `FRONTEND_URL`), CLAUDE.md §12g + roadmap, STATUS.
+
+**API calls:** none.
