@@ -981,3 +981,28 @@ Branch `claude/phase-8.1-email-verify` (from `claude/rebuild` at `e9c36ee`). Spe
 **Docs:** ENDPOINTS.md (rows 29–31, legacy rows, register removed), API.md (the `/verify-email` page flow and codes), FRONTEND_BACKEND_MAP.md (Signup, `/verify-email`), OPERATIONS.md (deploy step 12), `.env.example` (`EMAIL_VERIFICATION_TTL_HOURS`, `FRONTEND_URL`), CLAUDE.md §12g + roadmap, STATUS.
 
 **API calls:** none.
+
+## Sanitation pass on `claude/rebuild` (2026-09-27, after the Phase 8.1 merge)
+
+Mohit saw red lines in `tsconfig.json`, `tests/tsconfig.json`, `app.ts`, `server.ts` and other files.
+
+**Causes:**
+- **Editor TypeScript:** VS Code uses its bundled TypeScript 6.0.3; the project builds with 5.9.3.
+  - With the unchanged configs, TS 6 reported config errors: `moduleResolution=node10` deprecated, and `tests/tsconfig.json` files outside the new default `rootDir` (22).
+  - With those silenced it reported **627 file diagnostics**, from its new defaults (`strict` on): 514 `catch` variables typed `unknown`, implicit `any`, and the missing luxon types.
+  - The build and `npm test` (5.9.3) were clean.
+- **ESLint scope:** `npm run lint` used an unquoted `src/**/*.ts`, which `sh` expands one level deep. It linted **159 of 365** files, so the "32" baseline in earlier phase summaries under-counted. The real count was 172 in `src/` (all legacy) plus 11 in the rebuild's tests.
+
+**Fixes:**
+- `.vscode/settings.json` (newly tracked; `.gitignore` un-ignores only that file) points VS Code at the workspace TypeScript.
+- `tsconfig.json` states `strict: false` and `rootDir: "."`; `tests/tsconfig.json` states `rootDir: ".."`. These are the values 5.9.3 already used, so the build output is unchanged. TS 6 now reports 0 file errors and only the `moduleResolution` deprecation.
+- The lint scripts quote their globs and cover `src`, `tests` and `index.ts`. The new baseline is **169, all legacy**; the rebuilt modules and tests have 0.
+- The 11 test lint errors are fixed: `Reflect.deleteProperty` for env cleanup, the correct `no-var-requires` disable, typed `jest.fn` generics, an interface, and no unused destructuring.
+- Three imports left unused by Phase 8.1's removal of the legacy register validator are removed from `src/middlewares/auth/auth.middlware.ts`.
+
+**Checks:**
+- `npm run build`: 0 errors. Tests type-check: 0. `npm test`: 76 suites, 743 tests passed.
+- Dev-server boot: healthcheck 200, user and admin routes without a token 401, public reference 200, all 10 jobs defined, 3 recurring jobs scheduled, no error logs other than the expected 401 request lines. All three dev processes stopped.
+- No Google calls.
+
+**Left for later:** the TypeScript 7 migration (OPERATIONS.md "Lint and editor setup"; STATUS backlog).

@@ -29,8 +29,8 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 12 | Reports center: reports as PDF, email, schedules, white-label, share links | done | `claude/phase-12-reports` | M5 (pushed) |
 | 12.5 | Ranking & data quality: full depth, repeated sampling (3 samples, 60 s), richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | done | `claude/phase-12.5-quality` | M5 (pushed) |
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
-| **8.1** | **Email verification by link** (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | **built, awaiting merge** | `claude/phase-8.1-email-verify` | M5 |
-| 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f). Right after 8.1. | planned | `claude/phase-16-citations` | M5 |
+| 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
+| **16** | **Citations**: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f). Right after 8.1. | **next (plan approved 2026-09-27)** | `claude/phase-16-citations` | M5 |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |

@@ -172,6 +172,21 @@ TEST_LOGS=1 npm test   # show winston output while testing
 - Tests never need a Places API key or network access. They load the committed `.env.example` (placeholders), unset `GOOGLE_PLACE_API_KEY`, and replay hand-written fixtures from `tests/fixtures/`.
 - Integration tests use an in-memory MongoDB (`mongodb-memory-server`, pinned to 7.0.14 in `package.json`). The binary (about 65 MB) downloads on the first run. Set `MONGOMS_SYSTEM_BINARY=/opt/homebrew/bin/mongod` to use the local server's binary instead.
 
+## Lint and editor setup
+
+```sh
+npm run lint        # eslint over src/, tests/ and index.ts (every depth)
+```
+
+- **Lint baseline (2026-09-27): 169 errors, all in legacy modules.** They are in payments / subscriptions / PayPal, the old citation module (retired in Phase 16), white-label, legacy GBP posting (Phase 9), support, legacy user auth, admin operations and old models. The rebuilt modules and all tests have **0**.
+  - Gate: files you touch add no new errors.
+  - Until 2026-09-27 the script was `eslint src/**/*.ts` with an unquoted glob. `sh` has no `**`, so it linted only files exactly one folder deep (159 of 365), and the old "32" baseline under-counted. The globs are quoted now, so ESLint expands them itself.
+- **Editor: use the project's TypeScript.** VS Code bundles TypeScript **6.0**, while the project builds with **5.9.3** (`node_modules/typescript`).
+  - TS 6 changes defaults: `strict` is on, `rootDir` defaults to the tsconfig folder, and `moduleResolution: node` is deprecated. Under TS 6 the editor showed hundreds of red lines the build never had.
+  - `.vscode/settings.json` (committed) sets `typescript.tsdk` to the workspace version. Accept the prompt once, or run **"TypeScript: Select TypeScript Version" → "Use Workspace Version"**.
+  - Both tsconfigs now state `strict: false` and `rootDir` explicitly, so TS 5.9 and TS 6 agree on everything except the one deprecation notice (next item).
+- **TypeScript 7 migration (later, 9b / 14):** TS 7 removes `moduleResolution: node` (node10). The move is `module` + `moduleResolution: node16`. Two lines need changing first: the side-effect `import('./configs/mongoConnection')` in `src/app.ts` and `import('./mongoConnection')` in `src/configs/mongoMigrate.ts`. Under node16 these would stay real ESM dynamic imports instead of `require`, so the change needs care and testing. No other file is affected (checked with TS 6.0.3).
+
 ## Demo ranking data (frontend work, no API key)
 
 ```sh
