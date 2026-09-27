@@ -30,6 +30,7 @@
     "gbp:preflight": "ts-node --transpile-only src/scripts/gbpPreflight.ts",
     "migrate:refresh": "ts-node --transpile-only src/scripts/migrateRefresh.ts",
     "migrate:organizations": "ts-node --transpile-only src/scripts/migrateOrganizations.ts",
+    "migrate:branding": "ts-node --transpile-only src/scripts/migrateBranding.ts",
     "summaries:rebuild": "ts-node --transpile-only src/scripts/rebuildSummaries.ts",
     "db:sync-indexes": "ts-node --transpile-only src/scripts/syncIndexes.ts"
   },
