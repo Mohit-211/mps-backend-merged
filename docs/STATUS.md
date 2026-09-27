@@ -32,7 +32,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | yes (`0786801`) | M4 (pushed 2026-09-27) |
 | 12 | Reports center | done | `claude/phase-12-reports` | yes (`3f1e192`) | M5 (pushed 2026-09-27) |
 | 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
-| **10** | **Security hardening** (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | **next (plan mode)** | – | – | M5 |
+| **10** | **Security hardening** (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | **in progress** (plan approved 2026-09-27) | `claude/phase-10-security` | – | M5 |
 | 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f); right after Phase 10 | planned | – | – | – |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
