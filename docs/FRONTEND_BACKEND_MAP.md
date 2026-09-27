@@ -54,8 +54,8 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | Keywords | `GET /locations/:id/rank-tracker`, `PUT /locations/:id/tracking` | **partial**: keywords, current and previous rank, change. **Search volume: not supported.** "Result type Google / Local Finder": **not supported**; Maps only. |
 | Keyword groups | – | not supported yet (no groups in the model; could be added later if needed) |
 | Positions | `GET /locations/:id/rank-tracker` (5 tracker points), `GET /locations/:id/rank-runs` | available |
-| Map rankings | `GET /locations/:id/map-ranking` (top 20 at the location per keyword, client highlighted) | available |
-| Local Search Grid | `GET /locations/:id/grid` (3×3 / 5×5 / 7×7, rank per point, summary; `?runId=` for history) | available. "Search type" selector: Maps only. |
+| Map rankings | `GET /locations/:id/map-ranking?point=C\|N\|S\|E\|W\|all` (top 20 per keyword at the center and the 4 compass points, client highlighted) | available; **12.5:** point selector (default center) to show how the list changes across the area. Show `attribution` near the names. |
+| Local Search Grid | `GET /locations/:id/grid` (3×3 / 5×5 / 7×7, rank per point, summary; `?runId=` for history) | available. "Search type" selector: Maps only. **12.5:** each cell has `samples` and `spread` (how stable the rank was across repeated searches; 61 = not in the top 60). |
 | Competitor rankings | `GET /locations/:id/rank-tracker` / `grid` (`byTarget` per tracked competitor) | available |
 
 ## GBP
@@ -82,7 +82,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | Screen | Backend | Status |
 |---|---|---|
 | Competitor overview | `GET /locations/:id/competitor-suggestions`, tracking competitors, GBP report `competitors` | **available (7c)**: suggestions, selection and the comparison (rating, reviews, center rank, category, hours, website, phone, Public Score). **Photos: not supported.** |
-| Comparison | GBP report `competitors.rows` | available (7c) |
+| Comparison | GBP report `competitors.rows` | available (7c). **12.5:** photos (`photo_count`, "10+" when `photos_capped`) and up to 5 recent Google reviews per business with the author (show the author name, link `author.uri`). Show `attribution`. |
 | Competitive gaps | GBP report `competitors.insights` (rule-based, max 5: review gap, rating gap, missing hours/website/phone, rank gap, category) | available (7c). **Citation gap: not supported.** |
 
 ## Reports
@@ -121,7 +121,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | Team / permissions | roles `owner`, `member`, `client_user`; invitations, role change, removal (owner only) | **available (11)**. The legacy `/user/auth/employee/*` routes still work (they add a member directly). |
 | Integrations | GBP connections (above) | **partial**: GBP only. **Google Analytics / Search Console: not supported** (removed; organic scope). |
 | Notifications | legacy `POST /user/notifications` (toggle) | legacy toggle only; event notifications not planned yet |
-| Billing | legacy `/subscription/*`, `/payments/*`; limits via `GET /organization/usage` | legacy (Square / PayPal). Plan limits (`location_limit`, `keyword_limit` on the plan) are enforced since Phase 8; the payment logic is unchanged. |
+| Billing | legacy `/subscription/*`, `/payments/*`; limits via `GET /organization/usage` (12.5: + `api_usage`, Google API calls and a list-price estimate this and last month) | legacy (Square / PayPal). Plan limits (`location_limit`, `keyword_limit` on the plan) are enforced since Phase 8; the payment logic is unchanged. |
 | White label | `GET/PUT /organization/branding`, `GET/PUT/DELETE /organization/branding/logo` | **available (12), agency only**: agency name, logo (PNG/JPEG ≤ 512 KB), colours, footer/contact text, hide MyPageSEO, email sender name and reply-to. Business organizations use the default branding. The legacy `/white-label-profiles` routes are deprecated (`npm run migrate:branding` copies them). |
 | Security | – | not planned yet |
 

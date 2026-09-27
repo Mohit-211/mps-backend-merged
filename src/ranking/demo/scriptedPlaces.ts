@@ -14,8 +14,9 @@ import {
 
 // A deterministic, offline stand-in for the Places client, driven by a script.
 // Used by the Phase 5 tests and by `npm run seed:rank-demo`. It makes NO network calls.
-// It mimics the real client's behaviour: 20 results per page, up to 3 pages, stopWhenFound
-// paging, PlacesApiError after a failed retry (counted as 2 calls), one page for names.
+// It mimics the real client's behaviour: 20 results per page, up to 3 pages (full depth since Phase
+// 12.5, or stopWhenFound paging when asked), PlacesApiError after a failed retry (counted as 2 calls),
+// one page for names. The scripted candidates are placed in every list.
 
 export interface ScriptContext {
 	keyword: string;
@@ -34,8 +35,10 @@ export interface PlacesScript {
 	name?: (placeId: string, rank: number) => string;
 	/** Location returned by Place Details (center resolution); null to fail it. */
 	details?: { lat: number; lng: number } | null;
-	/** Place IDs the script ranks (client + competitors); the names search has no stopWhenFound. */
+	/** Place IDs the script ranks (client + competitors), placed in every list. */
 	candidates?: string[];
+	/** Results available for a search (shallow markets); default 60. */
+	depth?: (ctx: ScriptContext) => number;
 }
 
 export type ScriptedPlaces = Pick<PlacesClient, 'searchTextIds' | 'searchTextWithNames' | 'getPlaceDetails'> & {
@@ -75,20 +78,22 @@ export const createScriptedPlaces = (script: PlacesScript): ScriptedPlaces => {
 			throw failure();
 		}
 		const targets = (params.stopWhenFound ?? []).map((id) => normalisePlaceId(id) as string);
-		const list = buildList(ctx, targets);
+		const placed = [...new Set([...targets, ...(script.candidates ?? []).map((id) => normalisePlaceId(id) as string)])];
+		const available = Math.max(0, Math.min(DEPTH, script.depth ? script.depth(ctx) : DEPTH));
+		const list = buildList(ctx, placed).slice(0, available);
 		const maxPages = params.maxPages ?? 3;
-		let pages = maxPages;
+		let pages = Math.min(maxPages, Math.max(1, Math.ceil(available / PAGE)));
 		if (targets.length > 0) {
 			const deepest = Math.max(...targets.map((t) => list.findIndex((p) => p.id === t)));
 			const allFound = targets.every((t) => list.some((p) => p.id === t));
-			if (allFound) pages = Math.min(maxPages, Math.floor(deepest / PAGE) + 1);
+			if (allFound) pages = Math.min(pages, Math.floor(deepest / PAGE) + 1);
 		}
 		calls.ids_only += pages;
 		return {
 			places: list.slice(0, pages * PAGE),
 			pagesFetched: pages,
 			apiCalls: pages,
-			stoppedEarly: pages < maxPages,
+			stoppedEarly: targets.length > 0 && pages < Math.min(maxPages, Math.ceil(available / PAGE)),
 		};
 	};
 

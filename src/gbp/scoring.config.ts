@@ -102,7 +102,10 @@ export const PUBLIC_SCORE = {
 	profileFields: ['primary_category', 'hours', 'website', 'phone', 'editorial_summary'] as const,
 };
 
-/** Place Details fields for the comparison (Enterprise SKU). editorialSummary is Atmosphere-tier: behind a flag. */
+/**
+ * Place Details fields for the comparison. Phase 12.5 (quality over cost): reviews and editorialSummary
+ * make this the Enterprise + Atmosphere SKU; photos (IDs-only tier) gives the photo count (max 10).
+ */
 export const COMPETITOR_DETAILS_FIELDS = [
 	'id',
 	'displayName',
@@ -115,7 +118,15 @@ export const COMPETITOR_DETAILS_FIELDS = [
 	'websiteUri',
 	'nationalPhoneNumber',
 	'businessStatus',
+	'editorialSummary',
+	'reviews',
+	'photos',
 ] as const;
+
+/** Google returns at most this many photo references: a count of 10 is shown as "10+". */
+export const PHOTO_COUNT_CAP = 10;
+/** Stored review excerpts per business (Google returns up to 5). */
+export const MAX_STORED_REVIEWS = 5;
 
 export const MAX_COMPETITORS = 5;
 /** Non-client businesses taken from the latest map list (first keyword, center). */

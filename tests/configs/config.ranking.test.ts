@@ -7,6 +7,11 @@ const RANKING_KEYS = [
 	'RANK_MAX_KEYWORDS',
 	'RANK_TRACKER_OFFSET_KM',
 	'RANK_DEV_MAX_KEYWORDS',
+	'RANK_SAMPLES_PER_POINT',
+	'RANK_SAMPLE_SPACING_SEC',
+	'RANK_SEARCH_CONCURRENCY',
+	'PLACES_MAX_QPS',
+	'MAP_RANKING_POINTS',
 	'RANK_MAX_CALLS_PER_RUN',
 	'STORE_PLACE_NAMES',
 ];
@@ -43,8 +48,13 @@ describe('config.ranking', () => {
 			maxKeywords: 20,
 			trackerOffsetKm: 1.5,
 			devMaxKeywords: 2,
-			maxCallsPerRun: 3200,
+			maxCallsPerRun: 16000,
 			storePlaceNames: true,
+			samplesPerPoint: 1,
+			sampleSpacingSec: 0,
+			searchConcurrency: 4,
+			placesMaxQps: 8,
+			mapRankingPoints: 'all',
 			userDailyLimit: 50,
 		});
 	});

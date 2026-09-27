@@ -96,4 +96,14 @@ describe('monthly-refresh tick', () => {
 		expect(await GbpSync.findOne({}).lean()).toMatchObject({ status: 'failed', active: false, failure_reason: 'never started: queued > 30 min' });
 		expect((await failStuckRuns(NOW)).running).toBe(0);
 	});
+
+	it('Phase 12.5: a long run is stuck only after twice its expected duration plus 10 minutes', async () => {
+		const { user } = await createUser('s5@test.dev');
+		const location = await createLocation(user._id as Types.ObjectId);
+		const started = new Date(NOW.getTime() - 45 * 60_000);
+		const { insertedId } = await RankRun.collection.insertOne({ location_id: location._id, status: 'running', active: true, started_at: started, run_at: started, expected_duration_ms: 20 * 60_000 });
+		expect((await failStuckRuns(NOW)).running).toBe(0); // allowed 2 × 20 + 10 = 50 min
+		expect((await failStuckRuns(new Date(NOW.getTime() + 6 * 60_000))).running).toBe(1);
+		expect(await RankRun.findById(insertedId).lean()).toMatchObject({ status: 'failed', failure_reason: 'stuck: running longer than expected' });
+	});
 });

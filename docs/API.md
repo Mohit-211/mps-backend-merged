@@ -1962,3 +1962,66 @@ A business organization gets `{ "white_label": false, "name": "MyPageSEO", "prim
 
 - `PUT` (owner, agency): any of the fields above; colours `#rrggbb`; `""` clears a text field. **403** `agency_only` / `owner_only`.
 - `PUT /logo { "data": "data:image/png;base64,…" }`: PNG or JPEG (checked by content), ≤ 512 KB. **400** `logo_type`, `logo_too_large`. `GET /logo` returns the image (private, not a public URL); `DELETE /logo` removes it.
+
+## Ranking & data quality (Phase 12.5)
+
+No new endpoints. What changed in the responses:
+
+### Full depth and repeated sampling (rank-tracker, grid)
+
+Every search now fetches all pages (up to 60 results). A point can be searched several times (`RANK_SAMPLES_PER_POINT`, default 1 until the variance test decides); its `rank`/`status` is the median of the samples. Each cell shows every sample:
+
+```json
+{ "rank": 4, "status": "ok", "bucket": "visible", "display": "4", "samples": [3, 5, 4], "spread": 2 }
+```
+
+`samples`: one value per sample (1–60, **61 = not in the top 60**, `null` = the search failed). `spread` = max − min (null with fewer than 2 values). Runs before Phase 12.5 have neither field. The full ordered list of place IDs at every point is stored (collection `rank_result_lists`) but not exposed by an endpoint yet.
+
+`GET /locations/:id/rank-runs/:runId` adds `config: { samples, sample_spacing_sec, map_points }` and `expected_duration_ms`; `estimate` adds `samples` and `mapPoints`.
+
+### `GET /locations/:locationId/map-ranking?keyword=&point=`
+
+The named top 20 is fetched at the center **and** N, S, E, W (`MAP_RANKING_POINTS=all`). `point`: `C` (default), `N`, `S`, `E`, `W`, or `all`.
+
+```json
+{ "run": { "…": "…" }, "names_stored": true, "point": "N", "points_available": ["C", "N", "S", "E", "W"],
+  "keywords": [ { "keyword": "Emergency Plumber", "point": "N",
+                  "results": [ { "rank": 1, "place_id": "ChIJ…", "name": "Riverdale Plumbing", "is_self": false, "target_key": null } ] } ],
+  "attribution": { "provider": "Google", "text": "Business data © Google" } }
+```
+
+**404** for a point the run doesn't have (runs before 12.5 have the center only). **400** for another value.
+
+### Competitor rows (GBP report `competitors.rows`)
+
+```json
+{ "place_id": "ChIJ…", "name": "Riverdale Plumbing", "rating": 4.6, "user_rating_count": 212, "…": "…",
+  "has_editorial_summary": true, "photo_count": 10, "photos_capped": true,
+  "reviews": [ { "rating": 5, "text": "Came the same day…", "publish_time": "2026-09-12T14:03:00.000Z", "relative_time": "2 weeks ago",
+                 "author": { "name": "Jordan T.", "uri": "https://www.google.com/maps/contrib/…" } } ],
+  "recent_review_at": "2026-09-12T14:03:00.000Z" }
+```
+
+- Place Details now request `reviews`, `photos` and `editorialSummary` (Enterprise + Atmosphere SKU). `photo_count` is capped at 10 by Google: show "10+" when `photos_capped`. Review text is shown with its author (`author.name`, linked to `author.uri`).
+- New insights: `photos_gap`, `review_freshness`. The editorial-summary part of the Public Score is now available for every business, so scores shift once.
+
+### Attribution
+
+Responses that carry Google Places content include `"attribution": { "provider": "Google", "text": "Business data © Google" }`: map-ranking, competitor-suggestions, places/search, the GBP report, `GET /locations`, `GET /locations/:id/overview`, `GET /dashboard` and `GET /reports/:id`. Show the text near business names, ratings and reviews. PDFs and share pages print it under those tables and in the page footer.
+
+### `GET /organization/usage` → `api_usage`
+
+```json
+{ "plan": { "…": "…" }, "locations": { "used": 3, "limit": 5 }, "keywords": { "used": 24, "limit": 60 }, "clients": { "used": 2 },
+  "api_usage": { "month": "2026-09",
+                 "by_sku": { "places.text.ids_only": 2610, "places.text.pro": 150, "places.details.enterprise_atmosphere": 18 },
+                 "estimated_cost_usd": 5.25,
+                 "previous_month": { "month": "2026-08", "by_sku": {}, "estimated_cost_usd": 0 },
+                 "note": "Counts of Google API calls; cost at list prices before Google’s free monthly allowances." } }
+```
+
+Every Places and GBP call is counted per organization, location, month and billing SKU (`places.text.ids_only | pro | enterprise`, `places.details.essentials | pro | enterprise | enterprise_atmosphere`, `gbp.<api>`). These are counts, not limits; per-location detail: `npm run cost:report` (OPERATIONS.md).
+
+### Reports
+
+Rank Tracker reports gain the section `map_ranking` ("Who ranks across the area": the top 5 at the 5 points, with your rank at each). Competitor Analysis gains `reviews` ("What customers say": up to 2 recent reviews per business with the author) and a Photos column.

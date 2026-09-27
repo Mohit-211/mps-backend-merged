@@ -17,6 +17,7 @@ interface ReportQuery {
 	runId?: string;
 	keyword?: string;
 	resolveNames?: boolean;
+	point?: string;
 }
 
 const location = (res: { locals: Record<string, unknown> }): ILocation => res.locals.location as ILocation;
@@ -88,5 +89,5 @@ export const getGrid = catchAsync(async (req, res) => {
 
 export const getMapRanking = catchAsync(async (req, res) => {
 	const q = reportQuery(res);
-	return responseWrapper(res, await mapRankingView(locationId(res), q.keyword, q.runId, q.resolveNames === true));
+	return responseWrapper(res, await mapRankingView(locationId(res), q.keyword, q.runId, q.resolveNames === true, q.point));
 });

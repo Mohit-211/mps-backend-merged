@@ -60,10 +60,12 @@ const reportQuerySchema = Joi.object({
 	runId: Joi.string().hex().length(24),
 	keyword: Joi.string().trim().min(1).max(80),
 	resolveNames: Joi.boolean(),
+	// Phase 12.5 (map-ranking): which tracker point's list; 'all' returns the five side by side.
+	point: Joi.string().trim().valid('C', 'N', 'S', 'E', 'W', 'c', 'n', 's', 'e', 'w', 'all'),
 });
 
 export const validateReportQuery = catchAsync(async (req, res, next) => {
-	const { value, error } = reportQuerySchema.validate(pick(req.query, ['runId', 'keyword', 'resolveNames']));
+	const { value, error } = reportQuerySchema.validate(pick(req.query, ['runId', 'keyword', 'resolveNames', 'point']));
 	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
 	res.locals.reportQuery = value;
 	next();

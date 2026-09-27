@@ -178,7 +178,7 @@ describe('rank runs and reports', () => {
 			status: 'done',
 			trigger: 'manual',
 			keywords: ['Emergency Plumber', 'Drain Cleaning'],
-			api_calls: { ids_only: 26, pro: 2, details: 0 },
+			api_calls: { ids_only: 78, pro: 10, details: 0 },
 			errors_count: 0,
 			failure_reason: null,
 		});
@@ -229,6 +229,19 @@ describe('rank runs and reports', () => {
 			is_self: true,
 			target_key: 'self',
 		});
+		expect(res.body.data).toMatchObject({ point: 'C', points_available: ['C', 'N', 'S', 'E', 'W'], attribution: { provider: 'Google' } });
+		expect(res.body.data.keywords[0].point).toBe('C');
+	});
+
+	it('Phase 12.5: map-ranking ?point= selects a tracker point, all returns the five side by side', async () => {
+		const north = await request(app).get(base('/map-ranking?keyword=Emergency%20Plumber&point=n')).set(auth(ownerToken));
+		expect(north.status).toBe(200);
+		expect(north.body.data).toMatchObject({ point: 'N', keywords: [{ keyword: 'Emergency Plumber', point: 'N' }] });
+		const all = await request(app).get(base('/map-ranking?keyword=Emergency%20Plumber&point=all')).set(auth(ownerToken));
+		expect(all.body.data.keywords.map((k: { point: string }) => k.point)).toEqual(['C', 'N', 'S', 'E', 'W']);
+		expect((await request(app).get(base('/map-ranking?point=X')).set(auth(ownerToken))).status).toBe(400);
+		const grid = await request(app).get(base('/grid?keyword=Emergency%20Plumber')).set(auth(ownerToken));
+		expect(grid.body.data.keywords[0].points[0].byTarget.self).toMatchObject({ samples: [expect.any(Number)], spread: null });
 	});
 
 	it('?runId= shows an older run; trend and history list both runs', async () => {

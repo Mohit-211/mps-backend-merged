@@ -3,7 +3,7 @@ import request from 'supertest';
 import { Types } from 'mongoose';
 import { queryTypesArr } from '../../src/configs/constantTypes';
 import logger from '../../src/configs/logger';
-import { AuthCode, Client, GbpReport, Location, Membership, Organization, RankRun, SubscriptionPlan, User, UserGBP } from '../../src/models';
+import { ApiUsage, AuthCode, Client, GbpReport, Location, Membership, Organization, RankRun, SubscriptionPlan, User, UserGBP } from '../../src/models';
 import { hashCode } from '../../src/services/auth/codes';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { loadPlacesFixture } from '../helpers/fakeTransport';
@@ -215,12 +215,22 @@ describe('organization and usage', () => {
 		const org = await request(app).get('/api/v1/organization').set(auth(token));
 		expect(org.body.data).toMatchObject({ organization: { id: orgId, type: 'agency' }, role: 'owner', memberships: [{ organization_id: orgId, role: 'owner' }] });
 		const usage = await request(app).get('/api/v1/organization/usage').set(auth(token));
-		expect(usage.body.data).toEqual({
+		expect(usage.body.data).toMatchObject({
 			plan: { id: null, name: null, source: 'default' },
 			locations: { used: 1, limit: 1 },
 			keywords: { used: 2, limit: null },
 			clients: { used: 0 },
 		});
+		// Phase 12.5: the organization's Google API usage (ledger counts; list-price estimate).
+		expect(usage.body.data.api_usage).toMatchObject({ by_sku: {}, estimated_cost_usd: 0, previous_month: { by_sku: {} } });
+		const month = new Date().toISOString().slice(0, 7);
+		await ApiUsage.create([
+			{ organization_id: orgId, location_id: null, month, sku: 'places.text.pro', count: 50 },
+			{ organization_id: orgId, location_id: null, month, sku: 'places.text.ids_only', count: 870 },
+			{ organization_id: new Types.ObjectId(), location_id: null, month, sku: 'places.text.pro', count: 999 },
+		]);
+		const withUsage = (await request(app).get('/api/v1/organization/usage').set(auth(token))).body.data.api_usage;
+		expect(withUsage).toMatchObject({ month, by_sku: { 'places.text.ids_only': 870, 'places.text.pro': 50 }, estimated_cost_usd: 1.6 });
 		const plan = await SubscriptionPlan.create({ name: 'Agency 5', country: 'USA', currency: 'USD', monthly_price: 99, location_limit: 5, keyword_limit: 3 });
 		await User.updateOne({ _id: user._id }, { $set: { subscription_status: 'ACTIVE', current_plan_id: plan._id } });
 		const withPlan = (await request(app).get('/api/v1/organization/usage').set(auth(token))).body.data;

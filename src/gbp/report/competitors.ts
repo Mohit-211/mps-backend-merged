@@ -1,5 +1,5 @@
 import { PlaceDetails } from '../../clients/types/places';
-import { MAP_LIST_COMPETITORS, MAX_COMPETITORS } from '../scoring.config';
+import { MAP_LIST_COMPETITORS, MAX_COMPETITORS, MAX_STORED_REVIEWS, PHOTO_COUNT_CAP } from '../scoring.config';
 import { CenterRank, PublicScore, centerRank, computePublicScore } from '../score/publicScore';
 
 // Competitor comparison (Phase 7c), pure parts: which businesses to compare, when a business's
@@ -9,6 +9,8 @@ const DAY_MS = 86_400_000;
 
 export interface MapListSection {
 	keyword: string;
+	/** Phase 12.5: the tracker point of this list ('C' | 'N' | 'S' | 'E' | 'W'); absent on older runs = center. */
+	point?: string;
 	results: { rank: number; place_id: string; is_self: boolean }[];
 }
 
@@ -30,7 +32,25 @@ export interface PlaceFacts {
 	/** null when the Atmosphere-tier field wasn't requested. */
 	has_editorial_summary: boolean | null;
 	business_status: string | null;
+	/** Phase 12.5: photo references returned (0–10; 10 is shown as "10+"); null when not fetched yet. */
+	photo_count: number | null;
+	photos_capped: boolean;
+	/** Phase 12.5: up to 5 Google reviews with their author attribution (shown with the text). */
+	reviews: CompetitorReview[];
+	recent_review_at: Date | null;
 }
+
+export interface CompetitorReview {
+	rating: number | null;
+	/** First 500 characters. */
+	text: string | null;
+	publish_time: Date | null;
+	relative_time: string | null;
+	author: { name: string | null; uri: string | null };
+}
+
+/** The center lists of a run's map list (Phase 12.5 adds N/S/E/W lists; older runs have center only). */
+export const centerSections = <T extends { point?: string }>(mapList: T[]): T[] => mapList.filter((s) => !s.point || s.point === 'C');
 
 export interface CompetitorRow extends PlaceFacts {
 	place_id: string;
@@ -59,7 +79,7 @@ export const competitorSet = (selfPlaceId: string | null, tracking: string[], ma
 	};
 	if (selfPlaceId) push(selfPlaceId, 'self');
 	for (const id of tracking) if (out.length - (selfPlaceId ? 1 : 0) < MAX_COMPETITORS) push(id, 'tracking');
-	const first = mapList[0];
+	const first = centerSections(mapList)[0];
 	if (first) {
 		let added = 0;
 		for (const r of [...first.results].sort((a, b) => a.rank - b.rank)) {
@@ -74,7 +94,7 @@ export const competitorSet = (selfPlaceId: string | null, tracking: string[], ma
 
 /** Center rank per map-list keyword (null when not in the top 20). The client is matched by is_self. */
 export const centerRanksFor = (placeId: string, isSelf: boolean, mapList: MapListSection[]): (number | null)[] =>
-	mapList.map((section) => section.results.find((r) => (isSelf ? r.is_self : r.place_id === placeId))?.rank ?? null);
+	centerSections(mapList).map((section) => section.results.find((r) => (isSelf ? r.is_self : r.place_id === placeId))?.rank ?? null);
 
 export interface FreshnessInput {
 	now: Date;
@@ -92,18 +112,35 @@ export const needsFetch = (row: Pick<CompetitorRow, 'fetched_at'> | undefined, f
 	return Boolean(f.force_at && fetched.getTime() < f.force_at.getTime() && f.now.getTime() - fetched.getTime() >= DAY_MS);
 };
 
-export const factsFromDetails = (details: PlaceDetails, withEditorialSummary: boolean): PlaceFacts => ({
-	name: details.displayName ?? null,
-	rating: details.rating ?? null,
-	user_rating_count: details.userRatingCount ?? null,
-	primary_type: details.primaryType ?? null,
-	primary_type_label: details.primaryTypeDisplayName ?? null,
-	has_hours: Boolean(details.regularOpeningHours?.weekdayDescriptions?.length),
-	has_website: Boolean(details.websiteUri),
-	has_phone: Boolean(details.nationalPhoneNumber),
-	has_editorial_summary: withEditorialSummary ? Boolean(details.editorialSummary) : null,
-	business_status: details.businessStatus ?? null,
-});
+const reviewsFrom = (details: PlaceDetails): CompetitorReview[] =>
+	(details.reviews ?? []).slice(0, MAX_STORED_REVIEWS).map((r) => ({
+		rating: r.rating,
+		text: r.text,
+		publish_time: r.publishTime ? new Date(r.publishTime) : null,
+		relative_time: r.relativeTime,
+		author: { name: r.author.name, uri: r.author.uri },
+	}));
+
+export const factsFromDetails = (details: PlaceDetails): PlaceFacts => {
+	const reviews = reviewsFrom(details);
+	const times = reviews.map((r) => r.publish_time?.getTime()).filter((t): t is number => typeof t === 'number' && Number.isFinite(t));
+	return {
+		name: details.displayName ?? null,
+		rating: details.rating ?? null,
+		user_rating_count: details.userRatingCount ?? null,
+		primary_type: details.primaryType ?? null,
+		primary_type_label: details.primaryTypeDisplayName ?? null,
+		has_hours: Boolean(details.regularOpeningHours?.weekdayDescriptions?.length),
+		has_website: Boolean(details.websiteUri),
+		has_phone: Boolean(details.nationalPhoneNumber),
+		has_editorial_summary: Boolean(details.editorialSummary),
+		business_status: details.businessStatus ?? null,
+		photo_count: details.photoCount ?? 0,
+		photos_capped: (details.photoCount ?? 0) >= PHOTO_COUNT_CAP,
+		reviews,
+		recent_review_at: times.length ? new Date(Math.max(...times)) : null,
+	};
+};
 
 export const EMPTY_FACTS: PlaceFacts = {
 	name: null,
@@ -116,6 +153,10 @@ export const EMPTY_FACTS: PlaceFacts = {
 	has_phone: false,
 	has_editorial_summary: null,
 	business_status: null,
+	photo_count: null,
+	photos_capped: false,
+	reviews: [],
+	recent_review_at: null,
 };
 
 /** Adds the center ranks and the Public Score to a row (null score while never fetched). */

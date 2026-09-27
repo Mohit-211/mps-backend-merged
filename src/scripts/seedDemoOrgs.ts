@@ -313,8 +313,8 @@ const main = async (): Promise<void> => {
 	await writeDemoGbpData({ _id: bLoc._id as Types.ObjectId }, business._id, new Date(now));
 	await demoConnection(business._id);
 	// Two generations a month apart give the GBP Score a trend (score_history).
-	await generateGbpReport(String(bLoc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false, now: () => new Date(now - 30 * DAY) });
-	await generateGbpReport(String(bLoc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false });
+	await generateGbpReport(String(bLoc._id), 'seed', { places, v4Enabled: v4, now: () => new Date(now - 30 * DAY) });
+	await generateGbpReport(String(bLoc._id), 'seed', { places, v4Enabled: v4 });
 
 	// ---- Agency organization: 2 clients, 3 locations, a client user, a demo plan ----
 	const agency = await createDemoUser(AGENCY_EMAIL, 'Northern Local SEO', userTypes.agency, password);
@@ -356,8 +356,8 @@ const main = async (): Promise<void> => {
 	await demoConnection(agency._id, 'demo-google-sub-revoked', 'revoked');
 	await demoConnection(agency._id);
 	for (const loc of [a1, a2, a3]) {
-		await generateGbpReport(String(loc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false, now: () => new Date(now - 30 * DAY) });
-		await generateGbpReport(String(loc._id), 'seed', { places, v4Enabled: v4, withEditorialSummary: false });
+		await generateGbpReport(String(loc._id), 'seed', { places, v4Enabled: v4, now: () => new Date(now - 30 * DAY) });
+		await generateGbpReport(String(loc._id), 'seed', { places, v4Enabled: v4 });
 	}
 
 	const clientUser = await createDemoUser(CLIENT_USER_EMAIL, 'Danforth Services (client)', userTypes.client, password);

@@ -3,6 +3,7 @@ import Joi from 'joi';
 import { agencyOnly, canWrite, ownerOnly, readOnly } from '../../services/org/access';
 import { OrgContext, resolveOrgContext } from '../../services/org/context';
 import { catchAsync, isValidMongoObjectId, pick, responseWrapper } from '../../utils';
+import { setUsageContext } from '../../services/usage/scope';
 
 // Organization context (Phase 8). Runs after verifyAuthJWTToken; sets res.locals.org.
 
@@ -15,6 +16,7 @@ export const loadOrgContext = catchAsync(async (req, res, next) => {
 	const requested = typeof header === 'string' && header.length > 0 ? header : null;
 	if (requested && !isValidMongoObjectId(requested)) return responseWrapper(res, '', 'Invalid X-Organization-Id', httpStatus.BAD_REQUEST);
 	res.locals.org = await resolveOrgContext(String(user._id), requested);
+	setUsageContext({ organization_id: (res.locals.org as OrgContext).organization._id });
 	res.locals.userId = String(user._id);
 	next();
 });

@@ -1,4 +1,5 @@
 import httpStatus from 'http-status';
+import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
 import { OrgContext } from '../../services/org/context';
 import { brandingService } from '../../services/reports/branding.service';
 import { reportEmailService } from '../../services/reports/reportEmail.service';
@@ -28,7 +29,7 @@ export const create = catchAsync(async (req, res) => {
 	return responseWrapper(res, result, result.existing ? 'A report of this type is already being generated.' : 'Report queued.', httpStatus.ACCEPTED);
 });
 export const list = catchAsync(async (req, res) => responseWrapper(res, await reportService.list(orgOf(res), res.locals.reportQuery)));
-export const get = catchAsync(async (req, res) => responseWrapper(res, await reportService.get(orgOf(res), req.params.reportId)));
+export const get = catchAsync(async (req, res) => responseWrapper(res, { ...(await reportService.get(orgOf(res), req.params.reportId)), attribution: GOOGLE_ATTRIBUTION }));
 export const pdf = catchAsync(async (req, res) => {
 	const { data, filename } = await reportService.pdf(orgOf(res), req.params.reportId);
 	sendFile(res, data, 'application/pdf', filename);

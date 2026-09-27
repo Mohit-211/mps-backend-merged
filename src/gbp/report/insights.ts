@@ -1,11 +1,13 @@
-import { MAX_INSIGHTS } from '../scoring.config';
+import { MAX_INSIGHTS, PHOTO_COUNT_CAP } from '../scoring.config';
+
+const DAY_MS = 86_400_000;
 import { CompetitorRow } from './competitors';
 
 // Gap insights (Phase 7c), pure: rule-based sentences comparing the client with its competitors.
 // Each rule yields an impact in 0–1; the top MAX_INSIGHTS are returned, highest impact first.
 
 export interface Insight {
-	id: 'review_gap' | 'rating_gap' | 'missing_hours' | 'missing_website' | 'missing_phone' | 'rank_gap' | 'category_mismatch';
+	id: 'review_gap' | 'rating_gap' | 'missing_hours' | 'missing_website' | 'missing_phone' | 'rank_gap' | 'category_mismatch' | 'photos_gap' | 'review_freshness';
 	impact: number;
 	message: string;
 	/** The competitor the insight refers to, if one. */
@@ -93,6 +95,35 @@ export const gapInsights = (rows: CompetitorRow[]): Insight[] => {
 				impact: clamp(0.3 + (top.n / others.length) * 0.3),
 				message: `Most competitors use "${top.label ?? topType}" as their primary category; yours is "${self.primary_type_label ?? self.primary_type}". Check your primary category matches your main service.`,
 				place_id: null,
+			});
+		}
+	}
+
+	// Photos (Phase 12.5): a competitor shows 10+ photos (Google's cap) and you show fewer.
+	const manyPhotos = others.find((r) => r.photos_capped);
+	if (manyPhotos && self.photo_count !== null && !self.photos_capped) {
+		insights.push({
+			id: 'photos_gap',
+			impact: clamp(0.35 + (PHOTO_COUNT_CAP - self.photo_count) / 40),
+			message: `${label(manyPhotos)} shows 10+ photos on Google; you show ${self.photo_count}. Add recent photos of your work, team and premises.`,
+			place_id: manyPhotos.place_id,
+		});
+	}
+
+	// Review freshness (Phase 12.5): a competitor's latest review is at least 60 days newer than yours.
+	const freshest = [...others].filter((r) => r.recent_review_at).sort((a, b) => (b.recent_review_at as Date).getTime() - (a.recent_review_at as Date).getTime())[0];
+	if (freshest?.recent_review_at) {
+		const mineAt = self.recent_review_at?.getTime() ?? null;
+		const gapDays = mineAt === null ? null : (freshest.recent_review_at.getTime() - mineAt) / DAY_MS;
+		if (gapDays === null ? self.reviews.length === 0 && self.photo_count !== null : gapDays >= 60) {
+			insights.push({
+				id: 'review_freshness',
+				impact: clamp(0.3 + (gapDays === null ? 0.2 : Math.min(gapDays, 365) / 730)),
+				message:
+					gapDays === null
+						? `${label(freshest)} has recent Google reviews; Google shows none for you. Ask recent customers for a review.`
+						: `${label(freshest)}'s latest Google review is ${Math.round(gapDays)} days newer than yours. Keep reviews coming in every month.`,
+				place_id: freshest.place_id,
 			});
 		}
 	}

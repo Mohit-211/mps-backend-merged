@@ -1,5 +1,7 @@
 import { Types } from 'mongoose';
 import config from '../configs/config';
+import { recordUsage } from '../services/usage/scope';
+import { gbpSkuFor } from '../services/usage/skus';
 import logger from '../configs/logger';
 import { tokenTypes } from '../configs/constantTypes';
 import { TokenStore, tokenStore as defaultTokenStore } from '../services/gbp/tokenStore';
@@ -282,6 +284,7 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 			const started = now();
 			calls += 1;
 			stats.calls += 1;
+			recordUsage(gbpSkuFor(request.url));
 			stats.byEndpoint[label] = (stats.byEndpoint[label] ?? 0) + 1;
 			try {
 				const response = await transport<T>(request);

@@ -79,6 +79,7 @@ describe('GET /locations/:id/gbp/report', () => {
 		expect(d.gbp_score).toMatchObject({ available: true, partial: true });
 		expect(d.reviews).toEqual({ available: false, reason: 'v4_access_pending' });
 		expect(d.competitors.rows[0]).toMatchObject({ is_self: true });
+		expect(d.attribution).toEqual({ provider: 'Google', text: 'Business data © Google' });
 		const def = await request(app).get(`/api/v1/locations/${id}/gbp/report`).set(auth(token));
 		expect(def.body.data.performance.range).toBe('28d');
 	});

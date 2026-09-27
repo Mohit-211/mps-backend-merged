@@ -94,6 +94,13 @@ export const blocksHtml = (blocks: Block[], primary: string): string =>
 					return `<ul>${b.items.map((i) => `<li>${e(i)}</li>`).join('')}</ul>`;
 				case 'unavailable':
 					return `<div class="na">${e(b.message)}</div>`;
+				case 'quotes':
+					return b.items
+						.map(
+							(q) =>
+								`<blockquote><p>${e(q.text)}</p><cite>${q.link ? `<a href="${e(q.link)}" rel="nofollow noopener noreferrer" target="_blank">${e(q.meta)}</a>` : e(q.meta)}</cite></blockquote>`,
+						)
+						.join('');
 				case 'page_break':
 					return '<hr>';
 				default:
@@ -114,6 +121,7 @@ h2.part{color:${primary};margin:24px 0 8px}h3{margin:20px 0 8px;font-size:16px}
 .tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}th{background:${primary};color:#fff;text-align:left;padding:6px}
 td{padding:6px;border-bottom:1px solid #e5e7eb}.r{text-align:right}tr.hl td{background:#fef3c7}
 figure{margin:12px 0}figcaption{font-weight:700;font-size:13px;margin-bottom:6px}.legend{font-size:12px;color:${MUTED};display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+blockquote{margin:10px 0;padding:4px 12px;border-left:3px solid ${secondary}}blockquote p{margin:0 0 4px}cite{color:${MUTED};font-size:12px;font-style:normal}cite a{color:${MUTED}}
 .legend i{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:middle}.na{background:#f3f4f6;color:${MUTED};padding:12px;border-radius:6px}
 hr{border:0;border-top:1px solid #e5e7eb;margin:24px 0}.dl{display:inline-block;margin-top:12px;background:${secondary};color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none}
 footer{max-width:900px;margin:0 auto;padding:8px 16px 32px;color:${MUTED};font-size:12px}`;
@@ -142,7 +150,7 @@ export const renderSharePage = (doc: ReportDocument, pdfHref: string): string =>
 		.map((m) => `<div class="meta">${e(m)}</div>`)
 		.join('')}<a class="dl" href="${e(pdfHref)}">Download PDF</a></section>
 <section class="card">${blocksHtml(doc.blocks, b.primary_color)}</section></main>
-<footer>${b.footer_text ? `${e(b.footer_text)}<br>` : ''}${b.hide_mypageseo ? '' : 'Powered by MyPageSEO'}</footer></body></html>`;
+<footer>${doc.attribution ? `${e(doc.attribution)}<br>` : ''}${b.footer_text ? `${e(b.footer_text)}<br>` : ''}${b.hide_mypageseo ? '' : 'Powered by MyPageSEO'}</footer></body></html>`;
 };
 
 /** The body of a report email: header, title, the first headline numbers and the delivery note. */

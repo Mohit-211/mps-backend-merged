@@ -40,7 +40,12 @@ const envVarsSchema = Joi.object({
 	RANK_MAX_KEYWORDS: Joi.number().integer().min(1).max(50).default(20),
 	RANK_TRACKER_OFFSET_KM: Joi.number().min(0.1).max(20).default(1.5),
 	RANK_DEV_MAX_KEYWORDS: Joi.number().integer().min(1).max(20).default(2),
-	RANK_MAX_CALLS_PER_RUN: Joi.number().integer().min(1).default(3200),
+	RANK_MAX_CALLS_PER_RUN: Joi.number().integer().min(1).default(16000).description('IDs-only calls a single run may need (20 keywords × 7×7 × 3 pages × 5 samples = 15,900)'),
+	RANK_SAMPLES_PER_POINT: Joi.number().integer().min(1).max(5).default(1).description('Searches per point per keyword; the point rank is their median (set from the Phase 12.5 variance test)'),
+	RANK_SAMPLE_SPACING_SEC: Joi.number().integer().min(0).max(1800).default(0).description('Minimum seconds between the samples of one point'),
+	RANK_SEARCH_CONCURRENCY: Joi.number().integer().min(1).max(8).default(4).description('Ranking searches in flight per run'),
+	PLACES_MAX_QPS: Joi.number().integer().min(1).max(50).default(8).description('Places API requests per second across all processes (8 = 480/min, under the 600/min default quota)'),
+	MAP_RANKING_POINTS: Joi.string().valid('all', 'center').default('all').description('Map Ranking (Pro search with names) at the 5 tracker points, or the center only'),
 	STORE_PLACE_NAMES: Joi.boolean().default(true),
 
 	GOOGLE_GBP_CLIENT_ID: Joi.string().allow(''),
@@ -61,7 +66,6 @@ const envVarsSchema = Joi.object({
 	FRONTEND_URL: Joi.string().uri().allow('').default('').description('Base URL of the web app (invitation links, PayPal return URLs)'),
 	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of email-verification and password-reset codes'),
 	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
-	COMPETITOR_DETAILS_ATMOSPHERE: Joi.boolean().default(false).description('Also fetch editorialSummary (Atmosphere-tier Place Details) for the competitor comparison'),
 	REPORTS_STORAGE_DIR: Joi.string().default('./storage/reports').description('Reports center (Phase 12): private directory for report PDFs and branding logos (never served statically)'),
 	REPORT_RETENTION_MONTHS: Joi.number().integer().min(1).max(120).default(24).description('Generated reports (PDF + snapshot) are deleted after this many months'),
 	REPORT_RENDER_CONCURRENCY: Joi.number().integer().min(1).max(2).default(1).description('report-generate jobs at once per process'),
@@ -163,6 +167,13 @@ interface Config {
 		devMaxKeywords: number;
 		maxCallsPerRun: number;
 		storePlaceNames: boolean;
+		/** Phase 12.5: searches per point (median), spacing between them, search concurrency per run. */
+		samplesPerPoint: number;
+		sampleSpacingSec: number;
+		searchConcurrency: number;
+		/** Places requests per second across the cluster (MongoDB limiter). */
+		placesMaxQps: number;
+		mapRankingPoints: 'all' | 'center';
 		/** User-triggered Places calls (suggestions, manual search) per user per UTC day. */
 		userDailyLimit: number;
 	};
@@ -205,8 +216,6 @@ interface Config {
 	report: {
 		/** Seconds between a report request and its generation (deduplicates close triggers). */
 		debounceSeconds: number;
-		/** Request editorialSummary (Atmosphere tier) in competitor Place Details. */
-		detailsAtmosphere: boolean;
 	};
 
 	reports: {
@@ -303,6 +312,11 @@ const config: Config = {
 		devMaxKeywords: envVars.RANK_DEV_MAX_KEYWORDS,
 		maxCallsPerRun: envVars.RANK_MAX_CALLS_PER_RUN,
 		storePlaceNames: envVars.STORE_PLACE_NAMES,
+		samplesPerPoint: envVars.RANK_SAMPLES_PER_POINT,
+		sampleSpacingSec: envVars.RANK_SAMPLE_SPACING_SEC,
+		searchConcurrency: envVars.RANK_SEARCH_CONCURRENCY,
+		placesMaxQps: envVars.PLACES_MAX_QPS,
+		mapRankingPoints: envVars.MAP_RANKING_POINTS,
 		userDailyLimit: envVars.PLACES_USER_DAILY_LIMIT,
 	},
 
@@ -336,7 +350,6 @@ const config: Config = {
 
 	report: {
 		debounceSeconds: envVars.REPORT_DEBOUNCE_SECONDS,
-		detailsAtmosphere: envVars.COMPETITOR_DETAILS_ATMOSPHERE,
 	},
 
 	reports: {

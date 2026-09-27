@@ -129,7 +129,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 |---|---|---|---|---|---|
 | GET | `/api/v1/organization` | user + org | The current organization, the caller's role and every organization they belong to | 8 | live |
 | PATCH | `/api/v1/organization` | user + org (owner) | Edit `name`, `country` | 8 | live |
-| GET | `/api/v1/organization/usage` | user + org | Plan and usage: locations used/limit, keywords used/limit, clients (agency) | 8 | live |
+| GET | `/api/v1/organization/usage` | user + org | Plan and usage: locations used/limit, keywords used/limit, clients (agency); `api_usage` (Google API calls this and last month, list-price estimate; 12.5) | 8, changed 12.5 | live |
 | GET | `/api/v1/organization/members` | user + org (owner/member) | Team members with roles, `invited_by`, `joined_at` | 8 | live |
 | PATCH | `/api/v1/organization/members/:userId` | user + org (owner) | Change a member's role (`member` / `client_user` + `client_ids`); the owner is protected | 11 | live |
 | DELETE | `/api/v1/organization/members/:userId` | user + org (owner) | Remove a member (the owner is protected) | 11 | live |
@@ -192,7 +192,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/locations/:locationId/rank-runs/:runId` | user + owner | Run status, API calls, errors | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-tracker` | user + owner | Rank Tracker page (`?runId=`) | 5 | live |
 | GET | `/api/v1/locations/:locationId/grid` | user + owner | Local Search Grid page (`?keyword=&runId=`) | 5 | live |
-| GET | `/api/v1/locations/:locationId/map-ranking` | user + owner | Local Map Ranking page (`?keyword=&runId=&resolveNames=`) | 5 | live |
+| GET | `/api/v1/locations/:locationId/map-ranking` | user + owner | Local Map Ranking page (`?keyword=&runId=&resolveNames=&point=C\|N\|S\|E\|W\|all`; 12.5: lists at the 5 tracker points) | 5, changed 12.5 | live |
 
 ### GBP connection
 
@@ -378,7 +378,7 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 | 2 | PUT | `/locations/:locationId/tracking` | user, owner | `locationId` | – | At least one of the fields below | Saved settings, estimate, `keywords_version_bumped`, `onboarding_step` (onboarding locations only) |
 | 3 | POST | `/locations/:locationId/rank-runs` | user, owner | `locationId` | – | – | **202** `{ run_id, status, existing, estimate, dev_capped }` |
 | 4 | GET | `/locations/:locationId/rank-runs` | user, owner | `locationId` | `page` (default 1), `limit` (default 15, max 100) | – | Run history: `{ runs, page, limit, total }` |
-| 5 | GET | `/locations/:locationId/rank-runs/:runId` | user, owner | `locationId`, `runId` | – | – | Run status, timings, `api_calls`, estimate, `errors_count`, `failure_reason` |
+| 5 | GET | `/locations/:locationId/rank-runs/:runId` | user, owner | `locationId`, `runId` | – | – | Run status, timings, `api_calls`, estimate (12.5: + `samples`, `mapPoints`), `config` (`samples`, `sample_spacing_sec`, `map_points`), `expected_duration_ms`, `errors_count`, `failure_reason` |
 
 **Body fields for #2** (all optional; send at least one):
 
@@ -401,7 +401,7 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 |---|---|---|---|---|---|---|
 | 6 | GET | `/locations/:locationId/rank-tracker` | user, owner | `locationId` | `runId` (optional, 24-hex) | **Rank Tracker page:** per keyword, the summary (`avgRank`, `foundRate`, `top3Rate`, `change`, `changeLabel`) and the 5 tracker points; `overall`; `trend` (last 12 runs) |
 | 7 | GET | `/locations/:locationId/grid` | user, owner | `locationId` | `runId` (optional), `keyword` (optional, 1–80 chars) | **Local Search Grid page:** grid size and spacing; per keyword, the summary and every point (`row`, `col`, `lat`, `lng`, rank display) |
-| 8 | GET | `/locations/:locationId/map-ranking` | user, owner | `locationId` | `runId` (optional), `keyword` (optional), `resolveNames` (optional boolean; only when `STORE_PLACE_NAMES=false`) | **Local Map Ranking page:** per keyword, the top 20 at the location (`rank`, `place_id`, `name`, `is_self`, `target_key`) |
+| 8 | GET | `/locations/:locationId/map-ranking` | user, owner | `locationId` | `runId` (optional), `keyword` (optional), `resolveNames` (optional boolean; only when `STORE_PLACE_NAMES=false`), `point` (12.5: `C` default, `N`, `S`, `E`, `W`, `all`) | **Local Map Ranking page:** per keyword and point, the top 20 (`rank`, `place_id`, `name`, `is_self`, `target_key`), plus `point`, `points_available`, `attribution`. **404** for a point the run doesn't have (runs before 12.5: center only) |
 
 **404** means there is no completed run yet, an unknown `runId`, or a keyword not in the run. **409** means the `runId` isn't finished.
 
@@ -436,8 +436,8 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 | 18 | GET | `/onboarding/gbp-profiles` | user | – | – | Same as #14 (grouped per Google account), plus `supported` (US/CA) per location |
 | 19 | POST | `/onboarding/select-profile` | user | – | `{ gbpAccountId, gbpLocationId, location_id?, google_sub? }` | `{ location: { location_id, name, address, place_id, lat, lng }, created, center_needed, binding }` |
 | 19b | PUT | `/locations/:locationId/center` | user, owner | `locationId` | `{ query }` (city or ZIP, 2–100 chars) | `{ lat, lng, center_source: "manual", center_label, api_calls, onboarding_step? }` |
-| 20 | GET | `/locations/:locationId/competitor-suggestions` | user, owner | `locationId`; query `refresh` (optional boolean) | – | `{ generated_at, cached, keywords_used, api_calls, suggestions: [{ place_id, name, address, rating, userRatingCount, best_position, keywords, already_selected }] }` |
-| 21 | GET | `/places/search` | user, owner (via `locationId`) | query `q` (required, 2–100 chars), `locationId` (required, 24-hex) | – | `{ results: [{ place_id, name, address }], api_calls }` |
+| 20 | GET | `/locations/:locationId/competitor-suggestions` | user, owner | `locationId`; query `refresh` (optional boolean) | – | `{ generated_at, cached, keywords_used, api_calls, suggestions: [{ place_id, name, address, rating, userRatingCount, best_position, keywords, already_selected }], attribution }` |
+| 21 | GET | `/places/search` | user, owner (via `locationId`) | query `q` (required, 2–100 chars), `locationId` (required, 24-hex) | – | `{ results: [{ place_id, name, address }], api_calls, attribution }` |
 | 22 | POST | `/onboarding/complete` | user | – | `{ location_id }` | `{ completed, completed_at, rank_run: { run_id, status, existing }, gbp_sync: { sync_id, status, existing } \| { error }, refresh: { anchor_day, next_refresh_at } }` |
 
 **Notes:**
@@ -476,7 +476,7 @@ Generated in the `gbp-report` job about 2 minutes after a rank run or GBP sync f
 
 | # | Method | Path | Auth | Params | Returns |
 |---|---|---|---|---|---|
-| 28 | GET | `/locations/:locationId/gbp/report` | user, owner | query `range` (`28d` default, `90d`, `12m`) | `{ location_id, generated_at, trigger, gbp_connected, v4_enabled, range, gbp_score, performance, keywords, reviews, media, posts, pending_google_edits, verification, competitors: { rows, insights, warning }, sync, score_history, api_calls, inputs, generation }` |
+| 28 | GET | `/locations/:locationId/gbp/report` | user, owner | query `range` (`28d` default, `90d`, `12m`) | `{ location_id, generated_at, trigger, gbp_connected, v4_enabled, range, gbp_score, performance, keywords, reviews, media, posts, pending_google_edits, verification, competitors: { rows (12.5: + `photo_count`, `photos_capped`, `reviews`, `recent_review_at`), insights, warning }, sync, score_history, api_calls, inputs, generation, attribution }` |
 
 **Notes:**
 - **#28:** **404** before the first report; **400** for another `range`. A section that can't be shown is `{ available: false, reason }`: `gbp_not_connected` (every private section of a location added via Places search; the competitor comparison still works), `v4_access_pending` (reviews, media, posts; the GBP Score then excludes those pillars with `partial: true`), `not_synced_yet`, `no_place_id`. Shapes and examples: [API.md](API.md#gbp-report-phase-7c).
@@ -495,7 +495,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 34 | POST | `/auth/reset-password` | none | `{ email, code, password }` | `{ reset: true }` (sessions revoked) |
 | 35 | GET | `/organization` | user + org | – | `{ organization, role, memberships }` |
 | 36 | PATCH | `/organization` | user + org (owner) | `{ name?, country? }` | As #35 |
-| 37 | GET | `/organization/usage` | user + org | – | `{ plan, locations: { used, limit }, keywords: { used, limit }, clients }` |
+| 37 | GET | `/organization/usage` | user + org | – | `{ plan, locations: { used, limit }, keywords: { used, limit }, clients, api_usage: { month, by_sku, estimated_cost_usd, previous_month, note } }` (12.5) |
 | 38 | GET | `/organization/members` | user + org (owner/member) | – | `[{ user_id, name, email, role, client_ids, status }]` |
 | 39 | GET | `/locations` | user + org | `search, client_id, status, sort, order, page, limit` | `{ locations: [row], page, limit, total }` |
 | 40 | POST | `/locations` | user + org (owner/member) | `{ place_id, client_id? }` | **201** `{ location, api_calls }`; **409** `duplicate_place`; **403** `location_limit_reached` |
@@ -573,6 +573,16 @@ Public share links (outside `/api/v1`, no login):
 - **#67:** the token (32 random bytes) is stored as a SHA-256 hash and returned only in this response. The request log redacts `/r/<token>`.
 - **#70:** a schedule fires once per monthly automatic refresh of each covered location, after that location's GBP report is generated (job `report-schedule-dispatch`); the report is emailed when ready (job `report-email`). Manual refreshes don't fire schedules. `next_expected` is the next monthly refresh of the covered location(s).
 - **Retention:** reports older than `REPORT_RETENTION_MONTHS` (24) lose their PDF and snapshot (status `expired`, daily job `report-retention`).
+
+### Ranking & data quality (Phase 12.5)
+
+No new endpoints; changed responses (examples in [API.md](API.md#ranking--data-quality-phase-125)):
+- **Cells** (#6 rank-tracker, #7 grid): each `byTarget` cell also has `samples` (one value per sample: 1–60, 61 = not in the top 60, null = failed) and `spread`; `rank`/`status` are the median. Older runs have neither field.
+- **#8 map-ranking:** `?point=`, and `point` on each keyword list.
+- **Attribution:** responses with Google Places content carry `attribution: { provider: "Google", text: "Business data © Google" }`: #8, #20, #21, #28, `GET /locations`, `GET /locations/:id/overview`, `GET /dashboard`, `GET /reports/:id`.
+- **#37:** `api_usage` (Google API calls per billing SKU from the usage ledger, this and last month).
+- **#28 competitor rows:** `photo_count` (0–10; 10 = "10+"), `photos_capped`, `reviews` (up to 5, with `author: { name, uri }`), `recent_review_at`; insights `photos_gap`, `review_freshness`.
+- **Reports** (#61): Rank Tracker gains the section `map_ranking`, Competitor Analysis the section `reviews`.
 
 ## Removed endpoints
 

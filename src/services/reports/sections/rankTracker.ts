@@ -8,9 +8,12 @@ import { RankTrackerData, RtKeywordRow } from '../types';
 export const HISTORY_RUNS = 12;
 const MOVERS = 5;
 
-type Section = 'summary' | 'keywords' | 'history' | 'grid' | 'movers';
+type Section = 'summary' | 'keywords' | 'history' | 'grid' | 'movers' | 'map_ranking';
 
-export type RunForReport = Pick<LeanRankRun, 'run_at' | 'finished_at' | 'status' | 'config' | 'tracker' | 'grid' | 'overall'>;
+const MAP_TOP = 5;
+const POINT_ORDER = ['C', 'N', 'S', 'E', 'W'];
+
+export type RunForReport = Pick<LeanRankRun, 'run_at' | 'finished_at' | 'status' | 'config' | 'tracker' | 'grid' | 'overall'> & Partial<Pick<LeanRankRun, 'mapList'>>;
 
 const mean = (values: number[]): number | null => (values.length ? Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100) / 100 : null);
 
@@ -62,6 +65,19 @@ export const buildRankTrackerData = (run: RunForReport, history: { run_at: Date;
 			dropped: keywords.filter((k) => k.label === 'dropped_out_of_top_60').map((k) => k.keyword),
 		};
 	}
+	if (want('map_ranking') && run.mapList?.length) {
+		const byKeyword = new Map<string, NonNullable<RankTrackerData['map_ranking']>[number]>();
+		for (const section of run.mapList) {
+			const entry = byKeyword.get(section.keyword) ?? { keyword: section.keyword, points: [] };
+			entry.points.push({
+				point: section.point ?? 'C',
+				top: section.results.slice(0, MAP_TOP).map((r) => ({ rank: r.rank, name: r.name, is_self: r.is_self })),
+				self_rank: section.results.find((r) => r.is_self)?.rank ?? null,
+			});
+			byKeyword.set(section.keyword, entry);
+		}
+		data.map_ranking = [...byKeyword.values()].map((k) => ({ ...k, points: k.points.sort((a, b) => POINT_ORDER.indexOf(a.point) - POINT_ORDER.indexOf(b.point)) }));
+	}
 	return data;
 };
 
@@ -74,7 +90,7 @@ export const findReportRun = (locationId: Types.ObjectId | string, runId?: Types
 
 export const loadRankTrackerData = async (locationId: Types.ObjectId | string, runId: Types.ObjectId | string, sections: readonly string[]) => {
 	const run = await RankRun.findOne({ _id: runId, location_id: locationId })
-		.select({ run_at: 1, finished_at: 1, status: 1, config: 1, tracker: 1, grid: 1, overall: 1 })
+		.select({ run_at: 1, finished_at: 1, status: 1, config: 1, tracker: 1, grid: 1, overall: 1, mapList: 1 })
 		.lean<RunForReport & { _id: Types.ObjectId }>();
 	if (!run) return null;
 	const history = await RankRun.find({ location_id: locationId, status: { $in: ['done', 'partial'] }, run_at: { $lte: run.run_at } })

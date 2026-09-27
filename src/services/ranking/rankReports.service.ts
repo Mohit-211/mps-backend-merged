@@ -6,6 +6,7 @@ import { LeanRankRun, RankCellDoc, RankRun } from '../../models/rankRun.model';
 import { RankCell, bucket, displayRank, normaliseKeyword } from '../../ranking';
 import { ApiError } from '../../utils';
 import { resolveNames } from './resolveNames';
+import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
 
 // Read-only views for the three ranking pages (CLAUDE.md §9.4). Everything comes from stored
 // RankRuns: no third-party calls on a page view (except the opt-in resolveNames path).
@@ -20,6 +21,8 @@ export const cellView = (cell: RankCellDoc) => ({
 	status: cell.status,
 	bucket: bucket(cell as RankCell),
 	display: displayRank(cell as RankCell),
+	// Phase 12.5: each sample's value (61 = not found, null = failed) and their spread; absent on older runs.
+	...(cell.samples ? { samples: cell.samples, spread: cell.spread ?? null } : {}),
 });
 
 const byTargetView = (byTarget: Record<string, RankCellDoc>) =>
@@ -106,9 +109,16 @@ export const mapRankingView = async (
 	keyword?: string,
 	runId?: string,
 	resolveNamesRequested = false,
+	pointParam?: string,
 ) => {
 	const run = await resolveViewRun(locationId, runId);
-	const sections = pickKeyword(run.mapList, keyword);
+	const point = !pointParam ? 'C' : pointParam === 'all' ? 'all' : pointParam.toUpperCase();
+	const pointOf = (s: { point?: string }) => s.point ?? 'C';
+	const available = [...new Set(run.mapList.map(pointOf))];
+	if (point !== 'all' && !available.includes(point)) {
+		throw new ApiError(httpStatus.NOT_FOUND, `This run has no Map Ranking list at point ${point} (available: ${available.join(', ')})`);
+	}
+	const sections = pickKeyword(run.mapList, keyword).filter((s) => point === 'all' || pointOf(s) === point);
 	const namesStored = run.config.store_place_names;
 	let resolved: Record<string, string | null> | null = null;
 	if (!namesStored && resolveNamesRequested && !config.ranking.storePlaceNames) {
@@ -124,9 +134,13 @@ export const mapRankingView = async (
 	return {
 		run: runMeta(run),
 		names_stored: namesStored,
+		point,
+		points_available: available,
 		keywords: sections.map((section) => ({
 			keyword: section.keyword,
+			point: pointOf(section),
 			results: section.results.map((r) => ({ ...r, name: r.name ?? resolved?.[r.place_id] ?? null })),
 		})),
+		attribution: GOOGLE_ATTRIBUTION,
 	};
 };

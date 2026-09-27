@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import { Client, ILocation, IMembership, Location, Membership, MembershipRole } from '../../models';
 import { apiErrorWithData } from '../../utils';
 import { OrgContext } from './context';
+import { setUsageContext } from '../usage/scope';
 
 // Access rules (Phase 8). Locations and clients belong to an organization; a user reaches them through
 // an active membership. owner / member: everything in the organization. client_user (agency): read-only,
@@ -60,5 +61,6 @@ export const findLocationForUser = async (userId: Id, locationId: Id, opts: { wr
 		if (!allowed) return null;
 		if (opts.write) throw readOnly();
 	}
+	setUsageContext({ organization_id: location.organization_id, location_id: location._id as Types.ObjectId });
 	return { location, membership };
 };

@@ -39,3 +39,24 @@ describe('gapInsights', () => {
 		expect(gapInsights([row('S', true, { user_rating_count: 1 }), closed])).toEqual([]);
 	});
 });
+
+describe('gapInsights: Phase 12.5 photos and review freshness', () => {
+	const DAY = 86_400_000;
+	it('a competitor with 10+ photos when you show fewer', () => {
+		const self = row('S', true, { photo_count: 3, photos_capped: false });
+		const rival = row('A', false, { name: 'Rival', photo_count: 10, photos_capped: true });
+		const i = gapInsights([self, rival]).find((x) => x.id === 'photos_gap');
+		expect(i).toMatchObject({ place_id: 'A', message: expect.stringContaining('10+ photos') });
+		expect(gapInsights([row('S', true, { photo_count: 10, photos_capped: true }), rival]).some((x) => x.id === 'photos_gap')).toBe(false);
+		expect(gapInsights([row('S', true, {}), rival]).some((x) => x.id === 'photos_gap')).toBe(false); // not fetched yet
+	});
+
+	it('a competitor\'s latest review is 60+ days newer than yours', () => {
+		const review = (daysAgo: number) => ({ rating: 5, text: 'x', publish_time: new Date(NOW.getTime() - daysAgo * DAY), relative_time: null, author: { name: 'A', uri: null } });
+		const self = row('S', true, { photo_count: 10, photos_capped: true, reviews: [review(100)], recent_review_at: new Date(NOW.getTime() - 100 * DAY) });
+		const rival = row('A', false, { name: 'Rival', reviews: [review(5)], recent_review_at: new Date(NOW.getTime() - 5 * DAY) });
+		expect(gapInsights([self, rival]).find((x) => x.id === 'review_freshness')?.message).toContain('95 days newer');
+		const close = row('S', true, { photo_count: 10, photos_capped: true, reviews: [review(20)], recent_review_at: new Date(NOW.getTime() - 20 * DAY) });
+		expect(gapInsights([close, rival]).some((x) => x.id === 'review_freshness')).toBe(false);
+	});
+});

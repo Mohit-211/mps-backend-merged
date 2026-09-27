@@ -9,9 +9,9 @@ export type ReportType = (typeof REPORT_TYPES)[number];
 
 /** The sections each type can contain (the default is all of them). A full report's sections are report types. */
 export const REPORT_SECTIONS = {
-	rank_tracker: ['summary', 'keywords', 'history', 'grid', 'movers'],
+	rank_tracker: ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking'],
 	gbp_audit: ['score', 'checks', 'performance', 'keywords', 'profile', 'verification', 'pending_edits', 'reviews_media_posts'],
-	competitor_analysis: ['public_scores', 'table', 'ranks', 'insights'],
+	competitor_analysis: ['public_scores', 'table', 'ranks', 'insights', 'reviews'],
 	full: ['rank_tracker', 'gbp_audit', 'competitor_analysis'],
 } as const satisfies Record<ReportType, readonly string[]>;
 
