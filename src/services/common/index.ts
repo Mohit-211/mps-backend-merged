@@ -12,7 +12,6 @@ import * as contactUsService from './contactUs.service';
 import * as businessCategoryService from './businessCategory.service';
 import * as whitelabelProfileService from './whitelabelProfile.service';
 import * as gbpPSService from './gbpPostSchedular.service';
-import * as citationService from './citation.service';
 import * as paymentService from './payment.service';
 import * as blogCategoryService from './blogCategory.service';
 import * as blogService from './blog.service';
@@ -31,7 +30,6 @@ export {
     businessCategoryService,
     whitelabelProfileService,
     gbpPSService,
-    citationService,
     paymentService,
     blogCategoryService,
     blogService

@@ -25,7 +25,7 @@ Status as of 2026-09-27: everything through Phases 12.5, 10 and 8.1 is merged an
 | Permission | Roles | Routes |
 |---|---|---|
 | `admins.manage` | super admin | `/admin/auth/{register, getAllAdmins, getAdminById/:id, updateAdmin, deleteAdmin}`, `/roles` (all) |
-| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `GET /subscription`, `/subscription/{coupons, payments/all}`, `/payments/getAllPayments`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId`, `/citation/getAllCitatioList` |
+| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `GET /subscription`, `/subscription/{coupons, payments/all}`, `/payments/getAllPayments`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId` |
 | `platform.write` | super admin, admin | `PUT /admin/operations/updateAgencyStatus`, `POST/PUT/DELETE /subscription[/:plan_id]`, `/subscription/{coupon/generate, send-subscription-welcome-mail}`, `PUT /supports/updateSupportTicketStatus`, `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
 | `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |
 | `system.read` | super admin | `/system/{info, process, time, usage}`, `GET/DELETE /logs` |
@@ -104,7 +104,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Citation dashboard per location (Citation Health score, counts by status, recent changes) | – | **planned (Phase 16)**: manual, admin-managed citation tracking (no external citation APIs). Read-only for organization users; a client_user sees its assigned clients only. |
 | Citation table (directory, type, status, NAP issues, listing link, last checked) | – | **planned (Phase 16)** |
 | Admin: directory master list, categories, per-location citation lists, work queue | – | **planned (Phase 16)**, platform admins only (needs Phase 10's admin auth and roles) |
-| Legacy citation screens / campaign UI | legacy `/citation/*` (tracker via SerpAPI, broken, AUDIT C13) | legacy; Phase 16 audits it and lists what's reused, replaced or retired. Don't build on it. |
+| Legacy citation screens / campaign UI | – | **removed (Phase 16)**: the legacy `/citation/*` routes (campaign ordering, SerpAPI tracker, builder stub) are gone. Don't build them. |
 
 ## Competitors
 

@@ -48,15 +48,19 @@
 
 ---
 
-## Summary (2026-09-27)
+## Summary (Phase 16, in progress)
 
-**208 endpoints:** 193 live, 14 deprecated, 1 dev-only.
-- **By origin:** 72 rebuilt or new, 136 legacy.
-- **By auth:** 107 user, 52 platform admin (each with a permission), 47 none, 2 refresh token.
+**195 endpoints:** 180 live, 14 deprecated, 1 dev-only.
+- **By origin:** 72 rebuilt or new, 123 legacy.
+- **By auth:** 95 user, 51 platform admin (each with a permission), 47 none, 2 refresh token.
 
-**Coming changes** (approved plans, not built):
-- **Phase 16** retires the 13 legacy `/citation/*` routes and adds `/admin/citations/*` plus `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
-- **Phase 9b** removes the 14 deprecated routes once the frontend has moved.
+This block is recounted with every commit that changes the catalogue.
+
+**Phase 16 changes:**
+- **Done:** the 13 legacy `/citation/*` routes retired.
+- **To come:** `/admin/citations/*` and `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
+
+**Phase 9b** removes the 14 deprecated routes once the frontend has moved.
 
 ## Catalogue: all current endpoints
 
@@ -261,26 +265,6 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/white-label-profiles` | user | Get White Label Profile. Replaced by #75 | legacy | deprecated |
 | GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user (owner) | Get White Label Profile Detail. Replaced by #75 | legacy, changed 10 | deprecated |
 | DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile. Replaced by #76 / #79 | legacy | deprecated |
-
-### Citations
-
-**Legacy, to be retired in Phase 16** (plan approved, build paused: [plans/phase-16-citations.md](plans/phase-16-citations.md)). The tracker returns SerpAPI sample data and the builder is a stub; the frontend must not build on these routes.
-
-| Method | Path | Auth | Purpose | Phase | Status |
-|---|---|---|---|---|---|
-| GET | `/api/v1/citation/manual/listings/pricings` | user | Get Manual Submission Prices | legacy | live |
-| GET | `/api/v1/citation/aggregators/list` | user | Get Aggregators Details | legacy | live |
-| GET | `/api/v1/citation/remove/prices/list` | user | Get Citatio Remove Prices | legacy | live |
-| GET | `/api/v1/citation/lists/:location_id` | user | Get Citatio List | legacy | live |
-| POST | `/api/v1/citation/campaign/add/new` | user | Add Citation Campaign | legacy | live |
-| POST | `/api/v1/citation/campaign/add/busines/info` | user | Add Citation Campaign Busines Info | legacy | live |
-| GET | `/api/v1/citation/:location_id/campaign/:campaign_id/details` | user | Get Campaign Details | legacy | live |
-| GET | `/api/v1/citation/:location_id/campaign/all` | user | Get All Campaign | legacy | live |
-| GET | `/api/v1/citation/locations/campaigns/list/all` | user | Get All Citation By Token | legacy | live |
-| POST | `/api/v1/citation/tracker` | user | Generate Citation Tracker Report | legacy | live |
-| GET | `/api/v1/citation/tracker` | user | Get Citation Tracker Report | legacy | live |
-| POST | `/api/v1/citation/builder` | user | Citation Builder | legacy | live |
-| GET | `/api/v1/citation/getAllCitatioList` | admin (`platform.read`) | Get All Citatio List | legacy, changed 10 | live |
 
 ### Payments & subscriptions
 
@@ -599,6 +583,8 @@ No new endpoints; changed responses (examples in [API.md](API.md#ranking--data-q
 ## Removed endpoints
 
 Removed in Phase 8: `GET /locations/google-locations/:name` and `GET /locations/google-locations/details/:placeId` (unauthenticated proxies to the old paid Places API; use `GET /places/search`), and `PUT /locations` (now `PATCH /locations/:locationId`).
+
+Removed in Phase 16: the 13 legacy `/api/v1/citation/*` routes (manual pricings, aggregators, remove prices, `lists/:location_id`, campaign add / business info / details / all, `locations/campaigns/list/all`, tracker GET / POST, builder, `getAllCitatioList`). They were a paid citation-campaign ordering flow with a SerpAPI "tracker" returning sample data and a stub builder; replaced by the Phase 16 citation endpoints. See [plans/phase-16-citations.md](plans/phase-16-citations.md) §1.
 
 Removed in Phase 8.1: `POST /api/v1/auth/verify-email/resend` (now `POST /api/v1/auth/resend-verification`) and the legacy `POST /api/v1/user/auth/register` (use `POST /api/v1/auth/signup`).
 

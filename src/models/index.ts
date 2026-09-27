@@ -32,7 +32,6 @@ export * from "./contactUs.model";
 // location service — GBP / rank tracking / reports
 export * from "./userGBP.model";
 export * from "./gbpPost.model";
-export * from "./campaign.model";
 export * from "./rankRun.model";
 export * from "./oauthState.model";
 export * from "./placesUsage.model";
@@ -52,13 +51,8 @@ export * from "./rankResultList.model";
 export * from "./apiUsage.model";
 
 
-// location service — citations
-export * from "./aggregator.model";
-export * from "./citationDirectories.model";
-export * from "./manualCitatonsCreditInfo.model";
-export * from "./citationDuplicateRemoveCredit.model";
-export * from "./locationCitations.model";
-export * from "./citation.model";
+// Legacy citation order (credit payments only; Phase 13 decides)
+export * from "./legacyLocationCitation.model";
 
 // location service — credit-based payments (kept fully separate from subscription Payment above)
 export * from "./creditPayment.model";

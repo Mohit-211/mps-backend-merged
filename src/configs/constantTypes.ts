@@ -530,40 +530,6 @@ export const reports = {
 	local_search_audit: 'local_search_audit',
 	google_analytics: 'google_analytics'
 };
-export const citationDirectoriesArr = [
-	"google.com",
-	"maps.apple.com",       // Apple Maps
-	"facebook.com",
-	"bing.com",
-	"foursquare.com",
-	"bbb.org",              // Better Business Bureau
-	"mapquest.com",
-	"manta.com",
-	"zoominfo.com",
-	"yelp.com",
-	"justlanded.com",
-	"yellowpages.ca",       // or .com based on region
-	"storeboard.com",
-	"brownbook.net",
-	"infobel.com",
-	"bizapedia.com",
-	"cybo.com",
-	"411.ca",
-	"enrollbusiness.com",
-	"canpages.ca",
-	"pagesjaunes.ca",
-	"n49.com",
-	"2findlocal.com",
-	"hotfrog.ca",           // Hotfrog region-based
-	"profilecanada.com",
-	"tupalo.com",
-	"ourbis.ca",
-	"yellow.place",
-	"cylex.ca",
-	"phonepages.ca",
-	"acomp.io"
-];
-
 export const gbpPostTopicType = {
 	STANDARD: 'STANDARD',
 	EVENT: 'EVENT',
@@ -693,16 +659,6 @@ export const paymentResources = {
 export const paymentResourcesArr = ['CREDIT', 'SUBSCRIPTION', 'WALLET_RECHARGE', 'PURCHASE', 'BOOKING', 'DONATION', 'SETTLEMENT', 'FINE']
 
 
-export const citationVerificationTypes = {
-	postcard: 'POSTCARD',
-	phone: 'PHONE',
-	email: 'EMAIL',
-	video: 'VIDEO',
-	owner_Docs: 'OWNER_DOCS',
-	otp: 'OTP'
-}
-
-export const citationVerificationTypesArr = ["POSTCARD", "PHONE", "EMAIL", "VIDEO", "OWNER_DOCS", "OTP"]
 
 
 export const openingHoursTypesArr = ["Open", "Closed", "24hrs", "Split"]
@@ -713,35 +669,3 @@ export const openingHoursTypes = {
 	'24hrs': '24hrs',
 	split: 'Split'
 }
-
-export const citationTypes = {
-	add: 'ADD',
-	update: 'UPDATE',
-	remove: 'REMOVE',
-}
-
-export const citationTypesArr = ["ADD", "UPDATE", "REMOVE", "VIDEO"]
-
-export const citationStatus = {
-	saved: 'SAVED',
-	processing: 'PROCESSING',
-	submitted: 'SUBMITTED',
-	live: 'LIVE',
-	rejected: 'REJECTED',
-	need_review: 'NEEDS_REVIEW'
-}
-export const citationStatusArr: string[] = [
-	'SAVED',
-	'PROCESSING',
-	'SUBMITTED',
-	'LIVE',
-	'REJECTED',
-	'NEEDS_REVIEW',
-];
-
-export const citationModes = {
-	manual: 'MANUAL',
-	aggregator: 'AGGREGATOR',
-}
-
-export const citationModesArr = ["MANUAL", "AGGREGATOR"]

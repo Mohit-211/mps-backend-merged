@@ -1,7 +1,7 @@
 import httpStatus from 'http-status';
 
 import { responseWrapper, ApiError, catchAsync, isValidMongoObjectId } from '../../utils';
-import { LocationCitation, PaymentCreditPlan } from '../../models';
+import { LegacyLocationCitation, PaymentCreditPlan } from '../../models';
 
 
 export const validateSquarePaymentBody = catchAsync(async (req, res, next) => {
@@ -29,7 +29,7 @@ export const validateSquarePaymentBody = catchAsync(async (req, res, next) => {
             if (!isValidMongoObjectId(citation_location_id)) {
                 return responseWrapper(res, '', 'Invalid citation_location_id provided', httpStatus.BAD_REQUEST);
             }
-            const locationCitationDoc = await LocationCitation.findOne({ _id: citation_location_id, is_active: true });
+            const locationCitationDoc = await LegacyLocationCitation.findOne({ _id: citation_location_id, is_active: true });
             if (!locationCitationDoc) {
                 return responseWrapper(res, '', 'Location Citation not found with this citation_location_id.', httpStatus.BAD_REQUEST);
             }

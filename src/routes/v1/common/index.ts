@@ -15,7 +15,6 @@ import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
 import whiteLabelRoute from './whitelabelProfile.route';
 import gbpPSRoute from './gbpPostSchedular.route';
-import citationRoute from './citation.route';
 import paymentRoute from './payment.route';
 import blogRoute from './blog.routes';
 import blogCategoryRoutes from './blogCategory.routes';
@@ -124,10 +123,6 @@ const commonRoutes = [
 	{
 		path: '/gbp',
 		route: gbpPSRoute,
-	},
-	{
-		path: '/citation',
-		route: citationRoute,
 	},
 	{
 		path: '/payments',

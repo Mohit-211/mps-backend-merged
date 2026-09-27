@@ -1,8 +1,11 @@
+// Phase 16: the legacy paid citation-campaign order (collection `locationCitations`), kept only because the
+// credit-payment code attaches payments to it (payment.middleware / payment.service, `citation_location_id`).
+// Phase 13 decides its future (CLAUDE.md §12h). The citation tracking model is `LocationCitation` (Phase 16).
 import mongoose, { Document, Model, Schema } from 'mongoose';
 import { addTimestamps, globalQueryFilters, toJSON } from '../configs/mongoPlugins';
 import { citationCampaignStatus, citationCampaignStatusArr, citationOrderStatus, citationOrderStatusArr, currencyTypes, currencyTypesArr, paymentStatusTypes, paymentStatusTypesArr } from '../configs/constantTypes';
 
-export interface ILocationCitation extends Document {
+export interface ILegacyLocationCitation extends Document {
     _id: mongoose.Types.ObjectId;
     location_id: Schema.Types.ObjectId;
     campaign_id: Schema.Types.ObjectId;
@@ -38,7 +41,7 @@ export interface ILocationCitation extends Document {
     deleted_by?: Schema.Types.ObjectId;
 }
 
-const locationCitationSchema = new Schema<ILocationCitation>(
+const locationCitationSchema = new Schema<ILegacyLocationCitation>(
     {
         location_id: { type: Schema.Types.ObjectId, required: true },
         campaign_id: { type: Schema.Types.ObjectId, required: true, ref: 'Campaign' },
@@ -84,7 +87,7 @@ locationCitationSchema.plugin(globalQueryFilters);
 locationCitationSchema.plugin(toJSON);
 locationCitationSchema.plugin(addTimestamps);
 
-export const LocationCitation: Model<ILocationCitation> = mongoose.model<ILocationCitation>(
-    'LocationCitation',
+export const LegacyLocationCitation: Model<ILegacyLocationCitation> = mongoose.model<ILegacyLocationCitation>(
+    'LegacyLocationCitation',
     locationCitationSchema
 );
