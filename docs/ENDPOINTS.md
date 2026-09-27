@@ -22,6 +22,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.manage` (Phase 16; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -55,23 +56,23 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/admin/auth/register` | none | Create Admin User | legacy | live |
-| POST | `/api/v1/admin/auth/login` | none | Login Admin User | legacy | live |
-| POST | `/api/v1/admin/auth/sendOTP` | none | Send OTP | legacy | live |
-| POST | `/api/v1/admin/auth/verifyOTP` | none | Verify OTP | legacy | live |
-| POST | `/api/v1/admin/auth/resetPassword` | admin | Reset Admin Password | legacy | live |
-| POST | `/api/v1/admin/auth/forgotPassword` | none | Forgot Admin Password | legacy | live |
-| GET | `/api/v1/admin/auth/getAllAdmins` | none | Get All Admins | legacy | live |
-| GET | `/api/v1/admin/auth/getAdminById/:id` | none | Find Admin By Id | legacy | live |
+| POST | `/api/v1/admin/auth/register` | admin (`admins.manage`) | Create Admin User (crypto temporary password, emailed) | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/login` | none (rate-limited) | Login Admin User: an admin session token (12 h, `ADMIN_JWT_SECRET`) | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/sendOTP` | none (rate-limited) | Send OTP (10 min, 5 attempts; same answer for unknown emails) | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/verifyOTP` | none (rate-limited) | Verify OTP; with `otp_type=FORGOT_PASSWORD` returns a single-use 15-min reset token | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/resetPassword` | admin | Change the signed-in admin's password (other sessions revoked; returns a new token) | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/forgotPassword` | none (reset token) | Set a new password with the reset token (sessions revoked) | legacy, changed 10 | live |
+| GET | `/api/v1/admin/auth/getAllAdmins` | admin (`admins.manage`) | Get All Admins (no password/OTP/token fields) | legacy, changed 10 | live |
+| GET | `/api/v1/admin/auth/getAdminById/:id` | admin (`admins.manage`) | Find Admin By Id | legacy, changed 10 | live |
 | GET | `/api/v1/admin/auth/getProfile` | admin | Get Profile | legacy | live |
-| PUT | `/api/v1/admin/auth/updateAdmin` | none | Update Admin | legacy | live |
-| DELETE | `/api/v1/admin/auth/deleteAdmin` | none | Delete Admin | legacy | live |
-| GET | `/api/v1/admin/operations/getAllAgencies` | none | Get All Agencies | legacy | live |
-| GET | `/api/v1/admin/operations/getAgencyById/:id` | none | Get Agency By Id | legacy | live |
-| PUT | `/api/v1/admin/operations/updateAgencyStatus` | none | Update Agency Status | legacy | live |
-| GET | `/api/v1/admin/operations/getAllBusinesses` | none | Get All Businesses | legacy | live |
-| GET | `/api/v1/admin/operations/getBusinessesById/:id` | none | Get Businesses By Id | legacy | live |
-| GET | `/api/v1/admin/operations/getAllClients` | none | Get All Clients | legacy | live |
+| PUT | `/api/v1/admin/auth/updateAdmin` | admin (`admins.manage`) | Update Admin (not your own role; a role or email change revokes that admin's tokens) | legacy, changed 10 | live |
+| DELETE | `/api/v1/admin/auth/deleteAdmin` | admin (`admins.manage`) | Delete Admin (not yourself, not the last super admin) | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getAllAgencies` | admin (`platform.read`) | Get All Agencies | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getAgencyById/:id` | admin (`platform.read`) | Get Agency By Id | legacy, changed 10 | live |
+| PUT | `/api/v1/admin/operations/updateAgencyStatus` | admin (`platform.write`) | Update Agency Status | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getAllBusinesses` | admin (`platform.read`) | Get All Businesses | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getBusinessesById/:id` | admin (`platform.read`) | Get Businesses By Id | legacy, changed 10 | live |
+| GET | `/api/v1/admin/operations/getAllClients` | admin (`platform.read`) | Get All Clients | legacy, changed 10 | live |
 
 ### Auth (rebuilt app)
 
@@ -249,7 +250,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/white-label-profiles` | user | Create New Profile. Replaced by organization branding (#76, #78); data carried over by `npm run migrate:branding` | legacy | deprecated |
 | PATCH | `/api/v1/white-label-profiles` | user | Update White Label Profile. Replaced by #76 | legacy | deprecated |
 | GET | `/api/v1/white-label-profiles` | user | Get White Label Profile. Replaced by #75 | legacy | deprecated |
-| GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | none | Get White Label Profile Detail (unauthenticated; removal in Phase 10). Replaced by #75 | legacy | deprecated |
+| GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user (owner) | Get White Label Profile Detail. Replaced by #75 | legacy, changed 10 | deprecated |
 | DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile. Replaced by #76 / #79 | legacy | deprecated |
 
 ### Citations
@@ -268,28 +269,28 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/citation/tracker` | user | Generate Citation Tracker Report | legacy | live |
 | GET | `/api/v1/citation/tracker` | user | Get Citation Tracker Report | legacy | live |
 | POST | `/api/v1/citation/builder` | user | Citation Builder | legacy | live |
-| GET | `/api/v1/citation/getAllCitatioList` | none | Get All Citatio List | legacy | live |
+| GET | `/api/v1/citation/getAllCitatioList` | admin (`platform.read`) | Get All Citatio List | legacy, changed 10 | live |
 
 ### Payments & subscriptions
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/subscription` | none | Create Plan | legacy | live |
-| GET | `/api/v1/subscription` | none | Get All Plans | legacy | live |
+| POST | `/api/v1/subscription` | admin (`platform.write`) | Create Plan | legacy, changed 10 | live |
+| GET | `/api/v1/subscription` | admin (`platform.read`) | Get All Plans | legacy, changed 10 | live |
 | GET | `/api/v1/subscription/plans/country/:country` | none | Get Plans By Country | legacy | live |
-| PUT | `/api/v1/subscription/:plan_id` | none | Update Plan | legacy | live |
-| DELETE | `/api/v1/subscription/:plan_id` | none | Delete Plan | legacy | live |
-| POST | `/api/v1/subscription/create-subscription` | none | Create Subscription | legacy | live |
-| POST | `/api/v1/subscription/paypal/webhook` | none | Paypal Webhook | legacy | live |
-| GET | `/api/v1/subscription/payment-status` | none | Get Payment Status | legacy | live |
-| POST | `/api/v1/subscription/coupon/generate` | none | Generate Coupon | legacy | live |
+| PUT | `/api/v1/subscription/:plan_id` | admin (`platform.write`) | Update Plan | legacy, changed 10 | live |
+| DELETE | `/api/v1/subscription/:plan_id` | admin (`platform.write`) | Delete Plan | legacy, changed 10 | live |
+| POST | `/api/v1/subscription/create-subscription` | none (guest checkout, rate-limited) | Create Subscription | legacy | live |
+| POST | `/api/v1/subscription/paypal/webhook` | none (PayPal signature, verified with PayPal) | Paypal Webhook. Phase 10: refused (400 `invalid_signature`) unless PayPal confirms it (`PAYPAL_WEBHOOK_ID`) | legacy, changed 10 | live |
+| GET | `/api/v1/subscription/payment-status` | none (guest checkout, rate-limited) | Get Payment Status | legacy | live |
+| POST | `/api/v1/subscription/coupon/generate` | admin (`platform.write`) | Generate Coupon | legacy, changed 10 | live |
 | POST | `/api/v1/subscription/coupon/validate` | none | Validate Coupon | legacy | live |
-| GET | `/api/v1/subscription/coupons` | none | Get All Coupons | legacy | live |
-| GET | `/api/v1/subscription/payments/all` | none | Get All Payment History | legacy | live |
-| POST | `/api/v1/subscription/send-subscription-welcome-mail` | none | Send Subscription Welcome Mail Controller | legacy | live |
+| GET | `/api/v1/subscription/coupons` | admin (`platform.read`) | Get All Coupons | legacy, changed 10 | live |
+| GET | `/api/v1/subscription/payments/all` | admin (`platform.read`) | Get All Payment History | legacy, changed 10 | live |
+| POST | `/api/v1/subscription/send-subscription-welcome-mail` | admin (`platform.write`) | Send Subscription Welcome Mail Controller | legacy, changed 10 | live |
 | POST | `/api/v1/payments/process-payment` | user | Make Square Payment | legacy | live |
 | GET | `/api/v1/payments/plans/list` | none | Get Plans | legacy | live |
-| GET | `/api/v1/payments/getAllPayments` | none | Get All Payments | legacy | live |
+| GET | `/api/v1/payments/getAllPayments` | admin (`platform.read`) | Get All Payments | legacy, changed 10 | live |
 
 ### Reference data
 
@@ -298,58 +299,58 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/countries` | none | Get All Country | legacy | live |
 | GET | `/api/v1/countries/states/:countryId` | none | Get All State By Country Id | legacy | live |
 | GET | `/api/v1/countries/cities/:stateId` | none | Get All City By State Id | legacy | live |
-| POST | `/api/v1/roles` | none | Create Role | legacy | live |
-| GET | `/api/v1/roles/:roleId` | none | Find Role By Id | legacy | live |
-| GET | `/api/v1/roles` | none | Get All Roles | legacy | live |
-| PUT | `/api/v1/roles/:roleId` | none | Update Role | legacy | live |
-| DELETE | `/api/v1/roles/:roleId` | none | Delete Role | legacy | live |
+| POST | `/api/v1/roles` | admin (`admins.manage`) | Create Role | legacy, changed 10 | live |
+| GET | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Find Role By Id | legacy, changed 10 | live |
+| GET | `/api/v1/roles` | admin (`admins.manage`) | Get All Roles | legacy, changed 10 | live |
+| PUT | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Update Role | legacy, changed 10 | live |
+| DELETE | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Delete Role | legacy, changed 10 | live |
 | GET | `/api/v1/languages` | none | Get All Language | legacy | live |
 | GET | `/api/v1/timezones` | none | Get All Timezone | legacy | live |
-| POST | `/api/v1/business-categories` | none | Create Business Category | legacy | live |
+| POST | `/api/v1/business-categories` | admin (`content.manage`) | Create Business Category | legacy, changed 10 | live |
 | GET | `/api/v1/business-categories` | none | Get All Business Category | legacy | live |
-| PUT | `/api/v1/business-categories/:businessCategoryId` | none | Update Business Category | legacy | live |
+| PUT | `/api/v1/business-categories/:businessCategoryId` | admin (`content.manage`) | Update Business Category | legacy, changed 10 | live |
 
 ### Content & support
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/faqs` | none | Get All Faq | legacy | live |
-| POST | `/api/v1/faqs` | none | Create Faq | legacy | live |
-| PUT | `/api/v1/faqs/:faqId` | none | Update Faq | legacy | live |
-| DELETE | `/api/v1/faqs/:faqId` | none | Delete Faq | legacy | live |
+| POST | `/api/v1/faqs` | admin (`content.manage`) | Create Faq | legacy, changed 10 | live |
+| PUT | `/api/v1/faqs/:faqId` | admin (`content.manage`) | Update Faq | legacy, changed 10 | live |
+| DELETE | `/api/v1/faqs/:faqId` | admin (`content.manage`) | Delete Faq | legacy, changed 10 | live |
 | POST | `/api/v1/supports` | user | Create Support | legacy | live |
 | GET | `/api/v1/supports` | user | Get All Support | legacy | live |
 | DELETE | `/api/v1/supports/:supportId` | user | Delete Support | legacy | live |
-| GET | `/api/v1/supports/getAllSupportByAdmin` | none | Get All Support Tickets By Admin | legacy | live |
-| PUT | `/api/v1/supports/updateSupportTicketStatus` | none | Update Support Ticket Status | legacy | live |
-| GET | `/api/v1/supports/getSupportTicketStatusCounts` | none | Get Support Ticket Status Counts | legacy | live |
+| GET | `/api/v1/supports/getAllSupportByAdmin` | admin (`platform.read`) | Get All Support Tickets By Admin | legacy, changed 10 | live |
+| PUT | `/api/v1/supports/updateSupportTicketStatus` | admin (`platform.write`) | Update Support Ticket Status | legacy, changed 10 | live |
+| GET | `/api/v1/supports/getSupportTicketStatusCounts` | admin (`platform.read`) | Get Support Ticket Status Counts | legacy, changed 10 | live |
 | POST | `/api/v1/contact-us` | none | Create Contact Us | legacy | live |
-| GET | `/api/v1/contact-us/get` | none | Get All Contact Us | legacy | live |
-| GET | `/api/v1/contact-us/:contactId` | none | Get Contact Us By Id | legacy | live |
-| PUT | `/api/v1/contact-us/:contactId/status` | none | Update Contact Us Status | legacy | live |
-| DELETE | `/api/v1/contact-us/:contactId` | none | Delete Contact Us | legacy | live |
-| POST | `/api/v1/blog` | none | Create Blog | legacy | live |
+| GET | `/api/v1/contact-us/get` | admin (`platform.read`) | Get All Contact Us | legacy, changed 10 | live |
+| GET | `/api/v1/contact-us/:contactId` | admin (`platform.read`) | Get Contact Us By Id | legacy, changed 10 | live |
+| PUT | `/api/v1/contact-us/:contactId/status` | admin (`platform.write`) | Update Contact Us Status | legacy, changed 10 | live |
+| DELETE | `/api/v1/contact-us/:contactId` | admin (`platform.write`) | Delete Contact Us | legacy, changed 10 | live |
+| POST | `/api/v1/blog` | admin (`content.manage`) | Create Blog | legacy, changed 10 | live |
 | GET | `/api/v1/blog/get` | none | Get All Blogs | legacy | live |
 | GET | `/api/v1/blog/slug/:slug` | none | Get Blog By Slug | legacy | live |
 | GET | `/api/v1/blog/:blogId` | none | Get Blog By Id | legacy | live |
-| PUT | `/api/v1/blog/:blogId` | none | Update Blog | legacy | live |
-| DELETE | `/api/v1/blog/:blogId` | none | Delete Blog | legacy | live |
-| POST | `/api/v1/blog-category` | none | Create Blog Category | legacy | live |
+| PUT | `/api/v1/blog/:blogId` | admin (`content.manage`) | Update Blog | legacy, changed 10 | live |
+| DELETE | `/api/v1/blog/:blogId` | admin (`content.manage`) | Delete Blog | legacy, changed 10 | live |
+| POST | `/api/v1/blog-category` | admin (`content.manage`) | Create Blog Category | legacy, changed 10 | live |
 | GET | `/api/v1/blog-category/get` | none | Get All Blog Categories | legacy | live |
 | GET | `/api/v1/blog-category/:categoryId` | none | Get Blog Category By Id | legacy | live |
-| PUT | `/api/v1/blog-category/:categoryId` | none | Update Blog Category | legacy | live |
-| DELETE | `/api/v1/blog-category/:categoryId` | none | Delete Blog Category | legacy | live |
+| PUT | `/api/v1/blog-category/:categoryId` | admin (`content.manage`) | Update Blog Category | legacy, changed 10 | live |
+| DELETE | `/api/v1/blog-category/:categoryId` | admin (`content.manage`) | Delete Blog Category | legacy, changed 10 | live |
 
 ### System & infrastructure
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/system/info` | none | Get System Info | legacy | live |
-| GET | `/api/v1/system/time` | none | Get Server Time | legacy | live |
-| GET | `/api/v1/system/usage` | none | Get Resource Usage | legacy | live |
-| GET | `/api/v1/system/process` | none | Get Process Info | legacy | live |
-| GET | `/api/v1/logs` | none | Read today's log file | legacy | live |
-| DELETE | `/api/v1/logs` | none | Delete all log files | legacy | live |
+| GET | `/api/v1/system/info` | admin (`system.read`) | Get System Info | legacy, changed 10 | live |
+| GET | `/api/v1/system/time` | admin (`system.read`) | Get Server Time | legacy, changed 10 | live |
+| GET | `/api/v1/system/usage` | admin (`system.read`) | Get Resource Usage | legacy, changed 10 | live |
+| GET | `/api/v1/system/process` | admin (`system.read`) | Get Process Info | legacy, changed 10 | live |
+| GET | `/api/v1/logs` | admin (`system.read`) | Read today's log file | legacy, changed 10 | live |
+| DELETE | `/api/v1/logs` | admin (`system.read`) | Delete all log files | legacy, changed 10 | live |
 | GET | `/images/:filename` | none | Serve an uploaded file (`public/uploads/images`) | legacy | live |
 | GET | `/videos/:filename` | none | Serve an uploaded file (`public/uploads/videos`) | legacy | live |
 | GET | `/gifs/:filename` | none | Serve an uploaded file (`public/uploads/gifs`) | legacy | live |

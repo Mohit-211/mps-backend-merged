@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import httpStatus from 'http-status';
 
 import config from '../../configs/config';
-import { UserToken, IUserToken, IUser } from '../../models';
+import { User, UserToken, IUserToken, IUser } from '../../models';
 import { mongoOperationsTypes, tokenTypes } from '../../configs/constantTypes';
 import { ApiError, mongoFunctions } from '../../utils';
 
@@ -15,6 +15,7 @@ interface TokenPayload extends JwtPayload {
 	type: string;
 	role_id: number;
 	userType?: string;
+	tv?: number;
 }
 
 export const generateToken = (
@@ -24,6 +25,7 @@ export const generateToken = (
 	role_id: number,
 	user_type: string,
 	secret: string = config.constants.jwt.secret,
+	tokenVersion = 0,
 ): string => {
 	try {
 		const payload: TokenPayload = {
@@ -33,8 +35,10 @@ export const generateToken = (
 			type,
 			role_id,
 			user_type,
+			// Phase 10: User.token_version at issue time (revocation).
+			tv: tokenVersion,
 		};
-		return jwt.sign(payload, secret);
+		return jwt.sign(payload, secret, { algorithm: 'HS256' });
 	} catch (error: any) {
 		throw new ApiError(
 			error.statusCode
@@ -80,10 +84,13 @@ export const verifyToken = async (
 	type: string,
 ): Promise<any | null> => {
 	try {
-		const payload = jwt.verify(
-			token,
-			config.constants.jwt.secret,
-		) as TokenPayload;
+		let payload: TokenPayload;
+		try {
+			// Phase 10: HS256 only; a bad signature or an expired token is a 401 (it used to become a 500).
+			payload = jwt.verify(token, config.constants.jwt.secret, { algorithms: ['HS256'] }) as TokenPayload;
+		} catch {
+			throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid or expired token. Please log in again.');
+		}
 		if (!payload) {
 			throw new ApiError(
 				httpStatus.UNAUTHORIZED,
@@ -167,6 +174,8 @@ export const generateAuthAccessTokens = async (user: IUser): Promise<any> => {
 			tokenTypes.ACCESS,
 			user.role_id,
 			user.user_type,
+			config.constants.jwt.secret,
+			user.token_version ?? 0,
 		);
 
 		return {
@@ -202,6 +211,8 @@ export const generateAuthRefreshTokens = async (user: IUser): Promise<any> => {
 			tokenTypes.REFRESH,
 			user.role_id,
 			user.user_type,
+			config.constants.jwt.secret,
+			user.token_version ?? 0,
 		);
 
 		const refreshTokenDoc = await saveToken(
@@ -232,4 +243,12 @@ export const generateAuthRefreshTokens = async (user: IUser): Promise<any> => {
 			error.message,
 		);
 	}
+};
+/**
+ * Phase 10 (AUDIT S24): ends every session of a user: bumps token_version (access tokens stop working
+ * at once) and deletes the stored refresh tokens. Used on password change/reset and account deletion.
+ */
+export const revokeUserSessions = async (userId: any): Promise<void> => {
+	await User.updateOne({ _id: userId }, { $inc: { token_version: 1 } });
+	await UserToken.deleteMany({ user_id: userId });
 };

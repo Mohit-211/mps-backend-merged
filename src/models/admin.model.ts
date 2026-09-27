@@ -19,6 +19,10 @@ export interface IAdmin extends Document {
 	remember_token?: string;
 	otp?: string;
 	is_otp_valid: boolean;
+	/** Phase 10: OTP expiry and failed attempts; token_version revokes issued admin tokens. */
+	otp_expires_at?: Date | null;
+	otp_attempts?: number;
+	token_version?: number;
 	is_active: boolean;
 	created_at: Date;
 	updated_at: Date;
@@ -83,6 +87,9 @@ const adminSchema = new Schema<IAdmin>(
 			type: Boolean,
 			default: true,
 		},
+		otp_expires_at: { type: Date, default: null },
+		otp_attempts: { type: Number, default: 0 },
+		token_version: { type: Number, default: 0 },
 		is_active: {
 			type: Boolean,
 			default: true,

@@ -15,21 +15,21 @@ import swaggerDocument from '../swagger.json';
 import config from './configs/config';
 import corsConfigs from './configs/corsConfigs';
 import { successHandler, errorHandler } from './configs/morgan';
-import upload from './configs/multer';
+import { multipartFieldsOnly } from './configs/multer';
 import logger from './configs/logger';
 import {
 	ApiError,
 	apiErrorHandler,
 	responseWrapper,
-	authLimiter,
 	credentials,
 	getQueryParams,
-	handleImageCompression,
 } from './utils';
 import routes from './routes/v1';
+import { adminOnly } from './middlewares/auth/adminAuth.middleware';
 import devConnectRoutes from './routes/dev/devConnect.route';
 import shareRoutes from './routes/share.route';
 import { usageScope } from './services/usage/scope';
+import { sanitizeRequest } from './middlewares/common/sanitizeRequest';
 import { queryTypesArr } from './configs/constantTypes';
 
 const app = express();
@@ -53,38 +53,33 @@ cron.schedule('* * * * *', () => {
 	logger.info('Hello, I am still running.......😊');
 });
 
-// set security HTTP headers
+// Phase 10 (AUDIT S5): behind nginx; req.ip is the client (rate limits, logs).
+app.set('trust proxy', config.security.trustProxyHops);
+
+// Phase 10 (AUDIT S9): every helmet header, with a strict CSP (no polyfill.io, no unsafe-eval). The API
+// serves JSON; /docs (Swagger UI) needs inline styles only. Uploaded images are embedded by the web app
+// on another origin, so resources may be loaded cross-origin. Routes with their own CSP (/r, /dev) override it.
 app.use(
-	helmet.contentSecurityPolicy({
-		useDefaults: true,
-		directives: {
-			'img-src': [
-				"'self' data:",
-				'*.google-analytics.com',
-				'*.vimeocdn.com',
-			],
-			'script-src': [
-				"'self'",
-				'*.polyfill.io',
-				"'unsafe-eval'",
-				"'unsafe-inline'",
-			],
-			'default-src': [
-				"'self'",
-				'*.google-analytics.com',
-				'*.gstatic.com',
-				'*.googleapis.com',
-				'vimeo.com',
-				'*.vimeo.com',
-			],
+	helmet({
+		contentSecurityPolicy: {
+			useDefaults: true,
+			directives: {
+				'default-src': ["'self'"],
+				'script-src': ["'self'"],
+				'style-src': ["'self'", "'unsafe-inline'"],
+				'img-src': ["'self'", 'data:'],
+				'frame-ancestors': ["'none'"],
+			},
 		},
+		crossOriginResourcePolicy: { policy: 'cross-origin' },
 	}),
 );
 
 // parse json request body
-app.use(express.json({ limit: '100mb' }));
+// Phase 10 (AUDIT S10): 1 MB bodies (the largest legitimate one is a ~700 KB base64 logo).
+app.use(express.json({ limit: config.security.bodyLimit }));
 // parse urlencoded request body
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.urlencoded({ limit: config.security.bodyLimit, extended: true }));
 app.use(requestIp.mw());
 
 // gzip compression
@@ -108,21 +103,12 @@ app.use(
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '1';
 
-app.use((req: Request, res: Response, next: NextFunction) => {
-	res.setHeader('Access-Control-Allow-Origin', '*');
-	res.setHeader('Access-Control-Allow-Methods', '*');
-	res.setHeader('Access-Control-Allow-Headers', '*');
-	res.removeHeader('Cross-Origin-Embedder-Policy');
-	next();
-});
-
+// Phase 10 (AUDIT S8): no wildcard CORS; the ACCESSDOMAINS allowlist below is the only CORS policy.
 app.use(credentials);
 app.use(cors(corsConfigs));
 
-// limit repeated failed requests to auth endpoints
-if (config.essentials.env === 'production') {
-	app.use('/v1/auth', authLimiter);
-}
+// Phase 10 (AUDIT S5): the old limiter was mounted on '/v1/auth' (no such path). Sign-in, OTP and
+// reset endpoints are rate-limited per email / IP in their services (Mongo counters, cluster-wide).
 
 app.get('/api/healthcheck', (req: Request, res: Response) => {
 	const data = { response: 'ok' };
@@ -133,8 +119,9 @@ app.get('/ping', (req: Request, res: Response) => {
 	res.status(200).send('Hello World !! pong 😊 pong 😊');
 });
 
-// Added multer with all v1 api routes
-app.use('/api/v1', usageScope, upload, handleImageCompression, routes);
+// Phase 10 (AUDIT S7): no global file uploads. Multipart requests get their text fields parsed here
+// (files refused), except on the few upload routes, which parse files after authentication.
+app.use('/api/v1', usageScope, multipartFieldsOnly, sanitizeRequest, routes);
 
 // Phase 12: public report share links (/r/<token>), outside /api/v1 and without multer.
 app.use('/r', shareRoutes);
@@ -146,7 +133,8 @@ if (config.essentials.env === 'development') {
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.get('/api/v1/logs', (req, res) => {
+// Phase 10 (AUDIT S3): reading and deleting logs is super admin only.
+app.get('/api/v1/logs', adminOnly('system.read'), (req, res) => {
 	const currentDate = DateTime.now().toFormat('yyyy-MM-dd');
 	const logFileName = `${currentDate}.log`;
 	const logFilePath = path.join(LOG_DIR, logFileName);
@@ -161,7 +149,7 @@ app.get('/api/v1/logs', (req, res) => {
 	});
 });
 
-app.delete('/api/v1/logs', async (req: Request, res: Response) => {
+app.delete('/api/v1/logs', adminOnly('system.read'), async (req: Request, res: Response) => {
 	const logDirectory = LOG_DIR;
 	fs.readdir(logDirectory, async (err, files) => {
 		if (err) {
@@ -191,28 +179,28 @@ app.delete('/api/v1/logs', async (req: Request, res: Response) => {
 });
 
 
-// All File Apis
+// All File Apis. Phase 10 (AUDIT S16): the name is reduced to its basename and must resolve inside its
+// folder (no ../ traversal); the cache is keyed by folder + name.
 const fileApis = ['images', 'videos', 'gifs', 'docs', 'songs'];
 fileApis.forEach((api) => {
+	const folder = path.join(PUBLIC_DIR, 'uploads', api);
 	app.get(`/${api}/:filename`, (req: Request, res: Response) => {
-		const filename = req.params.filename;
-		const cachedFile = myCache.get(filename);
-		
-		if (cachedFile) {
-		  return res.sendFile(cachedFile as string); // Cast to string
-		} else {
-		  const filePath = path.join(PUBLIC_DIR, 'uploads', api, filename);
-		  fs.stat(filePath, (err, stat) => {
-			if (err || !stat.isFile()) {
-			  const defaultImage = path.join(PUBLIC_DIR, 'assets', '404file.jpg');
-			  res.sendFile(defaultImage);
-			} else {
-			  myCache.set(filename, filePath);
-			  res.sendFile(filePath);
-			}
-		  });
-		}
-	  });
+		const notFound = () =>
+			res.status(httpStatus.NOT_FOUND).sendFile(path.join(PUBLIC_DIR, 'assets', '404file.jpg'), (err) => {
+				if (err && !res.headersSent) res.status(httpStatus.NOT_FOUND).end();
+			});
+		const filename = path.basename(req.params.filename);
+		const filePath = path.resolve(folder, filename);
+		if (filename !== req.params.filename || !filePath.startsWith(folder + path.sep)) return notFound();
+		const cacheKey = `${api}/${filename}`;
+		const cachedFile = myCache.get<string>(cacheKey);
+		if (cachedFile) return res.sendFile(cachedFile);
+		fs.stat(filePath, (err, stat) => {
+			if (err || !stat.isFile()) return notFound();
+			myCache.set(cacheKey, filePath);
+			return res.sendFile(filePath);
+		});
+	});
 });
 
 // send back a 404 error for any unknown api request

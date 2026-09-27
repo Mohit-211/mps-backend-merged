@@ -1,6 +1,6 @@
 import express from 'express';
 import { citationController } from '../../../controllers';
-import { userAuthMiddleware, citationMiddleware } from '../../../middlewares';
+import { adminAuthMiddleware, userAuthMiddleware, citationMiddleware } from '../../../middlewares';
 const router = express.Router();
 
 
@@ -24,6 +24,7 @@ router.post('/builder', [userAuthMiddleware.verifyAuthJWTToken], citationControl
 
 
 // admin api
-router.get('/getAllCitatioList', citationController.getAllCitatioList);
+// Phase 10 (AUDIT S2): the full citation list is platform-admin only.
+router.get('/getAllCitatioList', adminAuthMiddleware.adminOnly('platform.read'), citationController.getAllCitatioList);
 
 export default router;

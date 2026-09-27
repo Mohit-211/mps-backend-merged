@@ -71,15 +71,27 @@ const envVarsSchema = Joi.object({
 	REPORT_RENDER_CONCURRENCY: Joi.number().integer().min(1).max(2).default(1).description('report-generate jobs at once per process'),
 	REPORT_EMAIL_MAX_ATTACHMENT_MB: Joi.number().min(1).max(25).default(10).description('Larger report PDFs are emailed as a 30-day share link instead of an attachment'),
 	SHARE_BASE_URL: Joi.string().uri().allow('').default('').description('Public base URL of this API for report share links (/r/<token>); empty = API_BASE_URL'),
+	PAYPAL_WEBHOOK_ID: Joi.string()
+		.allow('')
+		.when('NODE_ENV', { is: 'production', then: Joi.required().invalid('') })
+		.description('Phase 10: PayPal webhook id; every webhook is verified with PayPal (required in production)'),
+	TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(5).default(1).description('Phase 10: reverse proxies in front of the app (nginx = 1), so req.ip is the client'),
 	TOKEN_ENCRYPTION_KEY: Joi.string()
 		.allow('')
 		.pattern(/^[0-9a-fA-F]{64}$/)
 		.when('NODE_ENV', { is: 'production', then: Joi.required().invalid('') })
 		.description('32-byte hex key (AES-256-GCM) for stored OAuth tokens'),
 
-	JWT_SECRET: Joi.string().required().description('JWT secret key'),
+	JWT_SECRET: Joi.string()
+		.required()
+		.when('NODE_ENV', { is: 'production', then: Joi.string().min(32) })
+		.description('JWT secret for user tokens (Phase 10: at least 32 characters in production)'),
+	ADMIN_JWT_SECRET: Joi.string()
+		.allow('')
+		.when('NODE_ENV', { is: 'production', then: Joi.string().min(32).required().invalid('', Joi.ref('JWT_SECRET')) })
+		.description('Phase 10: separate secret for admin tokens (required in production, ≥ 32 characters, not JWT_SECRET)'),
 	JWT_ACCESS_EXPIRATION_DAYS: Joi.number()
-		.default(7)
+		.default(1) // Phase 10 (AUDIT S24): was 7; refresh tokens stay 30 days
 		.description('days after which access tokens expire'),
 	JWT_REFRESH_EXPIRATION_DAYS: Joi.number()
 		.default(30)
@@ -218,6 +230,11 @@ interface Config {
 		debounceSeconds: number;
 	};
 
+	paypal: {
+		/** Phase 10: webhook signature verification; empty = every webhook is refused. */
+		webhookId: string;
+	};
+
 	reports: {
 		/** Absolute path of the private reports directory (PDFs, branding logos). */
 		storageDir: string;
@@ -231,11 +248,16 @@ interface Config {
 	security: {
 		/** Empty when unset (development/test): token encryption then throws on use. */
 		tokenEncryptionKey: string;
+		/** Phase 10: `trust proxy` hops and the JSON / urlencoded body limit. */
+		trustProxyHops: number;
+		bodyLimit: string;
 	};
 
 	constants: {
 		jwt: {
 			secret: string;
+			/** Phase 10: admin token key; empty in development/test (derived from JWT_SECRET there). */
+			adminSecret: string;
 			accessExpirationDays: number;
 			refreshExpirationDays: number;
 		};
@@ -352,6 +374,10 @@ const config: Config = {
 		debounceSeconds: envVars.REPORT_DEBOUNCE_SECONDS,
 	},
 
+	paypal: {
+		webhookId: envVars.PAYPAL_WEBHOOK_ID ?? '',
+	},
+
 	reports: {
 		storageDir: path.resolve(process.cwd(), envVars.REPORTS_STORAGE_DIR),
 		retentionMonths: envVars.REPORT_RETENTION_MONTHS,
@@ -362,11 +388,14 @@ const config: Config = {
 
 	security: {
 		tokenEncryptionKey: envVars.TOKEN_ENCRYPTION_KEY ?? '',
+		trustProxyHops: envVars.TRUST_PROXY_HOPS,
+		bodyLimit: '1mb',
 	},
 
 	constants: {
 		jwt: {
 			secret: envVars.JWT_SECRET,
+			adminSecret: envVars.ADMIN_JWT_SECRET ?? '',
 			accessExpirationDays: envVars.JWT_ACCESS_EXPIRATION_DAYS,
 			refreshExpirationDays: envVars.JWT_REFRESH_EXPIRATION_DAYS,
 		},

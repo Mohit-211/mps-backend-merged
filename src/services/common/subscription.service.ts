@@ -24,6 +24,7 @@ import {
 	handleSubscriptionUpdated,
 } from './paypal.service';
 import { sendSubscriptionWelcomeMail } from './email.service';
+import logger from '../../configs/logger';
 
 export const createPlan = async (body: any) => {
 	try {
@@ -117,10 +118,7 @@ export const createPlan = async (body: any) => {
 			throw paypalError;
 		}
 	} catch (error: any) {
-		console.error(
-			'PayPal Create Plan Error:',
-			error?.response?.data || error,
-		);
+		logger.error(`paypal create plan failed: status ${error?.response?.status ?? error?.message}`);
 
 		throw new ApiError(
 			error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
@@ -362,7 +360,6 @@ export const validateCoupon = async (body: any) => {
 
 		const codeUpper = coupon.code.toUpperCase();
 
-	
 
 	if (codeUpper.startsWith('GUSD')) {
 	const discountAmount = Number(
@@ -995,7 +992,6 @@ export const createSubscription = async (body: any) => {
 // export const createSubscription = async (body: any) => {
 // 	try {
 // 		const { plan_id, coupon_code, business_details } = body;
-		
 
 // 		if (!plan_id) {
 // 			throw new ApiError(httpStatus.BAD_REQUEST, 'Plan is required.');
@@ -1056,7 +1052,6 @@ export const createSubscription = async (body: any) => {
 // 			plan.currency,
 // 		);
 
-		
 // 		const payment = await Payment.create({
 // 			payment_type: 'SUBSCRIPTION',
 
@@ -1246,11 +1241,11 @@ export const createSubscription = async (body: any) => {
 
 export const paypalWebhook = async (event: any) => {
 	try {
-		console.log('========================================');
-		console.log('PAYPAL WEBHOOK RECEIVED');
-		console.log('EVENT:', event.event_type);
-		console.log(JSON.stringify(event, null, 2));
-		console.log('========================================');
+		// Phase 10 (AUDIT S4, S21): one line, no payload (it carries customer PII); ids must be plain strings.
+		logger.info(`paypal webhook ${String(event?.event_type)} ${String(event?.id)}`);
+		if (event?.resource && event.resource.id !== undefined && typeof event.resource.id !== 'string') {
+			throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid webhook resource.');
+		}
 
 		switch (event.event_type) {
 			case 'BILLING.SUBSCRIPTION.CREATED':
@@ -1294,14 +1289,14 @@ export const paypalWebhook = async (event: any) => {
 				break;
 
 			default:
-				console.log('Unhandled PayPal Event:', event.event_type);
+				logger.info(`paypal webhook: unhandled event type ${String(event.event_type)}`);
 		}
 
 		return {
 			message: 'Webhook processed successfully.',
 		};
 	} catch (err) {
-		console.error('PayPal Webhook Error:', err);
+		logger.error(`paypal webhook ${String(event?.event_type)} failed: ${(err as Error).message}`);
 		throw err;
 	}
 };

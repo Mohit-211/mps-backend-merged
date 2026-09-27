@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from "http-status";
 import validator from "validator";
-import randomize from "randomatic";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import moment from "moment-timezone";
 import mongoose from "mongoose";
@@ -13,7 +13,7 @@ import {
   userStatusTypes,
   userTypes,
 } from "../../configs/constantTypes";
-import { ApiError, generateRandomString, mongoFunctions } from "../../utils";
+import { ApiError, mongoFunctions } from "../../utils";
 import {
   IUser,
   IUserAuth,
@@ -39,7 +39,9 @@ import {
 import {
   generateAuthAccessTokens,
   generateAuthTokens,
+  revokeUserSessions,
 } from "../common/token.service";
+import { LIMITS, hit } from "../auth/rateLimit";
 import { TokenDefination } from "../../types/interfaces";
 import config from "../../configs/config";
 import { gbpOAuthService } from "../gbp/oauth.service";
@@ -52,15 +54,17 @@ export const sendOTP = async (body: BodyDefinition) => {
   try {
     const { email, type } = body;
 
-    if (!validator.isEmail(email) || !otpTypesArr.includes(type)) {
+    if (typeof email !== "string" || !validator.isEmail(email) || !otpTypesArr.includes(type)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid Email or Type.");
     }
+    // Phase 10 (AUDIT S22): legacy OTP requests are rate-limited per email.
+    await hit(LIMITS.legacyOtpPerEmail, [email]);
 
     const userDoc = await User.findOne({ email: email });
     if (!userDoc) throw new ApiError(httpStatus.BAD_REQUEST, "User Not Found");
 
     await OTP.deleteMany({ email, type }).exec();
-    const generatedOTP = randomize("0", 6);
+    const generatedOTP = String(crypto.randomInt(100000, 1000000));
     const otpObj = {
       email: email,
       code: generatedOTP,
@@ -92,7 +96,7 @@ export const verifyOTP = async (body: BodyDefinition) => {
   try {
     const { email, otp, type } = body;
 
-    if (!email || !otp || !type) {
+    if (typeof email !== "string" || typeof otp !== "string" || typeof type !== "string" || !email || !otp || !type) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         "Please Enter Required Fields : email, otp, type"
@@ -113,12 +117,17 @@ export const verifyOTP = async (body: BodyDefinition) => {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid Email or Type");
     }
 
-    if (otp !== otpDoc.code) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "Invalid OTP Entered");
-    }
-
     if (otpDoc.otp_expiration_time < new Date()) {
       throw new ApiError(httpStatus.BAD_REQUEST, "OTP has been Expired");
+    }
+    // Phase 10 (AUDIT S22): 5 attempts per code, then it is void.
+    if ((otpDoc.attempts ?? 0) >= 5) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Too many attempts. Request a new code.");
+    }
+    if (otp !== otpDoc.code) {
+      otpDoc.attempts = (otpDoc.attempts ?? 0) + 1;
+      await otpDoc.save();
+      throw new ApiError(httpStatus.BAD_REQUEST, "Invalid OTP Entered");
     }
 
     otpDoc.is_verified = true;
@@ -130,8 +139,10 @@ export const verifyOTP = async (body: BodyDefinition) => {
         { $set: { status: userStatusTypes.ACCEPTED } }
       );
     } else {
-      token = generateRandomString(50);
-      otpDoc.code = token;
+      // Phase 10 (AUDIT S22): a random single-use reset token, stored hashed, valid 30 minutes.
+      token = crypto.randomBytes(32).toString("base64url");
+      otpDoc.code = crypto.createHash("sha256").update(token).digest("hex");
+      otpDoc.otp_expiration_time = new Date(Date.now() + 30 * 60 * 1000);
     }
     await otpDoc.save();
 
@@ -270,7 +281,7 @@ export const login = async (body: BodyDefinition, header: HeaderDefinition) => {
     userDoc = userDoc[0];
     if (userDoc.status === userStatusTypes.REVIEWING || userDoc.status === userStatusTypes.PENDING) {
       await OTP.deleteMany({ email, type: otpTypes.EMAIL_VERIFICATION }).exec();
-      const generatedOTP = randomize("0", 6);
+      const generatedOTP = String(crypto.randomInt(100000, 1000000));
       const otpObj = {
         email: email,
         code: generatedOTP,
@@ -355,6 +366,8 @@ export const resetPassword = async (body: BodyDefinition) => {
         "Failed to Change Password."
       );
     }
+    // Phase 10 (AUDIT S24): a password change ends every session (the client signs in again).
+    await revokeUserSessions(user._id);
 
     return "";
   } catch (error) {
@@ -387,7 +400,7 @@ export const forgotPassword = async (body: BodyDefinition) => {
       );
     }
     await OTP.deleteMany({ user_id: user._id });
-    await UserToken.deleteMany({ user_id: user._id });
+    await revokeUserSessions(user._id);
     await UserLoginTiming.updateMany(
       { user_id: user._id },
       { $set: { token_id: null } }
@@ -499,6 +512,13 @@ const saveLogoutTiming = async (
 export const deactivateAccount = async (body: BodyDefinition) => {
   try {
     const { user } = body;
+    // Phase 10 (AUDIT S23): disconnect every Google connection (revoke at Google, unbind, cancel the
+    // bindings' jobs, delete the tokens) and end the memberships before the account goes.
+    for (const conn of await tokenStore.listConnections(user._id, tokenTypes.GBP)) {
+      await bindingService.disconnect(user._id, conn.googleSub).catch(() => undefined);
+    }
+    await Membership.updateMany({ user_id: user._id }, { $set: { status: "removed" } });
+    await revokeUserSessions(user._id);
     await User.deleteOne({ _id: user._id });
     await Profile.deleteOne({ user_id: user._id });
 

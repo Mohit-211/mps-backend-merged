@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from 'http-status';
+import logger from '../../configs/logger';
+import { findLocationForUser } from '../org/access';
 import axios from 'axios'
 import moment from 'moment-timezone';
 import { DateTime } from 'luxon'
@@ -111,14 +113,14 @@ export const addPostToGBP = async (body: BodyDefinition): Promise<any> => {
 		}
 	} catch (err: any) {
 		if (axios.isAxiosError(err) && err.response) {
-			console.error('Google API Error:', JSON.stringify(err.response.data, null, 2));
+			logger.error(`gbp post: Google API error ${err.response?.status ?? ''}`);
 			throw new ApiError(
 				err.response.status || httpStatus.INTERNAL_SERVER_ERROR,
 				err.response.data?.error?.message || 'Google API request failed'
 			);
 		} else {
 			const errorMessage = err.errors?.[0]?.message || err.message || 'Unknown server error';
-			console.error('Internal Error:', errorMessage);
+			logger.error(`gbp post: internal error: ${errorMessage}`);
 			throw new ApiError(
 				err.code || httpStatus.INTERNAL_SERVER_ERROR,
 				errorMessage
@@ -252,8 +254,9 @@ export const deletePost = async (body: BodyDefinition): Promise<any> => {
 			throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid input data. Please provide post_id.');
 		}
 		const postDoc = await GBPPost.findOne({ _id: post_id, is_active: true });
-		if (!postDoc) {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'Post not found');
+		// Phase 10 (AUDIT S25): only a post of a location the caller may edit.
+		if (!postDoc || !postDoc.location_id || !(await findLocationForUser(user._id, String(postDoc.location_id), { write: true }))) {
+			throw new ApiError(httpStatus.NOT_FOUND, 'Post not found');
 		}
 
 		if (postDoc.gbpPostId) {
@@ -292,10 +295,10 @@ export const deleteGBPPost = async (userId: string, gbpPostId: string): Promise<
 
 	} catch (err: any) {
 		if (axios.isAxiosError(err) && err.response) {
-			console.error('Google API Delete Error:', JSON.stringify(err.response.data, null, 2));
+			logger.error(`gbp post delete: Google API error ${err.response?.status ?? ''}`);
 			return false;
 		} else {
-			console.error('Unknown error while deleting GBP post:', err.message);
+			logger.error(`gbp post delete failed: ${err.message}`);
 			return false;
 		}
 	}

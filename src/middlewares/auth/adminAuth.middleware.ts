@@ -6,18 +6,16 @@
 
 import httpStatus from "http-status";
 import validator from "validator";
-import jwt from "jsonwebtoken";
-import config from "../../configs/config";
+import { AdminPermission, permissionsFor } from "../../configs/adminPermissions";
+import { AdminTokenClaims, verifyAdminToken } from "../../services/admin/adminToken";
 
 import {
 	responseWrapper,
-	ApiError,
+	apiErrorWithData,
 	catchAsync,
-	validatePassword,
 	isValidMongoObjectId,
-	mongoFunctions,
 } from "../../utils";
-import { Admin, Role } from "../../models";
+import { Admin, IAdmin, Role } from "../../models";
 
 export const validateSignInReqBody = catchAsync(async (req, res, next) => {
 	const { email, password } = req.body;
@@ -50,73 +48,52 @@ export const validateSignInReqBody = catchAsync(async (req, res, next) => {
 	next();
 });
 
+/**
+ * Phase 10 (AUDIT S19, S1): admin session tokens only (adminToken.ts: ADMIN_JWT_SECRET, HS256,
+ * audience mps-admin, purpose session). The admin must exist, be active, and still have the token's
+ * token_version and role; the role must exist and be active. Sets res.locals.admin (with permissions)
+ * and, for the legacy admin controllers, req.body.user.
+ */
 export const validateAdminJWTToken = catchAsync(async (req, res, next) => {
+	const unauthorized = () => responseWrapper(res, "", "Unauthorized: please sign in as an administrator.", httpStatus.UNAUTHORIZED);
+	const authHeader = req.headers["authorization"];
+	const token = typeof authHeader === "string" && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+	if (!token) return unauthorized();
+	let claims: AdminTokenClaims;
 	try {
-		// ✅ Get token from headers
-		const authHeader = req.headers["authorization"];
-		const token = authHeader?.split(" ")[1];
-
-		if (!token) {
-			return responseWrapper(
-				res,
-				"",
-				"Access denied: No token provided",
-				httpStatus.UNAUTHORIZED
-			);
-		}
-
-		// ✅ Verify token
-		const decoded = jwt.verify(
-			token,
-			Buffer.from(config.constants.jwt.secret, "hex"),
-			{
-				algorithms: ["HS256"],
-			}
-		) as {
-			id: string;
-			role_id: number;
-			department_id?: string;
-			is_backlisted?: boolean;
-		};
-
-		// ✅ Handle blacklisted token
-		if (decoded?.is_backlisted) {
-			return responseWrapper(res, "", "Invalid Token", httpStatus.UNAUTHORIZED);
-		}
-
-		// ✅ Fetch admin from DB
-		const admin = await Admin.findById(decoded.id);
-		if (!admin) {
-			return responseWrapper(res, "", "Admin not found", httpStatus.NOT_FOUND);
-		}
-
-		// ✅ Fetch role name from Role table using role_id
-		const roleDoc = await Role.findOne({ role_id: decoded.role_id });
-		if (!roleDoc) {
-			throw new ApiError(httpStatus.BAD_REQUEST, "Invalid role assigned");
-		}
-
-		// ✅ Attach user and token info to request
-		req.body.user = {
-			_id: admin._id,
-			name: admin.name,
-			email: admin.email,
-			role_id: decoded.role_id,
-			role_name: roleDoc.name,
-			department_id: decoded.department_id || null,
-		};
-
-		req.body.tokenPayload = decoded; // use decoded as token payload
-		req.body.ip_address = req.ip;
-
-		next();
-	} catch (error: any) {
-		next(
-			new ApiError(
-				error.statusCode || httpStatus.UNAUTHORIZED,
-				error.message || "Invalid or expired token"
-			)
-		);
+		claims = verifyAdminToken(token, "session");
+	} catch {
+		return unauthorized();
 	}
+	if (!isValidMongoObjectId(claims.sub)) return unauthorized();
+	const admin = await Admin.findOne({ _id: claims.sub, is_active: true }).select({ name: 1, email: 1, role_id: 1, department_id: 1, token_version: 1 }).lean<IAdmin>();
+	if (!admin || (admin.token_version ?? 0) !== claims.tv || admin.role_id !== claims.role_id) return unauthorized();
+	const role = await Role.findOne({ role_id: admin.role_id, is_active: true }).select({ name: 1 }).lean<{ name: string }>();
+	if (!role) return unauthorized();
+	const permissions = permissionsFor(admin.role_id);
+	res.locals.admin = { id: String(admin._id), name: admin.name ?? null, email: admin.email, role_id: admin.role_id, role_name: role.name, permissions };
+	req.body = req.body ?? {};
+	req.body.user = {
+		_id: admin._id,
+		name: admin.name,
+		email: admin.email,
+		role_id: admin.role_id,
+		role_name: role.name,
+		department_id: admin.department_id ?? null,
+	};
+	req.body.ip_address = req.ip;
+	next();
 });
 
+/** Phase 10: after validateAdminJWTToken; 403 { reason: 'forbidden' } without the permission. */
+export const requireAdminPermission = (permission: AdminPermission) =>
+	catchAsync(async (req, res, next) => {
+		const admin = res.locals.admin as { permissions?: AdminPermission[] } | undefined;
+		if (!admin?.permissions?.includes(permission)) {
+			throw apiErrorWithData(httpStatus.FORBIDDEN, "Your admin role doesn't allow this.", { reason: "forbidden", permission });
+		}
+		next();
+	});
+
+/** Both guards in one (router.use(...adminOnly('platform.read'))). */
+export const adminOnly = (permission: AdminPermission) => [validateAdminJWTToken, requireAdminPermission(permission)];

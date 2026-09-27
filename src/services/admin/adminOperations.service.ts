@@ -1,5 +1,6 @@
 /** @format */
 import mongoose from "mongoose";
+import logger from '../../configs/logger';
 import httpStatus from "http-status";
 import { ApiError } from "../../utils";
 import { Client, IUser, User } from "../../models";
@@ -49,7 +50,6 @@ export const getAllAgencies = async () => {
 export const getAgencyById = async (params: ParamsDefinition): Promise<IUser | null> => {
   try {
     const { id } = params;
-      console.log("Agency ID param:", id);
 
     // Validate before converting
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {

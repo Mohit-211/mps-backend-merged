@@ -2,29 +2,29 @@
 
 import httpStatus from "http-status";
 import { adminAuthService } from "../../services";
-import { catchAsync, pick, responseWrapper, validatePassword } from "../../utils";
+import { catchAsync, pick, responseWrapper } from "../../utils";
 
 
 export const createAdminUser = catchAsync(async (req, res) => {
-  await adminAuthService.createAdminUser(req.body);
-  return responseWrapper(res, "", "Admin Created Successfully.", httpStatus.CREATED);
+  const admin = await adminAuthService.createAdminUser(req.body);
+  return responseWrapper(res, admin, "Admin Created Successfully.", httpStatus.CREATED);
 });
 
 
 export const loginAdminUser = catchAsync(async (req, res) => {
-  const response = await adminAuthService.loginAdminUser(req.body);
+  const response = await adminAuthService.loginAdminUser({ ...req.body, ip_address: req.ip });
   return responseWrapper(res, response, "Successfully Logged in.", httpStatus.OK);
 });
 
 
 export const sendOTP = catchAsync(async (req, res) => {
-  const result = await adminAuthService.sendOTP(req.body);
+  const result = await adminAuthService.sendOTP({ ...req.body, ip_address: req.ip });
   return responseWrapper(res, result, "OTP has been sent to your email.", httpStatus.OK);
 });
 
 
 export const verifyOTP = catchAsync(async (req, res) => {
-  const result = await adminAuthService.verifyOTP(req.body);
+  const result = await adminAuthService.verifyOTP({ ...req.body, ip_address: req.ip });
   return responseWrapper(res, result, "OTP has been verified.", httpStatus.OK);
 });
 
@@ -36,7 +36,8 @@ export const forgotAdminPassword = catchAsync(async (req, res) => {
 
 
 export const resetAdminPassword = catchAsync(async (req, res) => {
-  const response = await adminAuthService.resetAdminPassword(req.body);
+  // Phase 10: the admin is the signed-in one (was admin_id from the body).
+  const response = await adminAuthService.resetAdminPassword((res.locals.admin as { id: string }).id, req.body);
   return responseWrapper(res, response, "Password changed successfully.", httpStatus.OK);
 });
 
@@ -62,12 +63,12 @@ export const findAdminById = catchAsync(async (req, res) => {
 
 
 export const updateAdmin = catchAsync(async (req, res) => {
-  const response = await adminAuthService.updateAdmin(req.body);
+  const response = await adminAuthService.updateAdmin((res.locals.admin as { id: string }).id, req.body);
   return responseWrapper(res, response, "Admin updated successfully.", httpStatus.OK);
 });
 
 
 export const deleteAdmin = catchAsync(async (req, res) => {
-  await adminAuthService.deleteAdmin(req.body);
+  await adminAuthService.deleteAdmin((res.locals.admin as { id: string }).id, req.body);
   return responseWrapper(res, "", "Admin deleted successfully.", httpStatus.OK);
 });

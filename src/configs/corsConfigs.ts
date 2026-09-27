@@ -7,7 +7,8 @@ const corsConfigs: CorsOptions = {
 			// remove ||!origin to block postman request
 			callback(null, true);
 		} else {
-			callback(new Error('Origin not allowed by CORS'));
+			// Phase 10: an unknown origin gets no CORS headers (the browser blocks it), not a 500 error.
+			callback(null, false);
 		}
 	},
 	credentials: true,

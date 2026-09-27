@@ -32,7 +32,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | yes (`0786801`) | M4 (pushed 2026-09-27) |
 | 12 | Reports center | done | `claude/phase-12-reports` | yes (`3f1e192`) | M5 (pushed 2026-09-27) |
 | 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
-| **10** | **Security hardening** (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | **next (plan mode)** | – | – | M5 |
+| **10** | **Security hardening** (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | **built, awaiting merge** | `claude/phase-10-security` | – | M5 |
 | 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f); right after Phase 10 | planned | – | – | – |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
@@ -108,7 +108,11 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - Map Ranking at the center and N/S/E/W; competitor reviews (with authors) and photo counts; two new insights.
   - Cluster-wide Places limit (8/s), long-run safety (expected duration, heartbeat), `RANK_MAX_CALLS_PER_RUN` 16,000.
   - Usage ledger for every Google call, `api_usage` in `/organization/usage`, `npm run cost:report`; Google attribution in responses, PDFs and share pages.
-- **Tests:** 646 pass with no API key and no network. Lint baseline is 32.
+- **Security hardening (Phase 10), offline:**
+  - Platform admins: separate admin token secret, roles → permissions (incl. `citations.manage` for Phase 16), every admin-only route guarded and tested from ENDPOINTS.md.
+  - Transport: trust proxy, full helmet, no wildcard CORS, 1 MB bodies, uploads only on 5 routes after auth, no path traversal, operator-key sanitiser, PayPal webhook verification.
+  - Tokens: revocable user and admin sessions, 1-day access tokens, hardened legacy OTP / reset flows; no secrets or payloads in logs.
+- **Tests:** 734 pass with no API key and no network. Lint baseline is 32.
 
 ## Key decisions
 
@@ -152,7 +156,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 5. **Google approvals:** see "Blocked on Google" below.
 6. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 7. **Maps ToS: accepted risk for now**, revisit before launch: see "Maps ToS: accepted risk" below.
-8. **Rotate the DataForSEO credential** (AUDIT S13).
+8. **Rotate the DataForSEO credential** (AUDIT S13), and at the Phase 10 deploy the 12-character `JWT_SECRET`.
 9. **Security Phase 10:** next, in plan mode; must include the admin auth and roles Phase 16 relies on; required before launch (all Deferred-P10 items, including S19, S30 and the Search Console parts of S11, S12 and S29).
 
 ## Blocked on Google
@@ -193,7 +197,7 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Phase 10 (security)**, in plan mode (all Deferred-P10 items incl. S19, S30, the unauthenticated legacy `GET /white-label-profiles/:id`, and the admin authentication and roles Phase 16 needs).
+1. **Merge and push Phase 10** (commands in the phase summary). **At deploy:** rotate `JWT_SECRET` (≥ 32 characters; every user signs in again once), add `ADMIN_JWT_SECRET` and `PAYPAL_WEBHOOK_ID`, check `ACCESSDOMAINS`, delete old `ANALYTICS` token rows (OPERATIONS.md deploy checklist).
 2. **Then Phase 16 (citations)**, in plan mode (CLAUDE.md §12f; the plan audits the old citation module), then 13 (billing & plans) and 14 (production readiness) toward M5.
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.

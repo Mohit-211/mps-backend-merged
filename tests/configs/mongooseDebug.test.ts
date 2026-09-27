@@ -84,7 +84,7 @@ describe('mongoConnection', () => {
 	});
 
 	it('ignores MONGOOSE_DEBUG=true outside development, with a warning', () => {
-		const { set, warn } = connect({ MONGOOSE_DEBUG: 'true', NODE_ENV: 'production', TOKEN_ENCRYPTION_KEY: 'a'.repeat(64) });
+		const { set, warn } = connect({ MONGOOSE_DEBUG: 'true', NODE_ENV: 'production', TOKEN_ENCRYPTION_KEY: 'a'.repeat(64), ADMIN_JWT_SECRET: 'b'.repeat(40), PAYPAL_WEBHOOK_ID: 'WH-TEST' });
 		expect(set).toHaveBeenCalledWith('debug', false);
 		expect(warn).toHaveBeenCalledWith(expect.stringContaining('MONGOOSE_DEBUG=true ignored'));
 	});

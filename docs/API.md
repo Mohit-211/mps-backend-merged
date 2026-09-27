@@ -2025,3 +2025,37 @@ Every Places and GBP call is counted per organization, location, month and billi
 ### Reports
 
 Rank Tracker reports gain the section `map_ranking` ("Who ranks across the area": the top 5 at the 5 points, with your rank at each). Competitor Analysis gains `reviews` ("What customers say": up to 2 recent reviews per business with the author) and a Photos column.
+
+## Platform admin authentication (Phase 10)
+
+Admin endpoints (`/admin/*`, and the admin-only routes listed with `admin (permission)` in [ENDPOINTS.md](ENDPOINTS.md)) take an **admin session token**:
+
+```http
+POST /api/v1/admin/auth/login
+{ "email": "admin@example.com", "password": "…" }
+→ { "id": "…", "name": "…", "email": "admin@example.com", "role_id": 1, "token": "eyJ…" }
+Authorization: Bearer eyJ…
+```
+
+- **Token:** HS256, signed with `ADMIN_JWT_SECRET`, audience `mps-admin`, valid 12 hours. User tokens never work on admin routes, and the reverse.
+- **Revocation:** a password change (`/admin/auth/resetPassword` returns a fresh token), a forgot-password reset, a role or email change, or deactivation ends all earlier admin sessions.
+- **Forgot password:** `sendOTP { email }` (same answer whether or not the email is an admin) → `verifyOTP { email, otp, otp_type: "FORGOT_PASSWORD" }` (10-minute code, 5 attempts) → `{ token }` (15 minutes, single use) → `forgotPassword { email, password, confirm_password, token }`.
+- **Permissions:**
+
+| Permission | Roles |
+|---|---|
+| `admins.manage` | super admin |
+| `platform.read` | super admin, admin |
+| `platform.write` | super admin, admin |
+| `content.manage` | super admin, admin, editor |
+| `system.read` | super admin |
+| `citations.manage` (Phase 16) | super admin, admin, editor |
+
+- **Errors:** no or invalid token → **401**; a missing permission → **403**: `{ "reason": "forbidden", "permission": "platform.read" }`. Rate limits → **429** `rate_limited`.
+
+**Other Phase 10 changes clients see:**
+- A bad, expired or revoked **user** token is **401** (it used to be 500 for a bad signature, 404 for a deleted user). Access tokens last 1 day; use `/user/auth/refresh-auth` (or sign in again).
+- Password changes and resets end every session of that user.
+- Any request key starting with `$` or containing `.` → **400** `{ "reason": "invalid_input", "field": "body.email.$ne" }`.
+- Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, legacy white-label create/update, GBP post add); elsewhere a file → **400**.
+- 500 responses say "Something went wrong." (details only in development).

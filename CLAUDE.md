@@ -28,7 +28,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | M4 |
 | 12 | Reports center: reports as PDF, email, schedules, white-label, share links | done | `claude/phase-12-reports` | M5 (pushed) |
 | 12.5 | Ranking & data quality: full depth, repeated sampling (3 samples, 60 s), richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | done | `claude/phase-12.5-quality` | M5 (pushed) |
-| **10** | **Security hardening**: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on. Required before launch. | **next (plan mode)** | – | M5 |
+| **10** | **Security hardening**: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on. Required before launch. | **built, awaiting merge** | `claude/phase-10-security` | M5 |
 | 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f). Builds right after Phase 10 (Mohit, 2026-09-27). | planned | – | – |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list | planned | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
@@ -819,6 +819,16 @@ Original spec (the deletions below were done in 9a):
 
 ## 13a. PHASE 10 — Security hardening (gated)
 
+**Built** on `claude/phase-10-security` (awaiting merge). As built:
+- **Admin auth:** `src/services/admin/adminToken.ts` (the only admin sign/verify), `src/configs/adminPermissions.ts` (role → permission matrix), `validateAdminJWTToken` + `requireAdminPermission` / `adminOnly(permission)` in `src/middlewares/auth/adminAuth.middleware.ts`. **Phase 16 uses `adminOnly('citations.manage')`.**
+- **Guards:** every admin-only route (ENDPOINTS.md auth column `admin (permission)`); `tests/routes/adminGuards.routes.test.ts` reads that column and checks every route (no token / user token → 401, wrong role → 403, right role → through), so docs and guards can't drift.
+- **Transport:** `trust proxy`, full helmet, no wildcard CORS, 1 MB bodies, per-route uploads (`src/configs/multer.ts`: `uploadFiles` after auth; `multipartFieldsOnly` elsewhere), file-route containment, request sanitiser (`src/middlewares/common/sanitizeRequest.ts`), PayPal webhook verification (`src/services/common/paypalWebhook.ts`).
+- **Tokens:** user `token_version` (`revokeUserSessions`), 1-day access tokens, bad tokens 401; legacy OTP/reset hardened; account deletion disconnects Google.
+- **Logging:** no `console.*`, no payloads; the request log redacts sensitive query values; generic 500s.
+- **Deploy:** rotate `JWT_SECRET` (≥ 32), new `ADMIN_JWT_SECRET`, `PAYPAL_WEBHOOK_ID`, `TRUST_PROXY_HOPS`, `ACCESSDOMAINS`; delete old `ANALYTICS` token rows (OPERATIONS.md deploy checklist). Statuses per item: `docs/AUDIT.md`.
+
+Original spec:
+
 Runs after Phase 12.5 and before Phase 16 (see the Phase roadmap); required before launch (M5). **The plan must include the admin authentication and roles that Phase 16's admin endpoints rely on** (Mohit, 2026-09-27): a correct admin auth guard, platform-admin roles (e.g. super admin / admin / support) with a permission check usable per route, and regression tests. Covers all Deferred-P10 audit items, including S19 and S30. (This was Phase 2 before the 2026-09-25 re-prioritisation.)
 
 Do not start this phase unless Mohit says so in the session. If approved, Mohit will specify which items (S1–S30, see `docs/AUDIT.md`). Apply minimal, targeted fixes:
@@ -834,7 +844,14 @@ Do not start this phase unless Mohit says so in the session. If approved, Mohit 
 - Hardcoded credentials: already done (`utils/fileEncryption.ts` deleted in Phase 1.5; DataForSEO moved to env in Phase 1.6). The old DataForSEO credential must still be rotated.
 - S19 admin JWT key: one key-derivation helper for every sign/verify, a startup assertion on secret format/length, algorithms pinned to HS256.
 
-Each fix = its own commit. Add a regression test per auth fix (request without token → 401). **Gate.**
+**Approved plan (Mohit, 2026-09-27), where it refines the list above:**
+- **Admin auth:** one token module (`src/services/admin/adminToken.ts`): HS256, `aud: 'mps-admin'`, 12 h, purposes `session` / `password_reset`, key **`ADMIN_JWT_SECRET`** (required in production, ≥ 32 characters, different from `JWT_SECRET`). `Admin.token_version` / `User.token_version` revoke tokens. Production also requires `JWT_SECRET` ≥ 32 characters: **the current 12-character secret must be rotated at deploy** (every user logs in again once).
+- **Roles → permissions** (`src/configs/adminPermissions.ts`, on the existing `Role.role_id`: 1 super admin, 2 admin, 4 editor): `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (+ editor), `system.read` (super admin), `citations.manage` for Phase 16 (super admin, admin, editor). Middleware: `validateAdminJWTToken` + `requireAdminPermission(p)` (403 `forbidden`). Phase 16 uses these two only.
+- **Sanitising:** a request sanitiser on `/api/v1` (keys starting with `$` or containing `.` → 400 `invalid_input`) plus string coercion at the known spots, **instead of** `mongoose.set('sanitizeFilter', true)`, which would also neutralise our own server-built `$in` / `$gt` / `$or` filters.
+- **Access tokens:** 1 day (refresh 30 days). Legacy `/user/auth` OTP flows are hardened in place (attempts, expiry, rate limits), not removed. The guest checkout routes stay public (rate-limited); their logic is Phase 13.
+- **Closures:** S11/S12/S29 (Search Console removed in 9a), S18 (Phase 8), S20 (unused OAuth singleton deleted).
+
+Each fix = its own commit. Add a regression test per auth fix (request without token → 401, wrong role → 403). **Gate.**
 
 ---
 

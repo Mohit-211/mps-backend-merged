@@ -190,7 +190,7 @@ class DataSeeder {
 				await Profile.create(profileObj);
 			}
 			logger.info(
-				`Super Admin data inserted successfully: email: ${config.superAdmin.email} and password : ${config.superAdmin.password}`,
+				`Super Admin data inserted successfully (password from SUPER_ADMIN_PASSWORD; never logged)`,
 			);
 		} catch (error) {
 			logger.error('Error inserting Super Admin data: ', error);
