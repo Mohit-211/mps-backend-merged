@@ -24,6 +24,7 @@ import {
 	handleSubscriptionUpdated,
 } from './paypal.service';
 import { sendSubscriptionWelcomeMail } from './email.service';
+import logger from '../../configs/logger';
 
 export const createPlan = async (body: any) => {
 	try {
@@ -1246,11 +1247,11 @@ export const createSubscription = async (body: any) => {
 
 export const paypalWebhook = async (event: any) => {
 	try {
-		console.log('========================================');
-		console.log('PAYPAL WEBHOOK RECEIVED');
-		console.log('EVENT:', event.event_type);
-		console.log(JSON.stringify(event, null, 2));
-		console.log('========================================');
+		// Phase 10 (AUDIT S4, S21): one line, no payload (it carries customer PII); ids must be plain strings.
+		logger.info(`paypal webhook ${String(event?.event_type)} ${String(event?.id)}`);
+		if (event?.resource && event.resource.id !== undefined && typeof event.resource.id !== 'string') {
+			throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid webhook resource.');
+		}
 
 		switch (event.event_type) {
 			case 'BILLING.SUBSCRIPTION.CREATED':
@@ -1294,14 +1295,14 @@ export const paypalWebhook = async (event: any) => {
 				break;
 
 			default:
-				console.log('Unhandled PayPal Event:', event.event_type);
+				logger.info(`paypal webhook: unhandled event type ${String(event.event_type)}`);
 		}
 
 		return {
 			message: 'Webhook processed successfully.',
 		};
 	} catch (err) {
-		console.error('PayPal Webhook Error:', err);
+		logger.error(`paypal webhook ${String(event?.event_type)} failed: ${(err as Error).message}`);
 		throw err;
 	}
 };

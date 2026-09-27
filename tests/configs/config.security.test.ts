@@ -28,7 +28,7 @@ const loadConfig = (overrides: Record<string, string | undefined>): ConfigModule
 
 const STRONG = 'a'.repeat(40);
 const ADMIN = 'b'.repeat(40);
-const prod = { NODE_ENV: 'production', TOKEN_ENCRYPTION_KEY: '0123456789abcdef'.repeat(4) };
+const prod = { NODE_ENV: 'production', TOKEN_ENCRYPTION_KEY: '0123456789abcdef'.repeat(4), PAYPAL_WEBHOOK_ID: 'WH-TEST' };
 
 describe('JWT secrets in production', () => {
 	it('needs JWT_SECRET ≥ 32 characters and a separate ADMIN_JWT_SECRET ≥ 32 characters', () => {
@@ -41,5 +41,11 @@ describe('JWT secrets in production', () => {
 
 	it('development and test keep working without ADMIN_JWT_SECRET', () => {
 		expect(loadConfig({ ADMIN_JWT_SECRET: undefined }).constants.jwt.adminSecret).toBe('');
+	});
+});
+
+describe('PayPal webhook id in production', () => {
+	it('is required', () => {
+		expect(() => loadConfig({ ...prod, JWT_SECRET: STRONG, ADMIN_JWT_SECRET: ADMIN, PAYPAL_WEBHOOK_ID: '' })).toThrow(/PAYPAL_WEBHOOK_ID/);
 	});
 });

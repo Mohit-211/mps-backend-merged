@@ -1,4 +1,6 @@
 import httpStatus from 'http-status';
+import { verifyPaypalWebhook } from '../../services/common/paypalWebhook';
+import { LIMITS, hit } from '../../services/auth/rateLimit';
 import { catchAsync, pick, responseWrapper } from '../../utils';
 import { subscriptionService } from '../../services';
 
@@ -113,6 +115,8 @@ export const getAllCoupons = catchAsync(async (req, res) => {
 
 
 export const createSubscription = catchAsync(async (req, res) => {
+	// Phase 10: the guest checkout stays public but is rate-limited per IP (its logic is Phase 13).
+	await hit(LIMITS.checkoutPerIp, [req.ip ?? 'unknown']);
 	const data = await subscriptionService.createSubscription(
 		req.body,
 	);
@@ -126,6 +130,10 @@ export const createSubscription = catchAsync(async (req, res) => {
 });
 
 export const paypalWebhook = catchAsync(async (req, res) => {
+	// Phase 10 (AUDIT S4): PayPal must confirm the signature before anything is processed.
+	if (!(await verifyPaypalWebhook(req.headers, req.body))) {
+		return responseWrapper(res, { reason: 'invalid_signature' }, 'Webhook signature could not be verified.', httpStatus.BAD_REQUEST);
+	}
 	await subscriptionService.paypalWebhook(req.body);
 
 	return responseWrapper(
@@ -137,6 +145,10 @@ export const paypalWebhook = catchAsync(async (req, res) => {
 });
 
 export const getPaymentStatus = catchAsync(async (req, res) => {
+	await hit(LIMITS.checkoutPerIp, [req.ip ?? 'unknown']);
+	if (typeof req.query.subscription_id !== 'string') {
+		return responseWrapper(res, '', 'Subscription ID is required.', httpStatus.BAD_REQUEST);
+	}
 	const data = await subscriptionService.getPaymentStatus(
 		req.query.subscription_id as string,
 	);

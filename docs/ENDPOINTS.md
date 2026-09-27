@@ -280,9 +280,9 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/subscription/plans/country/:country` | none | Get Plans By Country | legacy | live |
 | PUT | `/api/v1/subscription/:plan_id` | admin (`platform.write`) | Update Plan | legacy, changed 10 | live |
 | DELETE | `/api/v1/subscription/:plan_id` | admin (`platform.write`) | Delete Plan | legacy, changed 10 | live |
-| POST | `/api/v1/subscription/create-subscription` | none | Create Subscription | legacy | live |
-| POST | `/api/v1/subscription/paypal/webhook` | none | Paypal Webhook | legacy | live |
-| GET | `/api/v1/subscription/payment-status` | none | Get Payment Status | legacy | live |
+| POST | `/api/v1/subscription/create-subscription` | none (guest checkout, rate-limited) | Create Subscription | legacy | live |
+| POST | `/api/v1/subscription/paypal/webhook` | none (PayPal signature, verified with PayPal) | Paypal Webhook. Phase 10: refused (400 `invalid_signature`) unless PayPal confirms it (`PAYPAL_WEBHOOK_ID`) | legacy, changed 10 | live |
+| GET | `/api/v1/subscription/payment-status` | none (guest checkout, rate-limited) | Get Payment Status | legacy | live |
 | POST | `/api/v1/subscription/coupon/generate` | admin (`platform.write`) | Generate Coupon | legacy, changed 10 | live |
 | POST | `/api/v1/subscription/coupon/validate` | none | Validate Coupon | legacy | live |
 | GET | `/api/v1/subscription/coupons` | admin (`platform.read`) | Get All Coupons | legacy, changed 10 | live |

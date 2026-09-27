@@ -29,6 +29,7 @@ import { adminOnly } from './middlewares/auth/adminAuth.middleware';
 import devConnectRoutes from './routes/dev/devConnect.route';
 import shareRoutes from './routes/share.route';
 import { usageScope } from './services/usage/scope';
+import { sanitizeRequest } from './middlewares/common/sanitizeRequest';
 import { queryTypesArr } from './configs/constantTypes';
 
 const app = express();
@@ -120,7 +121,7 @@ app.get('/ping', (req: Request, res: Response) => {
 
 // Phase 10 (AUDIT S7): no global file uploads. Multipart requests get their text fields parsed here
 // (files refused), except on the few upload routes, which parse files after authentication.
-app.use('/api/v1', usageScope, multipartFieldsOnly, routes);
+app.use('/api/v1', usageScope, multipartFieldsOnly, sanitizeRequest, routes);
 
 // Phase 12: public report share links (/r/<token>), outside /api/v1 and without multer.
 app.use('/r', shareRoutes);
