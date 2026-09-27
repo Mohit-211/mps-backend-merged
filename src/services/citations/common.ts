@@ -8,6 +8,9 @@ export interface AdminActor {
 	name: string | null;
 }
 
+/** The admin's id for created_by / updated_by, or null for system changes (seeds, automatic suggestions). */
+export const actorOid = (actor: AdminActor): Types.ObjectId | null => (actor.id ? oid(actor.id) : null);
+
 export const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export const oid = (id: string | Types.ObjectId): Types.ObjectId => (typeof id === 'string' ? new Types.ObjectId(id) : id);

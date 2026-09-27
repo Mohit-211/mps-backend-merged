@@ -5,7 +5,7 @@ import { stringify } from 'csv-stringify/sync';
 import { CITATION_COUNTRIES, CitationCountry, DIRECTORY_TYPES, DirectoryType } from '../../citations/constants';
 import { Directory, DirectoryCategory, IDirectory } from '../../models';
 import { apiErrorWithData } from '../../utils';
-import { AdminActor, domainOf, oid } from './common';
+import { AdminActor, actorOid, domainOf, oid } from './common';
 import { directoryProblems } from './directory.service';
 
 // Directory CSV import / export (Phase 16). Columns: name, url, type, countries, categories, regions,
@@ -166,13 +166,13 @@ export const createDirectoryCsvService = () => {
 				authority: row.authority,
 				notes: row.notes,
 				is_active: row.is_active,
-				updated_by: oid(actor.id),
+				updated_by: actorOid(actor),
 				updated_at: new Date(),
 			};
 			writes.push({
 				updateOne: {
 					filter: { domain: row.domain },
-					update: { $set: fields, $setOnInsert: { domain: row.domain, created_by: oid(actor.id), created_at: new Date() } },
+					update: { $set: fields, $setOnInsert: { domain: row.domain, created_by: actorOid(actor), created_at: new Date() } },
 					upsert: true,
 				},
 			});

@@ -22,6 +22,7 @@
     "seed:rank-demo": "ts-node --transpile-only src/scripts/seedRankDemo.ts",
     "seed:demo-orgs": "ts-node --transpile-only src/scripts/seedDemoOrgs.ts",
     "seed:gbp-demo": "ts-node --transpile-only src/scripts/seedDemoOrgs.ts",
+    "seed:citation-directories": "ts-node --transpile-only src/scripts/seedCitationDirectories.ts",
     "calibrate": "ts-node --transpile-only src/scripts/calibrate.ts",
     "calibrate:score": "ts-node --transpile-only src/scripts/calibrateScore.ts",
     "find:place": "ts-node --transpile-only src/scripts/findPlace.ts",

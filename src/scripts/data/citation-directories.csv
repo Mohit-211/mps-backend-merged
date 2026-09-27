@@ -1,0 +1,51 @@
+name,url,type,countries,categories,regions,authority,notes,active
+Data Axle,https://www.data-axle.com/,aggregator,US|CA,,,80,Data aggregator; feeds many directories. Authority is a placeholder estimate.,true
+Neustar Localeze,https://www.neustarlocaleze.biz/,aggregator,US,,,75,Data aggregator. Authority is a placeholder estimate.,true
+Foursquare,https://foursquare.com/,aggregator,US|CA,,,90,Data aggregator and app. Authority is a placeholder estimate.,true
+Bing Places,https://www.bingplaces.com/,general,US|CA,,,95,Authority is a placeholder estimate.,true
+Apple Business Connect,https://businessconnect.apple.com/,general,US|CA,,,95,Apple Maps listings. Authority is a placeholder estimate.,true
+Yelp,https://www.yelp.com/,general,US|CA,,,93,Authority is a placeholder estimate.,true
+Yellow Pages,https://www.yellowpages.com/,general,US,,,88,Authority is a placeholder estimate.,true
+YellowPages.ca,https://www.yellowpages.ca/,general,CA,,,80,Authority is a placeholder estimate.,true
+Better Business Bureau,https://www.bbb.org/,general,US|CA,,,91,Authority is a placeholder estimate.,true
+Superpages,https://www.superpages.com/,general,US,,,75,Authority is a placeholder estimate.,true
+MapQuest,https://www.mapquest.com/,general,US|CA,,,85,Authority is a placeholder estimate.,true
+Manta,https://www.manta.com/,general,US,,,70,Authority is a placeholder estimate.,true
+Hotfrog,https://www.hotfrog.com/,general,US|CA,,,55,Authority is a placeholder estimate.,true
+Cylex,https://www.cylex.us.com/,general,US,,,50,Authority is a placeholder estimate.,true
+Cylex Canada,https://www.cylex-canada.ca/,general,CA,,,45,Authority is a placeholder estimate.,true
+EZlocal,https://ezlocal.com/,general,US,,,50,Authority is a placeholder estimate.,true
+Brownbook,https://www.brownbook.net/,general,US|CA,,,55,Authority is a placeholder estimate.,true
+ChamberofCommerce.com,https://www.chamberofcommerce.com/,general,US,,,65,Private directory (not a government chamber). Authority is a placeholder estimate.,true
+Canada411,https://www.canada411.ca/,general,CA,,,70,Authority is a placeholder estimate.,true
+411.ca,https://411.ca/,general,CA,,,60,Authority is a placeholder estimate.,true
+n49,https://www.n49.com/,general,CA,,,45,Authority is a placeholder estimate.,true
+MerchantCircle,https://www.merchantcircle.com/,general,US,,,55,Authority is a placeholder estimate.,true
+Local.com,https://www.local.com/,general,US,,,55,Authority is a placeholder estimate.,true
+Facebook,https://www.facebook.com/,social,US|CA,,,96,Business page. Authority is a placeholder estimate.,true
+Instagram,https://www.instagram.com/,social,US|CA,,,95,Business profile. Authority is a placeholder estimate.,true
+LinkedIn,https://www.linkedin.com/,social,US|CA,,,95,Company page. Authority is a placeholder estimate.,true
+Nextdoor,https://nextdoor.com/,social,US|CA,,,85,Business page. Authority is a placeholder estimate.,true
+Angi,https://www.angi.com/,niche,US,home-services,,85,Authority is a placeholder estimate.,true
+HomeAdvisor,https://www.homeadvisor.com/,niche,US,home-services,,84,Authority is a placeholder estimate.,true
+Houzz,https://www.houzz.com/,niche,US|CA,home-services,,88,Authority is a placeholder estimate.,true
+Thumbtack,https://www.thumbtack.com/,niche,US,home-services,,80,Authority is a placeholder estimate.,true
+Porch,https://porch.com/,niche,US,home-services,,70,Authority is a placeholder estimate.,true
+HomeStars,https://homestars.com/,niche,CA,home-services,,60,Authority is a placeholder estimate.,true
+Avvo,https://www.avvo.com/,niche,US,legal,,80,Authority is a placeholder estimate.,true
+Justia,https://www.justia.com/,niche,US,legal,,85,Authority is a placeholder estimate.,true
+FindLaw,https://www.findlaw.com/,niche,US,legal,,82,Authority is a placeholder estimate.,true
+Lawyers.com,https://www.lawyers.com/,niche,US,legal,,70,Authority is a placeholder estimate.,true
+Healthgrades,https://www.healthgrades.com/,niche,US,medical-dental,,85,Authority is a placeholder estimate.,true
+Zocdoc,https://www.zocdoc.com/,niche,US,medical-dental,,82,Authority is a placeholder estimate.,true
+Vitals,https://www.vitals.com/,niche,US,medical-dental,,75,Authority is a placeholder estimate.,true
+RateMDs,https://www.ratemds.com/,niche,US|CA,medical-dental,,70,Authority is a placeholder estimate.,true
+Tripadvisor,https://www.tripadvisor.com/,niche,US|CA,restaurants,,93,Authority is a placeholder estimate.,true
+OpenTable,https://www.opentable.com/,niche,US|CA,restaurants,,88,Authority is a placeholder estimate.,true
+CarGurus,https://www.cargurus.com/,niche,US|CA,automotive,,80,Authority is a placeholder estimate.,true
+RepairPal,https://repairpal.com/,niche,US,automotive,,65,Authority is a placeholder estimate.,true
+U.S. Chamber of Commerce,https://www.uschamber.com/,government_chamber,US,,,85,Authority is a placeholder estimate.,true
+Canadian Chamber of Commerce,https://chamber.ca/,government_chamber,CA,,,70,Authority is a placeholder estimate.,true
+Ontario Chamber of Commerce,https://occ.ca/,government_chamber,CA,,ON,55,Region-limited: Ontario only. Authority is a placeholder estimate.,true
+Fredericton Chamber of Commerce,https://www.frederictonchamber.ca/,government_chamber,CA,,NB,40,Region-limited: New Brunswick only. Authority is a placeholder estimate.,true
+Texas Association of Business,https://www.txbiz.org/,government_chamber,US,,TX,50,Region-limited: Texas only. Authority is a placeholder estimate.,true

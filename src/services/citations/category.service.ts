@@ -3,7 +3,7 @@ import slugify from 'slugify';
 import { Types } from 'mongoose';
 import { BusinessCategory, Directory, DirectoryCategory, IDirectoryCategory } from '../../models';
 import { apiErrorWithData } from '../../utils';
-import { AdminActor, escapeRegex, oid } from './common';
+import { AdminActor, actorOid, escapeRegex, oid } from './common';
 
 // Directory categories (Phase 16): industry groups mapped to GBP business categories. Platform admins
 // manage them; directories reference them; locations match them through their business categories.
@@ -75,7 +75,7 @@ export const createCategoryService = () => {
 	};
 
 	const save = async (id: string | null, input: CategoryInput, actor: AdminActor): Promise<CategoryView> => {
-		const set: Record<string, unknown> = { updated_by: oid(actor.id) };
+		const set: Record<string, unknown> = { updated_by: actorOid(actor) };
 		if (input.name !== undefined) set.name = input.name.trim();
 		if (input.slug !== undefined || (id === null && input.name)) set.slug = toSlug(input.slug ?? input.name ?? '');
 		if (set.slug === '') throw apiErrorWithData(httpStatus.BAD_REQUEST, 'The slug is empty.', { reason: 'invalid_slug' });
@@ -83,7 +83,7 @@ export const createCategoryService = () => {
 		if (input.is_active !== undefined) set.is_active = input.is_active;
 		try {
 			if (id === null) {
-				const created = await DirectoryCategory.create({ ...set, created_by: oid(actor.id) });
+				const created = await DirectoryCategory.create({ ...set, created_by: actorOid(actor) });
 				return (await categoryViews([created.toObject() as IDirectoryCategory]))[0];
 			}
 			await getOr404(id);

@@ -4,7 +4,7 @@ import { CitationCountry, DirectoryType } from '../../citations/constants';
 import { isRegionOf } from '../../citations/regions';
 import { Directory, DirectoryCategory, IDirectory, LocationCitation } from '../../models';
 import { apiErrorWithData } from '../../utils';
-import { AdminActor, domainOf, escapeRegex, oid, paging } from './common';
+import { AdminActor, actorOid, domainOf, escapeRegex, oid, paging } from './common';
 
 // The directory master list (Phase 16): CRUD for platform admins. Deleting deactivates: entries that
 // already use a directory keep it (shown as inactive in lists), and it is no longer suggested.
@@ -158,11 +158,11 @@ export const createDirectoryService = () => {
 			regions: [...new Set(merged.regions)],
 			notes: input.notes !== undefined ? input.notes : current?.notes ?? null,
 			is_active: input.is_active ?? current?.is_active ?? true,
-			updated_by: oid(actor.id),
+			updated_by: actorOid(actor),
 		};
 		try {
 			if (!id) {
-				const created = await Directory.create({ ...set, created_by: oid(actor.id) });
+				const created = await Directory.create({ ...set, created_by: actorOid(actor) });
 				return (await directoryViews([created.toObject() as IDirectory]))[0];
 			}
 			await Directory.updateOne({ _id: oid(id) }, { $set: set });
@@ -177,7 +177,7 @@ export const createDirectoryService = () => {
 
 	const deactivate = async (id: string, actor: AdminActor): Promise<DirectoryView> => {
 		await getOr404(id);
-		await Directory.updateOne({ _id: oid(id) }, { $set: { is_active: false, updated_by: oid(actor.id) } });
+		await Directory.updateOne({ _id: oid(id) }, { $set: { is_active: false, updated_by: actorOid(actor) } });
 		return (await directoryViews([await getOr404(id)]))[0];
 	};
 
