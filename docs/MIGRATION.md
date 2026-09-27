@@ -12,6 +12,10 @@ The legacy cleanup (branch `claude/phase-9a-legacy-cleanup`) removed the code th
 | `local_search_grid_reports` | old Local Search Grid | `rank_runs` |
 | `local_map_ranking_reports` | old Local Map Ranking | `rank_runs` |
 | `gbp_audit_reports` | old GBP Audit | the GBP report (Phase 7c) |
+| `citationDirectorys` | old citation directory list (Phase 16 retired it) | `directories` + `directory_categories` (Phase 16) |
+| `citations` | old citation campaign line items | `location_citations` + `citation_status_logs` (Phase 16) |
+| `campaigns` | old citation campaigns | – (the paid campaign flow was retired in Phase 16) |
+| `aggregators`, `manualCitatonsCreditInfos`, `citationDuplicateRemoveCredits` | old citation pricing / credit tables | – (retired in Phase 16) |
 
 **Archive example** (run against the right database, after a backup):
 
@@ -57,4 +61,4 @@ These can be deleted from server `.env` files. Leaving them does no harm: the co
 - JWT (secret and day-based expirations)
 - the role IDs that are read: `SUP_ADM_ROLE_ID`, `ADM_ROLE_ID`, `EDTR_ROLE_ID`, `USR_ROLE_ID`
 
-**Still needs a separate decision:** the citation tracker (out of scope) imports the `serpapi` package directly and has never had a key configured (AUDIT C13), so it fails. The package stays until citations are rebuilt or removed.
+**Decided (Phase 16):** the legacy citation module and the `serpapi` package are removed. **Still in use:** `locationCitations`, the legacy citation *order* documents, now the model `LegacyLocationCitation`. The credit-payment code (`payment.middleware` / `payment.service`, `citation_location_id`) still attaches payments to them; Phase 13 decides whether citation credits survive (CLAUDE.md §12h).

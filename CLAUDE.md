@@ -30,7 +30,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 12.5 | Ranking & data quality: full depth, repeated sampling (3 samples, 60 s), richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | done | `claude/phase-12.5-quality` | M5 (pushed) |
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
 | 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
-| **16** | **Citations**: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | **in progress** | `claude/phase-16-citations` | M5 |
+| **16** | **Citations**: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | **built, awaiting merge** | `claude/phase-16-citations` | M5 |
 | 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list; **plus the admin panel backend for launch** (users, organizations, subscriptions, support tickets). Notes: §12h | planned (plan mode after 16) | – | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
@@ -139,7 +139,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 done. **Now: 16 Citations** (in progress, `docs/plans/phase-16-citations.md`) → 13 Billing & plans → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 done. 16 Citations built (awaiting merge). **Next: 13 Billing & plans**, in plan mode, including the admin panel backend (§12h) → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 **Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
 
@@ -189,7 +189,8 @@ Use plan mode before each phase: show the plan and the list of files to create/m
   - **Admin auth:** `src/services/admin/adminToken.ts`, the permission matrix in `src/configs/adminPermissions.ts`, and `adminOnly(permission)` in `src/middlewares/auth/adminAuth.middleware.ts`. ENDPOINTS.md's `admin (permission)` column drives `tests/routes/adminGuards.routes.test.ts`.
   - **User tokens:** revocable via `token_version`; access tokens last 1 day, refresh tokens 30 days.
   - **Email verification by link:** `src/services/auth/emailVerification.ts` (`User.email_verified_at`, `verification_deadline`), job `unverified-cleanup`, script `migrate:email-verified`.
-- **Tooling:** the editor uses the workspace TypeScript 5.9.3 (`.vscode/settings.json`, committed), not VS Code's bundled 6.0. `npm run lint` covers `src`, `tests` and `index.ts`; the baseline is 169 legacy errors, and rebuilt code must stay at 0.
+- **Citations (Phase 16):** `src/citations/` (pure: matching, Citation Health, `scoring.config.ts`), `src/services/citations/`, models `Directory`, `DirectoryCategory`, `LocationCitation`, `CitationStatusLog`. Admin routes at `/admin/citations/*` (`citations.view` / `citations.manage`); customer routes at `/locations/:id/citations[/changes]` (read-only); report type `citation`. Starter data: `npm run seed:citation-directories` (`src/scripts/data/`). The legacy citation module and `serpapi` are gone; `LegacyLocationCitation` remains for credit payments (§12h).
+- **Tooling:** the editor uses the workspace TypeScript 5.9.3 (`.vscode/settings.json`, committed), not VS Code's bundled 6.0. `npm run lint` covers `src`, `tests` and `index.ts`; the baseline is **137** legacy errors (169 before Phase 16 retired the legacy citation module), and rebuilt code must stay at 0.
 - GBP posting (legacy, kept until Phase 8): `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda). Its token comes from `gbpClient` through the binding's connection.
 
 ---
@@ -806,7 +807,24 @@ Branch `claude/phase-12.5-quality` from `claude/rebuild`. **Plan mode first; wai
 
 ## 12f. PHASE 16 — Citations (manual, admin-managed tracking)
 
-**In progress** on `claude/phase-16-citations` (resumed 2026-09-27; plan choices re-confirmed by Mohit). Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data model, endpoints and permissions, score formula with a worked example, report, CSV format, seed, file list, verification, decisions). Branch `claude/phase-16-citations` from `claude/rebuild`. It needs Phase 10's admin authentication and roles (merged).
+**Built** on `claude/phase-16-citations` (awaiting merge). As built:
+- **Code:**
+  - `src/citations/` (pure): `constants`, `regions` (US / CA codes), `match` (suggestions), `health` + `scoring.config.ts` (the Citation Health weights)
+  - `src/utils/nap.ts`: NAP normalisation + mismatch, shared with the GBP audit report
+  - `src/services/citations/`: `directory.service`, `category.service`, `csv`, `suggest`, `entries.service`, `queue.service`, `customer.service`, `summary`, `seed`, `demo`
+  - routes: `src/routes/v1/admin/citations.route.ts` (`/admin/citations`, `adminOnly('citations.view'|'citations.manage')`) and `src/routes/v1/common/citations.route.ts` (`/locations/:id/citations[/changes]`, `loadOwnedLocation`)
+  - `src/services/reports/sections/citations.ts`: the report type `citation` + the Full report part
+- **Models:** `Directory` (`directories`), `DirectoryCategory` (`directory_categories`), `LocationCitation` (`location_citations`), `CitationStatusLog` (`citation_status_logs`); `Location.summary.citation_*`. The legacy order model is kept as `LegacyLocationCitation` (§12h).
+- **Permissions:** `citations.view` (new) + `citations.manage`, both super admin, admin and editor.
+- **Retired:** the whole legacy `/citation/*` module (13 routes, controller, middleware, service with its old-Places-API call, SerpAPI helper, 5 models, unused constants) and the `serpapi` package.
+- **Seeds:** `npm run seed:citation-directories` (5 category groups, 50 US / CA directories from `src/scripts/data/`; loads `dumps/businessCategory.json` when that collection is empty, a flagged reference-data edit). `seed:demo-orgs` adds citation lists with 60 days of history and a Citation Report.
+- **Suggestions** also run at onboarding completion (hook in `onboarding.service.ts`; never blocks completion).
+- **Dashboard:** a `citations` block, agency table fields and the recommended actions `citations:nap_wrong` / `citations:not_found`.
+- **Config:** `CITATION_STALE_DAYS` (90).
+- **Endpoints:** #82–#106 (ENDPOINTS.md, API.md "Citations (Phase 16)").
+- **Dependencies:** `csv-parse`, `csv-stringify`.
+
+Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data model, endpoints and permissions, score formula with a worked example, report, CSV format, seed, file list, verification, decisions). Branch `claude/phase-16-citations` from `claude/rebuild`. It needs Phase 10's admin authentication and roles (merged).
 
 **Model:** manual, admin-managed citation tracking. **No external citation APIs.**
 

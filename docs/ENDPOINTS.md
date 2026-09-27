@@ -48,7 +48,7 @@
 
 ---
 
-## Summary (Phase 16, in progress)
+## Summary (2026-09-27, Phase 16 built)
 
 **220 endpoints:** 205 live, 14 deprecated, 1 dev-only.
 - **By origin:** 97 rebuilt or new, 123 legacy.
@@ -56,11 +56,9 @@
 
 This block is recounted with every commit that changes the catalogue.
 
-**Phase 16 changes:**
-- **Done:** the 13 legacy `/citation/*` routes retired.
-- **Done:** the directory and category admin endpoints (#82–#93); per-location lists, entries and the work queue (#94–#104); the customer endpoints (#105–#106); the dashboard `citations` block (#53). See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
+**Phase 16 (citations):** the 13 legacy `/citation/*` routes were retired. It added 23 `/admin/citations/*` routes (#82–#104) and 2 customer routes (#105–#106), and the report type `citation` (#61).
 
-**Phase 9b** removes the 14 deprecated routes once the frontend has moved.
+**Coming:** Phase 9b removes the 14 deprecated routes once the frontend has moved.
 
 ## Catalogue: all current endpoints
 

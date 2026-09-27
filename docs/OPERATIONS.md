@@ -178,7 +178,7 @@ TEST_LOGS=1 npm test   # show winston output while testing
 npm run lint        # eslint over src/, tests/ and index.ts (every depth)
 ```
 
-- **Lint baseline (2026-09-27): 169 errors, all in legacy modules.** They are in payments / subscriptions / PayPal, the old citation module (retired in Phase 16), white-label, legacy GBP posting (Phase 9), support, legacy user auth, admin operations and old models. The rebuilt modules and all tests have **0**.
+- **Lint baseline (2026-09-27, after Phase 16): 137 errors, all in legacy modules.** They are in payments / subscriptions / PayPal, white-label, legacy GBP posting (Phase 9), support, legacy user auth, admin operations and old models. The rebuilt modules and all tests have **0**. (It was 169 before Phase 16 deleted the old citation module.)
   - Gate: files you touch add no new errors.
   - Until 2026-09-27 the script was `eslint src/**/*.ts` with an unquoted glob. `sh` has no `**`, so it linted only files exactly one folder deep (159 of 365), and the old "32" baseline under-counted. The globs are quoted now, so ESLint expands them itself.
 - **Editor: use the project's TypeScript.** VS Code bundles TypeScript **6.0**, while the project builds with **5.9.3** (`node_modules/typescript`).
