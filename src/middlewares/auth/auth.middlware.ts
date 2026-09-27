@@ -1,3 +1,4 @@
+import crypto from "crypto";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from "http-status";
 import validator from "validator";
@@ -50,6 +51,8 @@ export const verifyAuthJWTToken = catchAsync(async (req, res, next) => {
         $match: {
           status: userStatusTypes.ACCEPTED,
           _id: new mongoose.Types.ObjectId(`${tokenPayload.sub}`),
+          // Phase 10 (AUDIT S24): aggregate bypasses the soft-delete filter, so exclude deleted users here.
+          deleted_at: null,
         },
       },
       {
@@ -85,6 +88,7 @@ export const verifyAuthJWTToken = catchAsync(async (req, res, next) => {
           is_analytics_connected: 1,
           subscription_status: 1,
           current_plan_id: 1,
+          token_version: 1,
           "user_profile._id": 1,
           "user_profile.user_id": 1,
           "user_profile.name": 1,
@@ -102,9 +106,14 @@ export const verifyAuthJWTToken = catchAsync(async (req, res, next) => {
     ]);
 
     if (!users || !Array.isArray(users) || users.length === 0) {
-      return responseWrapper(res, "", "User Not Found", httpStatus.NOT_FOUND);
+      return responseWrapper(res, "", "Unauthorized : please authenticate.", httpStatus.UNAUTHORIZED);
     }
     const user = users[0];
+    // Phase 10 (AUDIT S24): tokens issued before a password change or sign-out-everywhere are refused.
+    if ((user.token_version ?? 0) !== (tokenPayload.tv ?? 0)) {
+      return responseWrapper(res, "", "Your session has ended. Please log in again.", httpStatus.UNAUTHORIZED);
+    }
+    delete user.token_version;
 
     req.body.user = user;
 
@@ -310,21 +319,26 @@ export const validateForgetPassordToken = catchAsync(async (req, res, next) => {
       );
     }
 
+    if (typeof email !== "string" || typeof token !== "string") {
+      return responseWrapper(res, "", "Forget Password Token is not Valid.", httpStatus.BAD_REQUEST);
+    }
     const userDoc = await User.findOne({ email: email, is_active: true });
     if (!userDoc) {
       return responseWrapper(
         res,
         "",
-        "User With This Email Id Not Found.",
+        "Forget Password Token is not Valid.",
         httpStatus.BAD_REQUEST
       );
     }
 
+    // Phase 10 (AUDIT S22): the token is stored hashed and expires 30 minutes after verification.
     const otpDoc = await OTP.findOne({
       email: email,
-      code: token,
+      code: crypto.createHash("sha256").update(token).digest("hex"),
       is_verified: true,
       type: otpTypes.FORGOT_PASSWORD,
+      otp_expiration_time: { $gt: new Date() },
     });
     if (!otpDoc) {
       return responseWrapper(

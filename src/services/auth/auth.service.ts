@@ -174,6 +174,8 @@ export const createAuthService = (deps: AuthDeps = {}) => {
 		// A reset code proves the mailbox, so a still-pending account counts as verified.
 		if (PENDING_STATUSES.includes(user.status)) user.status = userStatusTypes.ACCEPTED;
 		await user.save();
+		// Phase 10: access tokens stop working at once too (token_version).
+		await User.updateOne({ _id: user._id }, { $inc: { token_version: 1 } });
 		const revoked = await UserToken.deleteMany({ user_id: user._id });
 		logger.info(`auth: user ${String(user._id)} reset their password (sessions revoked: ${revoked.deletedCount})`);
 		return { reset: true };

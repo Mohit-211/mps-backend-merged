@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from 'http-status';
+import { findLocationForUser } from '../org/access';
 import axios from 'axios'
 import moment from 'moment-timezone';
 import { DateTime } from 'luxon'
@@ -252,8 +253,9 @@ export const deletePost = async (body: BodyDefinition): Promise<any> => {
 			throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid input data. Please provide post_id.');
 		}
 		const postDoc = await GBPPost.findOne({ _id: post_id, is_active: true });
-		if (!postDoc) {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'Post not found');
+		// Phase 10 (AUDIT S25): only a post of a location the caller may edit.
+		if (!postDoc || !postDoc.location_id || !(await findLocationForUser(user._id, String(postDoc.location_id), { write: true }))) {
+			throw new ApiError(httpStatus.NOT_FOUND, 'Post not found');
 		}
 
 		if (postDoc.gbpPostId) {

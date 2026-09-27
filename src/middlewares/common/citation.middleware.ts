@@ -2,7 +2,7 @@ import httpStatus from 'http-status';
 
 import { responseWrapper, ApiError, catchAsync, isValidMongoObjectId, compareObjectIds } from '../../utils';
 import { citationTypesArr, membershipTypeArr } from '../../configs/constantTypes';
-import { Location } from '../../models';
+import { findLocationForUser } from '../../services/org/access';
 
 export const validGetCCitationListBody = catchAsync(async (req, res, next) => {
 	try {
@@ -26,7 +26,7 @@ export const validGetCCitationListBody = catchAsync(async (req, res, next) => {
 			);
 		};
 
-		const locationDoc = await Location.findOne({ _id: location_id, is_active: true });
+		const locationDoc = (await findLocationForUser(String(req.body.user?._id), location_id, { write: false }))?.location; // Phase 10 (AUDIT S15): only a location of the caller's organization
 		if (!locationDoc) {
 			return responseWrapper(
 				res,
@@ -223,7 +223,7 @@ export const validAddNewCitationCampaignBody = catchAsync(async (req, res, next)
 			);
 		};
 
-		const locationDoc = await Location.findOne({ _id: location_id, is_active: true });
+		const locationDoc = (await findLocationForUser(String(req.body.user?._id), location_id, { write: true }))?.location; // Phase 10 (AUDIT S15): only a location of the caller's organization
 		if (!locationDoc) {
 			return responseWrapper(
 				res,
@@ -294,7 +294,7 @@ export const validAddNewCitationCampaignBusinesInfoBody = catchAsync(async (req,
 			return responseWrapper(res, '', 'Invalid campaign_id provided', httpStatus.BAD_REQUEST);
 		}
 
-		const locationDoc = await Location.findOne({ _id: location_id, is_active: true });
+		const locationDoc = (await findLocationForUser(String(req.body.user?._id), location_id, { write: true }))?.location; // Phase 10 (AUDIT S15): only a location of the caller's organization
 		if (!locationDoc) {
 			return responseWrapper(res, '', 'Location not found with this location_id.', httpStatus.BAD_REQUEST);
 		}
@@ -397,7 +397,7 @@ export const validGenerateCitationTrackerReportBody = catchAsync(async (req, res
 			);
 		};
 
-		const locationDoc = await Location.findOne({ _id: location_id, is_active: true });
+		const locationDoc = (await findLocationForUser(String(req.body.user?._id), location_id, { write: true }))?.location; // Phase 10 (AUDIT S15): only a location of the caller's organization
 		if (!locationDoc) {
 			return responseWrapper(
 				res,

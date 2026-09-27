@@ -39,6 +39,8 @@ export interface IUser extends Document {
 	current_plan_id?: Schema.Types.ObjectId;
 	/** Phase 8: the organization used when no X-Organization-Id header is sent. */
 	default_organization_id?: mongoose.Types.ObjectId | null;
+	/** Phase 10: the `tv` claim of every user token; incrementing it revokes all issued tokens. */
+	token_version?: number;
 	is_active: boolean;
 	created_at: Date;
 	created_by?: Schema.Types.ObjectId;
@@ -181,6 +183,7 @@ const userSchema = new Schema<IUser>(
 			type: Date,
 			default: null,
 		},
+		token_version: { type: Number, default: 0 },
 		deleted_by: {
 			type: Schema.Types.ObjectId,
 			default: null,

@@ -91,7 +91,7 @@ const envVarsSchema = Joi.object({
 		.when('NODE_ENV', { is: 'production', then: Joi.string().min(32).required().invalid('', Joi.ref('JWT_SECRET')) })
 		.description('Phase 10: separate secret for admin tokens (required in production, ≥ 32 characters, not JWT_SECRET)'),
 	JWT_ACCESS_EXPIRATION_DAYS: Joi.number()
-		.default(7)
+		.default(1) // Phase 10 (AUDIT S24): was 7; refresh tokens stay 30 days
 		.description('days after which access tokens expire'),
 	JWT_REFRESH_EXPIRATION_DAYS: Joi.number()
 		.default(30)
