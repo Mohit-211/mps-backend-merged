@@ -18,9 +18,9 @@ export interface EstimateOptions {
 	includeCenterResolution?: boolean;
 	/** Only affects how points coincide at 5 decimals; defaults to a Toronto coordinate. */
 	center?: GeoPoint;
-	/** Phase 12.5: searches per point (default 1). */
+	/** Phase 12.5: searches per point (default RANK_SAMPLES_PER_POINT). */
 	samples?: number;
-	/** Phase 12.5: Map Ranking points per keyword (5 = the tracker points, 1 = the center; default 5). */
+	/** Phase 12.5: Map Ranking points per keyword (5 = the tracker points, 1 = the center; default from MAP_RANKING_POINTS). */
 	mapPoints?: number;
 }
 
@@ -77,8 +77,9 @@ export const estimateCalls = (
 	if (!isGridSize(gridSize)) throw new Error(`Invalid grid size: ${gridSize}`);
 	const k = countKeywords(keywords);
 	const points = uniquePointCount(gridSize, options);
-	const samples = options.samples ?? 1;
-	const mapPoints = options.mapPoints ?? 5;
+	// Defaults follow the configured run (RANK_SAMPLES_PER_POINT, MAP_RANKING_POINTS).
+	const samples = options.samples ?? config.ranking.samplesPerPoint;
+	const mapPoints = options.mapPoints ?? (config.ranking.mapRankingPoints === 'center' ? 1 : 5);
 	const idsOnly = range(points * k * samples, points * k * samples * MAX_PAGES);
 	const pro = range(k * mapPoints, k * mapPoints);
 	const detailsCount = options.includeCenterResolution ? 1 : 0;

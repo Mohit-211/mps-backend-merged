@@ -34,6 +34,13 @@ describe('estimateCalls', () => {
 		expect(max.idsOnly.max).toBeLessThanOrEqual(16000);
 	});
 
+	it('defaults follow the configured run (tests pin 1 sample; production: 3 samples 60 s apart)', () => {
+		expect(estimateCalls(10, 5, { spacingKm: 1 }).samples).toBe(1);
+		const prod = estimateCalls(10, 5, { spacingKm: 1, samples: 3 });
+		expect(prod.idsOnly.max).toBe(2610);
+		expect(Math.round(estimateDuration(prod, { qps: 8, samples: 3, spacingSec: 60 }) / 60000 * 10) / 10).toBe(5.5);
+	});
+
 	it('expected duration: calls at the rate, or the sample spacing when longer', () => {
 		const e = estimateCalls(10, 5, { spacingKm: 1 }); // 870 IDs-only + 50 Pro
 		expect(estimateDuration(e, { qps: 8 })).toBe(115000); // ~2 min

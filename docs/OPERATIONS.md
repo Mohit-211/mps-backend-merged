@@ -97,22 +97,53 @@ On a healthy start the log shows:
 
 ## Ranking quality, Google API usage and cost (Phase 12.5)
 
-**Ranking at full quality** (Mohit, 2026-09-27: quality over cost, about $1 per refresh is acceptable):
-- Every search fetches all pages (up to 60 results) at every point; each point's full ordered list is stored (`rank_result_lists`, one document per run and keyword, about 22 KB per keyword at 7×7).
-- `RANK_SAMPLES_PER_POINT` (1–5) searches per point, spaced by `RANK_SAMPLE_SPACING_SEC`; the rank is the median. The default stays 1 until the live variance test (`npm run variance:test -- --confirm-live`, Mohit only, ≤ 300 IDs-only calls, 0 Pro) decides.
-- Map Ranking (named top 20, Pro SKU) at the center and N/S/E/W (`MAP_RANKING_POINTS=all`; `center` is the cost switch).
+**Ranking at full quality** (Mohit, 2026-09-27: quality over cost):
+- Every search fetches all pages (up to 60 results) at every point; each point's full ordered list is stored (`rank_result_lists`, one document per run and keyword).
+- **Samples: 3 per point, 60 s apart** (`RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`; decided by Mohit on 2026-09-27 from the variance test, see `docs/calibration/variance-2026-09-27.md`). The point's rank is the median of its samples.
+- **Map Ranking at 5 points** (`MAP_RANKING_POINTS=all`, decided 2026-09-27): the named top 20 (Pro SKU) at the center and N/S/E/W.
 - Competitor Place Details include reviews (up to 5), photos (count) and editorial summary: Enterprise + Atmosphere SKU.
 
-**Throughput and duration.** `PLACES_MAX_QPS` (default 8 = 480/min) is enforced across **all** pm2 processes by a MongoDB per-second counter (`places_rate`, TTL). It assumes Google's default quota of **600 requests per minute per method** (Text Search, Place Details); raise both together. `RANK_SEARCH_CONCURRENCY` (4) searches in flight per run. Runs are background jobs; at 8 req/s:
+**Limits and quota.**
+- `PLACES_MAX_QPS=8` (480/min): enforced across **all** pm2 processes by a MongoDB per-second counter (`places_rate`, TTL). It assumes Google's default quota of **600 requests per minute per method** (Text Search, Place Details); Mohit is confirming it in Cloud (2026-09-27). Raise both together only.
+- `RANK_SEARCH_CONCURRENCY=4` searches in flight per run.
+- `RANK_MAX_CALLS_PER_RUN=16000` IDs-only calls: the largest run, 20 keywords × 7×7 × 3 pages × 5 samples = 15,900, fits.
+
+**Run duration** (background jobs, at 8 req/s; full depth assumes 60 results everywhere; **bold = the current defaults**):
 
 | Run | IDs-only calls | Pro | Duration |
 |---|---|---|---|
 | 10 keywords × 5×5, 1 sample | 870 | 50 | ~2 min |
-| 10 × 5×5, 3 samples, 60 s apart | 2,610 | 50 | ~5.5 min |
-| 10 × 5×5, 3 samples, 10 min apart | 2,610 | 50 | ~22 min |
-| 20 × 7×7, 5 samples (the maximum; `RANK_MAX_CALLS_PER_RUN` 16,000) | 15,900 | 100 | ~33 min |
+| **10 keywords × 5×5, 3 samples, 60 s apart** | **2,610** | **50** | **~5.5 min** |
+| 10 keywords × 5×5, 3 samples, 10 min apart | 2,610 | 50 | ~22 min |
+| 20 keywords × 7×7, 3 samples, 60 s apart | 9,540 | 100 | ~20 min |
+| 20 keywords × 7×7, 5 samples (the maximum) | 15,900 | 100 | ~33 min |
 
-Each run stores `expected_duration_ms`; the stuck guard fails a running run only after max(30 min, 2 × expected + 10 min), and the rank-run job renews its agenda lock every minute.
+Each run stores `expected_duration_ms`; the stuck guard fails a running run only after max(30 min, 2 × expected + 10 min), and the rank-run job renews its agenda lock every minute. Several runs at once share the 8 req/s.
+
+**Storage per run** (`rank_result_lists`: a dictionary of place IDs + 2 bytes per result; plain ID arrays would be about 5× larger):
+
+| Run | 1 sample | 3 samples (default) | 5 samples |
+|---|---|---|---|
+| 10 keywords × 5×5 | ~0.15 MB | ~0.25 MB | ~0.35 MB |
+| 20 keywords × 7×7 | ~0.45 MB | ~0.8 MB | ~1.2 MB |
+
+Plus the RankRun document (sample ranks per cell and target): up to ~1 MB at 20 × 7×7 × 5 samples. Monthly runs for 1,000 locations at 20 × 7×7 with 3 samples ≈ 10 GB a year.
+
+**Cost per monthly refresh** (list prices, before Google's free monthly allowances; **accepted by Mohit on 2026-09-27: quality first**):
+
+| Item | 10 keywords | 20 keywords |
+|---|---|---|
+| Ranking searches, IDs-only (any number of samples) | $0 (free SKU) | $0 |
+| Map Ranking at 5 points (Pro, $32 per 1,000) | 50 calls, $1.60 | 100 calls, $3.20 |
+| Competitor Place Details (Enterprise + Atmosphere, $25 per 1,000) | ≤ 6 calls, $0.15 | $0.15 |
+| **Total, Map Ranking at 5 points (current)** | **≈ $1.75** | **≈ $3.35** |
+| Total with `MAP_RANKING_POINTS=center` (not used) | ≈ $0.47 | ≈ $0.79 |
+
+A manual rankings refresh costs the Map Ranking row again (≈ $1.60 at 10 keywords). Setup, once: competitor suggestions (Enterprise, ≤ 1 per keyword), add location (Details Enterprise), manual search (Pro): ≈ $0.05–0.40. Prices are defaults in `src/configs/pricing.ts`; **Mohit is checking them against Google's pricing page** (2026-09-27).
+
+**Post-deploy steps (Phase 12.5):** `npm run db:sync-indexes -- --confirm` (builds `rank_result_lists`, `api_usage` and the `places_rate` TTL index), remove `COMPETITOR_DETAILS_ATMOSPHERE` from `.env` (done locally 2026-09-27), then the Google Cloud checklist below.
+
+**Variance test (rerun a spacing later):** `npm run variance:test -- --confirm-live --spacings=600` reruns only the 10-minute spacing (2 keywords × 5 points × 3 samples × 3 pages = 90 IDs-only calls, about 20 min). Results are written after each spacing, so an interrupted run keeps what finished.
 
 **Usage ledger.** Every Places and GBP HTTP call (retries included) is counted in `api_usage` per organization, location, month and billing SKU: `places.text.ids_only | pro | enterprise`, `places.details.ids_only | essentials | pro | enterprise | enterprise_atmosphere`, `gbp.account_management | business_information | performance | verifications | v4 | oauth`. Requests and jobs are attributed automatically; calls outside both are "unattributed". Counts only, no limits. `GET /organization/usage` → `api_usage` for the organization.
 
@@ -122,18 +153,6 @@ npm run cost:report -- --month=2026-09 --org=<id>    # one organization; --json 
 ```
 
 Prices: `src/configs/pricing.ts` (USD per 1,000, Google list prices for the Places API (New), first volume tier; **verify on Google's pricing page**), overridable with `PRICING_FILE=<json>`. The report shows list price and, project-wide, the price after Google's free monthly allowances.
-
-**Cost model per location per month** (list prices, before free allowances):
-
-| Item | Calls | Cost |
-|---|---|---|
-| Ranking searches, IDs-only (any number of samples) | 870 × samples (10 kw, 5×5) | $0 (free SKU) |
-| Map Ranking at 5 points | 5 per keyword: 50 (10 kw) / 100 (20 kw) | $1.60 / $3.20 |
-| Competitor Place Details (Enterprise + Atmosphere) | ≤ 6 per monthly cycle | $0.15 |
-| **Monthly refresh** | | **≈ $1.75 (10 keywords) / ≈ $3.35 (20 keywords)** |
-| With `MAP_RANKING_POINTS=center` | 10 / 20 Pro | ≈ $0.47 / ≈ $0.79 |
-| A manual rankings refresh | same as the ranking rows | ≈ $1.60 (10 kw) |
-| Setup, once: competitor suggestions (Enterprise, ≤ 1 per keyword), add location (Details Enterprise), manual search (Pro) | a few | ≈ $0.05–0.40 |
 
 **Google Cloud checklist (Mohit):**
 1. **Budget + alerts:** Billing → Budgets & alerts, a monthly budget for the project with alerts at 50 %, 90 % and 100 % (email).
@@ -298,7 +317,7 @@ On any database that already has data, in this order, **before the new version s
 8. **`npm run gbp:encrypt-tokens`**, only on a database with GBP connections from before Phase 6. Idempotent.
 9. **Reports storage (Phase 12):** create `REPORTS_STORAGE_DIR` (default `storage/reports` under the repo root), writable by the pm2 user and **not** under `public/`; add it to the backups. Set `SHARE_BASE_URL` to the public API origin, and make nginx forward `/r/` to the app. No system packages are needed (no Chromium).
 10. **`npm run migrate:branding -- --confirm`** (Phase 12): legacy white-label profiles → organization branding (agencies without branding only; copies logos into the storage directory). Idempotent. Run `db:sync-indexes` (step 6) after this release too: it builds the report indexes (Phase 12.5: also `rank_result_lists`, `api_usage` and the `places_rate` TTL index).
-    **Phase 12.5 `.env`:** `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT` / `RANK_SAMPLE_SPACING_SEC` from the variance test; remove `COMPETITOR_DETAILS_ATMOSPHERE`. Do the Google Cloud checklist (Ranking quality section) before the first monthly refresh.
+    **Phase 12.5 `.env`:** `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60` (decided 2026-09-27); remove `COMPETITOR_DETAILS_ATMOSPHERE`. Do the Google Cloud checklist (Ranking quality section) before the first monthly refresh.
 11. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention`) and `Recurring job scheduled: monthly-refresh` / `report-retention`.
 
 `--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.
