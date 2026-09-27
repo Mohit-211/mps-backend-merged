@@ -62,6 +62,11 @@ const envVarsSchema = Joi.object({
 	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of email-verification and password-reset codes'),
 	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
 	COMPETITOR_DETAILS_ATMOSPHERE: Joi.boolean().default(false).description('Also fetch editorialSummary (Atmosphere-tier Place Details) for the competitor comparison'),
+	REPORTS_STORAGE_DIR: Joi.string().default('./storage/reports').description('Reports center (Phase 12): private directory for report PDFs and branding logos (never served statically)'),
+	REPORT_RETENTION_MONTHS: Joi.number().integer().min(1).max(120).default(24).description('Generated reports (PDF + snapshot) are deleted after this many months'),
+	REPORT_RENDER_CONCURRENCY: Joi.number().integer().min(1).max(2).default(1).description('report-generate jobs at once per process'),
+	REPORT_EMAIL_MAX_ATTACHMENT_MB: Joi.number().min(1).max(25).default(10).description('Larger report PDFs are emailed as a 30-day share link instead of an attachment'),
+	SHARE_BASE_URL: Joi.string().uri().allow('').default('').description('Public base URL of this API for report share links (/r/<token>); empty = API_BASE_URL'),
 	TOKEN_ENCRYPTION_KEY: Joi.string()
 		.allow('')
 		.pattern(/^[0-9a-fA-F]{64}$/)
@@ -204,6 +209,16 @@ interface Config {
 		detailsAtmosphere: boolean;
 	};
 
+	reports: {
+		/** Absolute path of the private reports directory (PDFs, branding logos). */
+		storageDir: string;
+		retentionMonths: number;
+		renderConcurrency: number;
+		maxAttachmentBytes: number;
+		/** Base URL for /r/<token> share links. */
+		shareBaseUrl: string;
+	};
+
 	security: {
 		/** Empty when unset (development/test): token encryption then throws on use. */
 		tokenEncryptionKey: string;
@@ -322,6 +337,14 @@ const config: Config = {
 	report: {
 		debounceSeconds: envVars.REPORT_DEBOUNCE_SECONDS,
 		detailsAtmosphere: envVars.COMPETITOR_DETAILS_ATMOSPHERE,
+	},
+
+	reports: {
+		storageDir: path.resolve(process.cwd(), envVars.REPORTS_STORAGE_DIR),
+		retentionMonths: envVars.REPORT_RETENTION_MONTHS,
+		renderConcurrency: envVars.REPORT_RENDER_CONCURRENCY,
+		maxAttachmentBytes: Math.round(envVars.REPORT_EMAIL_MAX_ATTACHMENT_MB * 1024 * 1024),
+		shareBaseUrl: (envVars.SHARE_BASE_URL || envVars.API_BASE_URL || `http://localhost:${envVars.PORT}`).replace(/\/$/, ''),
 	},
 
 	security: {

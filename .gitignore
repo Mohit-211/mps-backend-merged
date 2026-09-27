@@ -18,6 +18,8 @@ logs/
 .env.staging
 **/.DS_Store
 public/uploads/
+# Phase 12: report PDFs and branding logos (REPORTS_STORAGE_DIR)
+storage/
 test/
 .env
 path

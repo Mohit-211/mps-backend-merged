@@ -11,12 +11,28 @@ export type OrganizationCountry = (typeof ORGANIZATION_COUNTRIES)[number];
 export const SKIPPABLE_STEPS = ['google', 'reporting_brand'] as const;
 export type SkippableStep = (typeof SKIPPABLE_STEPS)[number];
 
+/** Agency white-label for reports and report emails (Phase 12). Business organizations use the default branding. */
+export interface OrganizationBranding {
+	agency_name: string | null;
+	/** The logo file in REPORTS_STORAGE_DIR/branding/<organization_id>/ (private). */
+	logo: { file: string; mime: 'image/png' | 'image/jpeg'; bytes: number; sha256: string } | null;
+	primary_color: string | null;
+	secondary_color: string | null;
+	footer_text: string | null;
+	contact_text: string | null;
+	hide_mypageseo: boolean;
+	email_sender_name: string | null;
+	email_reply_to: string | null;
+	updated_at: Date | null;
+}
+
 export interface IOrganization extends Document {
 	name: string;
 	type: OrganizationType;
 	country: OrganizationCountry | null;
 	owner_user_id: Types.ObjectId;
 	onboarding: { completed_at: Date | null; skipped: SkippableStep[] };
+	branding?: OrganizationBranding | null;
 	is_active: boolean;
 	created_at: Date;
 	updated_at: Date;
@@ -32,6 +48,7 @@ const OrganizationSchema = new Schema<IOrganization>(
 			completed_at: { type: Date, default: null },
 			skipped: { type: [String], enum: SKIPPABLE_STEPS, default: [] },
 		},
+		branding: { type: Schema.Types.Mixed, default: null },
 		is_active: { type: Boolean, default: true },
 	},
 	{ collection: 'organizations', timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
