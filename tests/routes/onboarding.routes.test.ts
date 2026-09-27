@@ -173,7 +173,7 @@ describe('onboarding flow over HTTP', () => {
 		expect(search.body.data).toEqual({
 			results: [{ place_id: 'ChIJrouteSearch000000001', name: 'Rival Search', address: '9 Elm St' }],
 			api_calls: 1,
-			attribution: { provider: 'Google', text: 'Business data © Google' },
+			attribution: { provider: 'Google', text: 'Google Maps' },
 		});
 
 		const comps = await request(app)

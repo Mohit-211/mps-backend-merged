@@ -256,7 +256,7 @@ describe('Phase 12.5 report content: Map Ranking across the area, reviews, Googl
 		expect(table.columns.map((c) => c.label)).toEqual(['#', 'Center', 'North', 'South', 'East', 'West']);
 		expect(table.rows[0][1]).toBe('Café Montréal Plombier (you)');
 		expect(table.rows.at(-1)).toEqual(['You', '#1', '#2', '#3', '#4', '#5']);
-		expect(blocks.at(-1)).toEqual({ kind: 'paragraph', text: 'Business data © Google', muted: true });
+		expect(blocks.at(-1)).toEqual({ kind: 'paragraph', text: 'Google Maps', muted: true });
 	});
 
 	it('competitor reviews become quotes with the author; photos show "10+"; the document carries the attribution to every page and the share page', async () => {
@@ -271,17 +271,17 @@ describe('Phase 12.5 report content: Map Ranking across the area, reviews, Googl
 		expect(data.table?.map((r) => r.photos)).toEqual([4, 10]);
 		expect(data.reviews?.[1].items.map((i) => i.author)).toEqual(['Author 1', 'Author 2']); // newest 2
 		const doc = buildDocument({ type: 'competitor_analysis', location: LOCATION, branding: BRAND, data: { competitor_analysis: data }, generated_at: new Date('2026-09-30T00:00:00Z') });
-		expect(doc.attribution).toBe('Business data © Google');
+		expect(doc.attribution).toBe('Google Maps');
 		const side = doc.blocks.find((b) => b.kind === 'table') as Extract<Block, { kind: 'table' }>;
 		expect(side.rows.map((r) => r[3])).toEqual(['4', '10+']);
 		const quotes = doc.blocks.find((b) => b.kind === 'quotes') as Extract<Block, { kind: 'quotes' }>;
 		expect(quotes.items[0]).toEqual({ text: '★★★★★ “Review 1 of Me”', meta: 'Me (you): Author 1, 1 days ago (Google review)', link: 'https://maps.test/a1' });
 		const pdf = await renderPdf(doc, { collectText: true });
-		expect(pdf.text.filter((t) => t === 'Business data © Google').length).toBeGreaterThanOrEqual(pdf.pages + 1); // every footer + under the tables
+		expect(pdf.text.filter((t) => t === 'Google Maps').length).toBeGreaterThanOrEqual(pdf.pages + 1); // every footer + under the tables
 		expect(pdf.text).toContain('Me (you): Author 1, 1 days ago (Google review)');
 		const html = renderSharePage(doc, 'https://api.test/r/t/pdf');
 		expect(html).toContain('<a href="https://maps.test/a1" rel="nofollow noopener noreferrer" target="_blank">');
-		expect(html.match(/Business data © Google/g)?.length).toBeGreaterThanOrEqual(2);
+		expect(html.match(/Google Maps/g)?.length).toBeGreaterThanOrEqual(2);
 		const rtOnly = buildDocument({ type: 'rank_tracker', location: LOCATION, branding: BRAND, data: { rank_tracker: buildRankTrackerData(run(), [], ['summary']) }, generated_at: new Date() });
 		expect(rtOnly.attribution).toBeNull();
 	});

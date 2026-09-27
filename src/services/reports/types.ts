@@ -148,6 +148,6 @@ export interface ReportDocument {
 	period: string | null;
 	branding: FrozenBranding;
 	blocks: Block[];
-	/** Phase 12.5: "Business data © Google" when the document shows Places content (printed in the footer). */
+	/** Phase 12.5: "Google Maps" (the attribution) when the document shows Places content (printed in the footer). */
 	attribution: string | null;
 }

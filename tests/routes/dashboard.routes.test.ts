@@ -95,7 +95,7 @@ describe('GET /dashboard: business', () => {
 			movement: { improved: 2, declined: 1, entered_top_60: 1 },
 			key_competitor: { name: 'Rival', ahead: true, location_id: String(loc._id) },
 			status_counts: { active: 1 },
-			attribution: { provider: 'Google', text: 'Business data © Google' },
+			attribution: { provider: 'Google', text: 'Google Maps' },
 		});
 		// The GBP fix (6 weighted points lost: 0.3) outranks the competitor gap (4.4 ranks: 0.22).
 		expect(d.recommended_actions.map((a: { id: string }) => a.id)).toEqual(['gbp:recent_post', 'ranking:competitor_ahead']);

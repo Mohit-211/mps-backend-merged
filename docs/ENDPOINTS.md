@@ -579,7 +579,7 @@ Public share links (outside `/api/v1`, no login):
 No new endpoints; changed responses (examples in [API.md](API.md#ranking--data-quality-phase-125)):
 - **Cells** (#6 rank-tracker, #7 grid): each `byTarget` cell also has `samples` (one value per sample: 1–60, 61 = not in the top 60, null = failed) and `spread`; `rank`/`status` are the median. Older runs have neither field.
 - **#8 map-ranking:** `?point=`, and `point` on each keyword list.
-- **Attribution:** responses with Google Places content carry `attribution: { provider: "Google", text: "Business data © Google" }`: #8, #20, #21, #28, `GET /locations`, `GET /locations/:id/overview`, `GET /dashboard`, `GET /reports/:id`.
+- **Attribution:** responses with Google Places content carry `attribution: { provider: "Google", text: "Google Maps" }`: #8, #20, #21, #28, `GET /locations`, `GET /locations/:id/overview`, `GET /dashboard`, `GET /reports/:id`.
 - **#37:** `api_usage` (Google API calls per billing SKU from the usage ledger, this and last month).
 - **#28 competitor rows:** `photo_count` (0–10; 10 = "10+"), `photos_capped`, `reviews` (up to 5, with `author: { name, uri }`), `recent_review_at`; insights `photos_gap`, `review_freshness`.
 - **Reports** (#61): Rank Tracker gains the section `map_ranking`, Competitor Analysis the section `reviews`.

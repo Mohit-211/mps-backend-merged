@@ -1987,7 +1987,7 @@ The named top 20 is fetched at the center **and** N, S, E, W (`MAP_RANKING_POINT
 { "run": { "…": "…" }, "names_stored": true, "point": "N", "points_available": ["C", "N", "S", "E", "W"],
   "keywords": [ { "keyword": "Emergency Plumber", "point": "N",
                   "results": [ { "rank": 1, "place_id": "ChIJ…", "name": "Riverdale Plumbing", "is_self": false, "target_key": null } ] } ],
-  "attribution": { "provider": "Google", "text": "Business data © Google" } }
+  "attribution": { "provider": "Google", "text": "Google Maps" } }
 ```
 
 **404** for a point the run doesn't have (runs before 12.5 have the center only). **400** for another value.
@@ -2007,7 +2007,7 @@ The named top 20 is fetched at the center **and** N, S, E, W (`MAP_RANKING_POINT
 
 ### Attribution
 
-Responses that carry Google Places content include `"attribution": { "provider": "Google", "text": "Business data © Google" }`: map-ranking, competitor-suggestions, places/search, the GBP report, `GET /locations`, `GET /locations/:id/overview`, `GET /dashboard` and `GET /reports/:id`. Show the text near business names, ratings and reviews. PDFs and share pages print it under those tables and in the page footer.
+Responses that carry Google Places content include `"attribution": { "provider": "Google", "text": "Google Maps" }`: map-ranking, competitor-suggestions, places/search, the GBP report, `GET /locations`, `GET /locations/:id/overview`, `GET /dashboard` and `GET /reports/:id`. Show the text near business names, ratings and reviews (wording: Google’s policy text “Google Maps”, Mohit 2026-09-27). PDFs and share pages print it under those tables and in the page footer.
 
 ### `GET /organization/usage` → `api_usage`
 
