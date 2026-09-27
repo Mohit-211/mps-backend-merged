@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, Phase 11 merged and M4 pushed; Phase 12 (Reports center) in planning._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, Phase 12 (Reports center) built on `claude/phase-12-reports`, awaiting merge._
 
 ## Product goal
 
@@ -30,7 +30,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 7c | GBP Score, report, competitors | done | `claude/phase-7c-scoring-report` | yes (`fb5af9f`) | M3 (pushed 2026-09-26) |
 | 8 | Auth, Organization, Onboarding & Locations | done | `claude/phase-8-org-onboarding` | yes (`819dfd8`) | M4 |
 | 11 | Dashboards + team | done | `claude/phase-11-dashboards-team` | yes (`0786801`) | M4 (pushed 2026-09-27) |
-| **12** | **Reports center** | **in progress (planning)** | `claude/phase-12-reports` | – | M5 |
+| **12** | **Reports center** | **built, awaiting merge** | `claude/phase-12-reports` | – | M5 |
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30) | planned (after 12) | – | – | M5 |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
@@ -98,7 +98,11 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - `GET /dashboard`: Business (visibility, GBP Score + trend, reviews, keyword movement, key competitor, recommended actions) and Agency (portfolio averages, statuses, declines, GBP issues, portfolio table). It reads stored per-location summaries only.
   - Team invitations by email (member or client user), accept, revoke, role change, removal (owner-managed).
   - `db:sync-indexes` and `summaries:rebuild` added to the deploy checklist.
-- **Tests:** 590 pass with no API key and no network. Lint baseline is 32.
+- **Reports center (Phase 12), offline:**
+  - Rank Tracker, GBP Audit, Competitor Analysis and Full reports, frozen in a snapshot and rendered once to PDF with **PDFKit** (no browser, no system packages; about 50 ms CPU and 40 MB per 8-page report). The in-app viewer gets the same blocks.
+  - Library, download, archive, email (attachment or 30-day link), revocable share links (`/r/<token>`, noindex, no ids, rate-limited), monthly schedules after each location's automatic refresh, retention (24 months).
+  - Agency white-label branding (logo, colours, footer, hide MyPageSEO, email sender and reply-to); the legacy white-label routes are deprecated and `npm run migrate:branding` carries them over.
+- **Tests:** 619 pass with no API key and no network. Lint baseline is 32.
 
 ## Key decisions
 
@@ -123,20 +127,22 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 2026-09-26 | Phases 6–7 live GBP calls: free but quota-limited, max 5 requests/second, only against the account Mohit connects, and nothing live until Mohit says so (first step: `gbp:preflight`, triggered by Mohit). |
 | 2026-09-26 | **7c:** GBP Score 5 pillars (completeness 25, activity 20, reviews 25, visibility 20, engagement 10) with rescaling; Public Score from Place Details + map-list center ranks for everyone; `editorialSummary` off (Atmosphere tier); one report per location (no Places history); report after each sync and rank run, debounced 120 s; competitor Place Details once per monthly cycle, or on a manual refresh after 24 h. Thresholds are starting values until calibrated on real data. |
 | 2026-09-27 | **Phase 8:** organizations own locations and clients (roles owner / member / client_user); plan limits from optional `location_limit` / `keyword_limit` on the subscription plan (default 1 location); the legacy location routes replaced at the same paths and the unauthenticated `google-locations` proxies deleted; new `/auth` endpoints beside the deprecated `/user/auth` ones; a bind to a location with a different place is refused. |
+| 2026-09-27 | **Phase 12:** PDFKit (pure Node) over headless Chrome: small RAM, no Chromium per pm2 instance, no system packages. Reports are frozen snapshots (branding and logo included). White-label is agency-only. Schedules fire once per monthly auto-refresh cycle per location (not on manual refreshes). Share tokens are hashed, shown once and redacted from logs. Legacy white-label routes deprecated, not deleted. |
 | 2026-09-27 | **Phase 11 / M4:** dashboards read stored per-location summaries only (`Location.summary`, written after runs and reports); team management is owner-only; accepting an invitation as an existing account doesn't log in; invitation tokens travel in the body and are stored hashed; in development the invitation link is logged with the email masked. |
 
 ## Open items (owner: Mohit)
 
-1. **Next push:** to be agreed after Phase 12 (M4 was pushed on 2026-09-27).
-2. **Google Cloud:**
+1. **Merge Phase 12** (command in the phase summary), then **agree the next push** (M4 was pushed on 2026-09-27).
+2. **Share links:** local `.env` has `API_BASE_URL=http://localhost:5000` but the dev server runs on 5055, so share links point at 5000: set `SHARE_BASE_URL=http://localhost:5055`. In production set `SHARE_BASE_URL` to the public API origin and let nginx forward `/r/` to the app.
+3. **Google Cloud:**
    - Add the **Authorised JavaScript origins** to the OAuth client: the frontend's, and `http://localhost:5055` for the dev test page.
    - `.env`: `TOKEN_ENCRYPTION_KEY` (currently empty, so connecting would fail) and, for the redirect fallback only, `GOOGLE_GBP_REDIRECT_URI` on port 5055 (currently 5000).
-3. **Live test, when you say so:** see "Next up".
-4. **Google approvals:** see "Blocked on Google" below.
-5. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
-6. **Maps ToS decisions before launch:** see "Decide before launch (Maps ToS)" below.
-7. **Rotate the DataForSEO credential** (AUDIT S13).
-8. **Security Phase 10:** planned after Phase 12, required before launch (all Deferred-P10 items, including S19, S30 and the Search Console parts of S11, S12 and S29).
+4. **Live test, when you say so:** see "Next up".
+5. **Google approvals:** see "Blocked on Google" below.
+6. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
+7. **Maps ToS decisions before launch:** see "Decide before launch (Maps ToS)" below.
+8. **Rotate the DataForSEO credential** (AUDIT S13).
+9. **Security Phase 10:** planned after Phase 12, required before launch (all Deferred-P10 items, including S19, S30 and the Search Console parts of S11, S12 and S29).
 
 ## Blocked on Google
 
@@ -152,7 +158,7 @@ All three store or show Google Maps content. Confirm each against the Google Map
 
 1. **`STORE_PLACE_NAMES`** (default true in development): business names stored in `RankRun.mapList`. The alternative is to resolve them live with `?resolveNames=true`.
 2. **The 24 h competitor-suggestion cache** (`Location.competitor_suggestions`): names, addresses, ratings and review counts from Text Search, kept for 24 hours per keyword set.
-3. **Competitor Place Details** in the GBP report (7c): the latest comparison only, overwritten on each generation.
+3. **Competitor Place Details** in the GBP report (7c): the latest comparison only, overwritten on each generation. Since Phase 12, generated reports (and share pages) also keep a frozen copy of the comparison names and ratings for up to `REPORT_RETENTION_MONTHS`.
 
 ## Backlog (not now)
 
@@ -166,8 +172,8 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Phase 12: Reports center**, in plan mode (spec in CLAUDE.md §12c).
-2. **Then Phase 10 (security)**, then 13 (billing & plans) and 14 (production readiness) toward M5 launch-ready. The next milestone push is agreed after Phase 12.
+1. **Merge Phase 12** into `claude/rebuild` (Mohit), and agree the next push.
+2. **Phase 10 (security)**, in plan mode (all Deferred-P10 items incl. S19, S30; the unauthenticated legacy `GET /white-label-profiles/:id` too), then 13 (billing & plans) and 14 (production readiness) toward M5 launch-ready.
 3. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
@@ -177,7 +183,8 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 See [OPERATIONS.md](OPERATIONS.md) for:
 - setup and local MongoDB (`mps_rebuild`)
 - `npm run dev`, `npm test` and `npm run build`
-- `npm run seed:rank-demo` (demo data, no key)
+- `npm run seed:rank-demo` and `npm run seed:demo-orgs` (demo data incl. reports, no key)
+- reports storage, retention and share links (Reports center section)
 - the ranking jobs
 - the smoke scripts: `smoke:agenda` (free), and `smoke:places` (1 Places call; Mohit only)
 - removed legacy features and data: [LEGACY_FEATURES.md](LEGACY_FEATURES.md), [MIGRATION.md](MIGRATION.md)

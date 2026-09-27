@@ -44,6 +44,10 @@ export * from "./membership.model";
 export * from "./authCode.model";
 export * from "./rateLimit.model";
 export * from "./invitation.model";
+export * from "./report.model";
+export * from "./reportSnapshot.model";
+export * from "./reportShare.model";
+export * from "./reportSchedule.model";
 
 
 // location service — citations

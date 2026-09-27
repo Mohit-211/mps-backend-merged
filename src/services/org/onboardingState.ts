@@ -10,8 +10,8 @@ import { locationScope } from './access';
 // skips, so the flow can be resumed anywhere:
 //   Business: organization_info → google → first_location → location_setup → dashboard
 //   Agency:   agency_info → google → first_client → first_location → location_setup → reporting_brand → dashboard
-// google can be skipped (a location can be added from a Places search); reporting_brand is
-// not_available until white-label is built (out of scope).
+// google can be skipped (a location can be added from a Places search); reporting_brand (Phase 12:
+// report white-label) is done once any branding is saved, and can be skipped.
 
 export type StepStatus = 'done' | 'pending' | 'skipped' | 'not_available';
 export type OrgStepId = 'organization_info' | 'agency_info' | 'google' | 'first_client' | 'first_location' | 'location_setup' | 'reporting_brand';
@@ -57,7 +57,7 @@ export const orgOnboardingState = async (ctx: OrgContext, deps: OrgStateDeps = {
 	]);
 	const googleConnected = connections.some((c) => c.status === 'active') || locations.some((l) => l.gbp_connected);
 	const skipped = new Set(org.onboarding?.skipped ?? []);
-	const done = (ok: boolean, skippable?: 'google'): StepStatus => (ok ? 'done' : skippable && skipped.has(skippable) ? 'skipped' : 'pending');
+	const done = (ok: boolean, skippable?: 'google' | 'reporting_brand'): StepStatus => (ok ? 'done' : skippable && skipped.has(skippable) ? 'skipped' : 'pending');
 
 	const steps: OrgOnboarding['steps'] = [
 		{ id: org.type === 'agency' ? 'agency_info' : 'organization_info', status: done(Boolean(org.name && org.country)) },
@@ -65,7 +65,7 @@ export const orgOnboardingState = async (ctx: OrgContext, deps: OrgStateDeps = {
 		...(org.type === 'agency' ? [{ id: 'first_client' as const, status: done(clients > 0) }] : []),
 		{ id: 'first_location', status: done(locations.length > 0) },
 		{ id: 'location_setup', status: done(locations.some(isSetUp)) },
-		...(org.type === 'agency' ? [{ id: 'reporting_brand' as const, status: 'not_available' as StepStatus }] : []),
+		...(org.type === 'agency' ? [{ id: 'reporting_brand' as const, status: done(Boolean(org.branding), 'reporting_brand') }] : []),
 	];
 	const completed = steps.every((s) => s.status !== 'pending');
 	let completedAt = org.onboarding?.completed_at ?? null;

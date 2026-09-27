@@ -790,3 +790,41 @@ Branch `claude/phase-11-dashboards-team`. Offline only: **0 Google calls, 0 Plac
 **Tests:** 590 pass (was 573); build 0 errors; lint 32. Dev server, Places key empty: business, agency and client-user dashboards; invite → masked dev log link → inspect → accept (new account) → role change → remove; 0 Google calls; the invitee's email never in the log.
 
 **API calls consumed:** 0.
+
+## Phase 12: Reports center
+
+Branch `claude/phase-12-reports`. Offline only: **0 Google calls, 0 Places calls**. Plan approved 2026-09-27 (PDFKit over Puppeteer).
+
+**What changed**
+- **Reports:** Rank Tracker, GBP Audit, Competitor Analysis and Full, from stored data only (rank run, GBP report, profile snapshot). Generation freezes the section data and the branding (logo included) in a `ReportSnapshot`, then renders the PDF once into the private `REPORTS_STORAGE_DIR`. One active report per location and type; a stuck one (30 min) is marked failed. v4 sections are "Not available yet", never sample data.
+- **PDF engine: PDFKit**, with DejaVu Sans embedded (accents print). One document model (typed blocks) feeds the PDF renderer, the HTML share page, the email body and the in-app viewer (`GET /reports/:id` → `document.blocks`). Heatmaps are vector grids (two per row), charts are vector lines.
+- **Measured** (compiled code, the seeded 8-page Full report): about 50 ms CPU and 40 MB transient memory per render; heap flat across 100 renders (81 MB); 30–50 KB per PDF. No Chromium, no system packages; nothing extra per pm2 instance.
+- **Library and actions:** list (filters, paging, archived), view, PDF download, archive, email (attachment, or a 30-day link above 10 MB; branding sender name + reply-to; 20 / hour per organization; development logs with masked recipients).
+- **Share links:** hashed 32-byte tokens shown once, optional expiry, revocable; public `/r/:token` (HTML) and `/r/:token/pdf` with noindex, CSP `default-src 'none'`, no-referrer, 60 / min per IP, the same 404 for every failure, no internal ids; the request log redacts the token.
+- **Schedules:** monthly, location or client scope; fire once per monthly automatic refresh of each covered location, after its GBP report (`report-schedule-dispatch`, compare-and-set on the cycle), then emailed when ready (`report-email`); `next_expected`, `last_sent_at`, `last_error`. Manual refreshes don't fire; `manual_only` locations are refused.
+- **White-label (agency only):** `Organization.branding` (agency name, private logo, colours, footer/contact, hide MyPageSEO, sender name, reply-to). Business organizations get the default branding. The agency onboarding step `reporting_brand` is now real (done once branding is saved; skippable).
+- **Legacy white-label:** `/white-label-profiles*` marked deprecated (still live; the unauthenticated `GET /:id` goes in Phase 10). `npm run migrate:branding` copies each agency's primary legacy profile (name → agency name, header → contact text, footer, colour name → colour, logo into private storage); never overwrites.
+- **Reused vs replaced:** reused the legacy profile fields and the email transport; replaced per-location profiles (→ one per organization), public logo files in `public/uploads` (→ private storage), the unauthenticated profile read and `access_password` links (→ hashed, expiring, revocable share tokens).
+- **Retention:** daily `report-retention` deletes PDFs and snapshots older than `REPORT_RETENTION_MONTHS` (24) → `expired`.
+- **Scripts:** `migrate:branding`; `db:sync-indexes` covers the report collections; `seed:demo-orgs` renders 6 reports offline, agency branding with a generated logo, one client schedule and one share link.
+
+**Endpoints:** #61–#81 (ENDPOINTS.md, API.md "Reports center"), FRONTEND_BACKEND_MAP.md (Reports, White label; Citation Report "planned (Phase 16)").
+
+**Files touched (shared, called out):**
+- `src/services/common/email.service.ts`: one exported `sendReportEmail`.
+- `src/configs/morgan.ts`: the log format uses `:safe-url` (redacts `/r/<token>`).
+- `src/app.ts`: mounts `/r` (share links).
+- `src/services/auth/rateLimit.ts`: two limits (`reportEmailPerOrg`, `sharePerIp`).
+- `src/services/gbp/report.service.ts`: after a generated GBP report, requests the schedule dispatch.
+- `src/services/org/onboardingState.ts`: `reporting_brand` derived from branding.
+
+**Decisions:** PDFKit over Puppeteer; white-label agency only; branding frozen per report; schedules per monthly auto-refresh cycle; logo as a base64 JSON body; `/r/:token` path with log redaction; legacy white-label deprecated, not deleted; above 10 MB emails carry a link. The frozen branding lives on the snapshot (not on `Report` as the plan said) so the logo bytes stay with the frozen data.
+
+**Open questions for Mohit:**
+- Local `.env` has `API_BASE_URL=http://localhost:5000` while the dev server listens on 5055, so seeded share links point at 5000. Set `SHARE_BASE_URL=http://localhost:5055` (or fix `API_BASE_URL`).
+- Production: nginx must forward `/r/` to the app (not only `/api`), and `SHARE_BASE_URL` should be the public API origin.
+- Share pages and emails show business names from Place Details (competitor table) and the map list: part of the existing "Decide before launch (Maps ToS)" items.
+
+**Tests:** 619 pass (was 590; 29 new across `tests/services/reports/*` and `tests/routes/reports.routes.test.ts`, plus the onboarding step); build 0 errors; lint 32 (baseline). Dev server, Places key empty: library (agency and client user), create → agenda job → ready in ~1 s → PDF download, email in development (masked log), share → public HTML (headers checked, 0 ids, 0 scripts) and PDF → revoke → 404, schedules with `next_expected`, branding and logo; tokens redacted in the request log; 0 Google calls.
+
+**API calls consumed:** 0.

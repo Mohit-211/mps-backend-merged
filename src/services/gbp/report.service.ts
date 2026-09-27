@@ -6,6 +6,7 @@ import logger from '../../configs/logger';
 import { scheduleJob } from '../../jobs/defineJob';
 import { JOB_NAMES } from '../../jobs/jobNames';
 import { GenerateDeps, GenerateResult, generateGbpReport } from '../../gbp/report/generate';
+import { requestScheduleDispatch } from '../reports/dispatch';
 import { ReportRange } from '../../gbp/report/performance';
 import { GbpReport, GbpSync, IGbpReport, ILocation, Location, RankRun, ReportTrigger } from '../../models';
 
@@ -85,6 +86,8 @@ export const runReportJob = async (locationId: string, trigger: ReportTrigger, d
 		return { skipped: 'run_active' };
 	}
 	const result = await generateGbpReport(locationId, trigger, deps);
+	// Phase 12: scheduled reports are created after the location's report (the dispatcher checks the monthly cycle).
+	if (result) await requestScheduleDispatch(locationId);
 	return result ?? { skipped: 'location_not_found' };
 };
 

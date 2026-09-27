@@ -26,6 +26,10 @@ import {
 	PlacesUsage,
 	RankRun,
 	RateLimit,
+	Report,
+	ReportSchedule,
+	ReportShare,
+	ReportSnapshot,
 	UserAuth,
 	UserGBP,
 } from '../models';
@@ -49,6 +53,10 @@ const MODELS: Record<string, Model<never>> = {
 	Invitation,
 	AuthCode,
 	RateLimit,
+	Report,
+	ReportSnapshot,
+	ReportShare,
+	ReportSchedule,
 } as unknown as Record<string, Model<never>>;
 
 const main = async (): Promise<number> => {

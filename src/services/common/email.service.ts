@@ -89,6 +89,33 @@ export const sendInvitationEmail = async (to: string, link: string, organization
   }
 };
 
+/** The bare address of EMAIL_FROM ("Name <a@b>" or "a@b"). */
+const fromAddress = (): string => /<([^>]+)>/.exec(config.email.from ?? '')?.[1] ?? config.email.from;
+
+/**
+ * Phase 12: a report email. The From address stays EMAIL_FROM (SPF/DKIM); the display name and
+ * Reply-To come from the organization's branding. Throws on failure so the caller can record it.
+ */
+export const sendReportEmail = async (input: {
+  to: string[];
+  subject: string;
+  text: string;
+  html: string;
+  senderName: string;
+  replyTo: string | null;
+  attachment: { filename: string; content: Buffer } | null;
+}): Promise<void> => {
+  await transport.sendMail({
+    from: { name: input.senderName.replace(/["<>]/g, ''), address: fromAddress() },
+    to: input.to,
+    replyTo: input.replyTo ?? undefined,
+    subject: input.subject,
+    text: input.text,
+    html: input.html,
+    attachments: input.attachment ? [{ filename: input.attachment.filename, content: input.attachment.content, contentType: 'application/pdf' }] : [],
+  });
+};
+
 export const sendResetPasswordConfirmationMail = async (to: string): Promise<void> => {
   try {
     const subject = 'Successfully Changed password';

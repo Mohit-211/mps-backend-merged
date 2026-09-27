@@ -8,10 +8,13 @@ import { Request, Response } from 'express';
 const LOG_DIR = path.resolve(__dirname, process.env.NODE_ENV === 'development' ? '../../logs' : '../../../logs');
 
 morgan.token('message', (req: Request, res: Response) => res.locals.message || 'No message available');
+/** Phase 12: report share tokens (/r/<token>) must never reach the logs. */
+export const redactUrl = (url: string): string => url.replace(/^\/r\/[^/?#]+/, '/r/[redacted]');
+morgan.token('safe-url', (req: Request) => redactUrl(req.originalUrl || req.url));
 
 const getIpFormat = (): string => (config.essentials.env === 'production' ? ':remote-addr - ' : '');
-const successResponseFormat = `${getIpFormat()}:method :url :status - :response-time ms - message: :message`;
-const errorResponseFormat = `${getIpFormat()}:method :url :status - :response-time ms - message: :message`;
+const successResponseFormat = `${getIpFormat()}:method :safe-url :status - :response-time ms - message: :message`;
+const errorResponseFormat = `${getIpFormat()}:method :safe-url :status - :response-time ms - message: :message`;
 
 const createLogDirectory = (logsDir: string) => {
   if (!fs.existsSync(logsDir)) {

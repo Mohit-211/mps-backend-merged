@@ -9,6 +9,14 @@ export const JOB_NAMES = {
 	MONTHLY_REFRESH: 'monthly-refresh',
 	/** 7c: generates a location's GBP report after a sync or rank run (debounced). */
 	GBP_REPORT: 'gbp-report',
+	/** Phase 12: renders one report (snapshot + PDF). */
+	REPORT_GENERATE: 'report-generate',
+	/** Phase 12: emails a scheduled report once it is ready. */
+	REPORT_EMAIL: 'report-email',
+	/** Phase 12: after a location's GBP report, creates the due scheduled reports. */
+	REPORT_SCHEDULE_DISPATCH: 'report-schedule-dispatch',
+	/** Phase 12: daily, deletes reports past REPORT_RETENTION_MONTHS. */
+	REPORT_RETENTION: 'report-retention',
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];

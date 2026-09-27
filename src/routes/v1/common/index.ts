@@ -23,6 +23,8 @@ import authRoute from './auth.route';
 import organizationRoute from './organization.route';
 import clientsRoute from './clients.route';
 import dashboardRoute from './dashboard.route';
+import reportsRoute from './reports.route';
+import reportSchedulesRoute from './reportSchedules.route';
 
 
 
@@ -91,6 +93,15 @@ const commonRoutes = [
 		// Phase 11: Business / Agency dashboard
 		path: '/dashboard',
 		route: dashboardRoute,
+	},
+	{
+		// Phase 12: Reports center (library, PDF, email, share links) and scheduled reports
+		path: '/reports',
+		route: reportsRoute,
+	},
+	{
+		path: '/report-schedules',
+		route: reportSchedulesRoute,
 	},
 	{
 		// Onboarding (Phase 7a): /onboarding/{state,gbp-profiles,select-profile,complete}

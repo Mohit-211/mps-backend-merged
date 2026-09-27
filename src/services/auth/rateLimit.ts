@@ -23,6 +23,9 @@ export const LIMITS = {
 	resetPerEmail: { name: 'reset:email', max: 10, windowSeconds: 900 },
 	invitePerOrg: { name: 'invite:organization', max: 20, windowSeconds: 3600 },
 	invitationPerIp: { name: 'invitation:ip', max: 20, windowSeconds: 900 },
+	// Phase 12: report emails per organization, public share-link views per IP.
+	reportEmailPerOrg: { name: 'report-email:organization', max: 20, windowSeconds: 3600 },
+	sharePerIp: { name: 'share:ip', max: 60, windowSeconds: 60 },
 } satisfies Record<string, Limit>;
 
 const keyOf = (limit: Limit, parts: string[]): string =>

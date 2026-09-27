@@ -24,7 +24,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | Screen | Backend | Status |
 |---|---|---|
 | Business onboarding | `GET /onboarding/state` (organization steps + empty states), `POST /onboarding/skip`, `POST /onboarding/select-profile` or `GET /places/search` + `POST /locations`, `PUT /locations/:id/center`, `PUT /locations/:id/tracking`, `GET /locations/:id/competitor-suggestions`, `POST /onboarding/complete` | **available (8)**: resumable at any step; Google can be skipped (Places-search path) |
-| Agency onboarding | as above + `POST /clients` (first client) and `client_id` on add-location | **available (8)**. The "reporting brand" step is `not_available` until white-label is built. |
+| Agency onboarding | as above + `POST /clients` (first client) and `client_id` on add-location | **available (8)**. The "reporting brand" step (Phase 12) is `done` once branding is saved (`PUT /organization/branding`), or skipped. |
 | Google/GBP connection | `GET /user/auth/google/gbp/popup` + `POST /user/auth/google/gbp/code` (popup), `GET /user/auth/google/gbp` (redirect), `POST /user/auth/google/gbp/revoke` | available (several Google accounts per user) |
 | Setup completion | `POST /onboarding/complete` | available (queues the first rank run and the first GBP sync; sets the monthly refresh) |
 
@@ -33,7 +33,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | Screen | Backend | Status |
 |---|---|---|
 | Business dashboard | `GET /dashboard` (business shape) | **available (11)**: visibility (average rank, change, top-3 rate, trend), GBP Score + grade + change, rating/reviews (public numbers until v4), ranking movement, key competitor, top 5 recommended actions, last/next refresh. "Local Visibility score" = the average-rank block (no separate score). "Citation health": **not supported**. |
-| Agency dashboard | `GET /dashboard` (agency shape) | **available (11)**: client and location counts, portfolio averages (rank, GBP Score), statuses (reconnect / setup), locations with ranking declines, GBP issues, recommended actions, portfolio table (paged, sortable). "Unanswered reviews across portfolio" needs v4; "Reports ready/scheduled/failed": not planned yet. |
+| Agency dashboard | `GET /dashboard` (agency shape) | **available (11)**: client and location counts, portfolio averages (rank, GBP Score), statuses (reconnect / setup), locations with ranking declines, GBP issues, recommended actions, portfolio table (paged, sortable). "Unanswered reviews across portfolio" needs v4; "Reports ready/scheduled/failed": use `GET /reports?status=` and `GET /report-schedules` (Phase 12; not in the dashboard response). |
 
 ## Locations
 
@@ -89,13 +89,19 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 
 | Screen | Backend | Status |
 |---|---|---|
-| Report library / viewer / create / scheduled | – | **not planned yet** (to decide after Phase 8). The underlying data (rankings, GBP report, competitors) will exist; PDF rendering, email, scheduling and white-label rendering don't. |
+| Report library | `GET /reports` (filters `location_id`, `client_id`, `type`, `status` incl. `archived`; paged) | **available (12)**. A client_user sees its clients' reports only. |
+| Create report | `POST /reports { location_id, type, sections?, run_id?, range? }` → poll `GET /reports/:id` until `ready` | **available (12)**: Rank Tracker, GBP Audit, Competitor Analysis, Full. Generated in a job (usually a second or two). |
+| Report viewer | `GET /reports/:id` → `document.blocks` (heading, paragraph, kpis, table, line_chart, heatmap, list, unavailable) and `snapshot.data` | **available (12)**. The blocks are exactly what the PDF shows; render them in the app. GBP v4 sections show "Not available yet", never sample data. |
+| Download / email / archive | `GET /reports/:id/pdf`, `POST /reports/:id/email { recipients, message? }`, `DELETE /reports/:id` | **available (12)**. Emails above 10 MB carry a 30-day link instead of the attachment. |
+| Share link | `POST /reports/:id/share { expires_in_days? }`, `GET /reports/:id/shares`, `DELETE /reports/:id/shares/:shareId`; public page `/r/<token>` | **available (12)**. The URL is shown once; branded, noindex, revocable. |
+| Scheduled reports | `GET/POST /report-schedules`, `GET/PATCH/DELETE /report-schedules/:id` (`next_expected`, `last_sent_at`, `last_error`) | **available (12)**: monthly only, after each covered location's automatic refresh; location or client (agency) scope. |
+| Citation Report | – | **planned (Phase 16)**, after Mohit's data-source decision. |
 
 ## Agency
 
 | Screen | Backend | Status |
 |---|---|---|
-| Clients / client detail | `GET/POST /clients`, `GET/PATCH/DELETE /clients/:id` | **available (8)**: list with location count and averages; detail with assigned locations and summary. "Reports" and "Activity" on the detail page: not planned yet. |
+| Clients / client detail | `GET/POST /clients`, `GET/PATCH/DELETE /clients/:id` | **available (8)**: list with location count and averages; detail with assigned locations and summary. "Reports" on the detail page: `GET /reports?client_id=` and `GET /report-schedules?client_id=` (12). "Activity": not planned yet. |
 | Client locations | `POST /clients/:id/locations`, `DELETE /clients/:id/locations/:locationId`, `client_id` on add-location | **available (8)** |
 | Client users | `POST /organization/invitations { role: "client_user", client_ids }`, `POST /auth/invitations/inspect` + `accept`, role `client_user` (read-only, assigned clients only; dashboard limited to them) | **available (11)** |
 | Agency team | `GET /organization/members`, `POST/GET/DELETE /organization/invitations`, `PATCH/DELETE /organization/members/:userId` | **available (11)**: owner-managed; ownership transfer not available |
@@ -116,7 +122,7 @@ Status as of 2026-09-26, with 7a, 9a and 7b built and awaiting merge.
 | Integrations | GBP connections (above) | **partial**: GBP only. **Google Analytics / Search Console: not supported** (removed; organic scope). |
 | Notifications | legacy `POST /user/notifications` (toggle) | legacy toggle only; event notifications not planned yet |
 | Billing | legacy `/subscription/*`, `/payments/*`; limits via `GET /organization/usage` | legacy (Square / PayPal). Plan limits (`location_limit`, `keyword_limit` on the plan) are enforced since Phase 8; the payment logic is unchanged. |
-| White label | legacy `/white-label-profiles` (brand fields) | **partial**: profile CRUD exists; public report links were removed (see [LEGACY_FEATURES.md](LEGACY_FEATURES.md)) |
+| White label | `GET/PUT /organization/branding`, `GET/PUT/DELETE /organization/branding/logo` | **available (12), agency only**: agency name, logo (PNG/JPEG ≤ 512 KB), colours, footer/contact text, hide MyPageSEO, email sender name and reply-to. Business organizations use the default branding. The legacy `/white-label-profiles` routes are deprecated (`npm run migrate:branding` copies them). |
 | Security | – | not planned yet |
 
 ## Support

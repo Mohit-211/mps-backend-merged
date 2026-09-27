@@ -84,6 +84,17 @@ On a healthy start the log shows:
 - New jobs use `defineJob` / `scheduleJob` from `src/jobs/defineJob.ts`: job data must be IDs only, and every job declares its concurrency and lock lifetime.
 - Self-test: `npm run smoke:agenda` (see [Smoke scripts](#smoke-scripts)).
 
+## Reports center (Phase 12)
+
+- **Storage:** report PDFs and branding logos live in `REPORTS_STORAGE_DIR` (default `./storage/reports`, relative to the working directory; git-ignored). It is **private**: never served statically; files are read only through the authenticated endpoints and share links. Layout: `pdf/<organization_id>/<report_id>.pdf`, `branding/<organization_id>/logo.png|jpg`. **Back it up** with MongoDB: a report without its file answers 409 `file_missing`.
+- **Size:** 30–50 KB per report (3–8 pages); 1,000 reports ≈ 50 MB.
+- **Retention:** `REPORT_RETENTION_MONTHS` (24). The daily `report-retention` job deletes older PDFs and snapshots (status `expired`).
+- **Rendering:** PDFKit in-process (pure Node, no Chromium, **no system packages**). Measured on the seeded data: an 8-page Full report takes about 50 ms of CPU and about 40 MB of transient memory; the heap is flat across 100 renders. `REPORT_RENDER_CONCURRENCY` (1, max 2) limits renders per pm2 process.
+- **Jobs:** `report-generate` (one report), `report-email` (a scheduled report once ready), `report-schedule-dispatch` (after a location's GBP report: creates the reports due for its monthly cycle), `report-retention` (daily).
+- **Email:** From is `EMAIL_FROM` with the branding's sender name; Reply-To from branding. PDFs above `REPORT_EMAIL_MAX_ATTACHMENT_MB` (10) are sent as a 30-day share link. Nothing is sent in development (logged with masked recipients).
+- **Share links:** `SHARE_BASE_URL` (else `API_BASE_URL`) + `/r/<token>`, served by this app outside `/api/v1`. If nginx only proxies `/api`, add a location for `/r/`. The request log redacts the token.
+- **Legacy white-label:** `npm run migrate:branding` copies each agency's legacy `/white-label-profiles` profile into organization branding (never overwrites; `--dry-run` prints the plan).
+
 ## Tests
 
 ```sh
@@ -129,6 +140,7 @@ npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 acces
   - GBP Scores have a trend: two reports a month apart.
   - Queen West is unverified and on a revoked Google connection (`reconnect_required`).
   - One team invitation is pending (its token isn't printed).
+- **Reports center (Phase 12):** real PDFs rendered offline into `REPORTS_STORAGE_DIR` (business: Rank Tracker + Full; agency: Rank Tracker, GBP Audit and Competitor Analysis for Maple Leaf, a Full report for Danforth without GBP), agency white-label branding with a generated logo, one monthly schedule (client Maple Leaf Group) and one 30-day share link (printed; it uses `SHARE_BASE_URL`, else `API_BASE_URL`, so set it to the port the dev server listens on).
 
 **How:** the real rank-run and report code with **offline** Places clients: **0 Google calls**. The demo Google connection is a placeholder that is never used. **Output:** one password for all demo accounts, three tokens, ids and `curl` examples. Same guards as `seed:rank-demo` (development + `mps_rebuild`; only the demo accounts' data and the demo plan are replaced).
 
@@ -229,7 +241,7 @@ Cluster-mode caveats, since every instance runs these:
 
 On any database that already has data, in this order, **before the new version serves requests**:
 
-1. **Back up** `users`, `locations`, `clients` and `user_auths`.
+1. **Back up** `users`, `locations`, `clients`, `organizations` and `user_auths` (and, from Phase 12, `REPORTS_STORAGE_DIR`).
 2. **`.env`:** set the new settings (see `.env.example`). In production `TOKEN_ENCRYPTION_KEY` is required; losing or changing it forces every user to reconnect GBP.
 3. **Install and build:** `npm ci` (the migration scripts run with ts-node, a dev dependency, so don't install with `--omit=dev` / `NODE_ENV=production`), then `npm run build`.
 4. **`npm run migrate:refresh -- --confirm`** (7b): tracking frequencies → `auto_monthly | manual_only`, plus the monthly refresh schedule. Idempotent.
@@ -237,6 +249,8 @@ On any database that already has data, in this order, **before the new version s
 6. **`npm run db:sync-indexes -- --confirm`**: syncs the indexes of the rebuilt collections with their schemas, building new ones and dropping ones no longer defined. **Required on any database from before 7a**: its `user_auths` still has the old one-Google-account-per-user unique index, which blocks connecting a second account.
 7. **`npm run summaries:rebuild -- --confirm`** (Phase 11): recomputes every location's list and dashboard summary from its latest runs and report. Idempotent.
 8. **`npm run gbp:encrypt-tokens`**, only on a database with GBP connections from before Phase 6. Idempotent.
-9. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` and `Recurring job scheduled: monthly-refresh`.
+9. **Reports storage (Phase 12):** create `REPORTS_STORAGE_DIR` (default `storage/reports` under the repo root), writable by the pm2 user and **not** under `public/`; add it to the backups. Set `SHARE_BASE_URL` to the public API origin, and make nginx forward `/r/` to the app. No system packages are needed (no Chromium).
+10. **`npm run migrate:branding -- --confirm`** (Phase 12): legacy white-label profiles → organization branding (agencies without branding only; copies logos into the storage directory). Idempotent. Run `db:sync-indexes` (step 6) after this release too: it builds the report indexes.
+11. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention`) and `Recurring job scheduled: monthly-refresh` / `report-retention`.
 
 `--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.
