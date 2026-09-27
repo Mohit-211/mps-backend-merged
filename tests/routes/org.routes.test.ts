@@ -32,7 +32,7 @@ jest.mock('../../src/clients/placesClient', () => {
 		placesClient: {
 			getPlaceDetails: async (placeId: string) => {
 				detailsCalls.push(placeId);
-				// eslint-disable-next-line @typescript-eslint/no-require-imports
+				// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 				const raw = require('../helpers/fakeTransport').loadPlacesFixture('placeDetails_add_location');
 				const details = {
 					id: placeId,

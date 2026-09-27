@@ -12,9 +12,9 @@ import { addMember, clearDb, createLocation, createUser, ensureOrg, keywordsOf, 
 // Phase 12: reports, share links, schedules and branding over HTTP (in-memory MongoDB, no network).
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-const scheduleMock = jest.fn(async (..._args: unknown[]) => ({}));
+const scheduleMock = jest.fn<Promise<object>, unknown[]>(async () => ({}));
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: scheduleMock, cancel: jest.fn() }), stopAgenda: jest.fn() }));
-const mailMock = jest.fn(async (..._args: unknown[]) => undefined);
+const mailMock = jest.fn<Promise<undefined>, unknown[]>(async () => undefined);
 jest.mock('../../src/services/common/email.service', () => ({ sendReportEmail: (...args: unknown[]) => mailMock(...args) }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */

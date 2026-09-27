@@ -3,7 +3,9 @@ import { MAX_RANK, bucket, displayRank, toCell } from '../../src/ranking/rankCel
 import { RankCell } from '../../src/ranking/types';
 import { loadPlacesFixture, placeIds } from '../helpers/fakeTransport';
 
-type Page = { places: PlaceIdEntry[] };
+interface Page {
+	places: PlaceIdEntry[];
+}
 const page = (name: string): PlaceIdEntry[] => loadPlacesFixture<Page>(name).places;
 const filler = (n: number, prefix = 'F'): PlaceIdEntry[] => Array.from({ length: n }, (_, i) => ({ id: `${prefix}${i}` }));
 

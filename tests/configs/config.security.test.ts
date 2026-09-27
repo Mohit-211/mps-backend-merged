@@ -11,7 +11,7 @@ const loadConfig = (overrides: Record<string, string | undefined>): ConfigModule
 	const saved = { ...process.env };
 	process.env = { ...base, NODE_ENV: 'test', ENV_FILE: '/nonexistent/.env' };
 	for (const [key, value] of Object.entries(overrides)) {
-		if (value === undefined) delete process.env[key];
+		if (value === undefined) Reflect.deleteProperty(process.env, key);
 		else process.env[key] = value;
 	}
 	try {

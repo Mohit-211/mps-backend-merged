@@ -73,7 +73,11 @@ describe('placesClient.searchTextIds', () => {
 		expect(bodies[0].pageToken).toBeUndefined();
 		expect(bodies[1].pageToken).toBe('AUacShh1-page2');
 		expect(bodies[2].pageToken).toBe('AUacShh1-page3');
-		const withoutToken = bodies.map(({ pageToken: _token, ...rest }) => rest);
+		const withoutToken = bodies.map((body) => {
+			const rest = { ...body };
+			delete rest.pageToken;
+			return rest;
+		});
 		expect(withoutToken[1]).toEqual(withoutToken[0]);
 		expect(withoutToken[2]).toEqual(withoutToken[0]);
 	});

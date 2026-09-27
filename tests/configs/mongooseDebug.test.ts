@@ -10,7 +10,7 @@ const withEnv = <T>(overrides: Record<string, string | undefined>, fn: () => T):
 	const saved = { ...process.env };
 	process.env = { ...base, NODE_ENV: 'test', ENV_FILE: '/nonexistent/.env' };
 	for (const [key, value] of Object.entries(overrides)) {
-		if (value === undefined) delete process.env[key];
+		if (value === undefined) Reflect.deleteProperty(process.env, key);
 		else process.env[key] = value;
 	}
 	try {
@@ -42,7 +42,7 @@ describe('MONGOOSE_DEBUG config', () => {
 		withEnv(overrides, () => {
 			let loaded: ConfigModule['default'] | undefined;
 			jest.isolateModules(() => {
-				// eslint-disable-next-line @typescript-eslint/no-require-imports
+				// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 				loaded = (require('../../src/configs/config') as ConfigModule).default;
 			});
 			return loaded as ConfigModule['default'];
@@ -70,7 +70,7 @@ describe('mongoConnection', () => {
 				}));
 				jest.doMock('../../src/configs/agenda', () => ({ getAgenda: () => ({}), stopAgenda: jest.fn() }));
 				jest.doMock('../../src/configs/logger', () => ({ __esModule: true, default: { info: jest.fn(), warn } }));
-				// eslint-disable-next-line @typescript-eslint/no-require-imports
+				// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
 				require('../../src/configs/mongoConnection');
 			});
 			for (const l of process.listeners('SIGINT')) if (!sigintBefore.includes(l)) process.removeListener('SIGINT', l);

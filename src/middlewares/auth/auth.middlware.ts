@@ -8,7 +8,6 @@ import {
   ApiError,
   catchAsync,
   validatePassword,
-  isValidMongoObjectId,
   mongoFunctions,
 } from "../../utils";
 import {
@@ -18,8 +17,7 @@ import {
   userStatusTypes,
   userTypesArr,
 } from "../../configs/constantTypes";
-import config from "../../configs/config";
-import { City, Client, Country, OTP, Role, State, User } from "../../models";
+import { City, Client, Country, OTP, State, User } from "../../models";
 import { tokenService } from "../../services";
 import mongoose from "mongoose";
 
