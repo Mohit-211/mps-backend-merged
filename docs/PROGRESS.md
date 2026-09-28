@@ -1102,3 +1102,7 @@ Asked by Mohit before Phase 13. Every file was checked for references before del
   - all configs
 - **Local only:** `.DS_Store`, `build/`, `logs/` and `storage/` are gitignored and never committed.
 - **Note:** the `precommit` npm script runs `lint-fix` + `prettier --write` over all files, against the "never run prettier on existing files" rule. It isn't wired to a git hook, so it only runs when called by hand. Don't run it.
+
+## `precommit` script removed (2026-09-28, on `claude/rebuild`)
+
+Mohit asked to remove the `precommit` npm script (`npm run lint-fix && npm run format`): it reformatted every file with Prettier, against the repo rule. `format` and `lint-fix` stay for deliberate, targeted use; `prepush` (`npm run lint`) stays.

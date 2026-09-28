@@ -10,7 +10,6 @@
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" index.ts",
     "lint-fix": "eslint --fix \"src/**/*.ts\" \"tests/**/*.ts\" index.ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "precommit": "npm run lint-fix && npm run format",
     "prepush": "npm run lint",
     "mongo-migrate": "cross-env NODE_ENV=development ts-node --transpile-only ./src/configs/mongoMigrate.ts",
     "seed-country-city-state": "cross-env NODE_ENV=development ts-node ./src/configs/fetchCountryStateCityDataFromRemoteApi.ts",
