@@ -3,7 +3,8 @@ import request from 'supertest';
 import { Types } from 'mongoose';
 import { queryTypesArr } from '../../src/configs/constantTypes';
 import logger from '../../src/configs/logger';
-import { ApiUsage, AuthCode, Client, GbpReport, Location, Membership, Organization, RankRun, SubscriptionPlan, User, UserGBP } from '../../src/models';
+import { ApiUsage, AuthCode, Client, GbpReport, Location, Membership, Organization, RankRun, User, UserGBP } from '../../src/models';
+import { activateBilling } from '../helpers/billing';
 import { hashLinkToken } from '../../src/services/auth/emailVerification';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { loadPlacesFixture } from '../helpers/fakeTransport';
@@ -194,9 +195,13 @@ describe('organization and usage', () => {
 		const org = await request(app).get('/api/v1/organization').set(auth(token));
 		expect(org.body.data).toMatchObject({ organization: { id: orgId, type: 'agency' }, role: 'owner', memberships: [{ organization_id: orgId, role: 'owner' }] });
 		const usage = await request(app).get('/api/v1/organization/usage').set(auth(token));
+		// Phase 13a: the plan, the billing state, locations and users against the entitlement.
 		expect(usage.body.data).toMatchObject({
-			plan: { id: null, name: null, source: 'default' },
-			locations: { used: 1, limit: 1 },
+			plan: { name: 'Standard', kind: 'standard' },
+			billing: { state: 'trialing', read_only: false },
+			locations: { used: 1, limit: 1, max: 20 },
+			users: { used: 1, limit: 3 },
+			tokens: { balance: 0 },
 			keywords: { used: 2, limit: null },
 			clients: { used: 0 },
 		});
@@ -210,10 +215,9 @@ describe('organization and usage', () => {
 		]);
 		const withUsage = (await request(app).get('/api/v1/organization/usage').set(auth(token))).body.data.api_usage;
 		expect(withUsage).toMatchObject({ month, by_sku: { 'places.text.ids_only': 870, 'places.text.pro': 50 }, estimated_cost_usd: 1.6 });
-		const plan = await SubscriptionPlan.create({ name: 'Agency 5', country: 'USA', currency: 'USD', monthly_price: 99, location_limit: 5, keyword_limit: 3 });
-		await User.updateOne({ _id: user._id }, { $set: { subscription_status: 'ACTIVE', current_plan_id: plan._id } });
+		await activateBilling(orgId, { quantity: 5 });
 		const withPlan = (await request(app).get('/api/v1/organization/usage').set(auth(token))).body.data;
-		expect(withPlan).toMatchObject({ plan: { name: 'Agency 5', source: 'subscription' }, locations: { limit: 5 }, keywords: { used: 2, limit: 3 } });
+		expect(withPlan).toMatchObject({ billing: { state: 'active' }, locations: { limit: 5 }, users: { limit: 15 }, keywords: { used: 2, limit: null } });
 	});
 
 	it('PATCH is owner-only; a user without an organization gets 403 no_organization; a foreign X-Organization-Id is refused', async () => {
@@ -234,8 +238,8 @@ describe('organization and usage', () => {
 });
 
 describe('locations', () => {
-	it('POST /locations adds from a Places result (1 Details call); duplicates 409; the plan limit 403; delete frees the slot', async () => {
-		const { token } = await orgOwner('o@test.dev', 'business');
+	it('POST /locations adds from a Places result (1 Details call); duplicates 409; trial and paid-slot limits (402); delete frees the slot', async () => {
+		const { token, orgId } = await orgOwner('o@test.dev', 'business');
 		const added = await request(app).post('/api/v1/locations').set(auth(token)).send({ place_id: 'ChIJaddedPlace0000000001' });
 		expect(added.status).toBe(201);
 		expect(added.body.data.location).toMatchObject({ name: 'Fredericton Plumbing Co', city: 'Fredericton', state: 'NB', country: 'Canada', source: 'places_search', gbp_connected: false, status: 'setup_required', onboarding: { step: 'place_selected' } });
@@ -243,8 +247,13 @@ describe('locations', () => {
 
 		const dup = await request(app).post('/api/v1/locations').set(auth(token)).send({ place_id: 'ChIJaddedPlace0000000001' });
 		expect([dup.status, dup.body.data.reason]).toEqual([409, 'duplicate_place']);
-		const limit = await request(app).post('/api/v1/locations').set(auth(token)).send({ place_id: 'ChIJsecondPlace000000001' });
-		expect([limit.status, limit.body.data]).toEqual([403, { reason: 'location_limit_reached', used: 1, limit: 1, plan: { id: null, name: null, source: 'default' } }]);
+		// Phase 13a: the trial includes 1 location; with a subscription for 1, the second needs a paid slot.
+		const trial = await request(app).post('/api/v1/locations').set(auth(token)).send({ place_id: 'ChIJsecondPlace000000001' });
+		expect([trial.status, trial.body.data]).toEqual([402, { reason: 'subscription_required', billing: expect.objectContaining({ state: 'trialing' }) }]);
+		await activateBilling(orgId, { quantity: 1 });
+		const slot = await request(app).post('/api/v1/locations').set(auth(token)).send({ place_id: 'ChIJsecondPlace000000001' });
+		expect(slot.status).toBe(402);
+		expect(slot.body.data).toMatchObject({ reason: 'location_payment_required', used: 1, paid: 1, quote: { quantity: 1, currency: 'CAD', new_paid_quantity: 2, amount: expect.any(Number) } });
 		expect(detailsCalls).toHaveLength(1);
 
 		const id = added.body.data.location.location_id;
@@ -369,17 +378,15 @@ describe('clients and roles', () => {
 		expect((await request(app).get('/api/v1/locations').set(auth(token))).body.data.total).toBe(2);
 	});
 
-	it('a member can manage locations; the keyword limit applies across the organization', async () => {
+	it('a member can manage locations; no organization-wide keyword cap (Phase 13a)', async () => {
 		const { user, org } = await orgOwner('a@test.dev');
-		const plan = await SubscriptionPlan.create({ name: 'Tiny', country: 'USA', currency: 'USD', monthly_price: 1, location_limit: 5, keyword_limit: 3 });
-		await User.updateOne({ _id: user._id }, { $set: { subscription_status: 'ACTIVE', current_plan_id: plan._id } });
 		const { user: m, token: memberToken } = await createUser('m@test.dev');
 		await addMember(org._id, m._id, 'member');
 		await createLocation(user._id as Types.ObjectId, { place_id: 'ChIJone00000000000000001', tracking: { keywords: keywordsOf('plumber', 'drains') } });
 		const second = await createLocation(user._id as Types.ObjectId, { place_id: 'ChIJtwo00000000000000001' });
 		expect((await request(app).put(`/api/v1/locations/${second._id}/tracking`).set(auth(memberToken)).send({ keywords: ['heater'] })).status).toBe(200);
-		const over = await request(app).put(`/api/v1/locations/${second._id}/tracking`).set(auth(memberToken)).send({ keywords: ['heater', 'boiler'] });
-		expect([over.status, over.body.data]).toEqual([403, expect.objectContaining({ reason: 'keyword_limit_reached', used: 2, requested: 2, limit: 3 })]);
+		const more = await request(app).put(`/api/v1/locations/${second._id}/tracking`).set(auth(memberToken)).send({ keywords: ['heater', 'boiler', 'furnace'] });
+		expect(more.status).toBe(200);
 	});
 });
 

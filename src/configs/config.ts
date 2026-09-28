@@ -60,8 +60,6 @@ const envVarsSchema = Joi.object({
 	GBP_ROLLING_DAYS: Joi.number().integer().min(7).max(90).default(40),
 	GBP_KEYWORD_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(6),
 	GBP_KEYWORD_ROLLING_MONTHS: Joi.number().integer().min(1).max(6).default(2),
-	DEFAULT_LOCATION_LIMIT: Joi.number().integer().min(0).default(1).description('Location limit for an organization without an active plan (or a plan without location_limit)'),
-	DEFAULT_KEYWORD_LIMIT: Joi.number().integer().min(1).empty('').default(null).description('Org-wide tracked-keyword limit without a plan value; empty = no org-wide cap'),
 	INVITATION_TTL_DAYS: Joi.number().integer().min(1).max(30).default(7).description('Lifetime of team invitation links'),
 	FRONTEND_URL: Joi.string().uri().allow('').default('').description('Base URL of the web app (invitation links, PayPal return URLs)'),
 	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of password-reset codes'),
@@ -227,13 +225,6 @@ interface Config {
 		localHour: number;
 	};
 
-	organization: {
-		/** Location limit without an active plan value. */
-		defaultLocationLimit: number;
-		/** Org-wide keyword limit without a plan value; null = none. */
-		defaultKeywordLimit: number | null;
-	};
-
 	auth: {
 		codeTtlMinutes: number;
 		/** Phase 8.1: verification link lifetime and the unverified-account deadline, in hours. */
@@ -394,11 +385,6 @@ const config: Config = {
 	refresh: {
 		minIntervalHours: envVars.REFRESH_MIN_INTERVAL_HOURS,
 		localHour: envVars.REFRESH_LOCAL_HOUR,
-	},
-
-	organization: {
-		defaultLocationLimit: envVars.DEFAULT_LOCATION_LIMIT,
-		defaultKeywordLimit: envVars.DEFAULT_KEYWORD_LIMIT ?? null,
 	},
 
 	auth: {

@@ -14,6 +14,7 @@ import { createTokenCrypto } from '../../../src/utils/tokenCrypto';
 import { loadGbpFixture } from '../../helpers/fakeTransport';
 import { clearDb, createLocation, createUser, ensureOrg, keywordsOf, startTestDb } from '../../helpers/mongoose';
 import { resolveOrgContext } from '../../../src/services/org/context';
+import { activateBilling } from '../../helpers/billing';
 
 jest.mock('../../../src/configs/mongoConnection', () => ({ agenda: {} }));
 
@@ -162,12 +163,17 @@ describe('onboarding service', () => {
 		expect((await Location.findById(mine._id))?.place_id).toBe('ChIJdifferentPlace0000001');
 	});
 
-	it('creating a new location respects the plan limit (default 1)', async () => {
+	it('creating a new location respects the billing limits (trial: 1 location; then paid slots)', async () => {
 		const user = await connectedUser('lim@test.dev');
-		await createLocation(user._id as Types.ObjectId, { place_id: 'ChIJalreadyHere000000001' });
+		const existing = await createLocation(user._id as Types.ObjectId, { place_id: 'ChIJalreadyHere000000001' });
 		await expect(setup().service.selectProfile(await ctxFor(user._id), select)).rejects.toMatchObject({
-			statusCode: 403,
-			data: { reason: 'location_limit_reached', used: 1, limit: 1 },
+			statusCode: 402,
+			data: { reason: 'subscription_required' },
+		});
+		await activateBilling(existing.organization_id as Types.ObjectId, { quantity: 1 });
+		await expect(setup().service.selectProfile(await ctxFor(user._id), select)).rejects.toMatchObject({
+			statusCode: 402,
+			data: { reason: 'location_payment_required', paid: 1 },
 		});
 	});
 

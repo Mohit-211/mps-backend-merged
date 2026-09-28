@@ -41,12 +41,30 @@
 | 404 | Not found, or not yours |
 | 409 | Conflict |
 | 422 | Run over the call cap |
-| 403 | Phase 8: no access with a `reason` (`read_only`, `agency_only`, `owner_only`, `location_limit_reached`, `keyword_limit_reached`, `email_not_verified`, …) |
+| 402 | Phase 13a billing: `subscription_required` (trial over / no subscription / grace expired), `organization_suspended`, `location_payment_required` (with a prorated `quote`), `insufficient_tokens` |
+| 403 | Phase 8: no access with a `reason` (`read_only`, `agency_only`, `owner_only`, `email_not_verified`, …); Phase 13a: `enterprise_required` (beyond the plan's location cap), `user_limit_reached`, `feature_not_included` |
 | 429 | Daily search limit, or an auth rate limit (`rate_limited`, `retry_after_seconds`) |
 | 502 | Google failed |
 | 503 | Not configured / GBP access not approved |
 
 ---
+
+## Billing gates (Phase 13a)
+
+**402 `subscription_required`** answers these when the organization is read-only (trial over without a subscription, a failed payment past its 7-day grace, an overdue manual invoice past grace). The body is `{ reason, billing: { state, trial_ends_at } }`; an admin suspension gives `organization_suspended` instead.
+- `POST /locations`, `POST /onboarding/select-profile` (new location), `POST /onboarding/complete`, `PUT /locations/:id/center`
+- `GET /places/search`, `GET /locations/:id/competitor-suggestions`
+- `PUT /locations/:id/tracking`, `POST /locations/:id/rank-runs`, `POST /locations/:id/refresh`
+- `POST /reports`, `POST /reports/:id/email`, `POST /report-schedules`, `PATCH /report-schedules/:id`
+
+Reads, billing, support and GBP connect / bind stay open.
+
+**403 `feature_not_included`** answers the feature routes when the organization's plan switches that feature off. All features are on in the standard plan:
+- rank tracker / grid / map ranking
+- GBP report
+- citations
+- `POST /reports`
+- the white-label branding writes
 
 ## Summary (2026-09-27, Phase 16 built)
 
@@ -521,10 +539,10 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 34 | POST | `/auth/reset-password` | none | `{ email, code, password }` | `{ reset: true }` (sessions revoked) |
 | 35 | GET | `/organization` | user + org | – | `{ organization, role, memberships }` |
 | 36 | PATCH | `/organization` | user + org (owner) | `{ name?, country? }` | As #35 |
-| 37 | GET | `/organization/usage` | user + org | – | `{ plan, locations: { used, limit }, keywords: { used, limit }, clients, api_usage: { month, by_sku, estimated_cost_usd, previous_month, note } }` (12.5) |
+| 37 | GET | `/organization/usage` | user + org | – | `{ plan: { id, name, kind }, billing: { state, read_only, trial_ends_at, current_period_end }, locations: { used, limit, max }, users: { used, limit }, tokens: { balance }, keywords: { used, limit: null }, clients, api_usage: { … } }` (13a; `api_usage` 12.5) |
 | 38 | GET | `/organization/members` | user + org (owner/member) | – | `[{ user_id, name, email, role, client_ids, status }]` |
 | 39 | GET | `/locations` | user + org | `search, client_id, status, sort, order, page, limit` | `{ locations: [row], page, limit, total }` |
-| 40 | POST | `/locations` | user + org (owner/member) | `{ place_id, client_id? }` | **201** `{ location, api_calls }`; **409** `duplicate_place`; **403** `location_limit_reached` |
+| 40 | POST | `/locations` | user + org (owner/member) | `{ place_id, client_id? }` | **201** `{ location, api_calls }`; **409** `duplicate_place`; 13a: **402** `subscription_required` (trial allowance used / read-only), **402** `location_payment_required` `{ used, paid, quote }`, **403** `enterprise_required` `{ used, max }` |
 | 41 | GET | `/locations/:locationId` | user, owner | – | Location header |
 | 42 | GET | `/locations/:locationId/overview` | user, owner | – | Header + `rankings, gbp, performance, reviews, competitors, refresh, empty_states` |
 | 43 | PATCH | `/locations/:locationId` | user, owner (write) | `{ name?, timezone?, client_id? }` | Header |
@@ -539,7 +557,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 52 | POST | `/onboarding/skip` | user + org (owner/member) | `{ step: google\|reporting_brand }` | As #17 |
 
 | 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order` | Business: `{ type, locations_count, visibility, gbp, reviews, citations (16), movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio (+ avg_citation_score), citations (16), status_counts, declines, gbp_issues, recommended_actions, table (rows + citations) }` |
-| 54 | POST | `/organization/invitations` | user + org (owner) | `{ email, role: member\|client_user, client_ids? }` | **201** `{ invitation_id, email, role, client_ids, status, expires_at, email_sent }`; **409** `already_member` |
+| 54 | POST | `/organization/invitations` | user + org (owner) | `{ email, role: member\|client_user, client_ids? }` | **201** `{ invitation_id, email, role, client_ids, status, expires_at, email_sent }`; **409** `already_member`; 13a: **403** `user_limit_reached` `{ used, limit }` (users = 3 per paid location, pooled; pending invitations count) |
 | 55 | GET | `/organization/invitations` | user + org (owner) | `status?` | `[{ invitation_id, email, role, client_ids, status, expires_at, invited_by, created_at }]` |
 | 56 | DELETE | `/organization/invitations/:invitationId` | user + org (owner) | – | `{ revoked, invitation_id }` |
 | 57 | PATCH | `/organization/members/:userId` | user + org (owner) | `{ role, client_ids? }` | `{ user_id, role, client_ids }`; **403** `owner_protected` |

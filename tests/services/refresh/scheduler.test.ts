@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { GbpSync, ILocation, Location, RankRun, UserGBP } from '../../../src/models';
 import { failStuckRuns, runMonthlyRefreshTick } from '../../../src/services/refresh/scheduler.service';
 import { clearDb, createLocation, createUser, keywordsOf, startTestDb } from '../../helpers/mongoose';
+import { setTrial } from '../../helpers/billing';
 
 jest.mock('../../../src/configs/mongoConnection', () => ({ agenda: {} }));
 
@@ -30,6 +31,8 @@ const scheduled = async (userId: Types.ObjectId, over: { frequency?: 'auto_month
 		lng: -96.8,
 		tracking: { keywords: over.keywords === false ? [] : keywordsOf('plumber'), frequency: over.frequency ?? 'auto_monthly' },
 	});
+	// Phase 13a: the organization is in its trial at NOW (a read-only one is skipped; see the last test).
+	await setTrial(location.organization_id as Types.ObjectId);
 	await Location.updateOne(
 		{ _id: location._id },
 		{ $set: { refresh: { anchor_day: 12, next_refresh_at: over.next === undefined ? new Date('2026-10-12T09:00:00Z') : over.next, last_auto_refresh_at: null, last_manual: { rankings: null, gbp: null } } } },
@@ -75,6 +78,19 @@ describe('monthly-refresh tick', () => {
 		expect((await runMonthlyRefreshTick(NOW, failing)).failed).toBe(1);
 		expect((await Location.findById(location._id).lean<ILocation>())?.tracking?.last_error).toMatch(/monthly rank run not started/);
 		expect((await runMonthlyRefreshTick(new Date(NOW.getTime() + 15 * 60_000), failing)).due).toBe(0);
+	});
+
+	it('skips locations of read-only organizations (trial over, no subscription) but still advances their schedule', async () => {
+		const { user } = await createUser('s4@test.dev');
+		const location = await scheduled(user._id as Types.ObjectId);
+		await setTrial(location.organization_id as Types.ObjectId, new Date('2026-10-01T00:00:00Z'));
+		const { runs, deps } = setup();
+		const result = await runMonthlyRefreshTick(NOW, deps);
+		expect(result).toMatchObject({ due: 1, refreshed: 0, skipped_billing: 1, rank_runs: 0 });
+		expect(runs).toEqual([]);
+		const after = await Location.findById(location._id).lean<ILocation>();
+		expect(after?.refresh).toMatchObject({ skipped_reason: 'billing' });
+		expect(after?.refresh?.next_refresh_at?.toISOString()).toBe('2026-11-12T09:00:00.000Z');
 	});
 
 	it('fails stuck rank runs and GBP syncs', async () => {

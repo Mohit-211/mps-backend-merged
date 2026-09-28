@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import httpStatus from 'http-status';
 import { IMembership, IOrganization, Membership, Organization, User } from '../../models';
 import { apiErrorWithData } from '../../utils';
+import { trialEndFor } from '../billing/plans';
 
 // Organization context (Phase 8): which organization a request acts in, and the caller's role there.
 // The X-Organization-Id header picks one of the user's organizations; otherwise the user's default
@@ -55,7 +56,8 @@ export const createOrganizationForOwner = async (
 	userId: UserId,
 	input: { name: string; type: IOrganization['type']; country: IOrganization['country'] },
 ): Promise<IOrganization> => {
-	const organization = await Organization.create({ name: input.name, type: input.type, country: input.country, owner_user_id: userId });
+	// Phase 13a: every new organization starts its trial (the standard plan's trial length).
+	const organization = await Organization.create({ name: input.name, type: input.type, country: input.country, owner_user_id: userId, trial_ends_at: await trialEndFor(new Date()) });
 	await Membership.create({ organization_id: organization._id, user_id: userId, role: 'owner', created_by: userId });
 	await User.updateOne({ _id: userId }, { $set: { default_organization_id: organization._id } });
 	return organization;

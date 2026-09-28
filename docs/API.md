@@ -1557,7 +1557,7 @@ Every location, client and report belongs to an **organization** (Business or Ag
 
 - **Current organization:** the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. No organization → **403** `{ "reason": "no_organization" }`.
 - **Location routes** (`/locations/:locationId/...`, including tracking, rank runs, refresh and the GBP report) check membership of the location's organization: another organization's location is **404**; a `client_user` write is **403** `{ "reason": "read_only" }`.
-- **Refusals carry a reason** in `data`: `read_only`, `agency_only`, `owner_only`, `location_limit_reached`, `keyword_limit_reached`, `duplicate_place`, `place_id_mismatch`, `email_not_verified`, `rate_limited`.
+- **Refusals carry a reason** in `data`: `read_only`, `agency_only`, `owner_only`, `duplicate_place`, `place_id_mismatch`, `email_not_verified`, `rate_limited`, and (Phase 13a) `subscription_required`, `organization_suspended`, `location_payment_required`, `enterprise_required`, `user_limit_reached`, `feature_not_included`, `insufficient_tokens`.
 
 Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
@@ -1664,13 +1664,22 @@ Never retry a failed refresh in a loop. Run one refresh at a time and let concur
 `GET /organization/usage`
 
 ```json
-{ "plan": { "id": "6ab8…", "name": "Demo Agency (seed)", "source": "subscription" },
-  "locations": { "used": 3, "limit": 5 }, "keywords": { "used": 9, "limit": 60 }, "clients": { "used": 2 } }
+{ "plan": { "id": "6ab8…", "name": "Standard", "kind": "standard" },
+  "billing": { "state": "active", "read_only": false, "trial_ends_at": "2026-10-05T…", "current_period_end": "2026-10-28T…" },
+  "locations": { "used": 3, "limit": 5, "max": 20 }, "users": { "used": 4, "limit": 15 }, "tokens": { "balance": 12 },
+  "keywords": { "used": 9, "limit": null }, "clients": { "used": 2 } }
 ```
 
-- The plan is the owner's active subscription plan (`subscription_status: ACTIVE` + `current_plan_id`) with its `location_limit` / `keyword_limit`. Otherwise `source: "default"`: `DEFAULT_LOCATION_LIMIT` (1) and `DEFAULT_KEYWORD_LIMIT` (empty = no org-wide cap; 20 per location always applies). `clients` is `null` for a business.
-- Over the location limit, an add answers **403** `{ "reason": "location_limit_reached", "used": 1, "limit": 1, "plan": { … } }`. Deleting a location frees its slot at once.
-- `PUT /locations/:id/tracking` over the keyword limit: **403** `{ "reason": "keyword_limit_reached", "used": 2, "requested": 2, "limit": 3, "plan": { … } }`.
+**Phase 13a billing** (the full billing API is in "Billing (Phase 13a)"):
+- **`locations.limit`:** the trial allowance (1) or the paid quantity; `max` is the plan's cap (20 on the standard plan).
+- **`users.limit`:** 3 per paid location, pooled; the owner and pending invitations count.
+- **Keywords:** there is no organization-wide cap (20 per location always applies). `clients` is `null` for a business.
+- **Adding a location beyond the limit:**
+  - in the trial → **402** `{ "reason": "subscription_required" }`
+  - with a subscription → **402** `{ "reason": "location_payment_required", "used": 5, "paid": 5, "quote": { "quantity": 1, "amount": 14.5, "currency": "USD", "lines": [ … ], "period_end": "…", "new_paid_quantity": 6 } }`: pay the quote, then retry
+  - beyond the cap → **403** `{ "reason": "enterprise_required", "used": 20, "max": 20 }`
+- Deleting a location frees its slot for the rest of the paid period (no refund).
+- **Invitations** beyond the user pool: **403** `{ "reason": "user_limit_reached", "used": 6, "limit": 6 }`. Existing users keep access when the pool shrinks.
 
 `PATCH /organization` (owner) `{ name?, country? }` → as GET. `GET /organization/members` (owner/member) → `[{ user_id, name, email, role, client_ids, status }]`.
 
@@ -1701,7 +1710,7 @@ Never retry a failed refresh in a loop. Run one refresh at a time and let concur
   "api_calls": 1 }
 ```
 
-→ **201**. The same place already in the organization → **409** `{ "reason": "duplicate_place", "location_id": "…" }`. Over the plan limit → **403** `location_limit_reached` (checked before the Places call). Then set keywords and competitors and call `POST /onboarding/complete`.
+→ **201**. The same place already in the organization → **409** `{ "reason": "duplicate_place", "location_id": "…" }`. Beyond the billing limits → **402** `subscription_required` / `location_payment_required` (with a `quote`) or **403** `enterprise_required` (Phase 13a; checked before the Places call). Then set keywords and competitors and call `POST /onboarding/complete`.
 
 `GET /places/search?q=` without `locationId` is the add-location search (the organization's country, or `&country=US|CA`); each result carries `already_added` (a location id or `null`).
 

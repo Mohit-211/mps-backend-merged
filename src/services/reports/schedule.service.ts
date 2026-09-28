@@ -6,6 +6,7 @@ import { ApiError, apiErrorWithData } from '../../utils';
 import { agencyOnly, findAccessibleClient, findAccessibleLocation } from '../org/access';
 import { OrgContext } from '../org/context';
 import { createReportService, recordScheduleError, resolveSections } from './report.service';
+import { loadEntitlement } from '../billing/entitlement.service';
 
 // Scheduled reports (Phase 12). Monthly only: a schedule fires once per monthly automatic refresh of
 // each location it covers (a location, or every location of a client), right after that location's
@@ -162,6 +163,8 @@ export const createScheduleService = (deps: { reports?: ReturnType<typeof create
 		const location = await Location.findOne({ _id: locationId, is_active: true }).lean<ILocation>();
 		const cycle = location?.refresh?.last_auto_refresh_at ?? null;
 		if (!location || !cycle || location.tracking?.frequency === 'manual_only') return 0;
+		// Phase 13a: no scheduled reports for read-only organizations.
+		if (location.organization_id && (await loadEntitlement(String(location.organization_id))).entitlement.read_only) return 0;
 		const or: Record<string, unknown>[] = [{ scope: 'location', location_id: location._id }];
 		if (location.client_id) or.push({ scope: 'client', client_id: location.client_id });
 		const schedules = await ReportSchedule.find({ organization_id: location.organization_id, status: 'active', $or: or }).lean<IReportSchedule[]>();

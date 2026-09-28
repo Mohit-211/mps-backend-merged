@@ -23,6 +23,9 @@ export interface ILocationRefresh {
   next_refresh_at: Date | null;
   last_auto_refresh_at: Date | null;
   last_manual: { rankings: Date | null; gbp: Date | null };
+  /** Phase 13a: why the last monthly refresh was skipped ('billing' = the organization was read-only). */
+  skipped_reason?: string | null;
+  skipped_at?: Date | null;
 }
 
 /** GBP sync bookkeeping (7a: requested_at; 7b: the rest). */
@@ -383,6 +386,8 @@ const locationSchema = new Schema<ILocation>(
             rankings: { type: Date, default: null },
             gbp: { type: Date, default: null },
           },
+          skipped_reason: { type: String, default: null },
+          skipped_at: { type: Date, default: null },
         },
         { _id: false },
       ),
