@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-28. **Phase 13a (billing) is built** on `claude/phase-13a-billing`, awaiting merge and push. Everything through Phase 16 is merged and pushed (Phase 16: `daff461`). Plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md); as built: CLAUDE.md §12h. **Next:** Phase 13b (admin panel backend + support), per the approved plan. **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-28. Phase 13a (billing) is merged (`2c77a8a`) and pushed. **Phase 13b is in progress** on `claude/phase-13b-admin`. Plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md); as built: CLAUDE.md §12h. **Next:** Phase 13b (admin panel backend + support), per the approved plan. **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
 
 ## Product goal
 
@@ -35,7 +35,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
 | 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | done | `claude/phase-16-citations` | yes (`daff461`) | M5 (pushed 2026-09-28) |
-| **13** | **Billing & plans** (13a billing, then 13b admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | **13a built, awaiting merge**; 13b next | `claude/phase-13a-billing` | – | M5 |
+| **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | 13a done; **13b in progress** | `claude/phase-13a-billing`, `claude/phase-13b-admin` | 13a yes (`2c77a8a`) | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
@@ -146,6 +146,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 
 | Date | Decision |
 |---|---|
+| 2026-09-28 | **Delete, don't deprecate (Mohit):** the frontend is rebuilt from scratch against ENDPOINTS.md, so no backward compatibility is needed for any legacy endpoint or response shape; anything the rebuilt product doesn't use is deleted. 13a approved, merged (`2c77a8a`) and pushed. **13b order:** legacy removal → `/auth` session + account endpoints (legacy `/user/auth` and `/user/profile` deleted) → payment-provider interface → flaky tests → admin panel backend. |
 | 2026-09-28 | **Card payments (Mohit):** customers must be able to pay by card without a PayPal account. Sandbox check with US and CA buyers; "PayPal Account Optional" on; PayPal support asked about guest card checkout for subscriptions. Billing code goes behind one payment-provider interface in 13b's first commit (today it calls the PayPal client directly in 8 files). No second provider yet; "Decide before launch" after the sandbox result. |
 | 2026-09-28 | **Phase 13a billing model (Mohit):** per location, first location priced higher (first + (n − 1) × additional), standard plan capped at 20 locations (more = enterprise custom plan); dated prices per currency from each organization's next renewal; 3 users per paid location, pooled; 7-day trial then read-only; prorated one-time payments for extra slots; no refunds on removal; tokens (one-time packs) for manual refreshes, monthly refresh free, refund on a failed refresh; custom plans with manual (invoice) billing; no tax; coupons on token packs only; Square, credits and the guest checkout retired. **PayPal (verified):** no PayPal quantity (needs buyer consent) → per-subscription price override PATCHed 11 days before renewal; prorations and packs as Orders v2. **As built:** the renewal job runs every 6 h so a failed PATCH is retried inside the 10-day window; `billing.read` / `billing.manage` for super admin + admin; trial tokens granted at organization creation (default 0). |
 | 2026-09-25 | Functionality first; security deferred to Phase 10 (gated). Phase 6 still builds the signed OAuth state and encrypted tokens. |
@@ -243,7 +244,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   | (b) token pack | not tested | not tested |
   | (b) extra location slots | not tested | not tested |
 
-## Legacy leftovers (audit 2026-09-28, decision pending)
+## Legacy leftovers (audit 2026-09-28; decided: all of groups 1 and 2 are deleted in 13b step 1)
 
 Checked after 13a: every file, model, export, route and dependency against what the rebuilt code uses.
 

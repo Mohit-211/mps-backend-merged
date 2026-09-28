@@ -31,7 +31,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
 | 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
 | 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | done | `claude/phase-16-citations` | M5 (pushed) |
-| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | **13a built, awaiting merge**; 13b next | `claude/phase-13a-billing` | M5 |
+| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: legacy removal, `/auth` session + account endpoints, payment-provider interface, flaky tests, admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | 13a done (`2c77a8a`, pushed); **13b in progress** | `claude/phase-13b-admin` | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
@@ -112,6 +112,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - Small commits, one concern each. Message format: `<phase>: <area>: <what>` e.g. `p4: ranking: add IDs-only text search client`.
 - Never rewrite history on shared branches. Never force-push `claude/rebuild`.
 - The old code is backed up separately by Mohit. Deleting old in-scope code is allowed **only in the phase that explicitly says so**.
+- **Delete, don't deprecate (Mohit, 2026-09-28).** The frontend is rebuilt from scratch against ENDPOINTS.md, so there is **no backward-compatibility requirement** for any legacy endpoint or response shape. Anything the rebuilt product doesn't use is deleted (with its models, services, middlewares, validators, tests, fixtures, constants and env vars), not marked deprecated. ENDPOINTS.md has no `deprecated` rows. Record each removal in LEGACY_FEATURES.md (one line: what and why) and unused collections in MIGRATION.md.
 
 ### Environment & safety
 - Work only against a **local MongoDB** and a local `.env`. Never use production credentials, never connect to production DB, never SSH anywhere.
@@ -905,7 +906,15 @@ Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data 
 - **Scripts:** `migrate:billing` (dry run by default; standard plan, legacy guest subscriptions linked by verified email, trials, legacy coupons deactivated) and `billing:paypal-setup` (Mohit runs it; product + USD/CAD plans). `seed:demo-orgs` adds demo prices (only when none), packs, a coupon, tokens and an invoice.
 - **Not done in 13a:** live PayPal (sandbox test when Mohit provides credentials), real prices (Mohit sets them; checkout answers 409 `price_not_set` until then).
 
-**Payment provider interface (Mohit, 2026-09-28), 13b's first commit:** today billing calls `paypalClient` directly in 8 files (subscriptions, orders, renewals, webhook, admin, legacy, account, plus the webhook verification). 13b starts by moving that behind one provider interface:
+**13b scope and order (Mohit, 2026-09-28), branch `claude/phase-13b-admin`**, one concern per commit, tests passing after each:
+1. **Legacy removal:** the STATUS.md "Legacy leftovers" groups 1 and 2, and every other deprecated route; ENDPOINTS.md ends with zero `deprecated` rows. Swagger UI + `swagger.json` go (ENDPOINTS.md + API.md are the reference). Before each deletion grep for references and remove everything that only served it; docs in the same commits.
+2. **New `/auth` session + account endpoints:** `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/change-password` (ends other sessions), `GET/PATCH /auth/me`, `POST /auth/deactivate` (disconnects Google accounts, revokes sessions). `/auth/login` writes the login-time record. Then all remaining `/user/auth/*` and `/user/profile` routes are deleted; the Google connect flow moves to a consistent path.
+3. **Kept:** reference data (countries, languages, time zones, business categories), blog, FAQ, contact form, GBP posting (until Phase 9), the legacy `payments` records `migrate:billing` reads.
+4. **Payment-provider interface** (below).
+5. **Flaky tests** (dashboard routes, GBP OAuth, report retention): find the cause, run the full suite at least 10 times before and after, record the rates and the cause in PROGRESS.md.
+6. **Admin panel backend** as approved (users; organizations with extend trial / limit overrides / suspend; support tickets with threads; admin overview), replacing `/admin/operations` and `/supports`.
+
+**Payment provider interface (Mohit, 2026-09-28), step 4 of 13b:** today billing calls `paypalClient` directly in 8 files (subscriptions, orders, renewals, webhook, admin, legacy, account, plus the webhook verification). 13b starts by moving that behind one provider interface:
 - `src/services/billing/providers/`: a `PaymentProvider` type (`startSubscription`, `getSubscription`, `setRenewalAmount`, `cancelSubscription`, `createOrder`, `captureOrder`, `verifyWebhook` + `parseWebhook` → provider-neutral billing events) and the PayPal implementation wrapping `paypalClient`.
 - Billing logic (subscriptions, orders, renewals, webhook handling, admin, migration) uses only the interface and provider-neutral statuses and events; `Subscription` / `PaymentOrder` / `Invoice` keep a `provider` field (`paypal` today).
 - The provider's own timing rule (PayPal ignores price changes within 10 days) becomes a property of the provider (`renewalLeadDays`), not a billing constant.
