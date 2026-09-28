@@ -524,7 +524,7 @@ Integration tests (mongodb-memory-server + mocked placesClient): full run for 2 
 - **Unbind** (`POST /gbp/unbind`, new):
   - Cancels the location's `gbp-sync` jobs and its pending scheduled posts (marked `REJECTED`, `last_error`).
   - Deletes the GBP tokens **only when it was the user's last binding**, because tokens belong to the Google account, not to a binding.
-- **Disconnect:** `POST /user/auth/google/gbp/revoke` revokes at Google, then removes everything.
+- **Disconnect:** `POST /gbp/disconnect` revokes at Google, then removes everything.
 - **Preflight:** `npm run gbp:preflight -- <userId>` (read-only, Mohit runs it). Setup and connection steps: `docs/GBP_CONNECT.md`.
 
 Original spec:
@@ -559,7 +559,7 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
 
 **Split into three sub-phases** (Mohit, 2026-09-26). Each has its own branch from `claude/rebuild`, plan mode, approval and merge. M3 comes after 7c.
 - **7a: connect + onboarding.** **Built** on `claude/phase-7a-connect-onboarding`:
-  - Google Identity Services popup (`GET /user/auth/google/gbp/popup`, `POST /user/auth/google/gbp/code` with `redirect_uri=postmessage`); any Google account.
+  - Google Identity Services popup (`GET /gbp/connect/popup`, `POST /gbp/connect/code` with `redirect_uri=postmessage`); any Google account.
   - Scopes `openid email business.manage`; the id_token is verified and `google_email` stored. Popup settings: `select_account: true` only (GIS has no `prompt`). The redirect fallback sends `prompt=select_account consent`.
   - **Several Google accounts per user** (agencies): one *connection* per Google account, keyed by the id_token `sub`. Token rows are keyed by `user_id + token_type + google_sub`; each `UserGBP` binding stores the `google_sub` it was made with, and `gbpClient` acts through a `ConnectionRef { userId, googleSub }`. Discovery is grouped per account. Bind and disconnect take `google_sub` (required with several). Disconnect and unbind are per account.
   - Onboarding: `/onboarding/{state,gbp-profiles,select-profile,complete}`, `GET /locations/:id/competitor-suggestions` (Text Search **Enterprise** mask, 24 h cache, top 10) and `GET /places/search?q=&locationId=` (Pro, 10 results).
@@ -576,7 +576,7 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
   - **7c hook:** `onGbpSyncFinished` (it only logs until 7c).
   - When false, no v4 calls are made: reviews, media and posts are marked `not_available` (not an error).
   - All v4 code is still built and tested on fixtures, so going live means setting `GBP_V4_ENABLED=true` with no code changes.
-  - Sample data only in `seed:gbp-demo` and tests, never in live responses.
+  - Sample data only in `seed:demo-orgs` and tests, never in live responses.
 - **7c: scoring + report + competitors.** **Built** on `claude/phase-7c-scoring-report` (milestone **M3**):
   - **Code:** `src/gbp/scoring.config.ts` (every weight and threshold), `src/gbp/score/{gbpScore,publicScore,holidays}`, `src/gbp/report/{performance,keywords,reviews,competitors,insights,generate}`, `src/services/gbp/report.service.ts`, job `gbp-report`, model `GbpReport` (**one per location, overwritten**; only own scores kept in `score_history`), `Location.gbp_report`.
   - **GBP Score** (private): 5 pillars (completeness 25, activity 20 v4, reviews 25 v4, visibility 20, engagement 10). A check without data is `not_available`; a pillar with none is excluded and the rest rescaled (`partial`, `excluded_pillars`). Grades A ≥ 85 … F. Top 5 fixes. It **supersedes 7.2's health score** below.
@@ -584,7 +584,7 @@ Tests: state creation/validation/expiry/replay, pagination with fixtures.
   - **Competitors:** client + `tracking.competitors` + top 3 of the first keyword's map list (max 5). Place Details at most once per monthly cycle per business, or on a manual refresh when older than 24 h; failures keep old facts (`stale`).
   - **Generation:** after each gbp-sync and each done/partial rank run, a tracked-competitor change and an unbind; debounced (`REPORT_DEBOUNCE_SECONDS`, compare-and-set on `gbp_report.scheduled_for`) and skipped while a run or sync is active, so a monthly refresh gives one report.
   - **API:** `GET /locations/:id/gbp/report?range=28d|90d|12m` (#28). §7.4's `POST …/gbp/sync` is `POST /refresh {types:["gbp"]}` (7b), and `…/competitors/refresh` is `POST /refresh` (it sets the competitor refetch flag). Without a GBP binding the private sections return `{ available: false, reason: "gbp_not_connected" }`; v4 sections `v4_access_pending`.
-  - **Demo:** `npm run seed:gbp-demo [-- --v4-off]`. Calibration against real data once GBP access is approved: PROGRESS.md "Scoring calibration".
+  - **Demo:** `npm run seed:demo-orgs [-- --v4-off]`. Calibration against real data once GBP access is approved: PROGRESS.md "Scoring calibration".
 
 ### 7.1 Sync job `gbp-sync` (per bound location; **monthly** via the `monthly-refresh` scheduler, plus manual refresh)
 Never fetch GBP data on a page view. Store everything; pages read from DB.
@@ -642,7 +642,7 @@ Tests: aggregation math (period comparisons with gaps in daily data), threshold 
 - **Locations:** the legacy routes were **replaced** at the same paths (`GET/POST /locations`, `GET/DELETE /locations/:id`, `PATCH` instead of `PUT`), `google-locations/*` deleted. `POST /locations { place_id }` adds from a Places result (1 Details call). Soft delete cancels jobs and frees the slot. `GET /locations/:id/overview`. `Location.summary` is written by the rank-run and report hooks.
 - **Clients** (`/api/v1/clients`, agency only): CRUD, assign/unassign, detail with locations and summary; the `Client` model was reused and extended.
 - **Onboarding:** organization steps derived from data (`src/services/org/onboardingState.ts`), `POST /onboarding/skip`, location step `place_selected`, `/complete` without GBP. A bind to a location with a different `place_id` is refused (409 `place_id_mismatch`), and a place already in the organization gives 409 `duplicate_place`.
-- **Scripts:** `npm run migrate:organizations` (prints the mapping; duplicates reported, never changed) and `npm run seed:demo-orgs` (Business + Agency demo organizations; `seed:gbp-demo` is an alias).
+- **Scripts:** `npm run migrate:organizations` (prints the mapping; duplicates reported, never changed) and `npm run seed:demo-orgs` (Business + Agency demo organizations).
 - `ApiError` can carry `data` (the `reason` bodies); a shared-util edit.
 
 Original scope from Mohit (2026-09-26), aligned with the roadmap PDF §2, §5, §6 and §14:

@@ -20,7 +20,7 @@ Endpoint shapes are in [API.md](API.md#gbp-connection-phase-6) and [API.md](API.
    - Scopes: `openid`, `email` and `https://www.googleapis.com/auth/business.manage`.
    - Any Google account may connect.
 3. **Credentials** → Create credentials → OAuth client ID → **Web application**.
-   - Authorised redirect URI (the redirect fallback): **`http://localhost:5055/api/v1/user/auth/google/gbp/callback`**
+   - Authorised redirect URI (the redirect fallback): **`http://localhost:5055/api/v1/gbp/connect/callback`**
    - Authorised JavaScript origin (the popup): the frontend's origin, e.g. `http://localhost:3000`.
    - Copy the client ID and secret.
 4. **GBP API access:** Google only allows GBP API calls after the project is approved through its GBP API access request. Until then every call gets a quota of 0, and `gbp:preflight` reports exactly "GBP API access not approved (quota 0)".
@@ -31,7 +31,7 @@ Endpoint shapes are in [API.md](API.md#gbp-connection-phase-6) and [API.md](API.
 |---|---|
 | `GOOGLE_GBP_CLIENT_ID` | the OAuth client ID (`….apps.googleusercontent.com`) |
 | `GOOGLE_GBP_CLIENT_SECRET` | the OAuth client secret |
-| `GOOGLE_GBP_REDIRECT_URI` | `http://localhost:5055/api/v1/user/auth/google/gbp/callback`. Must match Google Cloud exactly, including the port. |
+| `GOOGLE_GBP_REDIRECT_URI` | `http://localhost:5055/api/v1/gbp/connect/callback`. Must match Google Cloud exactly, including the port. |
 | `TOKEN_ENCRYPTION_KEY` | 64 hex characters. Generate one with `openssl rand -hex 32` |
 | `GBP_MAX_RPS` | optional, default `5` |
 
@@ -49,14 +49,14 @@ The frontend uses the Google Identity Services **code client** in popup mode. Go
 
 ```js
 // 1. When the connect screen opens (the state is valid for 10 minutes and works once):
-const cfg = (await api.get('/api/v1/user/auth/google/gbp/popup')).data.data;
+const cfg = (await api.get('/api/v1/gbp/connect/popup')).data.data;
 // cfg = { client_id, scope: "openid email …/business.manage", state, ux_mode: "popup", select_account: true }
 
 const codeClient = google.accounts.oauth2.initCodeClient({
   ...cfg,
   callback: async ({ code, state, error }) => {
     if (error) return showError(error);                 // e.g. the user closed the popup
-    const res = await api.post('/api/v1/user/auth/google/gbp/code', { code, state });
+    const res = await api.post('/api/v1/gbp/connect/code', { code, state });
     const { google_email, google_sub } = res.data.data;
     showConnected(google_email);                        // "Connected as x@gmail.com"; keep google_sub for bind/disconnect
   },
@@ -76,7 +76,7 @@ connectButton.onclick = () => codeClient.requestCode();
 - **Several Google accounts** (agencies): the same button connects another account.
   - Each Google account is its own *connection* (`google_sub`, shown as "Connected as …"). Connecting the same account again just updates it.
   - Pass `google_sub` when binding (`select-profile`, `bind-with-user`) or disconnecting once more than one account is connected.
-  - Disconnect (`POST /user/auth/google/gbp/revoke { google_sub }`) removes only that account and its bound profiles; the others keep working.
+  - Disconnect (`POST /gbp/disconnect { google_sub }`) removes only that account and its bound profiles; the others keep working.
 
 After connecting, the onboarding screens call, in order:
 1. `GET /onboarding/gbp-profiles` (grouped per Google account)
@@ -102,7 +102,7 @@ After connecting, the onboarding screens call, in order:
 **Use:**
 1. `npm run dev`, then `npm run setup:live-test -- --token-only --token-file <scratch dir>/live_token`.
 2. Open `http://localhost:<PORT>/dev/gbp-connect` and paste the token (kept in the page's memory only).
-3. **1. Prepare** calls `GET /user/auth/google/gbp/popup` (no Google calls). **2. Connect** opens Google's account chooser and consent; the page then calls `POST /user/auth/google/gbp/code` and shows `{ connected: true, google_email, google_sub }`.
+3. **1. Prepare** calls `GET /gbp/connect/popup` (no Google calls). **2. Connect** opens Google's account chooser and consent; the page then calls `POST /gbp/connect/code` and shows `{ connected: true, google_email, google_sub }`.
 4. **3. List profiles** (optional) calls `GET /onboarding/gbp-profiles`: 1 accounts call + 1 locations call per account.
 
 Each state works once and lasts 10 minutes: click **Prepare** again before connecting another account.
@@ -118,7 +118,7 @@ Each state works once and lasts 10 minutes: click **Prepare** again before conne
    It prints the user id (for preflight) and the MyPageSEO location id.
 3. Get the consent URL:
    ```sh
-   curl -s http://localhost:5055/api/v1/user/auth/google/gbp -H "Authorization: Bearer $TOKEN"
+   curl -s http://localhost:5055/api/v1/gbp/connect/url -H "Authorization: Bearer $TOKEN"
    ```
    `data` is a `https://accounts.google.com/o/oauth2/v2/auth?...` URL. The link is valid for **10 minutes** and works **once**.
 4. **Open the URL in a browser** and sign in with the Google account that manages MyPageSEO.
@@ -158,7 +158,7 @@ Each state works once and lasts 10 minutes: click **Prepare** again before conne
 7. **Bind** the GBP location to our MyPageSEO location:
    ```sh
    curl -s http://localhost:5055/api/v1/gbp -H "Authorization: Bearer $TOKEN"        # every location, all accounts
-   curl -s -X POST http://localhost:5055/api/v1/gbp/bind-with-user -H "Authorization: Bearer $TOKEN" \
+   curl -s -X POST http://localhost:5055/api/v1/gbp/bind -H "Authorization: Bearer $TOKEN" \
      -H 'Content-Type: application/json' \
      -d '{"location_id":"<MyPageSEO location id>","gbpAccountId":"accounts/…","gbpLocationId":"locations/…"}'
    ```
@@ -210,6 +210,6 @@ Then run the scoring calibration against the real numbers ([PROGRESS.md](PROGRES
 | Action | Endpoint |
 |---|---|
 | Unbind one location | `POST /api/v1/gbp/unbind {"location_id": "…"}`. Removes the binding and cancels its scheduled jobs. Deletes that Google account's tokens if it was that account's last binding. |
-| Disconnect one Google account | `POST /api/v1/user/auth/google/gbp/revoke {"google_sub": "…"}` (`google_sub` is optional with a single account). Revokes that account at Google, then removes only its bindings, their jobs and its tokens. |
+| Disconnect one Google account | `POST /api/v1/gbp/disconnect {"google_sub": "…"}` (`google_sub` is optional with a single account). Revokes that account at Google, then removes only its bindings, their jobs and its tokens. |
 | Remove access from the Google side | [myaccount.google.com/permissions](https://myaccount.google.com/permissions) |
 

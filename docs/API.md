@@ -1062,11 +1062,11 @@ GBP errors use the same envelope:
 
 "Reconnect" is a 400, not a 401, because a 401 from this API means the MyPageSEO session expired.
 
-### `GET /api/v1/user/auth/google/gbp`
+### `GET /api/v1/gbp/connect/url`
 
 Starts the connection. `data` is Google's consent URL, with scope `business.manage` only, offline access, and a one-time `state` valid for 10 minutes.
 
-### `GET /api/v1/user/auth/google/gbp/callback?code=&state=` (called by Google)
+### `GET /api/v1/gbp/connect/callback?code=&state=` (called by Google)
 
 ```json
 { "success": true, "status": 200, "message": "Connected with GBP successfully.",
@@ -1128,7 +1128,7 @@ Every profile from **every connected Google account**, grouped by account. The d
 - A service-area business with no storefront has `address: null`. A missing website shows as `"NA"` (legacy value).
 - **400** "Please connect with Google Business Profile" when no Google account is connected.
 
-### `POST /api/v1/gbp/bind-with-user`
+### `POST /api/v1/gbp/bind`
 
 Body: `{ "location_id", "gbpAccountId": "accounts/…", "gbpLocationId": "locations/…", "google_sub"?: "…" }`. `google_sub` (from the `GET /gbp` group) is **required when several Google accounts are connected** (otherwise 400 "google_sub is required"), and the binding remembers which account it was made with. Other fields the old frontend sent (`title`, `metadata`, …) are accepted and ignored: the server reads the profile from Google, which also checks that the connected account can access it.
 
@@ -1174,7 +1174,7 @@ Body: `{ "location_id" }`.
 - Cancelled scheduled posts are marked `REJECTED` with `last_error: "GBP location unbound"`.
 - `tokens_deleted` is true only when this was the **last bound location of that Google account**. That account then has to be connected again to bind another of its profiles. Other connected accounts are untouched.
 
-### `POST /api/v1/user/auth/google/gbp/revoke` (disconnect one Google account)
+### `POST /api/v1/gbp/disconnect` (disconnect one Google account)
 
 Body: `{ "google_sub"?: "…" }`. It is required when several Google accounts are connected.
 
@@ -1196,7 +1196,7 @@ The first-run flow. The examples use test fixtures; no live calls have been made
 
 | # | Screen | Endpoint(s) |
 |---|---|---|
-| 1 | Connect Google (popup; any account, and more accounts later) | `GET /user/auth/google/gbp/popup` → GIS popup → `POST /user/auth/google/gbp/code` |
+| 1 | Connect Google (popup; any account, and more accounts later) | `GET /gbp/connect/popup` → GIS popup → `POST /gbp/connect/code` |
 | 2 | Pick your business | `GET /onboarding/gbp-profiles` (grouped per Google account) → `POST /onboarding/select-profile` |
 | 2b | Business center (only when `center_needed`: service-area businesses) | `PUT /locations/:id/center { query: "city or ZIP" }` |
 | 3 | Keywords | `PUT /locations/:id/tracking { keywords }` |
@@ -1204,7 +1204,7 @@ The first-run flow. The examples use test fixtures; no live calls have been made
 | 5 | Done | `POST /onboarding/complete` |
 | – | Resume | `GET /onboarding/state` |
 
-### `GET /api/v1/user/auth/google/gbp/popup`
+### `GET /api/v1/gbp/connect/popup`
 
 Config for `google.accounts.oauth2.initCodeClient`. The `state` is valid for 10 minutes and works once. `select_account: true` shows the account chooser. The GIS code client has no `prompt` or `access_type` options: the code flow returns a refresh token on first consent, and a reconnect of the same account without one reuses the stored refresh token.
 
@@ -1213,7 +1213,7 @@ Config for `google.accounts.oauth2.initCodeClient`. The `state` is valid for 10 
   "state": "b6ZQ…43 chars", "ux_mode": "popup", "select_account": true }
 ```
 
-### `POST /api/v1/user/auth/google/gbp/code`
+### `POST /api/v1/gbp/connect/code`
 
 Body: `{ "code", "state" }` from the popup callback.
 
@@ -1435,7 +1435,7 @@ The latest (or the given) GBP sync:
 
 **Generated in a job, never on a page view.** The `gbp-report` job runs about 2 minutes (`REPORT_DEBOUNCE_SECONDS`) after a rank run or a GBP sync finishes, after a change of tracked competitors, and after an unbind. A rank run and a sync finishing together give one report; while either is still running the report waits for it. The stored report is overwritten each time (no history of competitor data); only the client's own scores are kept in `score_history` (last 24).
 
-Examples below come from `npm run seed:gbp-demo` (offline demo data), trimmed.
+Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
 ### `GET /api/v1/locations/:locationId/gbp/report[?range=28d|90d|12m]`
 
@@ -1790,7 +1790,7 @@ A business organization gets **403** `{ "reason": "agency_only" }`. A `client_us
 - **Business steps:** `organization_info` → `google` → `first_location` → `location_setup`. **Agency:** `agency_info` → `google` → `first_client` → `first_location` → `location_setup` → `reporting_brand` (Phase 12: `done` once any branding is saved with `PUT /organization/branding`; skippable). Status: `done | pending | skipped | not_available`.
 - `POST /onboarding/skip { "step": "google" | "reporting_brand" }` (owner/member): skip Google to add locations from a Places search.
 - **Location steps:** `profile_selected` (GBP) or `place_selected` (Places search) → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`.
-- `POST /onboarding/select-profile` accepts `client_id` (agency) and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind-with-user`).
+- `POST /onboarding/select-profile` accepts `client_id` (agency) and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind`).
 - `POST /onboarding/complete` no longer needs a GBP binding: it queues the first rank run, the first GBP sync only when bound, and sets the monthly refresh.
 
 ## Dashboard and team (Phase 11)
@@ -2123,7 +2123,6 @@ Authorization: Bearer eyJ…
 | `platform.read` | super admin, admin |
 | `platform.write` | super admin, admin |
 | `content.manage` | super admin, admin, editor |
-| `system.read` | super admin |
 | `citations.view` (Phase 16) | super admin, admin, editor |
 | `citations.manage` (Phase 16) | super admin, admin, editor |
 
@@ -2142,7 +2141,7 @@ The fixed admin roles and what each may do (for the role picker when creating an
 
 ```json
 [
-  { "role_id": 1, "key": "superAdmin", "name": "Super Admin", "active": true, "permissions": ["admins.manage", "platform.read", "platform.write", "content.manage", "system.read", "citations.view", "citations.manage", "billing.read", "billing.manage"] },
+  { "role_id": 1, "key": "superAdmin", "name": "Super Admin", "active": true, "permissions": ["admins.manage", "platform.read", "platform.write", "content.manage", "citations.view", "citations.manage", "billing.read", "billing.manage"] },
   { "role_id": 2, "key": "admin", "name": "Admin", "active": true, "permissions": ["platform.read", "platform.write", "content.manage", "citations.view", "citations.manage", "billing.read", "billing.manage"] },
   { "role_id": 4, "key": "editor", "name": "Editor", "active": true, "permissions": ["content.manage", "citations.view", "citations.manage"] }
 ]

@@ -47,7 +47,7 @@ export const explainGbpError = (err: unknown): string => {
 	}
 	if (err instanceof GbpApiDisabledError) return `API not enabled: ${err.message}`;
 	if (err instanceof GbpNotConnectedError) {
-		return 'Not connected: this user has no GBP authorisation. Connect via GET /api/v1/user/auth/google/gbp.';
+		return 'Not connected: this user has no GBP authorisation. Connect via GET /api/v1/gbp/connect/url.';
 	}
 	if (err instanceof GbpReauthRequiredError || err instanceof TokenDecryptError) {
 		return 'Reconnect needed: Google rejected the stored authorisation (or it cannot be decrypted). Connect again.';

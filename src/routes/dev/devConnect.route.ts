@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 
 // Development only (mounted by app.ts when NODE_ENV=development, never in test or production):
 // a minimal page to connect a Google account with the GIS popup flow without the real frontend.
-// It calls the same API as the frontend (GET /user/auth/google/gbp/popup, POST /user/auth/google/gbp/code).
+// It calls the same API as the frontend (GET /gbp/connect/popup, POST /gbp/connect/code).
 // The MyPageSEO token is pasted by the developer and kept in memory only; nothing is stored or logged.
 
 const router = express.Router();
@@ -34,7 +34,7 @@ const PAGE = `<!doctype html>
 </head>
 <body>
 <h1>GBP connect (development only)</h1>
-<p class="note">Uses the same API as the frontend: GET /api/v1/user/auth/google/gbp/popup, then POST /api/v1/user/auth/google/gbp/code.
+<p class="note">Uses the same API as the frontend: GET /api/v1/gbp/connect/popup, then POST /api/v1/gbp/connect/code.
 The token stays in this page's memory only.</p>
 <label>MyPageSEO access token (from <code>npm run setup:live-test -- --token-only</code>)
   <input id="token" type="password" autocomplete="off">
@@ -63,15 +63,15 @@ The token stays in this page's memory only.</p>
   document.getElementById('prepare').onclick = async () => {
     if (!token()) return show('Error', 'Paste the token first.');
     if (!window.google || !google.accounts) return show('Error', 'Google Identity Services script not loaded yet; wait a second and retry.');
-    const res = await api('GET', '/user/auth/google/gbp/popup');
-    if (res.status !== 200) return show('GET /user/auth/google/gbp/popup → ' + res.status, res.body);
+    const res = await api('GET', '/gbp/connect/popup');
+    if (res.status !== 200) return show('GET /gbp/connect/popup → ' + res.status, res.body);
     const cfg = res.body.data;
     codeClient = google.accounts.oauth2.initCodeClient({
       ...cfg,
       callback: async ({ code, state, error }) => {
         if (error) return show('Google popup error', error);
-        const done = await api('POST', '/user/auth/google/gbp/code', { code, state });
-        show('POST /user/auth/google/gbp/code → ' + done.status, done.body);
+        const done = await api('POST', '/gbp/connect/code', { code, state });
+        show('POST /gbp/connect/code → ' + done.status, done.body);
         document.getElementById('connect').disabled = true; // each state works once: prepare again for another account
         document.getElementById('profiles').disabled = false;
       },

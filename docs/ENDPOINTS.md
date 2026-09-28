@@ -21,7 +21,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
-- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -65,11 +65,11 @@ Reads, billing, support and GBP connect / bind stay open.
 - `POST /reports`
 - the white-label branding writes
 
-## Summary (2026-09-28, Phase 13b in progress)
+## Summary (2026-09-29, Phase 13b in progress)
 
-**209 endpoints:** 208 live, 1 dev-only.
-- **By origin:** 157 rebuilt or new, 52 legacy.
-- **By auth:** 92 user, 80 platform admin (each with a permission), 37 none.
+**203 endpoints:** 202 live, 1 dev-only.
+- **By origin:** 157 rebuilt or new, 46 legacy.
+- **By auth:** 92 user, 74 platform admin (each with a permission), 37 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -79,7 +79,9 @@ This block is recounted with every commit that changes the catalogue.
 
 **Phase 13b step 1 (legacy removal):** 40 legacy routes deleted (no deprecated routes remain; the status no longer exists), the read-only `GET /admin/roles` added. Details in [LEGACY_FEATURES.md](LEGACY_FEATURES.md) "Removed in Phase 13b".
 
-**Phase 13b step 2:** sessions and the account moved to `/auth/*` (6 routes: refresh, logout, change-password, me GET/PATCH, deactivate); the legacy `/user/auth` session routes and `/user/profile` were deleted. Only the Google connect routes remain under `/user/auth/google/*`.
+**Phase 13b step 2:** sessions and the account moved to `/auth/*` (6 routes: refresh, logout, change-password, me GET/PATCH, deactivate); the legacy `/user/auth` session routes and `/user/profile` were deleted. The Google connect routes then moved to `/gbp/connect/*` + `POST /gbp/disconnect`, and `POST /gbp/bind-with-user` became `POST /gbp/bind`, so no `/user/*` route remains.
+
+**Phase 13b legacy sweep:** `/system/*` (4) and `GET/DELETE /logs` removed (the `system.read` permission with them).
 
 ## Catalogue: all current endpoints
 
@@ -207,13 +209,13 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/user/auth/google/gbp` | user | Google consent URL (redirect fallback flow) | legacy, rebuilt 6 | live |
-| GET | `/api/v1/user/auth/google/gbp/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens | legacy, rebuilt 6 | live |
-| POST | `/api/v1/user/auth/google/gbp/revoke` | user | Disconnect one Google account (`google_sub`): revoke it, remove its bindings, jobs and tokens | legacy, rebuilt 6 | live |
-| GET | `/api/v1/user/auth/google/gbp/popup` | user | GIS popup config with a one-time state | 7a | live |
-| POST | `/api/v1/user/auth/google/gbp/code` | user | Exchange the popup code (`postmessage`), verify id_token | 7a | live |
+| GET | `/api/v1/gbp/connect/url` | user | Google consent URL (redirect fallback flow) | 6, moved 13b | live |
+| GET | `/api/v1/gbp/connect/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens | 6, moved 13b | live |
+| POST | `/api/v1/gbp/disconnect` | user | Disconnect one Google account (`google_sub`): revoke it, remove its bindings, jobs and tokens | 6, moved 13b | live |
+| GET | `/api/v1/gbp/connect/popup` | user | GIS popup config with a one-time state | 7a, moved 13b | live |
+| POST | `/api/v1/gbp/connect/code` | user | Exchange the popup code (`postmessage`), verify id_token | 7a, moved 13b | live |
 | GET | `/api/v1/gbp` | user | Every GBP profile from every connected Google account, grouped (`{ connections: [...] }`; no Places calls) | legacy, rebuilt 6 | live |
-| POST | `/api/v1/gbp/bind-with-user` | user | Bind a GBP location to a Location (read from Google, `place_id` rules; `google_sub` with several accounts) | legacy, rebuilt 6 | live |
+| POST | `/api/v1/gbp/bind` | user | Bind a GBP location to a Location (read from Google, `place_id` rules; `google_sub` with several accounts) | 6, moved 13b | live |
 | POST | `/api/v1/gbp/unbind` | user | Unbind a Location | 6 | live |
 
 ### Onboarding
@@ -383,12 +385,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/system/info` | admin (`system.read`) | Get System Info | legacy, changed 10 | live |
-| GET | `/api/v1/system/time` | admin (`system.read`) | Get Server Time | legacy, changed 10 | live |
-| GET | `/api/v1/system/usage` | admin (`system.read`) | Get Resource Usage | legacy, changed 10 | live |
-| GET | `/api/v1/system/process` | admin (`system.read`) | Get Process Info | legacy, changed 10 | live |
-| GET | `/api/v1/logs` | admin (`system.read`) | Read today's log file | legacy, changed 10 | live |
-| DELETE | `/api/v1/logs` | admin (`system.read`) | Delete all log files | legacy, changed 10 | live |
 | GET | `/images/:filename` | none | Serve an uploaded file (`public/uploads/images`) | legacy | live |
 | GET | `/videos/:filename` | none | Serve an uploaded file (`public/uploads/videos`) | legacy | live |
 | GET | `/api/healthcheck` | none | Health check | legacy | live |
@@ -444,13 +440,13 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 
 | # | Method | Path | Auth | Query params | Body | Returns |
 |---|---|---|---|---|---|---|
-| 9 | GET | `/user/auth/google/gbp` | user | – | – | Google consent URL (**redirect flow**, the fallback). One-time `state`, valid 10 minutes. |
-| 10 | GET | `/user/auth/google/gbp/callback` | none (Google calls it) | `code`, `state`, `error` (from Google) | – | `{ connected: true, google_email, google_sub }` |
-| 11 | GET | `/user/auth/google/gbp/popup` | user | – | – | **Popup flow** config for Google Identity Services: `{ client_id, scope, state, ux_mode: "popup", select_account: true }` |
-| 12 | POST | `/user/auth/google/gbp/code` | user | – | `{ code, state }` (from the popup callback) | `{ connected: true, google_email, google_sub }` |
-| 13 | POST | `/user/auth/google/gbp/revoke` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, google_email }` |
+| 9 | GET | `/gbp/connect/url` | user | – | – | Google consent URL (**redirect flow**, the fallback). One-time `state`, valid 10 minutes. |
+| 10 | GET | `/gbp/connect/callback` | none (Google calls it) | `code`, `state`, `error` (from Google) | – | `{ connected: true, google_email, google_sub }` |
+| 11 | GET | `/gbp/connect/popup` | user | – | – | **Popup flow** config for Google Identity Services: `{ client_id, scope, state, ux_mode: "popup", select_account: true }` |
+| 12 | POST | `/gbp/connect/code` | user | – | `{ code, state }` (from the popup callback) | `{ connected: true, google_email, google_sub }` |
+| 13 | POST | `/gbp/disconnect` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, google_email }` |
 | 14 | GET | `/gbp` | user | – | – | Every GBP profile from every connected Google account, grouped: `{ connections: [{ google_sub, google_email, label, status, error, accounts, locations, errors }] }` |
-| 15 | POST | `/gbp/bind-with-user` | user | – | `{ location_id, gbpAccountId: "accounts/…", gbpLocationId: "locations/…", google_sub? }` | `{ binding, place_id: { location, gbp, status }, coordinates }` |
+| 15 | POST | `/gbp/bind` | user | – | `{ location_id, gbpAccountId: "accounts/…", gbpLocationId: "locations/…", google_sub? }` | `{ binding, place_id: { location, gbp, status }, coordinates }` |
 | 16 | POST | `/gbp/unbind` | user | – | `{ location_id }` | `{ unbound, jobs_cancelled: { gbp_sync, scheduled_posts }, tokens_deleted }` |
 
 **Notes:**

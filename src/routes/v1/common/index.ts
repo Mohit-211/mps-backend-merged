@@ -1,4 +1,3 @@
-import  systemRoute from './system.route';
 import  countryRoute from './country.route';
 import  languageRoute from './language.route';
 import  timezoneRoute from './timezone.route';
@@ -27,10 +26,6 @@ import reportSchedulesRoute from './reportSchedules.route';
 
 
 const commonRoutes = [
-	{
-		path: '/system',
-		route: systemRoute,
-	},
 	{
 		path: '/countries',
 		route: countryRoute,

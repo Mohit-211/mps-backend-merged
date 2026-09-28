@@ -211,7 +211,7 @@ npm run seed:demo-orgs              # GBP reviews, media and posts filled (as wi
 npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 access (GBP Score partial)
 ```
 
-`npm run seed:gbp-demo` is an alias. It creates, in `mps_rebuild`:
+It creates, in `mps_rebuild`:
 - **Business** `business-demo@mypageseo.test`: 1 GBP-connected location with 3 monthly rank runs, 18 months of GBP data and a GBP report; in its 7-day trial with 2 tokens (Phase 13a).
 - **Agency** `agency-demo@mypageseo.test`, on a comp (manual, free) subscription for 5 locations with 10 tokens and one paid token-pack invoice (Phase 13a): 2 clients and 3 locations (2 GBP-connected, 1 added from a Places search: `gbp_not_connected`), each with rank runs and a report.
 - **Client user** `agency-client@mypageseo.test`: sees one client, read-only.
@@ -271,7 +271,6 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | empty | The REST app (never commit, print or log them) |
 | `PAYPAL_WEBHOOK_ID` | empty | The app's webhook id; without it every webhook is refused (Phase 10) |
 | `PAYPAL_PRODUCT_ID`, `PAYPAL_PLAN_ID_USD`, `PAYPAL_PLAN_ID_CAD` | empty | Written by `billing:paypal-setup` (below); without the plan id for a currency, checkout answers 503 `billing_not_configured` |
-| `TRIAL_DAYS` | 7 | Default trial length (the plan setting wins once it exists) |
 | `BILLING_GRACE_DAYS` | 7 | Failed payment / overdue manual invoice → read-only after this |
 | `MANUAL_INVOICE_DUE_DAYS` | 14 | Manual invoices are due this many days after issue |
 | `PAYPAL_PRICE_CHANGE_LEAD_DAYS` | 11 | Renewal snapshot + price PATCH this many days before a renewal (PayPal ignores changes within 10) |

@@ -21,7 +21,6 @@ import {
 	getQueryParams,
 } from './utils';
 import routes from './routes/v1';
-import { adminOnly } from './middlewares/auth/adminAuth.middleware';
 import devConnectRoutes from './routes/dev/devConnect.route';
 import shareRoutes from './routes/share.route';
 import { usageScope } from './services/usage/scope';
@@ -33,10 +32,6 @@ const myCache = new NodeCache({ stdTTL: 100, checkperiod: 120 });
 const PUBLIC_DIR = path.resolve(
 	__dirname,
 	process.env.NODE_ENV === 'development' ? '../public' : '../../public',
-);
-const LOG_DIR = path.resolve(
-	__dirname,
-	process.env.NODE_ENV === 'development' ? '../logs' : '../../logs',
 );
 
 // Initialize MongoDB connection
@@ -123,52 +118,6 @@ app.use('/r', shareRoutes);
 if (config.essentials.env === 'development') {
 	app.use('/dev', devConnectRoutes);
 }
-
-// Phase 10 (AUDIT S3): reading and deleting logs is super admin only.
-app.get('/api/v1/logs', adminOnly('system.read'), (req, res) => {
-	const currentDate = DateTime.now().toFormat('yyyy-MM-dd');
-	const logFileName = `${currentDate}.log`;
-	const logFilePath = path.join(LOG_DIR, logFileName);
-	fs.readFile(logFilePath, 'utf8', (err, data) => {
-		if (err) {
-			return responseWrapper(res, [], 'success');
-		} else {
-			const logs = data.split('\n');
-			res.setHeader('Cache-Control', 'public, max-age=3600');
-			return responseWrapper(res, logs, 'success');
-		}
-	});
-});
-
-app.delete('/api/v1/logs', adminOnly('system.read'), async (req: Request, res: Response) => {
-	const logDirectory = LOG_DIR;
-	fs.readdir(logDirectory, async (err, files) => {
-		if (err) {
-			return responseWrapper(res, '', 'Error reading log directory', 400);
-		} else {
-			files.forEach((file) => {
-				if (file.endsWith('.log')) {
-					fs.unlink(path.join(logDirectory, file), (err) => {
-						if (err) {
-							return responseWrapper(
-								res,
-								'',
-								'Error deleting log file',
-								400,
-							);
-						}
-					});
-				}
-			});
-			return responseWrapper(
-				res,
-				'',
-				'All log files deleted successfully',
-			);
-		}
-	});
-});
-
 
 // All File Apis. Phase 10 (AUDIT S16): the name is reduced to its basename and must resolve inside its
 // folder (no ../ traversal); the cache is keyed by folder + name.

@@ -76,7 +76,6 @@ const envVarsSchema = Joi.object({
 	PAYPAL_PRODUCT_ID: Joi.string().allow('').default(''),
 	PAYPAL_PLAN_ID_USD: Joi.string().allow('').default(''),
 	PAYPAL_PLAN_ID_CAD: Joi.string().allow('').default(''),
-	TRIAL_DAYS: Joi.number().integer().min(0).max(90).default(7).description('Default trial length for new organizations (the plan setting overrides it)'),
 	BILLING_GRACE_DAYS: Joi.number().integer().min(0).max(60).default(7),
 	MANUAL_INVOICE_DUE_DAYS: Joi.number().integer().min(1).max(90).default(14),
 	PAYPAL_PRICE_CHANGE_LEAD_DAYS: Joi.number().integer().min(11).max(28).default(11).description('PayPal ignores price changes within 10 days of a charge: the renewal amount is fixed this many days ahead'),
@@ -251,7 +250,6 @@ interface Config {
 	};
 
 	billing: {
-		trialDays: number;
 		graceDays: number;
 		manualInvoiceDueDays: number;
 		seller: { name: string; address: string; email: string; taxId: string };
@@ -402,7 +400,6 @@ const config: Config = {
 	},
 
 	billing: {
-		trialDays: envVars.TRIAL_DAYS,
 		graceDays: envVars.BILLING_GRACE_DAYS,
 		manualInvoiceDueDays: envVars.MANUAL_INVOICE_DUE_DAYS,
 		seller: { name: envVars.BILLING_SELLER_NAME, address: envVars.BILLING_SELLER_ADDRESS, email: envVars.BILLING_SELLER_EMAIL, taxId: envVars.BILLING_SELLER_TAX_ID },
