@@ -248,8 +248,8 @@ export interface GbpClientOptions {
 type UserId = Types.ObjectId | string;
 
 /**
- * Which Google account to act as: the user's connection with this id_token sub (null = a pre-7a
- * connection without identity; undefined = the user's only connection).
+ * Which Google account to act as: the user's connection with this id_token sub (undefined = the
+ * user's only connection).
  */
 export interface ConnectionRef {
 	userId: UserId;

@@ -54,7 +54,6 @@ export const verifyAuthJWTToken = catchAsync(async (req, res, next) => {
           role_id: 1,
           status: 1,
           is_active: 1,
-          owner_id: 1,
           is_gbp_connected: 1,
           token_version: 1,
           "user_profile._id": 1,

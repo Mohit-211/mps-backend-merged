@@ -14,7 +14,7 @@ export interface IUserGBP extends Document {
 	gbpLocationId: string;
 	/** Google place ID from the profile's metadata.placeId (null if Google has none). */
 	place_id?: string | null;
-	/** The connection (Google account, id_token sub) that bound this profile; null before Phase 7a. */
+	/** The connection (Google account, id_token sub) that bound this profile. */
 	google_sub?: string | null;
 	bound_at?: Date | null;
 	title?: string;

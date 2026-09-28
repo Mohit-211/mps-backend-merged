@@ -91,6 +91,7 @@ export const createLocation = async (
 	}
 	return Location.create({
 		organization_id: organizationId,
+		source: 'places_search',
 		client_id: overrides.client_id ?? null,
 		name: overrides.name ?? 'Maple Leaf Plumbing & Heating',
 		address: '100 Queen St E',

@@ -162,19 +162,4 @@ describe('two Google accounts on one user', () => {
 		await expect(resolveConnection(uid, 'sub-unknown', tokens)).rejects.toMatchObject({ statusCode: 400, message: 'That Google account is not connected.' });
 	});
 
-	it('keeps a pre-7a connection (no google_sub) working, and upgrades it on reconnect instead of duplicating', async () => {
-		const { user } = await createUser('legacy@test.dev');
-		const uid = user._id as Types.ObjectId;
-		await UserAuth.create({ user_id: uid, token_type: tokenTypes.GBP, access_token: 'old-a', refresh_token: 'old-r', expiry_date: expiry });
-		const location = await createLocation(uid);
-		await UserGBP.create({ user_id: uid, location_id: location._id, gbpAccountId: 'accounts/1', gbpLocationId: 'locations/1' });
-
-		const legacyBinding = await UserGBP.findOne({ location_id: location._id }).lean();
-		const conn = connectionForBinding(legacyBinding as { user_id: unknown; google_sub?: null });
-		expect(await tokens.load(conn.userId, tokenTypes.GBP, conn.googleSub)).toMatchObject({ refreshToken: 'old-r', googleSub: null });
-
-		await connect(uid, SUB_A, 'a@client.test');
-		expect(await UserAuth.countDocuments({ user_id: uid })).toBe(1);
-		expect(await tokens.load(uid, tokenTypes.GBP)).toMatchObject({ googleSub: SUB_A, refreshToken: `1//${SUB_A}` });
-	});
 });

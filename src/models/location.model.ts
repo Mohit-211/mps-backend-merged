@@ -9,8 +9,7 @@ import { ApiError } from "../utils";
 
 /**
  * Refresh cadence (Mohit, 2026-09-26): 'auto_monthly' (default) = the monthly-refresh scheduler runs
- * this location; 'manual_only' = only POST /locations/:id/refresh. Legacy 'weekly'/'monthly'/'manual'
- * are mapped on read (withDefaults) and rewritten by `npm run migrate:refresh`.
+ * this location; 'manual_only' = only POST /locations/:id/refresh.
  */
 export type TrackingFrequency = 'auto_monthly' | 'manual_only';
 export const TRACKING_FREQUENCIES: TrackingFrequency[] = ['auto_monthly', 'manual_only'];
@@ -66,8 +65,8 @@ export type OnboardingStep = 'profile_selected' | 'place_selected' | 'center_nee
 export const ONBOARDING_STEPS: OnboardingStep[] = ['profile_selected', 'place_selected', 'center_needed', 'center_set', 'keywords_set', 'competitors_set', 'completed'];
 
 /** How the location was added (Phase 8): a GBP profile, a Places search result, or pre-Phase 8 data. */
-export type LocationSource = 'gbp' | 'places_search' | 'legacy';
-export const LOCATION_SOURCES: LocationSource[] = ['gbp', 'places_search', 'legacy'];
+export type LocationSource = 'gbp' | 'places_search';
+export const LOCATION_SOURCES: LocationSource[] = ['gbp', 'places_search'];
 
 /** Latest numbers for the locations list (Phase 8), kept by the rank-run and GBP report hooks. */
 export interface ILocationSummary {
@@ -272,7 +271,7 @@ const locationSchema = new Schema<ILocation>(
       default: null,
     },
     organization_id: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
-    source: { type: String, enum: LOCATION_SOURCES, default: "legacy" },
+    source: { type: String, enum: LOCATION_SOURCES, required: true },
     gbp_connected: { type: Boolean, default: false },
     summary: {
       type: new Schema<ILocationSummary>(

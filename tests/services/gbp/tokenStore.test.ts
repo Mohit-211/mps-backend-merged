@@ -1,6 +1,6 @@
 import { tokenTypes } from '../../../src/configs/constantTypes';
 import { User, UserAuth } from '../../../src/models';
-import { createTokenStore, encryptPlaintextGbpTokens } from '../../../src/services/gbp/tokenStore';
+import { createTokenStore } from '../../../src/services/gbp/tokenStore';
 import { createTokenCrypto, isEncrypted } from '../../../src/utils/tokenCrypto';
 import { clearDb, createUser, startTestDb } from '../../helpers/mongoose';
 
@@ -68,15 +68,6 @@ describe('tokenStore', () => {
 		expect((await rawRow(user._id, tokenTypes.GBP))?.last_refreshed_at).toBeInstanceOf(Date);
 	});
 
-	it('re-encrypts a legacy plaintext GBP row on first read', async () => {
-		const { user } = await createUser('e@test.dev');
-		await UserAuth.create({ user_id: user._id, token_type: tokenTypes.GBP, access_token: 'old-a', refresh_token: 'old-r', expiry_date: expiry });
-		expect(await store.load(user._id, tokenTypes.GBP)).toMatchObject({ accessToken: 'old-a', refreshToken: 'old-r' });
-		const row = await rawRow(user._id, tokenTypes.GBP);
-		expect(isEncrypted(row?.access_token) && isEncrypted(row?.refresh_token)).toBe(true);
-		expect(await store.load(user._id, tokenTypes.GBP)).toMatchObject({ accessToken: 'old-a', refreshToken: 'old-r' });
-	});
-
 	it('marks a revoked connection and clears the user flag', async () => {
 		const { user } = await createUser('f@test.dev');
 		await User.updateOne({ _id: user._id }, { is_gbp_connected: true });
@@ -100,22 +91,5 @@ describe('tokenStore', () => {
 		expect(await store.remove(user._id, tokenTypes.GBP)).toBe(true);
 		expect(await store.load(user._id, tokenTypes.GBP)).toBeNull();
 		expect(await store.remove(user._id, tokenTypes.GBP)).toBe(false);
-	});
-});
-
-describe('encryptPlaintextGbpTokens (migration)', () => {
-	it('encrypts plaintext GBP rows only, and a second run changes nothing', async () => {
-		const { user: u1 } = await createUser('m1@test.dev');
-		const { user: u2 } = await createUser('m2@test.dev');
-		await UserAuth.create({ user_id: u1._id, token_type: tokenTypes.GBP, access_token: 'p-a', refresh_token: 'p-r' });
-		await store.save(u2._id, tokenTypes.GBP, { accessToken: 'e-a', refreshToken: 'e-r', expiryDate: expiry });
-		await UserAuth.create({ user_id: u1._id, token_type: tokenTypes.ANALYTICS, access_token: 'sc-a', refresh_token: 'sc-r' });
-
-		expect(await encryptPlaintextGbpTokens(crypto)).toEqual({ scanned: 2, encrypted: 1, alreadyEncrypted: 1 });
-		const before = await UserAuth.find({}).lean();
-		expect(await encryptPlaintextGbpTokens(crypto)).toEqual({ scanned: 2, encrypted: 0, alreadyEncrypted: 2 });
-		expect(await UserAuth.find({}).lean()).toEqual(before);
-		expect(await store.load(u1._id, tokenTypes.GBP)).toMatchObject({ accessToken: 'p-a', refreshToken: 'p-r' });
-		expect((await rawRow(u1._id, tokenTypes.ANALYTICS))?.access_token).toBe('sc-a');
 	});
 });

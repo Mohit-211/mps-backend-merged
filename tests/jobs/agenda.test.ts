@@ -84,20 +84,18 @@ describe('agenda (own connection, C25)', () => {
 		expect(names).not.toContain('rank-scheduler');
 	});
 
-	it('schedules monthly-refresh every 15 minutes as a single recurring job and cancels the old rank-scheduler', async () => {
+	it('schedules monthly-refresh every 15 minutes as a single recurring job', async () => {
 		// A separate agenda that is never started: the recurring job is saved but never runs here
 		// (its handler needs a Mongoose connection this test file does not open).
 		const { scheduleRecurringJobs } = await import('../../src/jobs');
 		const idle = createAgenda({ address: mongo.getUri('mps_recurring') });
 		await new Promise((resolve) => idle.once('ready', resolve));
 		try {
-			await idle.every('15 minutes', 'rank-scheduler', {}); // left over from Phase 5
 			await scheduleRecurringJobs(idle);
 			await scheduleRecurringJobs(idle); // idempotent
 			const jobs = await idle.jobs({ name: 'monthly-refresh' });
 			expect(jobs).toHaveLength(1);
 			expect(jobs[0].attrs.repeatInterval).toBe('15 minutes');
-			expect(await idle.jobs({ name: 'rank-scheduler' })).toHaveLength(0);
 		} finally {
 			await idle.close({ force: true });
 		}

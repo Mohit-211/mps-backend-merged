@@ -19,7 +19,6 @@ export interface IUser extends Document {
 	user_type?: string;
 	email: string;
 	role_id: number;
-	owner_id?: Schema.Types.ObjectId;
 	password: string;
 	status: string;
 	is_gbp_connected: boolean;
@@ -64,11 +63,6 @@ const userSchema = new Schema<IUser>(
 			type: Number,
 			default: config.roles.user,
 			required: true,
-		},
-		owner_id: {
-			type: Schema.Types.ObjectId,
-			default: null,
-			required: false,
 		},
 		password: {
 			type: String,

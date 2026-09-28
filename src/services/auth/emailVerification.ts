@@ -10,8 +10,8 @@ import { apiErrorWithData } from '../../utils';
 // Email verification by link (Phase 8.1). The link carries a random 32-byte token; only its SHA-256 is
 // stored (AuthCode, purpose verify_email, one row per user), so issuing a new link replaces the old
 // one. A signup gets a deadline (EMAIL_VERIFICATION_TTL_HOURS); an account still unverified after it is
-// deleted by the unverified-cleanup job. Only signups carry a deadline, so legacy, invited and
-// pre-8.1 accounts can never be deleted here.
+// deleted by the unverified-cleanup job. Only signups carry a deadline, so invited accounts (verified
+// through the invitation) can never be deleted here.
 
 type UserId = Types.ObjectId | string;
 
@@ -140,21 +140,4 @@ export const cleanupUnverifiedAccounts = async (now: Date = new Date(), batchSiz
 		logger.info(`auth: unverified-cleanup deleted ${result.users} account(s), ${result.organizations} organization(s); kept ${result.organizations_kept} organization(s) with other members or locations`);
 	}
 	return result;
-};
-
-export interface MigrationResult {
-	marked_verified: number;
-	status_accepted: number;
-}
-
-/**
- * migrate:email-verified: every existing user without email_verified_at is marked verified (at their
- * created_at, else now), and PENDING / REVIEWING accounts become ACCEPTED. Signups made by Phase 8.1
- * code (they carry a verification_deadline) are left alone. Idempotent.
- */
-export const migrateExistingUsersVerified = async (now: Date = new Date()): Promise<MigrationResult> => {
-	const legacy = { $or: [{ email_verified_at: null }, { email_verified_at: { $exists: false } }], verification_deadline: { $not: { $type: 'date' } } };
-	const accepted = await User.collection.updateMany({ ...legacy, status: { $in: PENDING_STATUSES } }, { $set: { status: userStatusTypes.ACCEPTED } });
-	const marked = await User.collection.updateMany(legacy, [{ $set: { email_verified_at: { $ifNull: ['$created_at', now] } } }]);
-	return { marked_verified: marked.modifiedCount, status_accepted: accepted.modifiedCount };
 };

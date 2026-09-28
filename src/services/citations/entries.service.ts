@@ -80,7 +80,7 @@ const healthView = (h: CitationHealth) => ({ score: h.score, grade: h.grade, cov
 const locationOr404 = async (locationId: Id): Promise<ILocation> => {
 	const location = await Location.findById(locationId).lean<ILocation>();
 	if (!location) throw apiErrorWithData(httpStatus.NOT_FOUND, 'Location not found.', { reason: 'not_found' });
-	if (!location.organization_id) throw apiErrorWithData(httpStatus.CONFLICT, 'The location has no organization (run migrate:organizations).', { reason: 'no_organization' });
+	if (!location.organization_id) throw apiErrorWithData(httpStatus.CONFLICT, 'The location has no organization.', { reason: 'no_organization' });
 	return location;
 };
 

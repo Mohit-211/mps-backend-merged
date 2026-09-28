@@ -146,7 +146,6 @@ const pickFacts = (row: CompetitorRow) => ({
 	has_phone: row.has_phone,
 	has_editorial_summary: row.has_editorial_summary,
 	business_status: row.business_status,
-	// Rows stored before Phase 12.5 have no photos or reviews: refetched on the next cycle.
 	photo_count: row.photo_count ?? null,
 	photos_capped: row.photos_capped ?? false,
 	reviews: row.reviews ?? [],

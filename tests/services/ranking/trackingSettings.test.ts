@@ -96,12 +96,6 @@ describe('applyTrackingUpdate', () => {
 		expect(applyTrackingUpdate(manual, { frequency: 'auto_monthly' }, OWN, NOW, 20).tracking.frequency).toBe('auto_monthly');
 	});
 
-	it('maps pre-7b stored frequencies on read', () => {
-		type Stored = Parameters<typeof withDefaults>[0];
-		expect(withDefaults({ frequency: 'weekly' } as unknown as Stored).frequency).toBe('auto_monthly');
-		expect(withDefaults({ frequency: 'monthly' } as unknown as Stored).frequency).toBe('auto_monthly');
-		expect(withDefaults({ frequency: 'manual' } as unknown as Stored).frequency).toBe('manual_only');
-	});
 });
 
 describe('planRun', () => {

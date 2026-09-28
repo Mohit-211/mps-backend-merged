@@ -32,7 +32,7 @@ export const resolveConnection = async (
 	return { userId, googleSub: connections[0].googleSub };
 };
 
-/** The connection a binding was made with (pre-7a bindings: the user's only connection). */
+/** The connection a binding was made with. */
 export const connectionForBinding = (binding: { user_id: unknown; google_sub?: string | null }): ConnectionRef => ({
 	userId: String(binding.user_id),
 	googleSub: binding.google_sub ?? undefined,

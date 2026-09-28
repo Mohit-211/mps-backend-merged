@@ -4,7 +4,7 @@ import request from 'supertest';
 import logger from '../../src/configs/logger';
 import { AuthCode, Client, Invitation, Membership, Organization, Profile, User, UserToken } from '../../src/models';
 import { createAuthService } from '../../src/services/auth/auth.service';
-import { cleanupUnverifiedAccounts, hashLinkToken, migrateExistingUsersVerified } from '../../src/services/auth/emailVerification';
+import { cleanupUnverifiedAccounts, hashLinkToken } from '../../src/services/auth/emailVerification';
 import { hashToken as hashInvitationToken } from '../../src/services/team/invitation.service';
 import { clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 
@@ -236,22 +236,4 @@ describe('invitations and password reset verify the email', () => {
 	});
 });
 
-describe('migrate:email-verified', () => {
-	it('marks every existing user verified (PENDING → ACCEPTED), leaves 8.1 signups alone, and is idempotent', async () => {
-		const created = new Date('2025-01-02T03:04:05Z');
-		await User.collection.insertMany([
-			{ email: 'a@legacy.test', status: 'PENDING', created_at: created, deleted_at: null },
-			{ email: 'b@legacy.test', status: 'ACCEPTED', created_at: created, deleted_at: null },
-			{ email: 'c@legacy.test', status: 'REVIEWING', deleted_at: null },
-			{ email: 'd@legacy.test', status: 'ACCEPTED', email_verified_at: created, deleted_at: null },
-		]);
-		await signup();
-		expect(await migrateExistingUsersVerified()).toEqual({ marked_verified: 3, status_accepted: 2 });
-		const a = await User.collection.findOne({ email: 'a@legacy.test' });
-		expect(a).toMatchObject({ status: 'ACCEPTED', email_verified_at: created });
-		expect((await User.collection.findOne({ email: 'c@legacy.test' }))?.email_verified_at).toBeInstanceOf(Date);
-		expect((await User.findOne({ email: EMAIL }).lean())?.email_verified_at).toBeNull();
-		expect(await migrateExistingUsersVerified()).toEqual({ marked_verified: 0, status_accepted: 0 });
-	});
-});
 

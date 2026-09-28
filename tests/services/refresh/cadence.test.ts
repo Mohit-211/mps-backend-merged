@@ -1,4 +1,4 @@
-import { anchorDayFrom, initialSchedule, nextRefreshAt, normaliseFrequency, zoneFor } from '../../../src/services/refresh/cadence';
+import { anchorDayFrom, initialSchedule, nextRefreshAt, zoneFor } from '../../../src/services/refresh/cadence';
 
 describe('monthly refresh cadence', () => {
 	it('anchor day is the setup day of month, clamped to 28', () => {
@@ -38,13 +38,5 @@ describe('monthly refresh cadence', () => {
 		const s = initialSchedule({ lng: -96.8 }, new Date('2026-09-26T07:00:00Z'), 3); // 01:00 in UTC-6, before 03:00
 		expect(s.anchor_day).toBe(26);
 		expect(s.next_refresh_at.toISOString()).toBe('2026-10-26T09:00:00.000Z');
-	});
-
-	it('maps pre-7b frequencies', () => {
-		expect(normaliseFrequency('weekly')).toBe('auto_monthly');
-		expect(normaliseFrequency('monthly')).toBe('auto_monthly');
-		expect(normaliseFrequency('manual')).toBe('manual_only');
-		expect(normaliseFrequency('manual_only')).toBe('manual_only');
-		expect(normaliseFrequency(undefined)).toBe('auto_monthly');
 	});
 });
