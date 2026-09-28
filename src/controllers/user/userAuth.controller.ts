@@ -25,7 +25,7 @@ export const verifyOTP = catchAsync(async (req, res) => {
 
 export const login = catchAsync(async (req, res) => {
   const body = pick(req.body, ["email", "password", "ip_address"]);
-  const header = pick(req.headers, ["time_zone", "fcm_token"]);
+  const header = pick(req.headers, ["time_zone"]);
   const response = await userAuthService.login(body, header);
   return responseWrapper(res, response, "Successfully Logged in.");
 });

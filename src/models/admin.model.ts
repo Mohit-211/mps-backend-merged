@@ -15,7 +15,6 @@ export interface IAdmin extends Document {
 	name?: string;
 	email: string;
 	password?: string;
-	socket_id?: string;
 	remember_token?: string;
 	otp?: string;
 	is_otp_valid: boolean;
@@ -56,11 +55,6 @@ const adminSchema = new Schema<IAdmin>(
 			maxlength: 100,
 		},
 		password: {
-			type: String,
-			trim: true,
-			default: null,
-		},
-		socket_id: {
 			type: String,
 			trim: true,
 			default: null,
@@ -126,17 +120,6 @@ adminSchema.plugin(toJSON);
 adminSchema.plugin(addTimestamps);
 
 
-adminSchema.post('save', async function (admin: IAdmin, next) {
-	if (!admin.socket_id) {
-		admin.socket_id = `${admin.role_id}-${admin._id}-${admin.department_id}-socketId`;
-		try {
-			await admin.save();
-		} catch (error) {
-			return next(error);
-		}
-	}
-	next();
-});
 
 // ✅ Static: check if email exists
 adminSchema.statics.isEmailTaken = async function (email: string) {

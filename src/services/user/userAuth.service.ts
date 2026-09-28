@@ -157,7 +157,7 @@ export const verifyOTP = async (body: BodyDefinition) => {
 export const login = async (body: BodyDefinition, header: HeaderDefinition) => {
   try {
     const { email, password } = body;
-    const { time_zone, fcm_token } = header;
+    const { time_zone } = header;
 
     if (!validator.isEmail(email)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid Email.");
@@ -213,7 +213,6 @@ export const login = async (body: BodyDefinition, header: HeaderDefinition) => {
     }
     // Phase 8.1: no tokens until the email is verified (by link; no code is sent from here).
     if (!userDoc.email_verified_at) throw emailNotVerifiedError();
-    if (fcm_token) userDoc.fcm_token = fcm_token;
 
     const tokens = await generateAuthTokens(userDoc);
 
@@ -606,10 +605,7 @@ export const getAllEmployeeByOwner = async (body: BodyDefinition) => {
           role_id: 1,
           status: 1,
           notification_status: 1,
-          trial: 1,
           is_active: 1,
-          socket_id: 1,
-          is_analytics_connected: 1,
           is_gbp_connected: 1,
           "user_profile._id": 1,
           "user_profile.user_id": 1,
@@ -698,10 +694,7 @@ export const employeeDetails = async (body: BodyDefinition, params: ParamsDefini
           role_id: 1,
           status: 1,
           notification_status: 1,
-          trial: 1,
           is_active: 1,
-          socket_id: 1,
-          is_analytics_connected: 1,
           is_gbp_connected: 1,
           "user_profile._id": 1,
           "user_profile.user_id": 1,

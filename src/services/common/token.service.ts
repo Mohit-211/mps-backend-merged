@@ -54,7 +54,6 @@ export const saveToken = async (
 	userId: any,
 	expires: string,
 	type: string,
-	fcm_token: string
 ): Promise<IUserToken> => {
 	try {
 		const tokenDoc = await mongoFunctions({
@@ -64,7 +63,6 @@ export const saveToken = async (
 				token_type: type,
 				token,
 				expired_at: new Date(expires),
-				fcm_token: fcm_token,
 			},
 			operationType: mongoOperationsTypes.CREATE,
 		});
@@ -220,7 +218,6 @@ export const generateAuthRefreshTokens = async (user: IUser): Promise<any> => {
 			user._id,
 			refreshTokenExpires.toUTC().toFormat('yyyy-MM-dd HH:mm:ss'),
 			tokenTypes.REFRESH,
-			user?.fcm_token,
 		);
 
 		if (!refreshTokenDoc) {

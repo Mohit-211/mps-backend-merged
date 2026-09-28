@@ -34,7 +34,6 @@ mongosh "<server mongodb uri>" --eval 'db.rank_tracker_reports.drop()'
 ## Rows and fields no longer used
 
 - **`user_auths` rows with `token_type: 'ANALYTICS'`:** Search Console tokens. The connect flow was removed. They are plaintext; delete them with `db.user_auths.deleteMany({ token_type: 'ANALYTICS' })`.
-- **`users.is_analytics_connected`:** still in the schema and still returned by the auth middleware, user responses and location details, but nothing sets it any more. It can be removed together with the frontend.
 - **`whitelabel_profiles.reports`:** still lists report names, including `reputation_manager` and `gbp_audit`, which have no public route now (see [LEGACY_FEATURES.md](LEGACY_FEATURES.md)).
 
 ## Token migration (Phase 6)
@@ -69,9 +68,19 @@ These can be deleted from server `.env` files. Leaving them does no harm: the co
 
 **Decided (Phase 16):** the legacy citation module and the `serpapi` package are removed. **Phase 13a** removed the citation credits too (Square, `payment.service`, `LegacyLocationCitation`), so `locationCitations` is no longer read.
 
+## Fields removed from the schemas (Phase 13b)
+
+Old documents may still carry these; nothing reads or writes them. Remove with `$unset` when convenient (after a backup):
+- `users`: `user_name`, `stripe_customer_id`, `socket_id`, `referral_code`, `is_proof_verify`, `is_analytics_connected`, `available_credit`, `square_customer_id`, `trial`, `subscription_status`, `current_plan_id`, `fcm_token`
+- `admins`: `socket_id`
+- `user_tokens`: `fcm_token`
+
+```js
+db.users.updateMany({}, { $unset: { user_name: 1, stripe_customer_id: 1, socket_id: 1, referral_code: 1, is_proof_verify: 1, is_analytics_connected: 1, available_credit: 1, square_customer_id: 1, trial: 1, subscription_status: 1, current_plan_id: 1, fcm_token: 1 } })
+```
+
 ## Billing (Phase 13a)
 
-- **Rows and fields no longer used:** `users.current_plan_id` and `users.subscription_status` (the profile's `has_active_subscription` now comes from the organization's billing), `users.available_credit`, `users.square_customer_id`.
 - **`coupons`:** same collection, new shape. `migrate:billing` converts the legacy per-plan coupons to `{ discount_type: 'fixed', value: <old discount_amount> }` and deactivates them (coupons now apply to token packs only).
 - **Legacy guest-checkout subscriptions** (`payments` with a `paypal_subscription_id`): `migrate:billing` links each paid one to the organization owned by the verified user with the same email. The rest are listed by `GET /api/v1/admin/billing/legacy-payments?unlinked=true` for an admin to link. A linked subscription keeps its legacy PayPal price until its first renewal snapshot re-prices it with the standard formula.
 - **Organizations:** every organization without `trial_ends_at` gets a trial from the migration date (the standard trial length).

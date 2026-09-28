@@ -10,7 +10,6 @@ export interface IUserToken extends Document {
 	user_id: Schema.Types.ObjectId;
 	token_type: string;
 	token: string;
-	fcm_token?: string;
 	expired_at?: Date | null;
 	is_active: boolean;
 	created_at: Date;
@@ -37,11 +36,6 @@ const UserTokenSchema = new Schema<IUserToken>(
 			type: String,
 			trim: true,
 			required: true,
-		},
-		fcm_token: {
-			type: String,
-			trim: true,
-			default: null,
 		},
 		expired_at: {
 			type: Date,
