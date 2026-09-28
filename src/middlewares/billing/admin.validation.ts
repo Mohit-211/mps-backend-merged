@@ -96,6 +96,4 @@ export const validateCouponCreate = validate(
 	Object.keys(couponFields),
 );
 export const validateCouponUpdate = validate(Joi.object({ ...couponFields, code: Joi.forbidden() }).min(1), 'body', Object.keys(couponFields));
-export const validateLegacyList = validate(Joi.object({ unlinked: Joi.boolean().default(false) }), 'query', ['unlinked']);
-export const validateLegacyLink = validate(Joi.object({ organization_id: objectId.required() }), 'body', ['organization_id']);
 export const validateAuditList = validate(Joi.object({ ...page, organization_id: objectId, action: Joi.string().trim().max(60) }), 'query', ['page', 'limit', 'organization_id', 'action']);

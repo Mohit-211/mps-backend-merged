@@ -2510,4 +2510,3 @@ Ledger types: `purchase | spend | refund | grant | monthly_grant | adjustment | 
 - `PATCH …/organizations/:organizationId/trial { "trial_ends_at": "…" }`.
 - `POST …/organizations/:organizationId/tokens { "amount": 5, "type": "grant", "note": "goodwill" }` (negative `adjustment`s can't take the balance below zero).
 
-**Legacy guest-checkout subscriptions.** `GET /admin/billing/legacy-payments?unlinked=true` lists the paid pre-13a PayPal subscriptions, with a suggested organization (the organization owned by the verified user with the same email). `POST …/legacy-payments/:paymentId/link { "organization_id": "…" }` creates the organization's subscription. The legacy price is kept for the current period; the next renewal snapshot re-prices it with first + (n − 1) × additional. `npm run migrate:billing` does the matching ones in bulk.

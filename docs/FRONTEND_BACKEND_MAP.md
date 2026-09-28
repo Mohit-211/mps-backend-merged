@@ -30,7 +30,7 @@ Status as of 2026-09-28: everything through Phase 16 (citations) is merged and p
 | `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |
 | `system.read` | super admin | `/system/{info, process, time, usage}`, `GET/DELETE /logs` |
 | `citations.view` / `citations.manage` | super admin, admin, editor | Phase 16 citation admin (directories, per-location lists, work queue) |
-| `billing.read` / `billing.manage` | super admin, admin | Phase 13a billing admin `/admin/billing/*`: prices, custom plans, subscriptions, invoices, tokens, packs, coupons, legacy links, audit log |
+| `billing.read` / `billing.manage` | super admin, admin | Phase 13a billing admin `/admin/billing/*`: prices, custom plans, subscriptions, invoices, tokens, packs, coupons, audit log |
 
 The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (permission)`). The public admin routes are `login`, `sendOTP`, `verifyOTP` and `forgotPassword` (rate-limited).
 

@@ -41,9 +41,6 @@ router.get('/coupons', read, billing.listCoupons);
 router.post('/coupons', [...manage, v.validateCouponCreate], billing.createCoupon);
 router.patch('/coupons/:couponId', [...manage, v.validateCouponUpdate], billing.updateCoupon);
 
-router.get('/legacy-payments', [...read, v.validateLegacyList], billing.legacyPayments);
-router.post('/legacy-payments/:paymentId/link', [...manage, v.validateLegacyLink], billing.linkLegacy);
-
 router.get('/audit', [...read, v.validateAuditList], billing.auditLog);
 
 export default router;

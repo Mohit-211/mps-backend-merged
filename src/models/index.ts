@@ -20,7 +20,6 @@ export * from "./location.model";
 
 // razorpay
 export * from "./coupon.model";
-export * from "./payment.model";
 export * from "./contactUs.model";
 
 // location service — GBP / rank tracking / reports
@@ -61,8 +60,6 @@ export * from "./directoryCategory.model";
 export * from "./directory.model";
 export * from "./locationCitation.model";
 export * from "./citationStatusLog.model";
-
-// location service — credit-based payments (kept fully separate from subscription Payment above)
 
 // admin
 export * from "./admin.model";

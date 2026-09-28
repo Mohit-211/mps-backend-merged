@@ -67,15 +67,15 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**211 endpoints:** 210 live, 1 dev-only.
-- **By origin:** 153 rebuilt or new, 58 legacy.
-- **By auth:** 92 user, 82 platform admin (each with a permission), 35 none, 2 refresh token.
+**209 endpoints:** 208 live, 1 dev-only.
+- **By origin:** 151 rebuilt or new, 58 legacy.
+- **By auth:** 92 user, 80 platform admin (each with a permission), 35 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
 **Phase 16 (citations):** the 13 legacy `/citation/*` routes were retired. It added 23 `/admin/citations/*` routes (#82–#104) and 2 customer routes (#105–#106), and the report type `citation` (#61).
 
-**Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121), and 30 `/admin/billing/*` routes (#122–#151); the PayPal webhook kept its path with new handlers.
+**Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121), and 30 `/admin/billing/*` routes (#122–#151; the 2 legacy-payment links #149–#150 were removed in 13b); the PayPal webhook kept its path with new handlers.
 
 **Phase 13b step 1 (legacy removal):** 40 legacy routes deleted (no deprecated routes remain; the status no longer exists), the read-only `GET /admin/roles` added. Details in [LEGACY_FEATURES.md](LEGACY_FEATURES.md) "Removed in Phase 13b".
 
@@ -344,8 +344,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | GET | `/api/v1/admin/billing/coupons` | admin (`billing.read`) | Coupons (token packs only) | 13a | live |
 | POST | `/api/v1/admin/billing/coupons` | admin (`billing.manage`) | Create a coupon | 13a | live |
 | PATCH | `/api/v1/admin/billing/coupons/:couponId` | admin (`billing.manage`) | Edit a coupon | 13a | live |
-| GET | `/api/v1/admin/billing/legacy-payments` | admin (`billing.read`) | Paid legacy guest-checkout subscriptions, linked or not, with a suggested organization (`?unlinked=true`) | 13a | live |
-| POST | `/api/v1/admin/billing/legacy-payments/:paymentId/link` | admin (`billing.manage`) | Link a legacy PayPal subscription to an organization | 13a | live |
 | GET | `/api/v1/admin/billing/audit` | admin (`billing.read`) | Billing audit log (who, when, before → after) | 13a | live |
 
 ### Reference data
@@ -711,8 +709,6 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | 146 | GET | `/admin/billing/coupons` | admin (`billing.read`) | – | `[{ id, code, discount_type, value, pack_ids, max_redemptions, redemptions, expires_at, is_active, note }]` |
 | 147 | POST | `/admin/billing/coupons` | admin (`billing.manage`) | `{ code, discount_type: percent\|fixed, value, pack_ids?, max_redemptions?, expires_at?, is_active?, note? }` | **201** coupon; **409** `code_taken` |
 | 148 | PATCH | `/admin/billing/coupons/:couponId` | admin (`billing.manage`) | any field of #146 except `code` | coupon |
-| 149 | GET | `/admin/billing/legacy-payments` | admin (`billing.read`) | `unlinked` | `[{ id, paypal_subscription_id, customer_email, customer_name, monthly_amount, status, subscription_status, created_at, linked, suggested_organization }]` |
-| 150 | POST | `/admin/billing/legacy-payments/:paymentId/link` | admin (`billing.manage`) | `{ organization_id }` | **201** subscription; **409** `already_linked`, `already_subscribed` |
 | 151 | GET | `/admin/billing/audit` | admin (`billing.read`) | `organization_id, action, page, limit` | `{ entries: [{ id, action, organization_id, target, before, after, note, by: { admin_id, name }, at }], page, limit, total }` |
 
 ## Removed endpoints

@@ -17,7 +17,6 @@ import {
 	ITokenPack,
 	Invoice,
 	Organization,
-	Payment,
 	Subscription,
 	TokenPack,
 } from '../../models';
@@ -26,7 +25,6 @@ import { billingOverview, listLedger } from './account.service';
 import { audit, AuditActor } from './audit';
 import { couponView } from './coupons';
 import { invoiceService, invoiceView } from './invoices';
-import { legacyPaidFilter, LegacyPaymentRow, linkLegacyPayment, listLegacyPayments, organizationForEmail } from './legacy';
 import { planForOrganization, standardPlan } from './plans';
 import { createSubscriptionService } from './subscriptions';
 import { credit } from './tokens';
@@ -278,7 +276,6 @@ export const subscriptionView = (s: ISubscription) => ({
 	last_payment_at: s.last_payment_at,
 	comp_until: s.comp_until,
 	note: s.note,
-	legacy_payment_id: s.legacy_payment_id ? String(s.legacy_payment_id) : null,
 	created_at: s.created_at,
 });
 
@@ -418,43 +415,6 @@ export const updateCoupon = async (actor: AuditActor, id: string, input: Partial
 	await audit(actor, { action: 'billing.coupon.update', target: `coupon:${before.code}`, before: couponView(before), after: couponView(after) });
 	return couponView(after);
 };
-
-// ---- legacy payments ----
-
-export const legacyPayments = async (onlyUnlinked: boolean) => {
-	const rows = await listLegacyPayments();
-	const linked = new Set((await Subscription.find({ provider_subscription_id: { $in: rows.map((r) => r.paypal_subscription_id).filter(Boolean) } }).select({ provider_subscription_id: 1 }).lean()).map((s) => s.provider_subscription_id));
-	const out = [];
-	for (const r of rows) {
-		const isLinked = linked.has(r.paypal_subscription_id ?? '');
-		if (onlyUnlinked && isLinked) continue;
-		const suggested = isLinked ? null : await organizationForEmail(r.customer_email);
-		out.push({
-			id: String(r._id),
-			paypal_subscription_id: r.paypal_subscription_id,
-			customer_email: r.customer_email ?? null,
-			customer_name: r.customer_name ?? null,
-			monthly_amount: r.monthly_amount ?? null,
-			status: r.status ?? null,
-			subscription_status: r.subscription_status ?? null,
-			created_at: r.created_at ?? null,
-			linked: isLinked,
-			suggested_organization: suggested ? { id: String(suggested._id), name: suggested.name } : null,
-		});
-	}
-	return out;
-};
-
-export const linkLegacy = async (actor: AuditActor, paymentId: string, organizationId: string) => {
-	const id = oid(paymentId);
-	const payment = id ? ((await Payment.collection.findOne({ _id: id, ...legacyPaidFilter() })) as unknown as LegacyPaymentRow | null) : null;
-	if (!payment) throw notFound('Legacy payment');
-	const sub = await linkLegacyPayment(payment, organizationId);
-	await audit(actor, { action: 'billing.legacy.link', organization_id: sub.organization_id, target: `payment:${paymentId}`, after: subscriptionView(sub) });
-	return subscriptionView(sub);
-};
-
-// ---- audit ----
 
 export const auditView = (a: IAuditLog) => ({
 	id: String(a._id),

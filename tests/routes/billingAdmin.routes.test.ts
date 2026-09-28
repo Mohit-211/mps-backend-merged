@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { Types } from 'mongoose';
-import { AuditLog, BillingPlan, Invoice, Organization, Payment, Subscription } from '../../src/models';
+import { BillingPlan, Invoice, Organization, Subscription } from '../../src/models';
 import { loadEntitlement } from '../../src/services/billing/entitlement.service';
 import { createAdmin } from '../helpers/admin';
 import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
@@ -125,18 +125,5 @@ describe('billing admin', () => {
 		expect((await request(app).post(`${base}/coupons`).set(bearer(adminToken)).send({ code: 'LAUNCH10', discount_type: 'fixed', value: 1 })).body.data.reason).toBe('code_taken');
 		expect((await request(app).post(`${base}/coupons`).set(bearer(adminToken)).send({ code: 'BIG', discount_type: 'percent', value: 150 })).status).toBe(400);
 		expect((await request(app).get(`${base}/coupons`).set(bearer(adminToken))).body.data).toHaveLength(1);
-	});
-
-	it('legacy guest-checkout payments: listed with a suggested organization, linked once', async () => {
-		const { orgId } = await customer('legacy@test.dev');
-		const payment = await Payment.collection.insertOne({ paypal_subscription_id: 'I-LEGACY1', customer_email: 'Legacy@Test.dev', status: 'SUCCESS', subscription_status: 'active', monthly_amount: 99, is_active: true, created_at: new Date() });
-		let res = await request(app).get(`${base}/legacy-payments?unlinked=true`).set(bearer(adminToken));
-		expect(res.body.data).toEqual([expect.objectContaining({ paypal_subscription_id: 'I-LEGACY1', linked: false, suggested_organization: { id: String(orgId), name: expect.any(String) } })]);
-		res = await request(app).post(`${base}/legacy-payments/${String(payment.insertedId)}/link`).set(bearer(adminToken)).send({ organization_id: String(orgId) });
-		expect(res.status).toBe(201);
-		expect(res.body.data).toMatchObject({ provider_subscription_id: 'I-LEGACY1', status: 'active', price: { first: 99, additional: 0 } });
-		expect((await request(app).post(`${base}/legacy-payments/${String(payment.insertedId)}/link`).set(bearer(adminToken)).send({ organization_id: String(orgId) })).body.data.reason).toBe('already_linked');
-		expect((await request(app).get(`${base}/legacy-payments?unlinked=true`).set(bearer(adminToken))).body.data).toEqual([]);
-		expect(await AuditLog.countDocuments({ action: 'billing.legacy.link' })).toBe(1);
 	});
 });

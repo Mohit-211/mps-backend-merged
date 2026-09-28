@@ -58,7 +58,4 @@ export const listCoupons = catchAsync(async (req, res) => responseWrapper(res, a
 export const createCoupon = catchAsync(async (req, res) => responseWrapper(res, await admin.createCoupon(actor(res), input(res)), 'Coupon created.', httpStatus.CREATED));
 export const updateCoupon = catchAsync(async (req, res) => responseWrapper(res, await admin.updateCoupon(actor(res), p(req, 'couponId'), input(res)), 'Coupon saved.'));
 
-export const legacyPayments = catchAsync(async (req, res) => responseWrapper(res, await admin.legacyPayments(Boolean(input(res).unlinked))));
-export const linkLegacy = catchAsync(async (req, res) => responseWrapper(res, await admin.linkLegacy(actor(res), p(req, 'paymentId'), input(res).organization_id), 'Legacy payment linked.', httpStatus.CREATED));
-
 export const auditLog = catchAsync(async (req, res) => responseWrapper(res, await admin.listAudit(input(res))));

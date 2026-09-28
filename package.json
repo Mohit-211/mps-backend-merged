@@ -26,7 +26,7 @@
     "find:place": "ts-node --transpile-only src/scripts/findPlace.ts",
     "setup:live-test": "ts-node --transpile-only src/scripts/setupLiveTest.ts",
     "gbp:preflight": "ts-node --transpile-only src/scripts/gbpPreflight.ts",
-    "migrate:billing": "ts-node --transpile-only src/scripts/migrateBilling.ts",
+    "billing:setup-plan": "ts-node --transpile-only src/scripts/billingSetupPlan.ts",
     "billing:paypal-setup": "ts-node --transpile-only src/scripts/paypalSetup.ts",
     "db:sync-indexes": "ts-node --transpile-only src/scripts/syncIndexes.ts",
     "cost:report": "ts-node --transpile-only src/scripts/costReport.ts",
