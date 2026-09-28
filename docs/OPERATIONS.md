@@ -89,7 +89,7 @@ Every email goes through one service (`src/services/common/email.service.ts`, `d
 - **Kinds:** `verification`, `password_reset`, `invitation`, `report`, `billing`, `admin`, `contact`, `support`. No per-feature exceptions: `EMAIL_TRANSPORT=smtp` in development sends every kind for real (use a test mailbox).
 - **Log mode prints links** (verify, reset, invitation, share): that is its purpose locally. In production the app warns at startup if `EMAIL_TRANSPORT=log`.
 - **Responses:** log mode counts as delivered. `email_sent` (invitations) and `email_verification: "sent"` (signup) are false / `"failed"` only when the SMTP server refused the email; a report or billing email that SMTP refuses is an error (recorded on the report / notice).
-- **`SUPPORT_EMAIL`:** the support inbox for contact-form notifications (and, from 13b step 6, support tickets); empty = not sent. (It was hardcoded before 13b.)
+- **`SUPPORT_EMAIL`:** the support inbox for contact-form notifications and support tickets (new tickets and customer replies); empty = not sent. (It was hardcoded before 13b.)
 
 ## Background jobs (agenda)
 
@@ -422,6 +422,8 @@ Cluster-mode caveats, since every instance runs these:
    - `JWT_SECRET` and `ADMIN_JWT_SECRET`: each at least 32 characters (`openssl rand -hex 32`), different from each other.
    - `TOKEN_ENCRYPTION_KEY` (`openssl rand -hex 32`); losing or changing it forces every user to reconnect GBP.
    - `TRUST_PROXY_HOPS=1` behind nginx; `ACCESSDOMAINS` lists every frontend origin; `FRONTEND_URL` (verification, reset and invitation links, PayPal return pages); `ADMIN_FRONTEND_URL` (admin password links); `SHARE_BASE_URL` (public API origin; nginx forwards `/r/` to the app).
+   - Email (13b): `EMAIL_TRANSPORT=smtp` (the production default) with the `SMTP_*` settings and `EMAIL_FROM`; `SUPPORT_EMAIL` (support inbox).
+   - Google OAuth (13b): the redirect-fallback URI moved to `<API>/api/v1/gbp/connect/callback`: set `GOOGLE_GBP_REDIRECT_URI` to it and add it to the OAuth client's authorised redirect URIs in Google Cloud.
    - Google: `GOOGLE_PLACE_API_KEY`, the GBP OAuth client, `GBP_V4_ENABLED` (false until v4 access).
    - Ranking: `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`.
    - PayPal and billing: section "PayPal setup" (`PAYPAL_WEBHOOK_ID` is set after step 5).

@@ -1170,9 +1170,65 @@ Branch `claude/phase-13a-billing` (from `claude/rebuild` after `c8938de`). Plan:
 
 **API calls:** none (Google 0, PayPal 0).
 
-## Phase 13b: legacy removal, `/auth` sessions, provider interface, flaky tests, admin panel (in progress)
+## Phase 13b: legacy removal, `/auth` sessions, provider interface, flaky tests, email, password links, flows, admin panel (built, awaiting merge)
 
-Branch `claude/phase-13b-admin` (from `claude/rebuild` after the 13a merge `2c77a8a`). Scope and order: CLAUDE.md §12h.
+Branch `claude/phase-13b-admin` (from `claude/rebuild` at `c66a82b`, after the 13a merge `2c77a8a`). Scope and order: CLAUDE.md §12h ("13b as built"). 28 commits (`d560a2d` … `6df8ce0`).
+
+**Commits by step:**
+- **1. Legacy removal + fresh database** (`d560a2d`–`2c4fe7b`):
+  - every deprecated route group deleted with what only served it
+  - Swagger removed
+  - the final sweep
+  - every data migration removed, then `setup:fresh`
+- **2. `/auth` sessions and account:** `9709727`.
+- **4. Payment-provider interface:** `6c9c6b1`.
+- **5. Flaky tests:** `7ddba81`, plus `70283fb` (the open-file limit).
+- **Added by Mohit (2026-09-29):**
+  - A, the rest of the legacy sweep: `3089d3b` (Google connect under `/gbp`, `/system` and `/logs`, unused utils, packages and settings) and `4f51ff1` (lint)
+  - B, one email switch: `12c7ed9`, and `45c3dc7` (log mode counts as delivered)
+  - C, password reset by link and the admin auth rebuild: `babc279`
+  - D, end-to-end flows and FLOWS.md: `4151f3d`
+  - F, upcoming-features groundwork: `6df8ce0`
+- **6 (E). Admin panel + support:** `c26849b`.
+- **End-of-phase docs:** this commit.
+
+**Numbers (before → after 13b):**
+
+| | Before (end of 13a) | After |
+|---|---|---|
+| Endpoints (ENDPOINTS.md) | 250 (incl. 40+ legacy / deprecated) | **225** (0 deprecated): 65 legacy routes removed, 40 added (6 `/auth`, 10 admin auth + accounts + roles, 19 admin panel, 5 support); the Google connect routes and the trial route moved |
+| Lines | – | **−9,900 / +4,657** overall; `src` −8,453 / +2,590; tests −654 / +1,351 |
+| Models removed | – | `OTP`, `AuthCode` (→ `AuthLink`), `Payment`, `Support` (→ `SupportTicket`), `UserAttachment`, `WhitelabelProfile` |
+| Packages removed | – | `node-cron`, `randomatic`, `swagger-ui-express`, `express-rate-limit`, `husky`, `@types/{node-cron, randomatic, swagger-ui-express, eslint__js}` |
+| Lint (`npm run lint`) | 82 legacy errors | **40**, all in legacy GBP posting (rebuilt in Phase 9); 0 in rebuilt code |
+| Tests | 94 suites, 878 tests | **99 suites, 903 tests**, offline; 3 consecutive full runs green |
+| Build | 0 errors | 0 errors |
+
+**Remaining legacy (and why):** STATUS.md "What remains legacy".
+
+**Decisions and flags:**
+- **Suspension status code:** a suspended organization answers **402** `organization_suspended`, which is the 13a billing gate's code. The approved plan said 403. Kept 402 for one gate; say if you want 403.
+- **The admin set-password link lasts 72 h** (`ADMIN_SET_PASSWORD_TTL_HOURS`).
+- **Admins are deactivated, never deleted,** so audit entries keep their author.
+- **The first super admin** (`admin:create-super`) still gets a generated password printed once. Afterwards forgot-password works.
+- **Log-mode emails count as delivered:** `email_sent` and the signup's `email_verification` are false / `failed` only on an SMTP failure.
+- **Shared-file edits:** `email.service.ts` rewritten around `deliver()`, `app.ts` (the `/logs` routes removed), `models/index.ts`, the route indexes, `adminPermissions.ts` and `config.ts`.
+
+**Open for Mohit:**
+- STATUS open item 15: the checkout quantity.
+- STATUS open item 16:
+  - the Google Cloud redirect URI and `GOOGLE_GBP_REDIRECT_URI` → `…/api/v1/gbp/connect/callback`
+  - new settings `ADMIN_FRONTEND_URL`, `SUPPORT_EMAIL`, `EMAIL_TRANSPORT`
+- Specs for the four upcoming features.
+
+**API calls:** none (Google 0, PayPal 0).
+
+**Merge and push (run by Mohit):**
+```bash
+git checkout claude/rebuild && git merge --no-ff claude/phase-13b-admin -m "Merge Phase 13b: legacy removal, /auth, password links, email switch, flows, admin panel + support"
+git push origin claude/rebuild claude/phase-13b-admin
+```
+The push also carries `c66a82b` (already on `claude/rebuild`, not yet pushed).
 
 ### Step 5: flaky tests (2026-09-28/29)
 
@@ -1195,4 +1251,4 @@ Branch `claude/phase-13b-admin` (from `claude/rebuild` after the 13a merge `2c77
 
 The 13a suspects (`dashboard.routes`, `gbp/oauth`, report retention) were causes 1, 2 and 4: none of them failed after the fixes.
 
-**Addendum (2026-09-29, while adding the step-6 suites):** with 97 suites every full run failed in 8 random suites: `MongoServerError: 24: Too many open files` on the shared test mongod, followed by index builds "interrupted at shutdown" and closed connections. Cause 6: every test file creates and drops its own database, WiredTiger keeps a file open per collection and index, idle handles stay open for minutes and dropped files are only removed at the next checkpoint (60 s); the macOS limits are 10,240 files per process and 30,720 system-wide. Fix: the test mongod closes idle handles after 5 s and checkpoints every 5 s (`tests/helpers/memoryMongo.ts`). After it: 3 of 3 full runs green (903 tests, ~105 s). With `MONGOMS_DEBUG` or a stdout trace the failure never showed (the slower run kept the file count down), which is why it looked like a random shutdown at first.
+**Addendum (2026-09-29, while adding the step-6 suites):** with 99 suites every full run failed in 8 random suites: `MongoServerError: 24: Too many open files` on the shared test mongod, followed by index builds "interrupted at shutdown" and closed connections. Cause 6: every test file creates and drops its own database, WiredTiger keeps a file open per collection and index, idle handles stay open for minutes and dropped files are only removed at the next checkpoint (60 s); the macOS limits are 10,240 files per process and 30,720 system-wide. Fix: the test mongod closes idle handles after 5 s and checkpoints every 5 s (`tests/helpers/memoryMongo.ts`). After it: 3 of 3 full runs green (903 tests, ~105 s). With `MONGOMS_DEBUG` or a stdout trace the failure never showed (the slower run kept the file count down), which is why it looked like a random shutdown at first.

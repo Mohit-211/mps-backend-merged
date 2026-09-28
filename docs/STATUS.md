@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-28. Phase 13a (billing) is merged (`2c77a8a`) and pushed. **Phase 13b is in progress** on `claude/phase-13b-admin`. Plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md); as built: CLAUDE.md §12h. **Next:** Phase 13b (admin panel backend + support), per the approved plan. **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-29. Phase 13a (billing) is merged (`2c77a8a`) and pushed. **Phase 13b is built** on `claude/phase-13b-admin`, awaiting merge and push. Next: **Phase 14 (production readiness)** in plan mode._
 
 ## Product goal
 
@@ -35,12 +35,13 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
 | 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | done | `claude/phase-16-citations` | yes (`daff461`) | M5 (pushed 2026-09-28) |
-| **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | 13a done; **13b in progress** | `claude/phase-13a-billing`, `claude/phase-13b-admin` | 13a yes (`2c77a8a`) | M5 |
+| **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | 13a done; **13b built, awaiting merge** | `claude/phase-13a-billing`, `claude/phase-13b-admin` | 13a yes (`2c77a8a`) | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
 | 15 | Notifications & automations | planned | – | – | – |
 | 17 | Ranking extras (keyword groups, larger grids) | planned | – | – | – |
+| – | AI GBP posts (needs GBP v4) · AI visibility · Review management (needs GBP v4) · White-label hosting: groundwork in [plans/upcoming-features.md](plans/upcoming-features.md) | planned, spec pending | – | – | – |
 | 9b | Cleanup | ongoing | – | – | – |
 
 **Live test with MyPageSEO:** paused. The connect passed; the rest is blocked on Google (GBP API access), see "Blocked on Google".
@@ -49,6 +50,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 
 ## Done so far
 
+- **Phase 13b (2026-09-28/29, awaiting merge):** everything legacy the rebuilt product doesn't use is deleted (endpoints 250 → 225: 65 removed, 40 added; no deprecated routes; no data migrations: the launch uses a fresh database with `npm run setup:fresh`); `/auth` sessions and account (refresh rotation, logout, change password, me, deactivate); the Google connect under `/gbp/connect/*`; password reset by link for users and admins (no OTP anywhere) and new admins set their password by link; one email switch (`EMAIL_TRANSPORT`); the payment-provider interface; flaky tests fixed (4/10 failing runs → green); end-to-end flow tests + [FLOWS.md](FLOWS.md); the admin panel backend (overview, users, organizations, admin accounts) and support tickets; the upcoming-features groundwork. Lint 82 → 40 (all in legacy GBP posting). Details: PROGRESS.md "Phase 13b".
 - **Audit and hygiene:** 29 security and 25 correctness findings with status (AUDIT.md), all routes listed (ROUTES.md), LF everywhere, 0 TypeScript errors, `.env` loaded from `ENV_FILE` or `./.env`.
 - **Local setup:** a separate local database, `mps_rebuild` (Homebrew MongoDB 7.0). Background jobs work (C25): agenda has its own connection, the registry is `src/jobs/index.ts`, and new jobs use `defineJob` (IDs-only data).
 - **Places API (New) client:** IDs-only search with a field-mask guard, `stopWhenFound`, `movedPlaceId`, a names search, Place Details, timeout and retry, and call counts.
@@ -249,33 +251,17 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   | (b) token pack | not tested | not tested |
   | (b) extra location slots | not tested | not tested |
 
-## Legacy leftovers (audit 2026-09-28; all of groups 1 and 2 deleted in 13b step 1, plus every data migration: fresh database)
+## What remains legacy (final audit, 13b, 2026-09-29)
 
-Checked after 13a: every file, model, export, route and dependency against what the rebuilt code uses.
+Every model, route, service, helper, constant, env var, package and script was checked against the rebuilt product (knip for unused files, exports and packages; a per-export reference scan; `.env.example` against the code). Everything unused was deleted (LEGACY_FEATURES.md "Removed in Phase 13b"). What is still legacy code, and why it stays:
 
-**Dead: safe to delete (no endpoint or behaviour changes):**
-- `UserAttachment` model (no references).
-- `randomatic` + `@types/randomatic` (never imported).
-- The heartbeat `node-cron` in `src/app.ts`: logs "still running" every minute in every pm2 process. `node-cron` then has no users either.
-- ~45 unused exports in `src/configs/constantTypes.ts`: payment, booking, appointment, call, refund, tax, currency, gateway and citation-order enums from the original template.
-- `role.middleware` `isSuperAdmin` / `isAdmin` / `isEditor` / `isUser` (replaced by admin permissions); `constants/selectFields.locationSelect`; `email.service.sendResetPasswordConfirmationMail`.
-- Upload fields `gifs`, `docs`, `audios` (accepted, never read) and the file routes `/gifs`, `/docs/:filename`, `/songs` (`/songs` serves a folder nothing writes; audio goes to `audios`). Images and videos stay (blog, legacy white-label, GBP posts).
-- Dead `User` fields: `stripe_customer_id`, `is_proof_verify`, `referral_code`, `available_credit`, `square_customer_id`, `trial`, `subscription_status`, `current_plan_id`, `is_analytics_connected`, `socket_id`, `user_name`. They are still selected by the auth middleware and returned by the legacy profile, so removing them changes those responses.
-- `fcm_token` (saved at legacy login, never used: no push notifications).
-- The `countriesnow.space` seeding script (`seed-country-city-state`); `dumps/` already holds the data.
+- **Legacy GBP posting** (`/gbp/post/*`, `gbpPostSchedular.*`, `jobs/postToGbp.ts`, `GBPPost`, and the `/images` and `/videos` file routes for uploads): rebuilt in Phase 9 (needs GBP v4). All 40 remaining lint errors are here.
+- **Reference data** (countries, states, cities, languages, time zones, business categories: models, read routes, admin edits of business categories): used by signup, onboarding and citations; kept by decision.
+- **Blog and blog categories, FAQ, contact form** (routes, models, services in the legacy style with `mongoFunctions`): kept by decision; they work and are guarded (Phase 10).
+- **`/api/healthcheck` and `/ping`:** infrastructure checks (Phase 14 decides which one the monitoring uses).
+- **The PayPal webhook path `/subscription/paypal/webhook`:** new handlers (13a) on the path registered at PayPal.
 
-**Features made useless by rebuilt ones (endpoints; need the frontend's OK):**
-- `/user/clients` (5, already deprecated) → `/clients`.
-- `/white-label-profiles` (5, deprecated) → organization branding.
-- `/user/auth/employee/*` (4, not marked deprecated) → team invitations (Phase 11).
-- `POST /user/notifications`: toggles `notification_status`, which nothing reads (notifications are Phase 15).
-- `/admin/operations/*` (6): lists "agencies" / "businesses" by `user_type`, not organizations → 13b.
-- `/supports` (6) → 13b support tickets.
-- Roles CRUD (5): admin permissions are fixed to role ids 1 / 2 / 4, so a created role grants nothing.
-- Swagger `/docs`: the initial-commit file with 7 paths (ENDPOINTS.md is the real catalogue) → 9b.
-- The legacy `/user/auth` login / OTP / forgot-password (already deprecated) → `/auth/*`.
-
-**Legacy but still needed:** `/user/auth/{refresh-auth, logout, reset-password (change password), deactivate}` and `/user/profile` (no `/auth` equivalent yet); reference data (countries / states / cities / languages / timezones / business categories); blog, FAQ, contact-us; GBP posting (Phase 9, already on organization access); `payments` (read by `migrate:billing` and the legacy link); `UserLoginTiming` (written only by the legacy login; 13b's "last logins" needs the new `/auth/login` to write it).
+Nothing else is legacy: every other route is rebuilt or new (ENDPOINTS.md "By origin").
 
 ## Pre-launch live validation (Mohit triggers it)
 
@@ -290,19 +276,20 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 
 - **TypeScript 7 readiness** (9b / 14): `moduleResolution: node` is removed in TS 7; the node16 move and the two dynamic imports are described in OPERATIONS.md "Lint and editor setup".
-- **Legacy lint debt:** 82 ESLint errors, all in legacy modules (169 when first measured on 2026-09-27; Phase 16 removed 32 with the old citation module, 13a another 55 with the legacy billing code). They shrink as Phases 9 and 13b replace those modules.
+- **Legacy lint debt:** 40 ESLint errors, all in legacy GBP posting (169 when first measured on 2026-09-27; Phase 16 removed 32, 13a 55, 13b 42). They go when Phase 9 rebuilds posting.
 - (The Dallas test, the formal `calibrate:score` and the variance test moved to "Pre-launch live validation" and Phase 12.5.)
 - **Test requests use `[::1]`** (13b flaky-test fix, `tests/setupAfterEnv.ts`): revisit if tests run somewhere without IPv6 (e.g. a CI container with IPv6 disabled).
 - **Overall-average UX:** when one keyword is 60+ everywhere it counts as 61 and dominates `overallAvgRank` (Round 1: 31.2 from 1.4 and 61). Decide how the page explains or presents it.
 
 ## Next up
 
-1. **Phase 13b in progress:** steps 1–2 and 4–5 are done (legacy removal + fresh-database setup, `/auth` sessions, the payment-provider interface, flaky tests); next: finish the legacy sweep, one email switch, password reset by link, end-to-end flow tests, the admin panel, the upcoming-features plan (Mohit, 2026-09-29).
-2. **Then** 14 (production readiness) toward M5. Before launch: prices (open item 11) and the PayPal sandbox test (open item 13).
+1. **Merge and push Phase 13b** (commands in PROGRESS.md "Phase 13b").
+2. **Phase 14 (production readiness)** in plan mode: fresh server (MongoDB, backups, nginx, pm2, log rotation, error monitoring, alerts), the deploy-checklist dry run with `setup:fresh`, Maps ToS decisions. Before launch: prices (open item 11), the PayPal sandbox test (open item 13), the redirect URI change (open item 16).
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
+5. **Upcoming features** (AI GBP posts, AI visibility, review management, white-label hosting): specs pending from Mohit; groundwork in [plans/upcoming-features.md](plans/upcoming-features.md).
 
-**Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
+**Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md) and [FLOWS.md](FLOWS.md). Screens marked "not supported" must not be built.
 
 ## How to run
 

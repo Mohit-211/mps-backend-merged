@@ -65,7 +65,7 @@ Reads, billing, support and GBP connect / bind stay open.
 - `POST /reports`
 - the white-label branding writes
 
-## Summary (2026-09-29, Phase 13b in progress)
+## Summary (2026-09-29, Phase 13b built)
 
 **225 endpoints:** 224 live, 1 dev-only.
 - **By origin:** 190 rebuilt or new, 35 legacy.
