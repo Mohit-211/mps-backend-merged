@@ -1627,37 +1627,39 @@ Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 | `POST /auth/forgot-password` | `{ email }` | **200** `{ "reset": "sent_if_account_exists" }` |
 | `POST /auth/reset-password` | `{ email, code, password }` | **200** `{ "reset": true }`; every refresh token is revoked (log in again). The code proves the mailbox, so a still-unverified email becomes verified. |
 
-Accepting a team invitation also verifies the email (a new account is created verified; an existing unverified one is marked verified). **Legacy (8.1):** `POST /user/auth/register` is removed (404); `/user/auth/otp` and `/verify-otp` take only `FORGOT_PASSWORD` (`EMAIL_VERIFICATION` → **400** `{ "reason": "verification_by_link" }`); `/user/auth/login` refuses unverified accounts with the same 403.
+Accepting a team invitation also verifies the email (a new account is created verified; an existing unverified one is marked verified).
 
-#### Session tokens and refresh (Phase 10)
+#### Sessions and the account (Phase 10; moved to `/auth` in 13b)
 
 | Token | Lifetime | Config | Where |
 |---|---|---|---|
 | Access | **1 day** | `JWT_ACCESS_EXPIRATION_DAYS` (default 1) | `Authorization: Bearer <access>` on every user endpoint |
 | Refresh | **30 days** | `JWT_REFRESH_EXPIRATION_DAYS` (default 30) | only in the refresh and logout bodies; stored server-side (revocable) |
 
-The refresh token isn't rotated: a refresh returns a new access token only, and the same refresh token keeps working until it expires 30 days after login. After that the user must log in again.
+**Refresh (rotating):** on a **401** from any user endpoint, call once:
 
-**Flow:**
-1. Any user endpoint answers **401** when the access token is missing, bad, expired or revoked (password change or reset, account deletion).
-2. On a 401, call once:
-   ```http
-   POST /api/v1/user/auth/refresh-auth
-   { "refresh_token": "eyJ…" }
-   → 200 { "tokens": { "access": { "token": "eyJ…", "expires": "2026-09-28T10:00:00.000Z" } } }
-   ```
-3. Retry the original request with the new access token. Refresh ahead of time if you like: `tokens.access.expires` is included.
-4. If the refresh call fails, clear the stored tokens and send the user to the login page:
+```http
+POST /api/v1/auth/refresh
+{ "refresh_token": "eyJ…" }
+→ 200 { "tokens": { "access": { "token": "eyJ…", "expires": "…" }, "refresh": { "token": "eyJ…", "expires": "…" } } }
+```
 
-| Refresh response | Meaning |
-|---|---|
-| **401** "Invalid or expired token. Please log in again." | refresh token expired (30 days), bad signature or not a refresh token |
-| **401** "Token not found. Please log in again." | revoked: logout, password change or reset, account deletion |
-| **404** "User Not Found" | the account is disabled |
+Store **both** new tokens: the refresh token just used stops working (each refresh gives a new one, valid 30 days). Retry the original request with the new access token. If the refresh answers **401** ("Your session has ended"), clear the tokens and go to login. Never retry a failed refresh in a loop; run one refresh at a time and let concurrent 401s wait for it.
 
-Never retry a failed refresh in a loop. Run one refresh at a time and let concurrent 401s wait for it.
+**Logout:** `POST /api/v1/auth/logout { "refresh_token" }` ends that session (drop the access token on the client; it expires within a day).
 
-**Logout:** `POST /api/v1/user/auth/logout` `{ "refresh_token" }` with a `time_zone` header (e.g. `America/Toronto`) deletes that refresh token. The access token stays valid until it expires (at most 1 day), so drop it on the client.
+**The signed-in user:** `GET /api/v1/auth/me` →
+
+```json
+{ "id": "…", "email": "pat@example.com", "name": "Pat", "mobile": null, "user_type": "BUSINESS", "email_verified_at": "…", "created_at": "…",
+  "last_login_at": "…", "organizations": [{ "organization_id": "…", "name": "Pat Co", "type": "business", "role": "owner" }], "current_organization_id": "…" }
+```
+
+`PATCH /api/v1/auth/me { "name"?, "mobile"? }` returns the same shape. Business details (name, country, address) belong to the organization (`PATCH /organization`, billing details).
+
+**Change password** (signed in): `POST /api/v1/auth/change-password { "current_password", "new_password" }` → `{ "tokens": … }`. Every other session ends (other devices get 401); continue with the returned tokens. **400** `wrong_password`, `same_password`. The new password follows the signup rules (8+ characters, a letter and a digit).
+
+**Delete the account:** `POST /api/v1/auth/deactivate { "password" }` → `{ "deleted": true }`. Every connected Google account is disconnected (revoked at Google, its profiles unbound), memberships end, every session is revoked, and the account is deleted. **400** `wrong_password`.
 
 ### Organization (`/api/v1/organization`)
 

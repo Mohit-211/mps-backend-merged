@@ -1,7 +1,3 @@
-import * as userAuthService from './userAuth.service'
-import * as userOperationService from './userOperations.service'
+import * as userAuthService from './userAuth.service';
 
-export {
-    userAuthService,
-    userOperationService,
-}
+export { userAuthService };

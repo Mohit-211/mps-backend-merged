@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import crypto from 'crypto';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { DateTime } from 'luxon';
 import httpStatus from 'http-status';
@@ -37,6 +38,8 @@ export const generateToken = (
 			user_type,
 			// Phase 10: User.token_version at issue time (revocation).
 			tv: tokenVersion,
+			// Phase 13b: unique per token, so two tokens issued in the same second differ (refresh rotation).
+			jti: crypto.randomUUID(),
 		};
 		return jwt.sign(payload, secret, { algorithm: 'HS256' });
 	} catch (error: any) {

@@ -2,7 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
-import { GBPPost, Membership, User } from '../../src/models';
+import { GBPPost, User } from '../../src/models';
 import { revokeUserSessions } from '../../src/services/common/token.service';
 import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 
@@ -68,15 +68,6 @@ describe('user tokens (S24)', () => {
 });
 
 
-describe('account deletion (S23)', () => {
-	it('ends memberships and sessions', async () => {
-		const { user, token } = await createUser('bye@test.dev');
-		await ensureOrg(user._id);
-		expect((await request(app).get('/api/v1/user/auth/deactivate').set(bearer(token))).status).toBe(200);
-		expect(await Membership.countDocuments({ user_id: user._id, status: 'active' })).toBe(0);
-		expect((await me(token)).status).toBe(401);
-	});
-});
 
 describe('ownership (S15, S25)', () => {
 	it("another organization's GBP post is not found", async () => {

@@ -1,55 +1,5 @@
-import httpStatus from "http-status";
 import { userAuthService } from "../../services";
-import {
-  catchAsync,
-  pick,
-  responseWrapper,
-  validatePassword,
-} from "../../utils";
-
-export const resetPassword = catchAsync(async (req, res) => {
-  const { new_password, confirm_password } = req.body;
-
-  if (!validatePassword(new_password)) {
-    return responseWrapper(
-      res,
-      "",
-      "Password should have a minimum length of 8 characters and must have at least 2 digits and No Blank Space",
-      httpStatus.BAD_REQUEST
-    );
-  }
-
-  if (new_password !== confirm_password) {
-    return responseWrapper(
-      res,
-      "",
-      "Password and Confirm Password must be equal",
-      httpStatus.BAD_REQUEST
-    );
-  }
-
-  const response = await userAuthService.resetPassword(req.body);
-  return responseWrapper(res, response, "Password changed Successfully.");
-});
-
-export const logout = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["refresh_token", "tokenDoc"]);
-  const header = pick(req.headers, ["time_zone"]);
-  const response = await userAuthService.logout(body, header);
-  return responseWrapper(res, response, "Successfully Logged out.");
-});
-
-export const deactivateAccount = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["user"]);
-  const response = await userAuthService.deactivateAccount(body);
-  return responseWrapper(res, response, "Account Successfully Deactivated.");
-});
-
-export const refreshAuth = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["refresh_token", "tokenDoc", "user"]);
-  const response = await userAuthService.refreshAuth(body);
-  return responseWrapper(res, response);
-});
+import { catchAsync, pick, responseWrapper } from "../../utils";
 
 export const getGBPAuthUrl = catchAsync(async (req, res) => {
   const body = pick(req.body, ["user"]);

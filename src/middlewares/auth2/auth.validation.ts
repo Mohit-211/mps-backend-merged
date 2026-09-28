@@ -46,3 +46,13 @@ export const validateResetPassword = validator(Joi.object({ email: email.require
 	'code',
 	'password',
 ]);
+
+// Phase 13b: session and account endpoints.
+const refreshToken = Joi.string().trim().max(2000).required();
+export const validateRefreshToken = validator(Joi.object({ refresh_token: refreshToken }), ['refresh_token']);
+export const validateChangePassword = validator(Joi.object({ current_password: Joi.string().max(128).required(), new_password: password.required() }), ['current_password', 'new_password']);
+export const validateUpdateMe = validator(
+	Joi.object({ name: Joi.string().trim().min(1).max(150), mobile: Joi.string().trim().max(30).pattern(/^[+\d ()-]*$/).allow('', null) }).min(1),
+	['name', 'mobile'],
+);
+export const validatePasswordOnly = validator(Joi.object({ password: Joi.string().max(128).required() }), ['password']);

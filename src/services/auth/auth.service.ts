@@ -3,7 +3,7 @@ import httpStatus from 'http-status';
 import config from '../../configs/config';
 import logger from '../../configs/logger';
 import { userStatusTypes, userTypes } from '../../configs/constantTypes';
-import { IUser, OrganizationCountry, Profile, User, UserToken } from '../../models';
+import { IUser, OrganizationCountry, Profile, User, UserLoginTiming, UserToken } from '../../models';
 import { ApiError, apiErrorWithData } from '../../utils';
 import { generateAuthTokens } from '../common/token.service';
 import { sendForgotPasswordOTP, sendVerificationLinkEmail } from '../common/email.service';
@@ -59,9 +59,16 @@ const codeError = (reason: 'invalid_code' | 'code_expired', attemptsLeft: number
 		{ reason, attempts_left: attemptsLeft },
 	);
 
-/** What the app needs after verify / login: tokens, the user, their organizations and onboarding. */
-export const sessionFor = async (user: IUser) => {
+/**
+ * What the app needs after verify / login: tokens, the user, their organizations and onboarding.
+ * Phase 13b: with `login`, the sign-in is recorded (UserLoginTiming, keyed by the refresh token) for the
+ * admin panel's "last logins".
+ */
+export const sessionFor = async (user: IUser, login?: { ip: string; at?: Date }) => {
 	const tokens = await generateAuthTokens(user);
+	if (login) {
+		await UserLoginTiming.create({ user_id: user._id, token_id: tokens.refresh.id, ip_address: login.ip, login_time_utc: login.at ?? new Date(), time_zone: 'UTC' });
+	}
 	delete tokens.refresh.id;
 	const profile = await Profile.findOne({ user_id: user._id }).select({ name: 1 }).lean<{ name?: string }>();
 	const memberships = await listMemberships(user._id);
@@ -177,7 +184,7 @@ export const createAuthService = (deps: AuthDeps = {}) => {
 			throw apiErrorWithData(httpStatus.FORBIDDEN, 'This account is disabled.', { reason: 'account_disabled' });
 		}
 		logger.info(`auth: user ${String(user._id)} logged in`);
-		return sessionFor(user);
+		return sessionFor(user, { ip: meta.ip, at: now() });
 	};
 
 	/** Always answers the same (no account enumeration). */

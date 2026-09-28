@@ -12,7 +12,7 @@ Status as of 2026-09-28: everything through Phase 16 (citations) is merged and p
 
 **1. Sessions: refresh the access token.**
 - Access tokens last **1 day** (they were 7). Refresh tokens last **30 days** (`JWT_REFRESH_EXPIRATION_DAYS`).
-- On a **401** from any endpoint, call `POST /user/auth/refresh-auth { refresh_token }` once and retry with the new access token.
+- On a **401** from any endpoint, call `POST /auth/refresh { refresh_token }` once, **store both returned tokens** (the refresh token rotates), and retry with the new access token.
 - If the refresh itself fails (401 expired or revoked, 404 disabled account), clear the tokens and go to login. After 30 days the user always logs in again.
 - A password change or reset, or an account deletion, ends every session (the next refresh is 401).
 - Exact flow, responses and error messages: [API.md](API.md) "Session tokens and refresh".
@@ -46,10 +46,10 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Login | `POST /auth/login` (returns organizations + onboarding), `POST /user/auth/refresh-auth`, `POST /user/auth/logout` | **available (8)**. Session refresh / logout move to `/auth/*` in 13b step 2. |
+| Login | `POST /auth/login` (returns organizations + onboarding), `POST /auth/refresh`, `POST /auth/logout` | **available (8)**. |
 | Signup | `POST /auth/signup` (Business or Agency, user details, organization name, country, terms) | **available (8, 8.1)**: creates the user, the organization and the owner membership, and emails a **verification link**. Then show "Check your email" with a resend button (`POST /auth/resend-verification`). Unverified accounts are deleted after 24 h. |
 | Forgot password | `POST /auth/forgot-password` | **available (8)**: a 6-digit code by email (not a link); same answer whether or not the account exists |
-| Reset password | `POST /auth/reset-password` `{ email, code, password }` | **available (8)**; signs out every session. (Changing the password while logged in: legacy `POST /user/auth/reset-password`.) |
+| Reset password | `POST /auth/reset-password` `{ email, code, password }` | **available (8)**; signs out every session. Changing the password while logged in: `POST /auth/change-password` (13b). |
 | Verify email (`/verify-email?token=…`) | `POST /auth/verify-email { token }`, `POST /auth/resend-verification { email }` | **available (8.1)**: the page the email link opens. Call verify once on load. The first time it logs the user in (continue to onboarding); `already_verified` → "already verified" + Log in (no error page); `link_expired` / `link_invalid` → "Send a new link". Login before verifying is **403** `email_not_verified` (offer resend). Full table: API.md "The `/verify-email` page". |
 | Social login ("optional") | – | not supported (not planned) |
 
@@ -153,7 +153,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Screen | Backend | Status |
 |---|---|---|
 | Organization | `GET/PATCH /organization`, `GET /organization/usage` (plan, locations and keywords used/limit, clients) | **available (8)** |
-| Profile | legacy `GET/PUT /user/profile` | available (legacy) |
+| Profile | `GET/PATCH /auth/me` (name, phone, organizations), `POST /auth/deactivate` (delete account) | **available (13b)** |
 | Team / permissions | roles `owner`, `member`, `client_user`; invitations, role change, removal (owner only) | **available (11)**. The legacy `/user/auth/employee/*` routes still work (they add a member directly). |
 | Integrations | GBP connections (above) | **partial**: GBP only. **Google Analytics / Search Console: not supported** (removed; organic scope). |
 | Notifications | – | **not planned yet** (Phase 15: notifications & automations). The legacy toggle was removed in 13b. |

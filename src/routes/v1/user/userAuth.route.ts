@@ -4,29 +4,7 @@ import { userAuthMiddleware } from "../../../middlewares";
 
 const router = express.Router();
 
-// Phase 8.1: the legacy POST /register was removed; sign up with POST /api/v1/auth/signup.
-router.post(
-  "/reset-password",
-  [userAuthMiddleware.verifyAuthJWTToken],
-  userAuthController.resetPassword
-);
-
-router.post(
-  "/refresh-auth",
-  [userAuthMiddleware.verifyRefreshAuthJWTToken],
-  userAuthController.refreshAuth
-);
-router.post(
-  "/logout",
-  [userAuthMiddleware.verifyRefreshAuthJWTToken],
-  userAuthController.logout
-);
-router.get(
-  "/deactivate",
-  [userAuthMiddleware.verifyAuthJWTToken],
-  userAuthController.deactivateAccount
-);
-
+// Phase 13b: only the Google connect flow is left here (sessions and the account moved to /auth).
 //GBP
 router.get(
   "/google/gbp",

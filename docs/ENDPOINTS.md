@@ -68,8 +68,8 @@ Reads, billing, support and GBP connect / bind stay open.
 ## Summary (2026-09-28, Phase 13b in progress)
 
 **209 endpoints:** 208 live, 1 dev-only.
-- **By origin:** 151 rebuilt or new, 58 legacy.
-- **By auth:** 92 user, 80 platform admin (each with a permission), 35 none, 2 refresh token.
+- **By origin:** 157 rebuilt or new, 52 legacy.
+- **By auth:** 92 user, 80 platform admin (each with a permission), 37 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -79,7 +79,7 @@ This block is recounted with every commit that changes the catalogue.
 
 **Phase 13b step 1 (legacy removal):** 40 legacy routes deleted (no deprecated routes remain; the status no longer exists), the read-only `GET /admin/roles` added. Details in [LEGACY_FEATURES.md](LEGACY_FEATURES.md) "Removed in Phase 13b".
 
-**Coming (13b step 2):** the remaining `/user/auth/*` and `/user/profile` routes move to `/auth/*`.
+**Phase 13b step 2:** sessions and the account moved to `/auth/*` (6 routes: refresh, logout, change-password, me GET/PATCH, deactivate); the legacy `/user/auth` session routes and `/user/profile` were deleted. Only the Google connect routes remain under `/user/auth/google/*`.
 
 ## Catalogue: all current endpoints
 
@@ -112,19 +112,14 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/auth/login` | none | Login; returns tokens, organizations and onboarding (403 `email_not_verified`: no tokens until the email is verified) | 8 | live |
 | POST | `/api/v1/auth/forgot-password` | none | Password reset code by email (same answer whether or not the account exists) | 8 | live |
 | POST | `/api/v1/auth/reset-password` | none | New password with the reset code; signs out every session | 8 | live |
+| POST | `/api/v1/auth/refresh` | none (refresh token in the body) | New access + refresh token; the used refresh token stops working (rotation) | 13b | live |
+| POST | `/api/v1/auth/logout` | none (refresh token in the body) | Ends that session (its refresh token) | 13b | live |
+| POST | `/api/v1/auth/change-password` | user | Change the password (current one required); ends every other session and returns new tokens | 13b | live |
+| GET | `/api/v1/auth/me` | user | The signed-in user: email, name, phone, organizations, current organization, last login | 13b | live |
+| PATCH | `/api/v1/auth/me` | user | Update name / phone | 13b | live |
+| POST | `/api/v1/auth/deactivate` | user | Delete the account (password required): Google accounts disconnected, memberships ended, sessions revoked | 13b | live |
 | POST | `/api/v1/auth/invitations/inspect` | none | What a team invitation is for (`{ token }` in the body): organization, email, role, account exists | 11 | live |
 | POST | `/api/v1/auth/invitations/accept` | none | Accept a team invitation: a new account is created and logged in; an existing account gets the membership (`login_required`) | 11 | live |
-
-### User auth & account
-
-| Method | Path | Auth | Purpose | Phase | Status |
-|---|---|---|---|---|---|
-| POST | `/api/v1/user/auth/reset-password` | user | Reset Password | legacy | live |
-| POST | `/api/v1/user/auth/refresh-auth` | refresh token | Refresh Auth | legacy | live |
-| POST | `/api/v1/user/auth/logout` | refresh token | Logout | legacy | live |
-| GET | `/api/v1/user/auth/deactivate` | user | Deactivate Account | legacy | live |
-| GET | `/api/v1/user/profile` | user | Get Profile | legacy | live |
-| PUT | `/api/v1/user/profile` | user | Update Profile | legacy | live |
 
 ### Locations
 
