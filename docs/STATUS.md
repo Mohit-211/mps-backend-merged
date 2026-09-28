@@ -146,6 +146,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 
 | Date | Decision |
 |---|---|
+| 2026-09-28 | **Card payments (Mohit):** customers must be able to pay by card without a PayPal account. Sandbox check with US and CA buyers; "PayPal Account Optional" on; PayPal support asked about guest card checkout for subscriptions. Billing code goes behind one payment-provider interface in 13b's first commit (today it calls the PayPal client directly in 8 files). No second provider yet; "Decide before launch" after the sandbox result. |
 | 2026-09-28 | **Phase 13a billing model (Mohit):** per location, first location priced higher (first + (n − 1) × additional), standard plan capped at 20 locations (more = enterprise custom plan); dated prices per currency from each organization's next renewal; 3 users per paid location, pooled; 7-day trial then read-only; prorated one-time payments for extra slots; no refunds on removal; tokens (one-time packs) for manual refreshes, monthly refresh free, refund on a failed refresh; custom plans with manual (invoice) billing; no tax; coupons on token packs only; Square, credits and the guest checkout retired. **PayPal (verified):** no PayPal quantity (needs buyer consent) → per-subscription price override PATCHed 11 days before renewal; prorations and packs as Orders v2. **As built:** the renewal job runs every 6 h so a failed PATCH is retried inside the 10-day window; `billing.read` / `billing.manage` for super admin + admin; trial tokens granted at organization creation (default 0). |
 | 2026-09-25 | Functionality first; security deferred to Phase 10 (gated). Phase 6 still builds the signed OAuth state and encrypted tokens. |
 | 2026-09-25 | LF line endings. Local development uses its own `mps_rebuild` database; the server gets a fresh database after the rebuild. |
@@ -197,7 +198,12 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
     - the first-location and additional-location prices per currency (`POST /admin/billing/plans/:planId/prices`); until then checkout answers 409 `price_not_set`
     - the token packs (`POST /admin/billing/token-packs`)
     - the token cost per manual refresh type (`PATCH /admin/billing/plans/:planId` → `tokens_per_refresh`; default 1 each) and the trial token allowance (default 0)
-13. **PayPal (Phase 13a), when you say so:** give sandbox credentials, then run `npm run billing:paypal-setup -- --confirm` and set up the webhook (OPERATIONS.md "PayPal setup"). Then run the sandbox test: subscribe, renew, add a slot, buy a pack, cancel. Confirm that the account receives USD and CAD. No live PayPal call has been made yet.
+13. **PayPal (Phase 13a), when you say so:**
+    - **Account settings first:** turn on "PayPal Account Optional", and ask PayPal support to enable guest (card) checkout for subscriptions (OPERATIONS.md "PayPal setup", step 0).
+    - Give sandbox credentials, then run `npm run billing:paypal-setup -- --confirm` and set up the webhook.
+    - Then run the sandbox test: subscribe, renew, add a slot, buy a pack, cancel, and the **card-without-PayPal-account check** with a US and a Canadian buyer. Record the result below in "Decide before launch".
+    - Confirm that the account receives USD and CAD.
+    - No live PayPal call has been made yet.
 14. **Seller details on invoices:** set `BILLING_SELLER_NAME`, `BILLING_SELLER_ADDRESS` (lines separated by `|`), `BILLING_SELLER_EMAIL` and optionally `BILLING_SELLER_TAX_ID` before the first real invoice.
 12. **Citation directory authority values:** the 50 seeded directories (`seed:citation-directories`) carry **placeholder** authority numbers; the admin team replaces them before launch.
 
@@ -221,6 +227,21 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 4 | `Location.summary` (`key_competitor.name`, `rating`, `review_count`) | names and the client's public rating | until the next run or report |
 | 5 | `ReportSnapshot` + report PDFs (+ share pages `/r/<token>`) | frozen copies of 1, 3 and 4 | `REPORT_RETENTION_MONTHS` (24) |
 | 6 | `Location` name, address, coordinates for locations added from a Places search, and the manual center | Place Details / Text Search | the location's lifetime |
+
+## Decide before launch
+
+**Card payments without a PayPal account (Mohit, 2026-09-28).** Customers must be able to pay by card without creating a PayPal account; a PayPal sign-up at checkout is not acceptable for a normal SaaS experience.
+- **Decision:** is PayPal alone enough for card payments? Decided from the sandbox result below and PayPal support's answer.
+  - If a card option works as a guest for **both** the subscription and the one-time orders, in the US and Canada: PayPal alone.
+  - Otherwise: add a second payment provider for cards. The billing code will talk to payments only through one provider interface (13b's first commit), so a second provider is an addition, not a rewrite. Which provider, and whether it replaces or sits beside PayPal, is decided then.
+- **PayPal support ticket** (guest card checkout for subscriptions): not opened yet.
+- **Sandbox result:** not run yet (no sandbox credentials).
+
+  | Flow | US buyer, card, no login | CA buyer, card, no login |
+  |---|---|---|
+  | (a) subscription checkout | not tested | not tested |
+  | (b) token pack | not tested | not tested |
+  | (b) extra location slots | not tested | not tested |
 
 ## Pre-launch live validation (Mohit triggers it)
 

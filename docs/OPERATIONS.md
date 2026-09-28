@@ -279,7 +279,12 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 | `BILLING_SELLER_NAME`, `BILLING_SELLER_ADDRESS` (address lines separated by a vertical bar), `BILLING_SELLER_EMAIL`, `BILLING_SELLER_TAX_ID` | name `MyPageSEO`, others empty | The seller block on invoices |
 | `FRONTEND_URL` | – | PayPal returns to `FRONTEND_URL/settings/billing?…` |
 
+**Card payments without a PayPal account (Mohit, 2026-09-28).** Customers must be able to pay by card without creating a PayPal account, like on other SaaS products. Two account settings are needed for that; step 0 below.
+
 **Steps (per environment):**
+0. **Business account settings (Mohit):**
+   - Turn on **"PayPal Account Optional"**: Account Settings → Website payments → Website preferences. This lets buyers pay by card as guests.
+   - Ask **PayPal support** to enable **guest (card) checkout for subscriptions** on the account. Whether a subscription can be paid by card without a PayPal login depends on the account and region, and is not a setting we control. Note the ticket number and answer in STATUS.md ("Decide before launch").
 1. Set `PAYPAL_MODE`, `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
 2. Run `npm run billing:paypal-setup -- --confirm`. It creates the catalog product "MyPageSEO" and two monthly plans (USD, CAD; the plan price is a placeholder because each subscription carries its own price) and prints `PAYPAL_PRODUCT_ID`, `PAYPAL_PLAN_ID_USD` and `PAYPAL_PLAN_ID_CAD` for `.env`. Ids already set are reused. About 4 PayPal calls.
 3. **Webhook:** in the app → Webhooks → Add webhook, URL `https://<API host>/api/v1/subscription/paypal/webhook`, events:
@@ -296,8 +301,17 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
    - buy a token pack (with a coupon)
    - cancel
    - check a renewal. Sandbox renewals happen on the real schedule; check the `billing-renewals` log line for the snapshot and PATCH.
+   - **Card without a PayPal account:** use two sandbox personal buyers, one **US** and one **Canadian**. Don't log in to PayPal on the approval page; look for the **"Debit or Credit Card"** (or "Pay with card") option. For each buyer, record yes / no and what the page asked for:
 
-   Record the PayPal call counts and results in `docs/LIVE_TEST.md`.
+     | Flow | US buyer, card, no login | CA buyer, card, no login |
+     |---|---|---|
+     | (a) subscription checkout (`POST /billing/checkout` → `approve_url`) | | |
+     | (b) token pack (`POST /billing/tokens/checkout` → `approve_url`) | | |
+     | (b) extra location slots (`POST /billing/location-slots` → `approve_url`) | | |
+
+     Where a card option appears, finish the payment with a sandbox test card and check the webhook, invoice and entitlement. Do this with "PayPal Account Optional" on (step 0), and note the date and account settings.
+
+   Record the PayPal call counts and results in `docs/LIVE_TEST.md`, and the card table in STATUS.md ("Decide before launch").
 
 ## Organizations, plan limits and auth (Phase 8)
 

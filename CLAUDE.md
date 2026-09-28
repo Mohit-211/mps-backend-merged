@@ -905,6 +905,12 @@ Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data 
 - **Scripts:** `migrate:billing` (dry run by default; standard plan, legacy guest subscriptions linked by verified email, trials, legacy coupons deactivated) and `billing:paypal-setup` (Mohit runs it; product + USD/CAD plans). `seed:demo-orgs` adds demo prices (only when none), packs, a coupon, tokens and an invoice.
 - **Not done in 13a:** live PayPal (sandbox test when Mohit provides credentials), real prices (Mohit sets them; checkout answers 409 `price_not_set` until then).
 
+**Payment provider interface (Mohit, 2026-09-28), 13b's first commit:** today billing calls `paypalClient` directly in 8 files (subscriptions, orders, renewals, webhook, admin, legacy, account, plus the webhook verification). 13b starts by moving that behind one provider interface:
+- `src/services/billing/providers/`: a `PaymentProvider` type (`startSubscription`, `getSubscription`, `setRenewalAmount`, `cancelSubscription`, `createOrder`, `captureOrder`, `verifyWebhook` + `parseWebhook` → provider-neutral billing events) and the PayPal implementation wrapping `paypalClient`.
+- Billing logic (subscriptions, orders, renewals, webhook handling, admin, migration) uses only the interface and provider-neutral statuses and events; `Subscription` / `PaymentOrder` / `Invoice` keep a `provider` field (`paypal` today).
+- The provider's own timing rule (PayPal ignores price changes within 10 days) becomes a property of the provider (`renewalLeadDays`), not a billing constant.
+- No behaviour change, all existing tests pass, no second provider. A card processor can be added later as another implementation without touching billing logic. The decision is in STATUS.md "Decide before launch" (cards without a PayPal account).
+
 **13b (as approved 2026-09-27):** admin users, organizations (suspend, links to billing admin), support tickets rebuilt with threads, and an admin overview; legacy `/admin/operations/*` and `/supports` deprecated.
 
 ## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)

@@ -292,6 +292,7 @@ Every row has `admin (permission)` in ENDPOINTS.md, so the guard-matrix test cov
 ## 13b Admin panel backend + support (as approved 2026-09-27; billing items adjusted)
 
 Branch `claude/phase-13b-admin-panel`, after 13a is merged.
+- **First commit (added by Mohit, 2026-09-28): the payment-provider interface.** Move every PayPal call behind one `PaymentProvider` interface (checkout, one-time order, subscription update / cancel, webhook verification and parsing), PayPal as its only implementation, no behaviour change. Details in CLAUDE.md §12h. Reason: customers must be able to pay by card without a PayPal account; if the sandbox shows PayPal can't do that, a card processor is added as a second provider (STATUS.md "Decide before launch").
 - **Users** (`platform.read` / `platform.write`):
   - list / search, detail (memberships, organizations, verification, last logins, Google connections)
   - disable / enable (sessions revoked), force logout, resend verification, mark verified
