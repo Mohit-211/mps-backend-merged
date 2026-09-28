@@ -15,7 +15,6 @@ import config from './configs/config';
 import corsConfigs from './configs/corsConfigs';
 import { successHandler, errorHandler } from './configs/morgan';
 import { multipartFieldsOnly } from './configs/multer';
-import logger from './configs/logger';
 import {
 	ApiError,
 	apiErrorHandler,
