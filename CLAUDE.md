@@ -31,7 +31,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
 | 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
 | **16** | **Citations**: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | **built, awaiting merge** | `claude/phase-16-citations` | M5 |
-| 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list; **plus the admin panel backend for launch** (users, organizations, subscriptions, support tickets). Notes: §12h | planned (plan mode after 16) | – | M5 |
+| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | **13a in progress** | `claude/phase-13a-billing` | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
@@ -861,12 +861,38 @@ Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data 
 
 **Gate.**
 
-## 12h. PHASE 13 — Billing & plans (notes; full spec before it starts)
+## 12h. PHASE 13 — Billing & plans + admin panel backend
 
-Runs after Phase 16, **plan mode first**. Collected so far (Mohit, 2026-09-27):
-- **Scope:** the existing Square / PayPal flows aligned with organizations; plan → limits; upgrade / downgrade; subscription-status gating; an invoices list.
-- **Admin panel backend needed for launch:** users, organizations, subscriptions and support tickets, on Phase 10's admin auth and permissions. The plan must cover it.
-- **Legacy citation order model (from Phase 16):** Phase 16 retired the paid citation-campaign flow but **kept its order model**, renamed `LegacyLocationCitation` (collection `locationCitations`). The credit-payment code still attaches payments to it: `payment.middleware.ts` takes `citation_location_id`, and `payment.service.ts` sets `citation_payment_id` / `orderStatus`. Phase 13 decides whether citation credits survive: rebuild them on the new citation model or remove that branch, and the credit plans with it (`PaymentCreditPlan`, `CreditPayment`, `User.available_credit`).
+**13a in progress** on `claude/phase-13a-billing` (2026-09-28). The full approved plan, including the PayPal evidence, is in **`docs/plans/phase-13-billing-admin.md`**. It runs as two sub-phases, each merged and pushed: **13a billing**, then **13b admin panel + support** (`claude/phase-13b-admin-panel`).
+
+**Billing model (Mohit, 2026-09-28, final for now):**
+1. **Per location.** Monthly = `first_location_price` + (n − 1) × `additional_location_price` (the first location covers base costs). No other recurring items; all features included.
+   - The standard plan caps at **20 locations**; more is enterprise (a custom plan; 403 `enterprise_required`).
+   - Plans carry an `entitlements` map read through one helper (`hasFeature`), so tiers can be added later as data.
+   - Prices are dated per currency (USD / CAD) and apply from each organization's next renewal; invoices show what was actually charged.
+2. **Users:** 3 per paid location (plan setting), pooled per organization, owner included. Over the limit, existing users keep access and new invitations get 403 `user_limit_reached`.
+3. **Trial:** 7 days, no payment details. Admin-configurable allowances (1 location, 3 users, 0 tokens). Afterwards read-only: 402 on money-costing actions, and the monthly refresh skips the organization.
+4. **Adding a location at the paid quantity:** 402 with a prorated quote (at the additional-location price) → a one-time PayPal order → capture → the paid quantity goes up (next renewal too) → the location is added.
+5. **Removing a location:** no refund; the slot is reusable until period end; at renewal the quantity follows the active locations (minimum 1).
+6. **Tokens:** one-time packs (PayPal order), never a subscription.
+   - The monthly automatic refresh is free; manual refreshes (and "run now") cost admin-set tokens per type; the 24 h guard stays.
+   - Tokens never expire by default. A ledger records everything; a refresh that fails entirely is refunded.
+   - `POST /locations/:id/refresh` → 402 `insufficient_tokens`; `GET` shows costs and the balance.
+7. **Custom plans (enterprise):**
+   - their own prices, `max_locations`, users per location, trial length, entitlements, monthly token grant, token pack prices or a discount
+   - billing method `paypal` or `manual` (our invoices, admin-recorded payments, overdue → read-only after grace)
+   - every override audit-logged
+8. **No tax** (`tax_lines: []` kept for later). Coupons apply to **token packs only**. 7-day grace on failed payments. Our own numbered PDF invoices. Billing admin. `migrate:billing`.
+9. **Removed:** Square, credits and `LegacyLocationCitation`; the guest checkout.
+
+**PayPal mechanics (verified 2026-09-28; evidence in the plan):**
+- **No PayPal quantity:** `revise` needs buyer consent. Each subscription carries its own price override (`fixed_price`, which PATCH changes without consent), on one PayPal plan per currency; custom prices use the same override.
+- **The 10-day rule:** PayPal ignores price changes within 10 days of a charge, so the renewal amount is fixed 11 days ahead (the renewal snapshot).
+- **No PayPal proration:** prorated slots and token packs are one-time Orders v2 payments.
+- **Account:** a Business account + a REST app.
+- **No live PayPal calls** until Mohit provides sandbox credentials and says so.
+
+**13b (as approved 2026-09-27):** admin users, organizations (suspend, links to billing admin), support tickets rebuilt with threads, and an admin overview; legacy `/admin/operations/*` and `/supports` deprecated.
 
 ## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)
 
