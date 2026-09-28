@@ -37,6 +37,10 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
 | 15 | Notifications & automations | planned | – | – |
 | 17 | Ranking extras: keyword groups, larger grids (the variance test is done; Dallas is a pre-launch item) | planned | – | – |
+| – | **AI GBP posts**: AI text + images, publishing schedules, optional approval, calendar (needs GBP v4; extends 9). Groundwork: `docs/plans/upcoming-features.md` §A | planned, spec pending | – | – |
+| – | **AI visibility**: presence in AI assistants' answers (ChatGPT, Gemini, Perplexity, Claude) over time, score, competitor comparison. §B | planned, spec pending | – | – |
+| – | **Review management**: review sync, AI analysis, AI reply suggestions and auto-reply with rules / approval (needs GBP v4). §C | planned, spec pending | – | – |
+| – | **White-label hosting**: agency-branded reports on a separate generic domain, no MyPageSEO branding. §D | planned, spec pending | – | – |
 | 9b | Cleanup (ARCHITECTURE.md, final docs pass; Swagger was removed in 13b) | ongoing | – | – |
 
 There is no Phase 2 (security moved to Phase 10, 2026-09-25). Milestone pushes: M1 after 3, M2 after 5, M3 after 7c, M4 after 11 (all pushed). **Since Phase 12, every merged phase is pushed** (Mohit, 2026-09-27: GitHub is the only off-machine backup); M5 marks launch-ready.
