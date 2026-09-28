@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27. **Phase 16 (citations) is built** on `claude/phase-16-citations`, awaiting merge and push. Everything through Phases 12.5, 10 and 8.1 is merged and pushed; the sanitation pass is done. Plan: [plans/phase-16-citations.md](plans/phase-16-citations.md); as built: CLAUDE.md §12f. **Next:** Phase 13 (billing & plans + the admin panel backend for launch) in plan mode. **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-28. **Phase 13a (billing) is built** on `claude/phase-13a-billing`, awaiting merge and push. Everything through Phase 16 is merged and pushed (Phase 16: `daff461`). Plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md); as built: CLAUDE.md §12h. **Next:** Phase 13b (admin panel backend + support), per the approved plan. **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
 
 ## Product goal
 
@@ -34,8 +34,8 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
-| **16** | **Citations**: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | **built, awaiting merge** | `claude/phase-16-citations` | – | M5 |
-| **13** | **Billing & plans** (13a billing, then 13b admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | **13a in progress** | `claude/phase-13a-billing` | – | M5 |
+| 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | done | `claude/phase-16-citations` | yes (`daff461`) | M5 (pushed 2026-09-28) |
+| **13** | **Billing & plans** (13a billing, then 13b admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | **13a built, awaiting merge**; 13b next | `claude/phase-13a-billing` | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
@@ -130,13 +130,23 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - **Citation Health** from `src/citations/scoring.config.ts`; the worked example scores 50 (D), and 66 (C) after one NAP fix.
   - **Starter master list:** 50 US / CA directories in 5 category groups (`npm run seed:citation-directories`).
   - **Retired:** the legacy `/citation/*` module (13 routes) and `serpapi`.
-- **Tests:** 800 pass (84 suites) with no API key and no network. Lint: 137 errors, all legacy (0 in rebuilt code and tests). Build: 0 errors.
-- **Endpoints:** 220 (205 live, 14 deprecated, 1 dev-only), all in [ENDPOINTS.md](ENDPOINTS.md).
+- **Billing (Phase 13a), offline (PayPal mocked):**
+  - **Model:** monthly = first-location price + (n − 1) × additional-location price, dated prices per currency (USD / CAD), 20-location cap (above: enterprise custom plan), 3 users per paid location, 7-day trial, tokens for manual refreshes.
+  - **Gates:** read-only after the trial / grace (402), paid location slots (402 with a prorated quote), enterprise cap (403), user limit (403), plan features (403); the monthly refresh and scheduled reports skip read-only organizations.
+  - **Billing page API** (`/billing`, 14 routes) + public `/pricing`: PayPal subscription checkout, sync, cancel, prorated location slots, token packs with coupons, order capture, ledger, billing details, invoices + PDF.
+  - **PayPal:** per-subscription price override (no buyer consent needed), renewal snapshot + PATCH 11 days ahead, one-time orders for slots and packs, idempotent webhooks.
+  - **Tokens:** manual refresh / run now cost tokens per type; refunded automatically when a refresh fails entirely.
+  - **Invoices:** our own numbered PDFs, emailed; manual (invoice) billing with overdue → read-only after grace.
+  - **Billing admin** (`/admin/billing`, 30 routes, `billing.read` / `billing.manage`): prices with dates, custom plans, manual subscriptions and comps, trials, tokens, subscriptions, invoices, packs, coupons, legacy links, audit log.
+  - **Retired:** the guest checkout, legacy plans / coupons / payment lists, Square, credits (15 routes, 5 models, the `square` package). `migrate:billing` links the legacy PayPal subscriptions.
+- **Tests:** 878 pass (94 suites) with no API key and no network. Lint: 82 errors, all legacy (0 in rebuilt code and tests). Build: 0 errors.
+- **Endpoints:** 250 (235 live, 14 deprecated, 1 dev-only), all in [ENDPOINTS.md](ENDPOINTS.md).
 
 ## Key decisions
 
 | Date | Decision |
 |---|---|
+| 2026-09-28 | **Phase 13a billing model (Mohit):** per location, first location priced higher (first + (n − 1) × additional), standard plan capped at 20 locations (more = enterprise custom plan); dated prices per currency from each organization's next renewal; 3 users per paid location, pooled; 7-day trial then read-only; prorated one-time payments for extra slots; no refunds on removal; tokens (one-time packs) for manual refreshes, monthly refresh free, refund on a failed refresh; custom plans with manual (invoice) billing; no tax; coupons on token packs only; Square, credits and the guest checkout retired. **PayPal (verified):** no PayPal quantity (needs buyer consent) → per-subscription price override PATCHed 11 days before renewal; prorations and packs as Orders v2. **As built:** the renewal job runs every 6 h so a failed PATCH is retried inside the 10-day window; `billing.read` / `billing.manage` for super admin + admin; trial tokens granted at organization creation (default 0). |
 | 2026-09-25 | Functionality first; security deferred to Phase 10 (gated). Phase 6 still builds the signed OAuth state and encrypted tokens. |
 | 2026-09-25 | LF line endings. Local development uses its own `mps_rebuild` database; the server gets a fresh database after the rebuild. |
 | 2026-09-26 | Ranking uses **Places API (New) Text Search, IDs-only** (free SKU). Names (Pro SKU) are used only for the Map Ranking list, 1 call per keyword. |
@@ -183,7 +193,12 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 8. **DataForSEO password change by the account owner (old credential in git history)** (AUDIT S13). The vendor was removed from the code, config and docs on 2026-09-27.
 9. **Phase 10 deploy:** replace the 12-character `JWT_SECRET` (≥ 32 characters; every user signs in again once), add `ADMIN_JWT_SECRET` and `PAYPAL_WEBHOOK_ID`, list every frontend origin in `ACCESSDOMAINS`, delete the old `ANALYTICS` token rows (OPERATIONS.md deploy checklist).
 10. **Frontend team notes** (Phase 10): token refresh (1-day access, 30-day refresh), admin panel sign-in and permissions, CORS origins: FRONTEND_BACKEND_MAP.md "Notes for the frontend team".
-11. **Prices, before launch (Mohit, 2026-09-28):** the price per location, the token packs (tokens + price), and the token cost per manual refresh type (rankings, gbp) are set by Mohit in the billing admin (Phase 13a).
+11. **Prices, before launch (Mohit, 2026-09-28):** set in the billing admin (Phase 13a):
+    - the first-location and additional-location prices per currency (`POST /admin/billing/plans/:planId/prices`); until then checkout answers 409 `price_not_set`
+    - the token packs (`POST /admin/billing/token-packs`)
+    - the token cost per manual refresh type (`PATCH /admin/billing/plans/:planId` → `tokens_per_refresh`; default 1 each) and the trial token allowance (default 0)
+13. **PayPal (Phase 13a), when you say so:** give sandbox credentials, then run `npm run billing:paypal-setup -- --confirm` and set up the webhook (OPERATIONS.md "PayPal setup"). Then run the sandbox test: subscribe, renew, add a slot, buy a pack, cancel. Confirm that the account receives USD and CAD. No live PayPal call has been made yet.
+14. **Seller details on invoices:** set `BILLING_SELLER_NAME`, `BILLING_SELLER_ADDRESS` (lines separated by `|`), `BILLING_SELLER_EMAIL` and optionally `BILLING_SELLER_TAX_ID` before the first real invoice.
 12. **Citation directory authority values:** the 50 seeded directories (`seed:citation-directories`) carry **placeholder** authority numbers; the admin team replaces them before launch.
 
 ## Blocked on Google
@@ -220,16 +235,16 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 
 - **TypeScript 7 readiness** (9b / 14): `moduleResolution: node` is removed in TS 7; the node16 move and the two dynamic imports are described in OPERATIONS.md "Lint and editor setup".
-- **Legacy lint debt:** 137 ESLint errors, all in legacy modules (169 when first measured on 2026-09-27; Phase 16 removed 32 with the old citation module). They shrink as Phases 9 and 13 replace those modules.
+- **Legacy lint debt:** 82 ESLint errors, all in legacy modules (169 when first measured on 2026-09-27; Phase 16 removed 32 with the old citation module, 13a another 55 with the legacy billing code). They shrink as Phases 9 and 13b replace those modules.
 - (The Dallas test, the formal `calibrate:score` and the variance test moved to "Pre-launch live validation" and Phase 12.5.)
 - **Overall-average UX:** when one keyword is 60+ everywhere it counts as 61 and dominates `overallAvgRank` (Round 1: 31.2 from 1.4 and 61). Decide how the page explains or presents it.
 
 ## Next up
 
-1. **Merge and push Phase 16** (commands in the phase summary). **At deploy:** `npm run db:sync-indexes -- --confirm`, then `npm run seed:citation-directories -- --confirm` (OPERATIONS.md deploy checklist step 13). The admin team then edits the starter list; the placeholder authority values need review.
-   - **Phase 8.1 at deploy:** run `npm run migrate:email-verified -- --confirm` **before** starting the new code, and set `FRONTEND_URL` (OPERATIONS.md deploy checklist step 12). The frontend needs the `/verify-email` page (API.md).
-2. **Then Phase 13** (billing & plans, plus the admin panel backend for launch: users, organizations, subscriptions, support tickets) in plan mode; it also decides the legacy citation credits (CLAUDE.md §12h).
-3. **Then** 14 (production readiness) toward M5.
+1. **Merge and push Phase 13a** (commands in the phase summary). **At deploy** (OPERATIONS.md deploy checklist): `npm run db:sync-indexes -- --confirm`, then `npm run migrate:billing` (dry run) and `-- --confirm`; the PayPal env vars; remove `SQUARE_*`.
+   - Still at the first deploy: Phase 16's `seed:citation-directories -- --confirm` and Phase 8.1's `migrate:email-verified -- --confirm` (before starting the new code) with `FRONTEND_URL`.
+2. **Then Phase 13b** (admin panel backend + support: users, organizations with suspend, support tickets with threads, overview), per the approved plan.
+3. **Then** 14 (production readiness) toward M5. Before launch: prices (open item 11) and the PayPal sandbox test (open item 13).
 4. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 5. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
 

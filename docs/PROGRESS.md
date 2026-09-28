@@ -26,6 +26,7 @@ Phase order (Mohit, 2026-09-25): functionality first, security deferred. There i
 | 8: GBP posting | — | Not started |
 | 9: Cleanup and docs | — | Not started |
 | 10: Security hardening (gated) | — | Deferred; needs explicit approval |
+| (later phases) | see STATUS.md | 12 → 12.5 → 10 → 8.1 → 16 done and pushed; **13a built, awaiting merge** (entry at the bottom). |
 
 Base branch: `claude/rebuild` (created from `main` @ `62240ac`; `main` is untouched). The current state is in [STATUS.md](STATUS.md).
 
@@ -1106,3 +1107,65 @@ Asked by Mohit before Phase 13. Every file was checked for references before del
 ## `precommit` script removed (2026-09-28, on `claude/rebuild`)
 
 Mohit asked to remove the `precommit` npm script (`npm run lint-fix && npm run format`): it reformatted every file with Prettier, against the repo rule. `format` and `lint-fix` stay for deliberate, targeted use; `prepush` (`npm run lint`) stays.
+
+## Phase 13a: Billing (per-location pricing, tokens, PayPal, invoices)
+
+Branch `claude/phase-13a-billing` (from `claude/rebuild` after `c8938de`). Plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md), revised and approved 2026-09-28 (first location priced higher, additional locations cheaper and fixed, above 20 = enterprise). Spec and as built: CLAUDE.md §12h.
+
+**Commits:**
+- `af2798e`: spec (§12h), plan saved, roadmap / STATUS.
+- `78b8803`: models (`BillingPlan`, `Subscription`, `Invoice`, `PaymentOrder`, `TokenLedger`, `TokenPack`, `BillingEvent`, `AuditLog`, `Counter`, Organization billing fields) and the pure layer (`src/billing/`: dated prices, first + (n − 1) × additional, prorated slots, pooled users, pack prices / coupons, entitlement states and decisions).
+- `6543f94`: `paypalClient` (Catalog Products, Subscriptions v1 with the per-subscription price override and PATCH, Orders v2), PayPal / billing config, fixtures.
+- `08feb45`: the entitlement wired in.
+  - Standard plan, trial at organization creation, limits from the entitlement (402 / 403 reasons).
+  - `requireBilling` / `requireFeature` on the gated routes; the monthly refresh and scheduled reports skip read-only organizations.
+  - The organization-wide keyword cap and `DEFAULT_*_LIMIT` removed.
+- `39ce97c`: invoices (numbering, idempotent issue, PDF) and the token ledger (atomic credit / spend / refund).
+- `be37512`: the customer API and webhooks.
+  - `/billing` (14 routes), public `/pricing`; the PayPal webhook handlers (idempotent per event id).
+  - Subscriptions (checkout, status mapping, payments advancing periods from the renewal snapshot) and one-time orders (exactly-once fulfilment); `Coupon` reworked (pack-only).
+  - **Retired:** 15 legacy routes (plans, guest checkout, coupons, payment lists, Square), `subscription.service`, `payment.service`, `paypal.service`, `configs/{square,paypal}.ts`, the `square` package, 5 models.
+- `069f290`: tokens on manual refresh and run-now, refunds on failed refreshes (executors, enqueue failure, stuck guards), trial token grant.
+- `78e51b8`: jobs `billing-renewals` (every 6 h) and `billing-reminders` (daily); billing emails; `credit()` undoes its `$inc` on a duplicate once-per-reference entry.
+- `5cca42a`: the billing admin (`/admin/billing/*`, 30 routes, `billing.read` / `billing.manage`), the legacy link service.
+- (this commit): `migrate:billing`, `billing:paypal-setup`, seed billing data, `db:sync-indexes` for the billing models, the legacy filter excludes ended subscriptions, paid invoices dated no later than the payment; end-of-phase docs.
+
+**Checks:**
+- **Tests:** `npm test` gives **94 suites, 878 tests**, offline (was 84 / 800). The admin guard matrix covers the 30 new `admin (billing.*)` rows; `check:endpoints` passes.
+- **Build and lint:** build 0 errors. Lint **82** (was 137; the retired legacy billing files took 55), **0 in new code and tests**.
+- **Local database** (`mps_rebuild`):
+  - `db:sync-indexes` built the 10 billing collections' indexes
+  - `migrate:billing` dry run, then `--confirm`: standard plan created, 0 legacy subscriptions (none locally), 5 trials started, 0 legacy coupons
+  - `seed:demo-orgs` re-run with billing data
+- **Dev server** (PayPal not configured locally; demo tokens read from a scratch file, never printed):
+  - `GET /pricing?country=CA`: CAD 49 / 19, cap 20, the two demo packs
+  - agency `GET /billing`: active (manual comp), 5 paid, 3 active locations, users 3 / 15, 10 tokens
+  - business: trialing, 1 location allowed, 2 tokens
+  - checkout → 503 `billing_not_configured` (no PayPal credentials locally, as expected); client_user → 403
+  - invoice list + PDF (checked visually); ledger; coupon `DEMO10` → 20 − 2 = 18; `GET /locations/:id/refresh` shows `tokens`
+  - unsigned webhook → 400 `invalid_signature`; retired routes → 404
+  - all three dev processes stopped
+- **Flaky under full parallel load (seen once each; pass alone and in 3 later full runs):** `dashboard.routes`, `gbp/oauth`, `reports/retentionAndMigration`. Probably memory-server start-up or timing under load; to investigate in 13b.
+
+**Endpoints:** 220 → 250. 15 legacy routes removed; 14 `/billing` + `/pricing` (#107–#121) and 30 `/admin/billing/*` (#122–#151) added; the webhook kept its path.
+
+**Decisions and flags:**
+- **As built (beyond the plan):**
+  - `billing-renewals` runs every 6 hours (not daily), so a failed price PATCH is retried inside PayPal's 10-day window.
+  - A checkout while a cancelled subscription is still paid starts the new one at the period end (`start_time`).
+  - Admin prices can't be back-dated (`effective_from_in_past`).
+  - Manual-billing slot additions are granted at once and billed on the next invoice (`pending_lines`).
+  - Tests give every test organization 100 tokens (`tests/helpers/mongoose.ts`); the token rules have their own tests.
+- **Shared-file edits** (minimal, flagged):
+  - `email.service.ts`: `sendBillingEmail` added; the legacy subscription emails and their template removed
+  - `userOperations.service.ts`: `has_active_subscription` from the organization's entitlement
+  - `models/index.ts`, `routes/v1/common/index.ts`, `routes/v1/admin/index.ts`, `adminPermissions.ts`
+  - `rankRunExecutor.ts`, `sync.executor.ts`, `rankRun.service.ts`, `sync.service.ts`, `scheduler.service.ts`: refund hooks
+  - `refresh.service.ts`: tokens
+  - `org/context.ts`: trial end + trial tokens
+- **Open for Mohit** (STATUS.md open items 11, 13, 14):
+  - prices, packs and token costs
+  - PayPal sandbox credentials + `billing:paypal-setup` + webhook, then the sandbox test
+  - seller details for invoices
+
+**API calls:** none (Google 0, PayPal 0).

@@ -27,9 +27,10 @@ export interface LegacyPaymentRow {
 	created_at?: Date | null;
 }
 
-/** Paid legacy subscriptions (a PayPal subscription id and a successful or active status). */
+/** Paid legacy subscriptions still running (a PayPal subscription id, paid or active, not ended). */
 export const legacyPaidFilter = () => ({
 	paypal_subscription_id: { $type: 'string', $ne: '' },
+	subscription_status: { $nin: ['cancelled', 'expired', 'halted', 'completed'] },
 	$or: [{ status: 'SUCCESS' }, { subscription_status: 'active' }],
 });
 

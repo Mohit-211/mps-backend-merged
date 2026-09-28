@@ -213,8 +213,8 @@ npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 acces
 ```
 
 `npm run seed:gbp-demo` is an alias. It creates, in `mps_rebuild`:
-- **Business** `business-demo@mypageseo.test`: 1 GBP-connected location with 3 monthly rank runs, 18 months of GBP data and a GBP report.
-- **Agency** `agency-demo@mypageseo.test`, on a demo plan (`Demo Agency (seed)`: 5 locations, 60 keywords): 2 clients and 3 locations (2 GBP-connected, 1 added from a Places search: `gbp_not_connected`), each with rank runs and a report.
+- **Business** `business-demo@mypageseo.test`: 1 GBP-connected location with 3 monthly rank runs, 18 months of GBP data and a GBP report; in its 7-day trial with 2 tokens (Phase 13a).
+- **Agency** `agency-demo@mypageseo.test`, on a comp (manual, free) subscription for 5 locations with 10 tokens and one paid token-pack invoice (Phase 13a): 2 clients and 3 locations (2 GBP-connected, 1 added from a Places search: `gbp_not_connected`), each with rank runs and a report.
 - **Client user** `agency-client@mypageseo.test`: sees one client, read-only.
 - **Dashboard data (Phase 11):**
   - Ranks improve (Maple Leaf) and decline (Queen West).
@@ -228,7 +228,9 @@ npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 acces
   - Each demo location gets a suggested list (22 listings) with mixed statuses and 60 days of history (the Toronto locations also get Ontario's chamber); a few checks are older than 90 days, for the stale queue.
   - One Citation Report is generated, and the Full reports include a Citations part.
 
-**How:** the real rank-run and report code with **offline** Places clients: **0 Google calls**. The demo Google connection is a placeholder that is never used. **Output:** one password for all demo accounts, three tokens, ids and `curl` examples. Same guards as `seed:rank-demo` (development + `mps_rebuild`; only the demo accounts' data and the demo plan are replaced).
+**How:** the real rank-run and report code with **offline** Places clients: **0 Google calls**. The demo Google connection is a placeholder that is never used. **Output:** one password for all demo accounts, three tokens, ids and `curl` examples. Same guards as `seed:rank-demo` (development + `mps_rebuild`; only the demo accounts' data are replaced).
+
+**Billing demo data (Phase 13a):** when the standard plan has no prices, the seed sets demo prices (USD 39 / 15, CAD 49 / 19 for first / additional location), so checkout and `/pricing` can be tried locally. It never overwrites real prices. It also adds the token packs "Starter (demo)" (10) and "Pro (demo)" (50) and the coupon `DEMO10` (10 %). These stay in the local database between runs.
 
 ## Citations (Phase 16)
 
@@ -255,6 +257,47 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 **Emails** (`src/services/billing/billingEmails.ts`): receipt (invoice PDF attached), invoice issued (manual, PDF attached), invoice overdue, payment failed, subscription activated / cancelled, trial ending. They go to the billing email (`PATCH /billing/details`), else the owner. In development and test nothing is sent: the subject is logged with the address masked.
 
 **Tokens:** manual refreshes and "run now" spend `tokens_per_refresh` (per type, default 1); the monthly refresh is free. A refresh that fails entirely (including the stuck guards) is refunded automatically. The trial grants `trial.tokens` (default 0) at organization creation.
+
+### PayPal setup (Phase 13a)
+
+**No live PayPal call has been made yet.** Mohit gives sandbox credentials and says when to test live.
+
+**Account:** a PayPal **Business** account. In the developer dashboard (developer.paypal.com → Apps & Credentials), create one REST app per environment (sandbox, live). Its client id and secret go in `.env`. Make sure the account can receive **USD and CAD**, and that the app has **Subscriptions** and **Checkout (Orders)** enabled.
+
+**Environment variables:**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PAYPAL_MODE` | `sandbox` | `sandbox` or `live` (API base URL) |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | empty | The REST app (never commit, print or log them) |
+| `PAYPAL_WEBHOOK_ID` | empty | The app's webhook id; without it every webhook is refused (Phase 10) |
+| `PAYPAL_PRODUCT_ID`, `PAYPAL_PLAN_ID_USD`, `PAYPAL_PLAN_ID_CAD` | empty | Written by `billing:paypal-setup` (below); without the plan id for a currency, checkout answers 503 `billing_not_configured` |
+| `TRIAL_DAYS` | 7 | Default trial length (the plan setting wins once it exists) |
+| `BILLING_GRACE_DAYS` | 7 | Failed payment / overdue manual invoice → read-only after this |
+| `MANUAL_INVOICE_DUE_DAYS` | 14 | Manual invoices are due this many days after issue |
+| `BILLING_RENEWAL_LEAD_DAYS` | 11 | Renewal snapshot + price PATCH this many days before a renewal (PayPal ignores changes within 10) |
+| `BILLING_SELLER_NAME`, `BILLING_SELLER_ADDRESS` (address lines separated by a vertical bar), `BILLING_SELLER_EMAIL`, `BILLING_SELLER_TAX_ID` | name `MyPageSEO`, others empty | The seller block on invoices |
+| `FRONTEND_URL` | – | PayPal returns to `FRONTEND_URL/settings/billing?…` |
+
+**Steps (per environment):**
+1. Set `PAYPAL_MODE`, `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
+2. Run `npm run billing:paypal-setup -- --confirm`. It creates the catalog product "MyPageSEO" and two monthly plans (USD, CAD; the plan price is a placeholder because each subscription carries its own price) and prints `PAYPAL_PRODUCT_ID`, `PAYPAL_PLAN_ID_USD` and `PAYPAL_PLAN_ID_CAD` for `.env`. Ids already set are reused. About 4 PayPal calls.
+3. **Webhook:** in the app → Webhooks → Add webhook, URL `https://<API host>/api/v1/subscription/paypal/webhook`, events:
+   - `BILLING.SUBSCRIPTION.CREATED`, `.ACTIVATED`, `.UPDATED`, `.EXPIRED`, `.CANCELLED`, `.SUSPENDED`, `.PAYMENT.FAILED`
+   - `PAYMENT.SALE.COMPLETED`, `.DENIED`, `.REFUNDED`, `.REVERSED`
+   - `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`, `.DENIED`, `.PENDING`, `.REFUNDED`
+
+   Copy the webhook id into `PAYPAL_WEBHOOK_ID`. nginx must forward the path unchanged (the body is verified with PayPal).
+4. **Prices:** in the billing admin, add the standard plan's prices per currency (`POST /api/v1/admin/billing/plans/:planId/prices`), the token packs, and the token costs (STATUS.md open item 11).
+5. **Sandbox test** (when Mohit says so), with a sandbox buyer account:
+   - subscribe (checkout → approve → return → `POST /billing/sync`)
+   - check the webhook deliveries in the dashboard and the first invoice
+   - add a location beyond the paid quantity (slot order → capture)
+   - buy a token pack (with a coupon)
+   - cancel
+   - check a renewal. Sandbox renewals happen on the real schedule; check the `billing-renewals` log line for the snapshot and PATCH.
+
+   Record the PayPal call counts and results in `docs/LIVE_TEST.md`.
 
 ## Organizations, plan limits and auth (Phase 8)
 
@@ -372,7 +415,7 @@ On any database that already has data, in this order, **before the new version s
 10. **`npm run migrate:branding -- --confirm`** (Phase 12): legacy white-label profiles → organization branding (agencies without branding only; copies logos into the storage directory). Idempotent. Run `db:sync-indexes` (step 6) after this release too: it builds the report indexes (Phase 12.5: also `rank_result_lists`, `api_usage` and the `places_rate` TTL index).
     **Phase 12.5 `.env`:** `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60` (decided 2026-09-27); remove `COMPETITOR_DETAILS_ATMOSPHERE`. Do the Google Cloud checklist (Ranking quality section) before the first monthly refresh.
 11. **Phase 10 data cleanup:** delete the old Search Console token rows, which may hold plaintext tokens (the feature was removed in 9a): `db.user_auths.deleteMany({ token_type: "ANALYTICS" })` (back up first, step 1). Check the `roles` collection holds role_id 1 (super admin), 2 (admin) and 4 (editor) as in `SUP_ADM_ROLE_ID` / `ADM_ROLE_ID` / `EDTR_ROLE_ID`: admin permissions are derived from them.
-12. **`npm run migrate:email-verified -- --confirm`** (Phase 8.1), **before the new code starts** (step 14). It marks every existing user email-verified and moves `PENDING` / `REVIEWING` → `ACCEPTED`. **Required:** without it, existing users are refused at login (403 `email_not_verified`). Idempotent; it sends no email.
+12. **`npm run migrate:email-verified -- --confirm`** (Phase 8.1), **before the new code starts** (step 15). It marks every existing user email-verified and moves `PENDING` / `REVIEWING` → `ACCEPTED`. **Required:** without it, existing users are refused at login (403 `email_not_verified`). Idempotent; it sends no email.
     - The hourly `unverified-cleanup` job deletes only accounts created by the Phase 8.1 signup (they carry a `verification_deadline`), so it can never delete an older account, even before this step.
     - Set `FRONTEND_URL` to the web app's origin: verification links go to `FRONTEND_URL/verify-email?token=…`, and the frontend must have that page.
     - The script also builds the `users.verification_deadline` index (add-only); `db:sync-indexes` (step 6) builds the new `auth_codes` hash index.
@@ -380,7 +423,13 @@ On any database that already has data, in this order, **before the new version s
     - `npm run db:sync-indexes -- --confirm` builds the four citation collections' indexes (`directories`, `directory_categories`, `location_citations`, `citation_status_logs`).
     - Then `npm run seed:citation-directories -- --confirm` loads the starter master list (and the Google business categories if that collection is empty).
     - Optionally set `CITATION_STALE_DAYS`.
-    - The old citation collections (`citationDirectorys`, `citations`, `campaigns`, `aggregators`, …) are no longer read (MIGRATION.md). `locationCitations` is still used by the credit-payment code until Phase 13.
-14. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders`) and `Recurring job scheduled: monthly-refresh` / `report-retention` / `unverified-cleanup` / `billing-renewals` / `billing-reminders`.
+    - The old citation collections (`citationDirectorys`, `citations`, `campaigns`, `aggregators`, …) are no longer read (MIGRATION.md). `locationCitations` was used by the credit-payment code until Phase 13a removed it.
+14. **Phase 13a (billing):**
+    - `.env`: the PayPal and billing variables (section "PayPal setup"); **remove** `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` (Square is gone).
+    - `npm run db:sync-indexes -- --confirm` builds the billing collections' indexes (`billing_plans`, `subscriptions`, `invoices`, `payment_orders`, `token_ledger`, `token_packs`, `coupons`, `billing_events`, `audit_logs`, `counters`).
+    - `npm run migrate:billing` (dry run: read the list of legacy subscriptions it will link and the unmatched ones), then `npm run migrate:billing -- --confirm`. It creates the standard plan, links legacy PayPal subscriptions by verified email, **starts a trial for every existing organization**, and deactivates legacy coupons. Link the unmatched ones with `POST /api/v1/admin/billing/legacy-payments/:paymentId/link`.
+    - Set the prices before customers' trials end (open item 11): checkout answers 409 `price_not_set` until then.
+    - The legacy collections `user_subscriptions`, `subscription_plans`, `paymentCreditPlans`, `location_credit_payments` and `locationCitations` are no longer read (MIGRATION.md).
+15. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders`) and `Recurring job scheduled: monthly-refresh` / `report-retention` / `unverified-cleanup` / `billing-renewals` / `billing-reminders`.
 
 `--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.

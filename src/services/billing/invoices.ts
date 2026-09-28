@@ -96,7 +96,8 @@ export const createInvoiceService = (deps: { storage?: ReportStorage; now?: () =
 					mismatch: charged !== null && money(charged) !== total,
 					period_start: input.period_start ?? null,
 					period_end: input.period_end ?? null,
-					issued_at: at,
+					// A paid invoice is dated no later than its payment (a webhook can arrive after it).
+					issued_at: input.paid_at && input.paid_at < at ? input.paid_at : at,
 					due_at: input.due_at ?? null,
 					paid_at: input.paid_at ?? (input.status === 'paid' ? at : null),
 					provider_ref: input.provider_ref ?? null,
