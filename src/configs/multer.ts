@@ -26,12 +26,6 @@ const getDestination = (fileField: string): string => {
 			return 'videos';
 		case 'images':
 			return 'images';
-		case 'gifs':
-			return 'gifs';
-		case 'docs':
-			return 'docs';
-		case 'audios':
-			return 'audios';
 		default:
 			throw new Error('Invalid field name');
 	}
@@ -65,25 +59,20 @@ const checkFileType = (
 	file: Express.Multer.File,
 	cb: FileFilterCallback,
 ): void => {
-	const allowedFiletypes = [
-		'jpeg', 'jpg', 'png', 'gif', 'mp4', 'mov', 'pdf', 'mp3', 'doc', 'docx',
-	];
+	// 13b: images (blog, GBP posts) and videos (GBP posts) only.
+	const allowedFiletypes = ['jpeg', 'jpg', 'png', 'gif', 'mp4', 'mov'];
 	const fileExtension = path.extname(file.originalname).toLowerCase().substring(1);
 	const isValidExtension = allowedFiletypes.includes(fileExtension);
 	const isValidMimeType =
 		file.mimetype.startsWith('image/') ||
-		file.mimetype.startsWith('video/') ||
-		file.mimetype.startsWith('application/pdf') ||
-		file.mimetype.startsWith('audio/') ||
-		file.mimetype === 'application/msword' ||
-		file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+		file.mimetype.startsWith('video/');
 
 	if (isValidExtension && isValidMimeType) {
 		cb(null, true);
 	} else {
 		cb(
 			new Error(
-				'Error: Images (.jpeg, .jpg, .png), videos (.mp4, .mov), Audio (.mp3), and File (.pdf, .doc, .docx) only allow!',
+				'Only images (.jpeg, .jpg, .png, .gif) and videos (.mp4, .mov) can be uploaded.',
 			),
 		);
 	}
@@ -97,10 +86,7 @@ const getFileExtension = (file: Express.Multer.File): string => {
 		'image/gif': 'gif',
 		'video/mp4': 'mp4',
 		'video/mov': 'mov',
-		'application/pdf': 'pdf',
-		'audio/mpeg': 'mp3',
-		'application/msword': 'doc',
-		'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+		'video/quicktime': 'mov',
 	};
 	return mimeToExtMap[file.mimetype] || 'txt';
 };
@@ -119,11 +105,8 @@ const upload = multer({
 		checkFileType(file, cb);
 	},
 }).fields([
-	{ name: 'gifs', maxCount: 10 },
 	{ name: 'images', maxCount: 10 },
 	{ name: 'videos', maxCount: 10 },
-	{ name: 'docs', maxCount: 10 },
-	{ name: 'audios', maxCount: 10 },
 ]);
 
 const toApiError = (err: unknown): ApiError =>

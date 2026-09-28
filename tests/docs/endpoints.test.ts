@@ -7,7 +7,6 @@ import { ENDPOINT_STATUSES, DocEntry, RouteEntry, listRoutes, parseEndpointsDoc,
 // the app registers. The app is loaded without MongoDB, agenda or the heartbeat cron.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const app: express.Express = require('../../src/app').default;

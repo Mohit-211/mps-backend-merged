@@ -27,14 +27,6 @@ if (config.essentials.env !== 'test') {
     );
 }
 
-const sendEmail = async (to: string, subject: string, text: string): Promise<void> => {
-  try {
-    const msg: EmailOptions = { from: config.email.from, to, subject, text };
-    await transport.sendMail(msg);
-  } catch (error: any) {
-    throw new ApiError(error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR, error.message);
-  }
-};
 
 /** Phase 8.1: the email verification link (FRONTEND_URL/verify-email?token=…). The link is never logged here. */
 export const sendVerificationLinkEmail = async (to: string, link: string): Promise<boolean> => {
@@ -126,18 +118,6 @@ export const sendBillingEmail = async (input: { to: string; subject: string; tex
     html: input.html,
     attachments: input.attachment ? [{ filename: input.attachment.filename, content: input.attachment.content, contentType: 'application/pdf' }] : [],
   });
-};
-
-export const sendResetPasswordConfirmationMail = async (to: string): Promise<void> => {
-  try {
-    const subject = 'Successfully Changed password';
-    const text = `Dear user,
-        Your Password Has Been changed Successfully
-        If you did not request any password resets, then ignore this email.`;
-    await sendEmail(to, subject, text);
-  } catch (error: any) {
-    throw new ApiError(error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR, error.message);
-  }
 };
 
 export const sendAdminCredential = async (to: string, password: string, role: string): Promise<boolean> => {

@@ -9,7 +9,6 @@ export * from "./city.model";
 
 export * from "./user.model";
 export * from "./profile.model";
-export * from "./userAttachment.model";
 export * from "./otp.model";
 export * from "./user_login_timings.model";
 export * from "./userToken.model";

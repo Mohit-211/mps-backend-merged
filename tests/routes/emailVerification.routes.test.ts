@@ -12,7 +12,6 @@ import { clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose
 // the migration and the legacy /user/auth rules, on the real app (offline).
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 const links: { to: string; link: string }[] = [];
 jest.mock('../../src/services/common/email.service', () =>
 	new Proxy(

@@ -102,3 +102,18 @@ Also removed:
 - **Models:** the four legacy report models.
 - **Dependency:** the `googleapis` package.
 - **Legacy location create:** it now uses the Places (New) client with the `location` field only, instead of the legacy all-fields Place Details call (AUDIT C23).
+
+## Removed in Phase 13b (delete, don't deprecate)
+
+Mohit, 2026-09-28: the frontend is rebuilt from scratch against ENDPOINTS.md, so anything the rebuilt product doesn't use is deleted. The last commit with all of it is `c66a82b` (`claude/rebuild` before 13b).
+
+| Removed | Why |
+|---|---|
+| Heartbeat `node-cron` job in `app.ts` + the `node-cron` package | Logged "still running" every minute in every pm2 process; jobs run on agenda |
+| `randomatic` package | Never imported |
+| `UserAttachment` model (`user_attachments`) | No code used it |
+| 43 constants in `configs/constantTypes.ts` (payment, booking, appointment, call, refund, tax, currency, gateway, citation-order, opening-hours enums) | Leftovers of the original template; nothing used them |
+| Admin role checks `isSuperAdmin` / `isAdmin` / `isEditor` / `isUser` | Replaced by admin permissions (Phase 10) |
+| `locationSelect`, `sendResetPasswordConfirmationMail`, the internal `sendEmail` helper | Unused |
+| Country / state / city seeding script (`seed-country-city-state`, called countriesnow.space) + `topCountriesList` | The data is already in `dumps/` (loaded by `mongo-migrate`) |
+| Upload types `gifs`, `docs`, `audios` and the file routes `/gifs/:filename`, `/docs/:filename`, `/songs/:filename` | Accepted but never used by a feature (`/songs` served a folder nothing wrote); uploads are images (blog, GBP posts) and videos (GBP posts) |

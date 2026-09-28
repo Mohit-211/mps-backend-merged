@@ -6,7 +6,6 @@ import { verifyPaypalWebhook } from '../../src/services/common/paypalWebhook';
 // Phase 10 (AUDIT S6, S4): operator keys are refused; PayPal webhooks must be verified by PayPal.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const app: express.Express = require('../../src/app').default;

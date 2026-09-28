@@ -6,7 +6,6 @@ import request from 'supertest';
 // Phase 10 (AUDIT S5, S7, S8, S9, S10, S16): the app's transport-level protections, on the real app.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const app: express.Express = require('../../src/app').default;

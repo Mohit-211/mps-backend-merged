@@ -10,7 +10,6 @@ import { addMember, clearDb, createLocation, createUser, ensureOrg, startTestDb 
 // Phase 13a: the billing page on the real app, with a fake PayPal client and verified webhooks.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: jest.fn(async () => ({})), cancel: jest.fn(async () => 0) }), stopAgenda: jest.fn() }));
 jest.mock('../../src/services/common/email.service', () => new Proxy({}, { get: () => jest.fn(async () => true) }));
 jest.mock('../../src/services/common/paypalWebhook', () => ({ verifyPaypalWebhook: async () => true }));

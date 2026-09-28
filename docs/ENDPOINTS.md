@@ -66,11 +66,11 @@ Reads, billing, support and GBP connect / bind stay open.
 - `POST /reports`
 - the white-label branding writes
 
-## Summary (2026-09-28, Phase 13a)
+## Summary (2026-09-28, Phase 13b in progress)
 
-**250 endpoints:** 235 live, 14 deprecated, 1 dev-only.
-- **By origin:** 143 rebuilt or new, 107 legacy.
-- **By auth:** 110 user, 95 platform admin (each with a permission), 43 none, 2 refresh token.
+**247 endpoints:** 232 live, 14 deprecated, 1 dev-only.
+- **By origin:** 152 rebuilt or new, 95 legacy.
+- **By auth:** 110 user, 95 platform admin (each with a permission), 40 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -437,9 +437,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | DELETE | `/api/v1/logs` | admin (`system.read`) | Delete all log files | legacy, changed 10 | live |
 | GET | `/images/:filename` | none | Serve an uploaded file (`public/uploads/images`) | legacy | live |
 | GET | `/videos/:filename` | none | Serve an uploaded file (`public/uploads/videos`) | legacy | live |
-| GET | `/gifs/:filename` | none | Serve an uploaded file (`public/uploads/gifs`) | legacy | live |
-| GET | `/docs/:filename` | none | Serve an uploaded file (`public/uploads/docs`) | legacy | live |
-| GET | `/songs/:filename` | none | Serve an uploaded file (`public/uploads/songs`) | legacy | live |
 | GET | `/api/healthcheck` | none | Health check | legacy | live |
 | GET | `/ping` | none | Ping | legacy | live |
 | GET | `/docs` | none | Swagger UI | legacy | live |

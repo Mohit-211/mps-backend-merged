@@ -9,7 +9,6 @@ import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../
 // Phase 13a: the billing admin on the real app (guards are covered by adminGuards.routes.test.ts).
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: jest.fn(async () => ({})), cancel: jest.fn(async () => 0) }), stopAgenda: jest.fn() }));
 jest.mock('../../src/services/common/email.service', () => new Proxy({}, { get: () => jest.fn(async () => true) }));
 

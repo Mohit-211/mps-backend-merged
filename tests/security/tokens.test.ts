@@ -11,7 +11,6 @@ import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../
 // deletion and the remaining ownership checks, on the real app.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 const sentOtps: string[] = [];
 jest.mock('../../src/services/common/email.service', () =>
 	new Proxy(

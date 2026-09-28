@@ -8,7 +8,6 @@ import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../
 // Phase 16: per-location citation lists (suggestions, entries, history) and the admin work queue (offline).
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 jest.mock('../../src/services/common/email.service', () => new Proxy({}, { get: () => jest.fn(async () => true) }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */

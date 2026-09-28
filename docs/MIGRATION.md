@@ -20,6 +20,7 @@ The legacy cleanup (branch `claude/phase-9a-legacy-cleanup`) removed the code th
 | `user_subscriptions` | legacy per-user subscriptions (unused) | `subscriptions` (Phase 13a) |
 | `paymentCreditPlans`, `location_credit_payments` | Square citation credits | – (retired in Phase 13a) |
 | `locationCitations` | legacy citation orders, read by the credit payments | – (retired in Phase 13a) |
+| `user_attachments` | nothing (the model was never used) | – (removed in Phase 13b) |
 | `payments` | legacy guest-checkout PayPal payments | **still read** by `migrate:billing` and the admin legacy-link endpoint (`/admin/billing/legacy-payments`); archive only after every paid row is linked |
 
 **Archive example** (run against the right database, after a backup):

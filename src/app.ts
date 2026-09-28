@@ -3,7 +3,6 @@ import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import httpStatus from 'http-status';
-import cron from 'node-cron';
 import NodeCache from 'node-cache';
 import path from 'path';
 import fs from 'fs';
@@ -49,9 +48,6 @@ import('./configs/mongoConnection');
 // Initialize mysql connection
 // import('./configs/mySqlConnection');
 
-cron.schedule('* * * * *', () => {
-	logger.info('Hello, I am still running.......😊');
-});
 
 // Phase 10 (AUDIT S5): behind nginx; req.ip is the client (rate limits, logs).
 app.set('trust proxy', config.security.trustProxyHops);
@@ -181,7 +177,7 @@ app.delete('/api/v1/logs', adminOnly('system.read'), async (req: Request, res: R
 
 // All File Apis. Phase 10 (AUDIT S16): the name is reduced to its basename and must resolve inside its
 // folder (no ../ traversal); the cache is keyed by folder + name.
-const fileApis = ['images', 'videos', 'gifs', 'docs', 'songs'];
+const fileApis = ['images', 'videos'];
 fileApis.forEach((api) => {
 	const folder = path.join(PUBLIC_DIR, 'uploads', api);
 	app.get(`/${api}/:filename`, (req: Request, res: Response) => {
