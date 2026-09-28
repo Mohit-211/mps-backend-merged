@@ -1169,3 +1169,28 @@ Branch `claude/phase-13a-billing` (from `claude/rebuild` after `c8938de`). Plan:
   - seller details for invoices
 
 **API calls:** none (Google 0, PayPal 0).
+
+## Phase 13b: legacy removal, `/auth` sessions, provider interface, flaky tests, admin panel (in progress)
+
+Branch `claude/phase-13b-admin` (from `claude/rebuild` after the 13a merge `2c77a8a`). Scope and order: CLAUDE.md §12h.
+
+### Step 5: flaky tests (2026-09-28/29)
+
+**Measured:** 10 full `npx jest` runs in a row per state (95 suites, 860 tests, 4 parallel workers, same laptop).
+
+| State | Failing runs | Failures |
+|---|---|---|
+| Before | **4 / 10** | 11 tests in 5 suites, different each time (`billingAdmin`, `syncExecutor`, `adminGuards` + `org.routes`, `reports`); "Port … already in use", "Parse Error: Expected HTTP/", 404s |
+| After fixes 1–2 | 1 / 6 (stopped) | `onboarding/usage` concurrent reservations (a real bug, fix 3) |
+| After fixes 1–3 | 2 / 10 | `citationsAdmin` (empty body), `adminGuards` (404 instead of 403): requests reaching another listener (fix 4) |
+| After fixes 1–4 | 1 / 10 | `usage/usage` fixed 50 ms sleep (fix 5) |
+| **After fixes 1–5** | **2 / 10** | only 30 s `beforeAll` timeouts (`syncExecutor`, `onboarding/usage`) in runs that took 113 and 150 s instead of ~80 s: the laptop was busy. No wrong-server or data failure. Accepted by Mohit (2026-09-29); no more work on it. |
+
+**Causes and fixes:**
+1. **One mongod per test file.** Every file started its own `mongodb-memory-server` on a random port while other workers opened supertest servers on OS-assigned ports; a port was sometimes taken twice. Now **one server per run** (`tests/globalSetup.ts` / `globalTeardown.ts`, `MPS_TEST_MONGO_URI`); every file gets its own database on it (`uniqueDbName`, dropped at the end).
+2. **HTTP keep-alive (Node ≥ 19).** The global agent, shared by the files in one worker, reused a pooled connection to an earlier file's closed server when a later server got the same port number. Keep-alive is off in tests (`tests/setupAfterEnv.ts`).
+3. **Production bug, `src/services/onboarding/usage.ts` (daily Places cap):** concurrent first reservations of the day raced on the upsert; the losers got E11000 and were refused as "limit reached" (1 of 10 allowed instead of 10). Now a duplicate-key error retries once as a plain conditional update, so only a real over-limit is refused. It would have hit a user who fired several searches at once at the start of a UTC day.
+4. **IPv4 / IPv6 port overlap on macOS.** supertest binds the wildcard `[::]:<port>` and requests `127.0.0.1:<port>`; the kernel can give that wildcard a port another process already listens on at `127.0.0.1` (e.g. the shared mongod), and that listener gets the request. Test requests now go to `[::1]` (`http.Server.prototype.address` maps `::` to `::1` in `tests/setupAfterEnv.ts`). Backlog: revisit if tests run somewhere without IPv6 (STATUS.md).
+5. **A fixed 50 ms sleep** waiting for a fire-and-forget usage write (`tests/services/usage/usage.test.ts`) now polls for the row.
+
+The 13a suspects (`dashboard.routes`, `gbp/oauth`, report retention) were causes 1, 2 and 4: none of them failed after the fixes.

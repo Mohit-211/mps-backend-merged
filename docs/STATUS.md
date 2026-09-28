@@ -288,11 +288,12 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 - **TypeScript 7 readiness** (9b / 14): `moduleResolution: node` is removed in TS 7; the node16 move and the two dynamic imports are described in OPERATIONS.md "Lint and editor setup".
 - **Legacy lint debt:** 82 ESLint errors, all in legacy modules (169 when first measured on 2026-09-27; Phase 16 removed 32 with the old citation module, 13a another 55 with the legacy billing code). They shrink as Phases 9 and 13b replace those modules.
 - (The Dallas test, the formal `calibrate:score` and the variance test moved to "Pre-launch live validation" and Phase 12.5.)
+- **Test requests use `[::1]`** (13b flaky-test fix, `tests/setupAfterEnv.ts`): revisit if tests run somewhere without IPv6 (e.g. a CI container with IPv6 disabled).
 - **Overall-average UX:** when one keyword is 60+ everywhere it counts as 61 and dominates `overallAvgRank` (Round 1: 31.2 from 1.4 and 61). Decide how the page explains or presents it.
 
 ## Next up
 
-1. **Phase 13b in progress:** step 1 (legacy removal + fresh-database setup) is done; next step 2 (`/auth` session and account endpoints), then the provider interface, flaky tests and the admin panel.
+1. **Phase 13b in progress:** steps 1–2 and 4–5 are done (legacy removal + fresh-database setup, `/auth` sessions, the payment-provider interface, flaky tests); next: finish the legacy sweep, one email switch, password reset by link, end-to-end flow tests, the admin panel, the upcoming-features plan (Mohit, 2026-09-29).
 2. **Then** 14 (production readiness) toward M5. Before launch: prices (open item 11) and the PayPal sandbox test (open item 13).
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.

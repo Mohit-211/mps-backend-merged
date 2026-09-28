@@ -71,8 +71,13 @@ describe('attribution scopes', () => {
 		).rejects.toThrow('boom');
 		expect(await ApiUsage.countDocuments({ sku: 'places.details.enterprise_atmosphere', count: 2 })).toBe(1);
 		recordUsage('gbp.oauth');
-		await new Promise((r) => setTimeout(r, 50));
-		expect(await ApiUsage.findOne({ sku: 'gbp.oauth' }).lean()).toMatchObject({ organization_id: null, location_id: null, count: 1 });
+		// The unattributed write is fire-and-forget: wait for it (a fixed 50 ms sleep failed under full-suite load).
+		let row = null;
+		for (let i = 0; i < 100 && !row; i++) {
+			row = await ApiUsage.findOne({ sku: 'gbp.oauth' }).lean();
+			if (!row) await new Promise((r) => setTimeout(r, 20));
+		}
+		expect(row).toMatchObject({ organization_id: null, location_id: null, count: 1 });
 	});
 
 	it('the Places client reports every HTTP attempt with its SKU, and waits on the limiter before each', async () => {

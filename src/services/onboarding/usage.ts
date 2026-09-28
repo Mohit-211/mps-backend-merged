@@ -29,15 +29,15 @@ export const createPlacesUsage = (deps: PlacesUsageDeps = {}) => {
 			throw new ApiError(httpStatus.TOO_MANY_REQUESTS, `Daily search limit reached (${max} per day). Try again tomorrow.`);
 		}
 		const today = now();
+		const filter = { user_id: userId, day: utcDay(today), calls: { $lte: max - calls } };
+		const update = { $inc: { calls }, $setOnInsert: { expires_at: new Date(today.getTime() + 2 * DAY_MS) } };
 		try {
-			const updated = await PlacesUsage.findOneAndUpdate(
-				{ user_id: userId, day: utcDay(today), calls: { $lte: max - calls } },
-				{ $inc: { calls }, $setOnInsert: { expires_at: new Date(today.getTime() + 2 * DAY_MS) } },
-				{ upsert: true, new: true },
-			);
-			if (updated) return;
+			if (await PlacesUsage.findOneAndUpdate(filter, update, { upsert: true, new: true })) return;
 		} catch (err) {
 			if ((err as { code?: number }).code !== DUPLICATE_KEY) throw err;
+			// The day's row exists: either a concurrent first reservation created it, or it is over the limit.
+			// Retry as a plain conditional update so the first case isn't refused.
+			if (await PlacesUsage.findOneAndUpdate(filter, { $inc: { calls } }, { new: true })) return;
 		}
 		throw new ApiError(httpStatus.TOO_MANY_REQUESTS, `Daily search limit reached (${max} per day). Try again tomorrow.`);
 	};

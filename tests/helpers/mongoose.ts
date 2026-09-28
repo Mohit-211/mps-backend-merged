@@ -5,19 +5,19 @@ import { tokenTypes, userStatusTypes, userTypes } from '../../src/configs/consta
 import { ILocation, ILocationTracking, IOrganization, IUser, Location, Membership, MembershipRole, Organization, RankRun, User } from '../../src/models';
 import { generateToken } from '../../src/services/common/token.service';
 import { withDefaults } from '../../src/services/ranking/trackingSettings';
-import { startMemoryMongo } from './memoryMongo';
+import { testMongoUri, uniqueDbName } from './memoryMongo';
 
 // In-memory MongoDB for integration tests, with the indexes the ranking code relies on
 // (e.g. the unique "one active run per location" index).
 
 export const startTestDb = async (): Promise<{ stop: () => Promise<void> }> => {
-	const server = await startMemoryMongo();
-	await mongoose.connect(server.getUri(), { dbName: 'mps_test' });
+	// Phase 13b: a database of its own on the run's shared server (tests/globalSetup.ts).
+	await mongoose.connect(testMongoUri(), { dbName: uniqueDbName() });
 	await Promise.all([RankRun.syncIndexes(), Location.syncIndexes(), Membership.syncIndexes()]);
 	return {
 		stop: async () => {
+			await mongoose.connection.db?.dropDatabase();
 			await mongoose.disconnect();
-			await server.stop();
 		},
 	};
 };

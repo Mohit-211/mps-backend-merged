@@ -1,9 +1,8 @@
 import { Agenda } from 'agenda';
 import { MongoClient } from 'mongodb';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import { AGENDA_COLLECTION, createAgenda, startAgenda, stopAgenda } from '../../src/configs/agenda';
 import { assertIdOnlyData, defineJob, scheduleJob } from '../../src/jobs/defineJob';
-import { startMemoryMongo } from '../helpers/memoryMongo';
+import { testMongoUri, testMongoUriFor, uniqueDbName } from '../helpers/memoryMongo';
 
 // The GBP posting job imports gbpPostSchedular.service, which imports mongoConnection; mocking it
 // keeps this test from opening a real Mongoose connection.
@@ -19,20 +18,19 @@ const waitFor = <T>(emitter: Agenda, event: string, timeoutMs: number): Promise<
 	});
 
 describe('agenda (own connection, C25)', () => {
-	let mongo: MongoMemoryServer;
+	const dbName = uniqueDbName('agenda');
 	let client: MongoClient;
 	let agenda: Agenda;
 
 	beforeAll(async () => {
-		mongo = await startMemoryMongo();
-		client = await MongoClient.connect(mongo.getUri());
-		agenda = createAgenda({ address: mongo.getUri('mps_test') });
+		client = await MongoClient.connect(testMongoUri());
+		agenda = createAgenda({ address: testMongoUriFor(dbName) });
 	}, 120000);
 
 	afterAll(async () => {
 		await stopAgenda(agenda);
+		await client.db(dbName).dropDatabase();
 		await client.close();
-		await mongo.stop();
 	});
 
 	it('connects on its own connection, becomes ready and starts', async () => {
@@ -56,7 +54,7 @@ describe('agenda (own connection, C25)', () => {
 		expect(ran).toHaveBeenCalledWith({ locationId: 'loc-1' });
 
 		await job.remove();
-		const left = await client.db('mps_test').collection(AGENDA_COLLECTION).countDocuments({ name: 'test-self-check' });
+		const left = await client.db(dbName).collection(AGENDA_COLLECTION).countDocuments({ name: 'test-self-check' });
 		expect(left).toBe(0);
 	}, 30000);
 
@@ -88,7 +86,7 @@ describe('agenda (own connection, C25)', () => {
 		// A separate agenda that is never started: the recurring job is saved but never runs here
 		// (its handler needs a Mongoose connection this test file does not open).
 		const { scheduleRecurringJobs } = await import('../../src/jobs');
-		const idle = createAgenda({ address: mongo.getUri('mps_recurring') });
+		const idle = createAgenda({ address: testMongoUriFor(uniqueDbName('recurring')) });
 		await new Promise((resolve) => idle.once('ready', resolve));
 		try {
 			await scheduleRecurringJobs(idle);

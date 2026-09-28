@@ -5,6 +5,9 @@ module.exports = {
 	testMatch: ['**/*.test.ts'],
 	setupFiles: ['<rootDir>/tests/setupEnv.ts'],
 	setupFilesAfterEnv: ['<rootDir>/tests/setupAfterEnv.ts'],
+	// Phase 13b: one in-memory MongoDB for the run (each test file uses its own database on it).
+	globalSetup: '<rootDir>/tests/globalSetup.ts',
+	globalTeardown: '<rootDir>/tests/globalTeardown.ts',
 	// Workers transpile only (tests/tsconfig.jest.json has isolatedModules); `npm test` type-checks
 	// src and tests once up front with `tsc -p tests/tsconfig.json`. Type-checking inside every worker
 	// made parallel workers too slow to exit ("worker failed to exit gracefully").
