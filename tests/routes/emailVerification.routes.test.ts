@@ -2,8 +2,9 @@ import crypto from 'crypto';
 import express from 'express';
 import request from 'supertest';
 import logger from '../../src/configs/logger';
-import { AuthCode, Client, Invitation, Membership, Organization, Profile, User, UserToken } from '../../src/models';
-import { cleanupUnverifiedAccounts, hashLinkToken } from '../../src/services/auth/emailVerification';
+import { AuthLink, Client, Invitation, Membership, Organization, Profile, User, UserToken } from '../../src/models';
+import { cleanupUnverifiedAccounts } from '../../src/services/auth/emailVerification';
+import { hashLinkToken } from '../../src/services/auth/links';
 import { hashToken as hashInvitationToken } from '../../src/services/team/invitation.service';
 import { clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 
@@ -45,7 +46,7 @@ const age = async (email: string, hours: number) => {
 	const user = await User.findOne({ email }).lean();
 	const past = new Date(Date.now() - hours * HOUR);
 	await User.collection.updateOne({ _id: user?._id }, { $set: { verification_deadline: new Date(past.getTime() + 24 * HOUR), created_at: past } });
-	await AuthCode.updateMany({ user_id: user?._id, consumed_at: null }, { $set: { expires_at: new Date(past.getTime() + 24 * HOUR) } });
+	await AuthLink.updateMany({ subject_id: user?._id, consumed_at: null }, { $set: { expires_at: new Date(past.getTime() + 24 * HOUR) } });
 	return user;
 };
 
@@ -67,8 +68,8 @@ describe('signup → verify by link → login', () => {
 		expect(links).toHaveLength(1);
 		expect(links[0].link).toMatch(/^http:\/\/localhost:3000\/verify-email\?token=[A-Za-z0-9_-]{43}$/);
 		const token = lastToken();
-		const row = await AuthCode.findOne({ purpose: 'verify_email' }).lean();
-		expect(row?.code_hash).toBe(hashLinkToken(token));
+		const row = await AuthLink.findOne({ purpose: 'verify_email' }).lean();
+		expect(row?.token_hash).toBe(hashLinkToken(token));
 		expect(JSON.stringify(row)).not.toContain(token);
 
 		const refused = await login();
@@ -98,7 +99,7 @@ describe('signup → verify by link → login', () => {
 		const token = lastToken();
 		expect((await verify(crypto.randomBytes(32).toString('base64url'))).body.data).toEqual({ reason: 'link_invalid' });
 		expect((await verify('not a token!')).status).toBe(400);
-		await AuthCode.updateMany({}, { $set: { expires_at: new Date(Date.now() - 1000) } });
+		await AuthLink.updateMany({}, { $set: { expires_at: new Date(Date.now() - 1000) } });
 		const expired = await verify(token);
 		expect(expired.status).toBe(400);
 		expect(expired.body.data).toEqual({ reason: 'link_expired' });
@@ -162,9 +163,10 @@ describe('unverified-cleanup', () => {
 
 		expect(await User.exists({ email: 'old@signup.test' })).toBeNull();
 		expect(await Organization.exists({ _id: oldOrg?._id })).toBeNull();
-		for (const Model of [Membership, Profile, AuthCode] as const) {
+		for (const Model of [Membership, Profile] as const) {
 			expect(await (Model as typeof Membership).countDocuments({ user_id: old?._id })).toBe(0);
 		}
+		expect(await AuthLink.countDocuments({ subject_id: old?._id })).toBe(0);
 		expect(await Client.countDocuments({ organization_id: oldOrg?._id })).toBe(0);
 		expect(await User.exists({ email: 'shared@signup.test' })).toBeNull();
 		expect(await Organization.exists({ _id: sharedOrg?._id })).not.toBeNull();

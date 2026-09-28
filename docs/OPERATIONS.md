@@ -330,7 +330,10 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 - **Limits (Phase 13a):** come from billing: the trial allowances (1 location, 3 users), then the paid location quantity and 3 users per paid location, and the plan's cap (20 locations on the standard plan). There is no organization-wide keyword cap (20 per location). `DEFAULT_LOCATION_LIMIT` / `DEFAULT_KEYWORD_LIMIT` were removed.
 - **Team invitations (Phase 11):** links are `${FRONTEND_URL}/invite?token=…`, valid `INVITATION_TTL_DAYS` (7). Sent or logged per `EMAIL_TRANSPORT` (see "Email").
 - **Email verification (Phase 8.1):** a link `${FRONTEND_URL}/verify-email?token=…`, valid `EMAIL_VERIFICATION_TTL_HOURS` (24); the token is stored as a SHA-256 hash. The hourly `unverified-cleanup` job deletes signups not verified in time. Sent or logged per `EMAIL_TRANSPORT` (see "Email").
-- **Auth codes** (password reset only since 8.1): `AUTH_CODE_TTL_MINUTES` (15). Codes are HMAC-hashed with a key derived from `JWT_SECRET` (changing `JWT_SECRET` invalidates pending codes). Rate-limit counters are in `rate_limits` (TTL); IP-based limits need `trust proxy` (Phase 10).
+- **One-time links (13b; no codes or OTPs anywhere):** `auth_links` (`src/services/auth/links.ts`), one row per account and purpose (a newer link replaces the older), only the token's SHA-256 stored, kept a week after expiry or use so an old link answers `link_expired` / `link_invalid` (TTL on `purge_at`).
+  - Password reset (users and admins): `PASSWORD_RESET_TTL_MINUTES` (60). Users: `${FRONTEND_URL}/reset-password?token=…`; admins: `${ADMIN_FRONTEND_URL}/reset-password?token=…`.
+  - A new admin's first password: the same admin page, valid `ADMIN_SET_PASSWORD_TTL_HOURS` (72); the account has no password until then.
+  - Rate-limit counters are in `rate_limits` (TTL); IP-based limits need `trust proxy` (Phase 10).
 
 ## Ranking jobs
 
@@ -418,7 +421,7 @@ Cluster-mode caveats, since every instance runs these:
 2. **`.env`** (see `.env.example`). The app refuses to start in production without the security settings:
    - `JWT_SECRET` and `ADMIN_JWT_SECRET`: each at least 32 characters (`openssl rand -hex 32`), different from each other.
    - `TOKEN_ENCRYPTION_KEY` (`openssl rand -hex 32`); losing or changing it forces every user to reconnect GBP.
-   - `TRUST_PROXY_HOPS=1` behind nginx; `ACCESSDOMAINS` lists every frontend origin; `FRONTEND_URL` (verification links, PayPal return pages); `SHARE_BASE_URL` (public API origin; nginx forwards `/r/` to the app).
+   - `TRUST_PROXY_HOPS=1` behind nginx; `ACCESSDOMAINS` lists every frontend origin; `FRONTEND_URL` (verification, reset and invitation links, PayPal return pages); `ADMIN_FRONTEND_URL` (admin password links); `SHARE_BASE_URL` (public API origin; nginx forwards `/r/` to the app).
    - Google: `GOOGLE_PLACE_API_KEY`, the GBP OAuth client, `GBP_V4_ENABLED` (false until v4 access).
    - Ranking: `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`.
    - PayPal and billing: section "PayPal setup" (`PAYPAL_WEBHOOK_ID` is set after step 5).

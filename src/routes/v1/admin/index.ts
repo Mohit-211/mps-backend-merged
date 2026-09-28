@@ -2,11 +2,12 @@ import adminAuthRoute from './adminAuth.route';
 import adminCitationsRoute from './citations.route';
 import adminBillingRoute from './billing.route';
 import adminRolesRoute from './roles.route';
+import adminAccountsRoute from './admins.route';
 
 
 const adminRoutes = [
     {
-		path: '/admin/auth/',
+		path: '/admin/auth',
 		route: adminAuthRoute,
 	},
 	{
@@ -18,6 +19,11 @@ const adminRoutes = [
 		// Phase 13a: billing admin (plans and prices, custom plans, subscriptions, invoices, tokens, coupons).
 		path: '/admin/billing',
 		route: adminBillingRoute,
+	},
+	{
+		// Phase 13b: admin accounts (super admin).
+		path: '/admin/admins',
+		route: adminAccountsRoute,
 	},
 	{
 		// Phase 13b: the admin roles and their permissions (read-only).

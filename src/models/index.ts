@@ -33,7 +33,7 @@ export * from "./gbpData.model";
 export * from "./gbpReport.model";
 export * from "./organization.model";
 export * from "./membership.model";
-export * from "./authCode.model";
+export * from "./authLink.model";
 export * from "./rateLimit.model";
 export * from "./invitation.model";
 export * from "./report.model";

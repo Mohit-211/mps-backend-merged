@@ -5,7 +5,6 @@
  */
 
 import httpStatus from "http-status";
-import validator from "validator";
 import { AdminPermission, permissionsFor } from "../../configs/adminPermissions";
 import { AdminTokenClaims, verifyAdminToken } from "../../services/admin/adminToken";
 
@@ -16,37 +15,6 @@ import {
 	isValidMongoObjectId,
 } from "../../utils";
 import { Admin, IAdmin, Role } from "../../models";
-
-export const validateSignInReqBody = catchAsync(async (req, res, next) => {
-	const { email, password } = req.body;
-	//   const { time_zone } = req.headers;
-	//   if (!time_zone) {
-	//     return responseWrapper(
-	//       res,
-	//       "",
-	//       "Please Enter Required Fields : time_zone inside headers",
-	//       httpStatus.BAD_REQUEST
-	//     );
-	//   }
-	if (!email || !password) {
-		return responseWrapper(
-			res,
-			"",
-			"Please Enter Required Fields : [email, password]",
-			httpStatus.BAD_REQUEST
-		);
-	}
-	if (!validator.isEmail(email)) {
-		return responseWrapper(
-			res,
-			"",
-			"Invalid email format",
-			httpStatus.BAD_REQUEST
-		);
-	}
-	req.body.ip_address = req.ip;
-	next();
-});
 
 /**
  * Phase 10 (AUDIT S19, S1): admin session tokens only (adminToken.ts: ADMIN_JWT_SECRET, HS256,
@@ -66,7 +34,7 @@ export const validateAdminJWTToken = catchAsync(async (req, res, next) => {
 		return unauthorized();
 	}
 	if (!isValidMongoObjectId(claims.sub)) return unauthorized();
-	const admin = await Admin.findOne({ _id: claims.sub, is_active: true }).select({ name: 1, email: 1, role_id: 1, department_id: 1, token_version: 1 }).lean<IAdmin>();
+	const admin = await Admin.findOne({ _id: claims.sub, is_active: true }).select({ name: 1, email: 1, role_id: 1, token_version: 1 }).lean<IAdmin>();
 	if (!admin || (admin.token_version ?? 0) !== claims.tv || admin.role_id !== claims.role_id) return unauthorized();
 	const role = await Role.findOne({ role_id: admin.role_id, is_active: true }).select({ name: 1 }).lean<{ name: string }>();
 	if (!role) return unauthorized();
@@ -79,7 +47,6 @@ export const validateAdminJWTToken = catchAsync(async (req, res, next) => {
 		email: admin.email,
 		role_id: admin.role_id,
 		role_name: role.name,
-		department_id: admin.department_id ?? null,
 	};
 	req.body.ip_address = req.ip;
 	next();

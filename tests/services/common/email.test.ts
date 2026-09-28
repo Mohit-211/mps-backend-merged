@@ -13,7 +13,7 @@ const pdf = { filename: 'x.pdf', content: Buffer.from('%PDF') };
 /** Every email type the app sends, with the recipient it goes to. */
 const EMAILS: { kind: string; to: string; send: () => Promise<unknown>; link?: string }[] = [
 	{ kind: 'verification', to: 'verify.me@example.com', send: () => email.sendVerificationLinkEmail('verify.me@example.com', LINK), link: LINK },
-	{ kind: 'password_reset', to: 'reset.me@example.com', send: () => email.sendForgotPasswordOTP('reset.me@example.com', '123456') },
+	{ kind: 'password_reset', to: 'reset.me@example.com', send: () => email.sendPasswordResetLinkEmail('reset.me@example.com', LINK), link: LINK },
 	{ kind: 'invitation', to: 'invite.me@example.com', send: () => email.sendInvitationEmail('invite.me@example.com', LINK, 'Acme', 'member'), link: LINK },
 	{
 		kind: 'report',
@@ -21,7 +21,7 @@ const EMAILS: { kind: string; to: string; send: () => Promise<unknown>; link?: s
 		send: () => email.sendReportEmail({ to: ['report.me@example.com'], subject: 'Report', text: 't', html: '<p>t</p>', senderName: 'Acme', replyTo: null, attachment: pdf }),
 	},
 	{ kind: 'billing', to: 'bill.me@example.com', send: () => email.sendBillingEmail({ to: 'bill.me@example.com', subject: 'Invoice', text: 't', html: '<p>t</p>', attachment: pdf }) },
-	{ kind: 'admin', to: 'admin.me@example.com', send: () => email.sendAdminCredential('admin.me@example.com', 'temp-password', 'Admin') },
+	{ kind: 'admin', to: 'admin.me@example.com', send: () => email.sendAdminPasswordLinkEmail('admin.me@example.com', LINK, 'welcome'), link: LINK },
 	{ kind: 'contact', to: 'contact.me@example.com', send: () => email.sendContactUsConfirmationMail('contact.me@example.com', 'Pat') },
 	{ kind: 'contact', to: 'support@example.com', send: () => email.sendContactUsAdminMail('Pat', 'Acme', 'pat@example.com', '1', 'w', 'l', 's', 'p', 'g') },
 ];

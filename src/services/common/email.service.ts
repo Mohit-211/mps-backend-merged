@@ -1,7 +1,6 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import config from '../../configs/config';
 import logger from '../../configs/logger';
-import { forgotPasswordSendOTPFormat, adminCredentialsEmailFormat } from '../../constants';
 import { contactUsAdminEmailFormat, contactUsConfirmationEmailFormat } from '../../constants/Contactusemailformat';
 
 // Every email the app sends goes through deliver() (13b, Mohit 2026-09-29): one switch, EMAIL_TRANSPORT.
@@ -98,14 +97,18 @@ export const sendVerificationLinkEmail = async (to: string, link: string): Promi
   });
 };
 
-export const sendForgotPasswordOTP = async (to: string, otp: string): Promise<boolean> =>
-  deliverQuietly({
+/** 13b: the password-reset link (FRONTEND_URL/reset-password?token=…). */
+export const sendPasswordResetLinkEmail = async (to: string, link: string): Promise<boolean> => {
+  const minutes = config.auth.passwordResetTtlMinutes;
+  return deliverQuietly({
     kind: 'password_reset',
     to,
-    subject: 'Forget Password Request',
-    text: 'Please click on the following link to verify your email',
-    html: forgotPasswordSendOTPFormat(otp),
+    link,
+    subject: 'Reset your MyPageSEO password',
+    text: `Someone asked to reset the password of your MyPageSEO account. Choose a new password: ${link}\nThe link works once and expires in ${minutes} minutes. If it wasn't you, ignore this email; your password stays the same.`,
+    html: `<p>Someone asked to reset the password of your MyPageSEO account.</p><p><a href="${link}">Choose a new password</a></p><p>The link works once and expires in ${minutes} minutes. If it wasn't you, ignore this email; your password stays the same.</p>`,
   });
+};
 
 /** Phase 11: a team invitation. The link carries the one-time token. */
 export const sendInvitationEmail = async (to: string, link: string, organizationName: string, role: string): Promise<boolean> => {
@@ -160,14 +163,24 @@ export const sendBillingEmail = async (input: { to: string; subject: string; tex
     attachments: input.attachment ? [{ filename: input.attachment.filename, content: input.attachment.content, contentType: 'application/pdf' }] : [],
   });
 
-export const sendAdminCredential = async (to: string, password: string, role: string): Promise<boolean> =>
-  deliverQuietly({
+/**
+ * 13b: an admin password link (ADMIN_FRONTEND_URL/reset-password?token=…): 'welcome' for a new admin
+ * (sets the first password; replaces the emailed temporary password), 'reset' for forgot-password.
+ */
+export const sendAdminPasswordLinkEmail = async (to: string, link: string, purpose: 'welcome' | 'reset'): Promise<boolean> => {
+  const welcome = purpose === 'welcome';
+  const expiry = welcome ? `${config.auth.adminSetPasswordTtlHours} hours` : `${config.auth.passwordResetTtlMinutes} minutes`;
+  const intro = welcome ? 'An administrator account was created for you on the MyPageSEO admin panel.' : 'Someone asked to reset the password of your MyPageSEO admin account.';
+  const action = welcome ? 'Set your password' : 'Choose a new password';
+  return deliverQuietly({
     kind: 'admin',
     to,
-    subject: `Added New ${role} Account`,
-    text: 'Please note your credential for login and continue your journey.',
-    html: adminCredentialsEmailFormat(to, password, role),
+    link,
+    subject: welcome ? 'Your MyPageSEO admin account' : 'Reset your MyPageSEO admin password',
+    text: `${intro} ${action}: ${link}\nThe link works once and expires in ${expiry}.`,
+    html: `<p>${intro}</p><p><a href="${link}">${action}</a></p><p>The link works once and expires in ${expiry}.</p>`,
   });
+};
 
 export const sendContactUsConfirmationMail = async (to: string, name: string): Promise<void> => {
   await deliver({

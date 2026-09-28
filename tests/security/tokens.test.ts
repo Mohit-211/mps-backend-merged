@@ -10,21 +10,7 @@ import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../
 // deletion and the remaining ownership checks, on the real app.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-const sentOtps: string[] = [];
-jest.mock('../../src/services/common/email.service', () =>
-	new Proxy(
-		{},
-		{
-			get: (_t, name) =>
-				name === 'sendForgotPasswordOTP'
-					? jest.fn(async (_to: string, otp: string) => {
-							sentOtps.push(otp);
-							return true;
-						})
-					: jest.fn(async () => true),
-		},
-	),
-);
+jest.mock('../../src/services/common/email.service', () => new Proxy({}, { get: () => jest.fn(async () => true) }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const app: express.Express = require('../../src/app').default;
@@ -40,7 +26,6 @@ beforeAll(async () => {
 afterAll(async () => db.stop());
 beforeEach(async () => {
 	await clearDb();
-	sentOtps.length = 0;
 });
 
 describe('user tokens (S24)', () => {

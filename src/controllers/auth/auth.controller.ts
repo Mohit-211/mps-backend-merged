@@ -19,10 +19,10 @@ export const resendVerification = catchAsync(async (req, res) =>
 );
 export const login = catchAsync(async (req, res) => responseWrapper(res, await authService.login(res.locals.authInput, meta(req)), 'Logged in.'));
 export const forgotPassword = catchAsync(async (req, res) =>
-	responseWrapper(res, await authService.forgotPassword(res.locals.authInput, meta(req)), 'If an account exists for this email, a reset code was sent.'),
+	responseWrapper(res, await authService.forgotPassword(res.locals.authInput, meta(req)), 'If an account exists for this email, a reset link was sent.'),
 );
 export const resetPassword = catchAsync(async (req, res) =>
-	responseWrapper(res, await authService.resetPassword(res.locals.authInput), 'Password changed. Please log in again.'),
+	responseWrapper(res, await authService.resetPassword(res.locals.authInput, meta(req)), 'Password changed. Please log in again.'),
 );
 
 // Phase 13b: sessions and the account (verifyAuthJWTToken sets req.body.user on the signed-in routes).

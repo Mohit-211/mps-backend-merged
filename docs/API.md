@@ -1624,8 +1624,8 @@ Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 |---|---|---|
 | `POST /auth/resend-verification` | `{ email }` | **200** `{ "email_verification": "sent_if_pending" }`, the same for unknown, already-verified or expired accounts. A new link makes every older link `link_invalid`. |
 | `POST /auth/login` | `{ email, password }` | The session (as above, without `verified` / `already_verified`). Unverified (after a correct password) → **403** `{ "reason": "email_not_verified", "resend": "/api/v1/auth/resend-verification" }`, no tokens: show "Verify your email" + **Send a new link**. Wrong email or password → **401** (one message for both). Disabled → **403** `account_disabled`. |
-| `POST /auth/forgot-password` | `{ email }` | **200** `{ "reset": "sent_if_account_exists" }` |
-| `POST /auth/reset-password` | `{ email, code, password }` | **200** `{ "reset": true }`; every refresh token is revoked (log in again). The code proves the mailbox, so a still-unverified email becomes verified. |
+| `POST /auth/forgot-password` | `{ email }` | **200** `{ "reset": "sent_if_account_exists" }`, the same for unknown accounts. Emails `FRONTEND_URL/reset-password?token=<token>` (13b): random, stored only as a hash, single use, valid 60 minutes (`PASSWORD_RESET_TTL_MINUTES`); a newer link makes older ones `link_invalid`. 3 per email and 20 per IP an hour. |
+| `POST /auth/reset-password` | `{ token, password, confirm_password }` (the `/reset-password` page reads `token` from the link) | **200** `{ "reset": true }`; every session ends (log in again). The link proves the mailbox, so a still-unverified email becomes verified. **400** `{ "reason": "link_invalid" }` (unknown, replaced or already used), `link_expired` (offer "send a new link"), `passwords_do_not_match`; a password that breaks the rules → **400** with the rule. |
 
 Accepting a team invitation also verifies the email (a new account is created verified; an existing unverified one is marked verified).
 
@@ -2108,13 +2108,17 @@ Admin endpoints (`/admin/*`, and the admin-only routes listed with `admin (permi
 ```http
 POST /api/v1/admin/auth/login
 { "email": "admin@example.com", "password": "…" }
-→ { "id": "…", "name": "…", "email": "admin@example.com", "role_id": 1, "token": "eyJ…" }
+→ { "admin": { "id": "…", "name": "…", "email": "admin@example.com", "role_id": 1, "role_name": "Super Admin", "permissions": ["admins.manage", "…"], "is_active": true, "password_set": true, "last_login_at": "…", "created_at": "…" }, "token": "eyJ…" }
 Authorization: Bearer eyJ…
 ```
 
 - **Token:** HS256, signed with `ADMIN_JWT_SECRET`, audience `mps-admin`, valid 12 hours. User tokens never work on admin routes, and the reverse.
-- **Revocation:** a password change (`/admin/auth/resetPassword` returns a fresh token), a forgot-password reset, a role or email change, or deactivation ends all earlier admin sessions.
-- **Forgot password:** `sendOTP { email }` (same answer whether or not the email is an admin) → `verifyOTP { email, otp, otp_type: "FORGOT_PASSWORD" }` (10-minute code, 5 attempts) → `{ token }` (15 minutes, single use) → `forgotPassword { email, password, confirm_password, token }`.
+- **Passwords by link (13b, no OTP):** the admin panel has one page, `ADMIN_FRONTEND_URL/reset-password?token=…`, which posts `POST /admin/auth/reset-password { token, password, confirm_password }` (errors as for users: `link_invalid`, `link_expired`, `passwords_do_not_match`). Two links lead there:
+  - **Forgot password:** `POST /admin/auth/forgot-password { email }` → `{ reset: "sent_if_account_exists" }` (same answer for any email); the link is valid 60 minutes.
+  - **New admin:** `POST /admin/admins { name, email, role_id }` creates the account **without a password** and emails a set-password link (72 h, `ADMIN_SET_PASSWORD_TTL_HOURS`); `POST /admin/admins/:adminId/password-link` sends a new one. Until the password is set the admin can't sign in (`password_set: false`).
+- **Change password:** `POST /admin/auth/change-password { current_password, new_password, confirm_password }` → `{ changed: true, token }` (continue with the new token). **400** `wrong_password`, `passwords_do_not_match`.
+- **Revocation:** a password change or reset, a role or email change, or deactivation (`PATCH /admin/admins/:adminId { is_active: false }`) ends all earlier sessions of that admin. Admins are never deleted.
+- **Admin accounts** (`admins.manage`): `GET /admin/admins?active=`, `GET/PATCH /admin/admins/:adminId`. `PATCH` takes any of `name, email, role_id, is_active`; **403** `own_role`, `own_account`, `last_super_admin`; **409** `email_taken`; **400** `invalid_role`. Every change is in the audit log (`admin.create`, `admin.update`, `admin.password_link`).
 - **Permissions:**
 
 | Permission | Roles |

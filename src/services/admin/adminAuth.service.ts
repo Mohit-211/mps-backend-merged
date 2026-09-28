@@ -1,209 +1,205 @@
-/** @format */
+import bcrypt from 'bcryptjs';
+import httpStatus from 'http-status';
+import { Types } from 'mongoose';
+import config from '../../configs/config';
+import logger from '../../configs/logger';
+import { AdminPermission, permissionsFor } from '../../configs/adminPermissions';
+import { Admin, IAdmin, Role } from '../../models';
+import { ApiError, apiErrorWithData } from '../../utils';
+import { audit, AuditActor } from '../billing/audit';
+import { sendAdminPasswordLinkEmail } from '../common/email.service';
+import { adminLinkUrl, claimLink, findLink, issueLink, linkError, passwordResetExpiry, passwordsDoNotMatch } from '../auth/links';
+import { LIMITS, hit } from '../auth/rateLimit';
+import { signAdminToken } from './adminToken';
 
-import crypto from "crypto";
-import bcrypt from "bcryptjs";
-import httpStatus from "http-status";
-import { BodyDefinition } from "../../types/RouteDefinition";
-import { Admin, IAdmin, Role } from "../../models";
-import { ApiError, apiErrorWithData } from "../../utils";
-import { sendAdminCredential, sendForgotPasswordOTP } from "../common/email.service";
-import config from "../../configs/config";
-import { otpTypes } from "../../configs/constantTypes";
-import { LIMITS, hit } from "../auth/rateLimit";
-import { hashAdminToken, signAdminToken, verifyAdminToken } from "./adminToken";
+// Platform admin sign-in and accounts (Phase 10; rebuilt in 13b: no OTP codes anywhere).
+// - Sign-in: email + password → a 12 h admin session token (adminToken.ts), rate-limited per email + IP.
+// - Forgot password: a link to ADMIN_FRONTEND_URL/reset-password?token=… (PASSWORD_RESET_TTL_MINUTES, single
+//   use, a newer link replaces older ones), the same answer whether or not the email is an admin.
+// - A new admin gets no password: a set-password link (ADMIN_SET_PASSWORD_TTL_HOURS) to the same page.
+// - token_version is incremented on every password change or reset, role or email change and deactivation.
+// - Admins are deactivated, never deleted (audit entries keep their author); every account change is audit-logged.
 
-// Platform admin accounts (Phase 10 hardening, AUDIT S1, S6, S14, S19, S22):
-// - tokens come from adminToken.ts only (ADMIN_JWT_SECRET; session 12 h, password reset 15 min);
-// - passwords and OTPs from crypto; OTPs hashed, 10 minutes, 5 attempts; reset tokens stored hashed, single use;
-// - sign-in and OTP requests are rate-limited (Mongo counters, per email and IP);
-// - token_version is incremented on password change, role change and deactivation (revokes tokens);
-// - request values are coerced to strings before they reach a filter (no operator injection);
-// - responses never carry password, OTP or reset-token fields.
+type Id = Types.ObjectId | string;
+const ROLE_KEYS = ['superAdmin', 'admin', 'editor'] as const;
 
-const OTP_TTL_MS = 10 * 60 * 1000;
-const OTP_MAX_ATTEMPTS = 5;
-const SAFE_FIELDS = "-password -otp -remember_token -otp_expires_at -otp_attempts -token_version";
+const invalidCredentials = () => new ApiError(httpStatus.BAD_REQUEST, 'Invalid email or password.');
+const notFound = () => new ApiError(httpStatus.NOT_FOUND, 'Admin not found.');
 
-const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
-const email = (v: unknown): string => str(v).toLowerCase();
+const roleName = async (roleId: number | null | undefined): Promise<string | null> =>
+	roleId === null || roleId === undefined ? null : ((await Role.findOne({ role_id: roleId }).select({ name: 1 }).lean<{ name: string }>())?.name ?? null);
 
-const invalidCredentials = () => new ApiError(httpStatus.BAD_REQUEST, "Invalid email or password.");
+export interface AdminView {
+	id: string;
+	name: string | null;
+	email: string;
+	role_id: number | null;
+	role_name: string | null;
+	permissions: AdminPermission[];
+	is_active: boolean;
+	password_set: boolean;
+	last_login_at: Date | null;
+	created_at: Date;
+}
 
-const sessionFor = (admin: Pick<IAdmin, "_id" | "role_id" | "token_version">) =>
+const view = async (admin: IAdmin): Promise<AdminView> => ({
+	id: String(admin._id),
+	name: admin.name ?? null,
+	email: admin.email,
+	role_id: admin.role_id ?? null,
+	role_name: await roleName(admin.role_id),
+	permissions: permissionsFor(admin.role_id),
+	is_active: admin.is_active,
+	password_set: Boolean(admin.password),
+	last_login_at: admin.last_login_at ?? null,
+	created_at: admin.created_at,
+});
+
+const sessionFor = (admin: Pick<IAdmin, '_id' | 'role_id' | 'token_version'>) =>
 	signAdminToken({ sub: String(admin._id), role_id: admin.role_id as number, tv: admin.token_version ?? 0 });
 
-const safeView = (admin: IAdmin) => {
-	const raw = typeof (admin as unknown as { toObject?: () => Record<string, unknown> }).toObject === "function"
-		? (admin as unknown as { toObject: () => Record<string, unknown> }).toObject()
-		: { ...(admin as unknown as Record<string, unknown>) };
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const { password, otp, remember_token, otp_expires_at, otp_attempts, token_version, ...safe } = raw;
-	return safe;
+/** One of the fixed admin roles (super admin, admin, editor) that exists and is active. */
+const assertAssignableRole = async (roleId: number): Promise<void> => {
+	const fixed = ROLE_KEYS.map((k) => config.roles[k]);
+	if (!fixed.includes(roleId) || !(await Role.exists({ role_id: roleId, is_active: true }))) {
+		throw apiErrorWithData(httpStatus.BAD_REQUEST, 'Unknown admin role.', { reason: 'invalid_role', roles: fixed });
+	}
 };
 
-export const createAdminUser = async (body: { email?: unknown; name?: unknown; role_id?: unknown }) => {
-	const addr = email(body.email);
-	const name = str(body.name);
-	const roleId = Number(body.role_id);
-	if (!addr || !name || !Number.isInteger(roleId)) throw new ApiError(httpStatus.BAD_REQUEST, "Please provide: email, name, role_id");
-	if (await Admin.findOne({ email: addr })) throw new ApiError(httpStatus.BAD_REQUEST, "Email already exists");
-	const roleDoc = await Role.findOne({ role_id: roleId, is_active: true });
-	if (!roleDoc) throw new ApiError(httpStatus.BAD_REQUEST, "Invalid role_id");
+const isLastActiveSuperAdmin = async (admin: IAdmin): Promise<boolean> =>
+	admin.role_id === config.roles.superAdmin && admin.is_active && (await Admin.countDocuments({ role_id: config.roles.superAdmin, is_active: true })) <= 1;
 
-	// A temporary password from crypto (was Math.random), sent once by email; the admin changes it.
-	const plainPassword = crypto.randomBytes(12).toString("base64url");
-	const adminDoc = await Admin.create({ name, email: addr, role_id: roleId, password: bcrypt.hashSync(plainPassword, 10) });
-	const mailSent = await sendAdminCredential(addr, plainPassword, roleDoc.name);
-	if (!mailSent) throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, "Unable to send credentials email");
-	return safeView(adminDoc);
-};
+// ---- Sign-in and passwords ----
 
-export const loginAdminUser = async (body: { email?: unknown; password?: unknown; ip_address?: string }) => {
-	const addr = email(body.email);
-	const password = str(body.password);
-	if (!addr || !password) throw invalidCredentials();
-	await hit(LIMITS.adminLoginPerEmailIp, [addr, body.ip_address ?? "unknown"]);
-	const admin = await Admin.findOne({ email: addr, is_active: true });
-	if (!admin?.password || !(await bcrypt.compare(password, admin.password))) throw invalidCredentials();
+export const login = async (input: { email: string; password: string }, ip: string, now: Date = new Date()) => {
+	await hit(LIMITS.adminLoginPerEmailIp, [input.email, ip], now);
+	const admin = await Admin.findOne({ email: input.email, is_active: true });
+	if (!admin?.password || !(await bcrypt.compare(input.password, admin.password))) throw invalidCredentials();
 	if (!(await Role.exists({ role_id: admin.role_id, is_active: true }))) throw invalidCredentials();
-	return { id: admin._id, name: admin.name, email: admin.email, role_id: admin.role_id, token: sessionFor(admin) };
+	admin.last_login_at = now;
+	await admin.save();
+	logger.info(`admin: ${String(admin._id)} signed in`);
+	return { admin: await view(admin), token: sessionFor(admin) };
 };
 
-/** Always answers the same, so the endpoint doesn't reveal which emails are admins. */
-export const sendOTP = async (body: { email?: unknown; ip_address?: string }) => {
-	const addr = email(body.email);
-	if (!addr) throw new ApiError(httpStatus.BAD_REQUEST, "Please provide: email");
-	await hit(LIMITS.adminOtpPerEmail, [addr]);
-	await hit(LIMITS.adminOtpPerIp, [body.ip_address ?? "unknown"]);
-	const admin = await Admin.findOne({ email: addr, is_active: true });
+/** Emails a reset link to an active admin. Always the same answer (no admin-email enumeration). */
+export const forgotPassword = async (input: { email: string }, ip: string, now: Date = new Date()) => {
+	await hit(LIMITS.adminForgotPerIp, [ip], now);
+	await hit(LIMITS.adminForgotPerEmail, [input.email], now);
+	const admin = await Admin.findOne({ email: input.email, is_active: true });
 	if (admin) {
-		const otp = String(crypto.randomInt(100000, 1000000));
-		admin.otp = await bcrypt.hash(otp, 10);
-		admin.is_otp_valid = true;
-		admin.otp_expires_at = new Date(Date.now() + OTP_TTL_MS);
-		admin.otp_attempts = 0;
-		await admin.save();
-		await sendForgotPasswordOTP(addr, otp);
+		const token = await issueLink('admin', admin._id, 'reset_password', passwordResetExpiry(now));
+		await sendAdminPasswordLinkEmail(admin.email, adminLinkUrl('reset-password', token), 'reset');
+		logger.info(`admin: password reset link issued for ${String(admin._id)}`);
 	}
-	return { message: "If this email belongs to an administrator, a code has been sent." };
+	return { reset: 'sent_if_account_exists' };
 };
 
-export const verifyOTP = async (body: { email?: unknown; otp?: unknown; otp_type?: unknown; ip_address?: string }) => {
-	const addr = email(body.email);
-	const otp = str(body.otp);
-	if (!addr || !otp) throw new ApiError(httpStatus.BAD_REQUEST, "Please provide both email and OTP");
-	await hit(LIMITS.adminOtpPerIp, [body.ip_address ?? "unknown"]);
-	const invalid = () => apiErrorWithData(httpStatus.BAD_REQUEST, "The code is invalid or has expired.", { reason: "invalid_code" });
-	const admin = await Admin.findOne({ email: addr, is_active: true });
-	if (!admin || !admin.is_otp_valid || !admin.otp || !admin.otp_expires_at || admin.otp_expires_at.getTime() < Date.now()) throw invalid();
-	if ((admin.otp_attempts ?? 0) >= OTP_MAX_ATTEMPTS) throw invalid();
-	if (!(await bcrypt.compare(otp, admin.otp))) {
-		admin.otp_attempts = (admin.otp_attempts ?? 0) + 1;
-		await admin.save();
-		throw invalid();
-	}
-	let token = "";
-	if (str(body.otp_type) === otpTypes.FORGOT_PASSWORD) {
-		token = signAdminToken({ sub: String(admin._id), role_id: admin.role_id as number, tv: admin.token_version ?? 0 }, "password_reset");
-		admin.remember_token = hashAdminToken(token);
-	}
-	admin.otp = null as unknown as string;
-	admin.is_otp_valid = false;
-	admin.otp_expires_at = null;
-	admin.otp_attempts = 0;
-	await admin.save();
-	return token ? { token, message: "OTP verified successfully" } : { message: "OTP verified successfully" };
-};
-
-/** Sets a new password with the single-use reset token from verifyOTP; revokes every earlier token. */
-export const forgotAdminPassword = async (reqBody: { email?: unknown; password?: unknown; confirm_password?: unknown; token?: unknown }) => {
-	const addr = email(reqBody.email);
-	const password = str(reqBody.password);
-	const token = str(reqBody.token);
-	if (!addr || !password || !reqBody.confirm_password || !token) {
-		throw new ApiError(httpStatus.BAD_REQUEST, "Please provide: email, password, confirm_password, token");
-	}
-	if (password !== str(reqBody.confirm_password)) throw new ApiError(httpStatus.BAD_REQUEST, "Password and confirm password must match");
-	let claims;
-	try {
-		claims = verifyAdminToken(token, "password_reset");
-	} catch {
-		throw new ApiError(httpStatus.BAD_REQUEST, "Invalid or expired token");
-	}
-	const admin = await Admin.findOne({ _id: claims.sub, email: addr, remember_token: hashAdminToken(token), is_active: true });
-	if (!admin) throw new ApiError(httpStatus.BAD_REQUEST, "Invalid or expired token");
-	admin.password = bcrypt.hashSync(password, 10);
-	admin.remember_token = null as unknown as string;
+/** Sets a password with a reset link or a new admin's set-password link; every admin session of that account ends. */
+export const resetPassword = async (input: { token: string; password: string; confirm_password: string }, ip: string, now: Date = new Date()) => {
+	await hit(LIMITS.adminResetPerIp, [ip], now);
+	if (input.password !== input.confirm_password) throw passwordsDoNotMatch();
+	const found = await findLink(['reset_password', 'set_password'], input.token, now);
+	if ('reason' in found) throw linkError(found.reason);
+	if (found.link.subject_kind !== 'admin') throw linkError('link_invalid');
+	const admin = await Admin.findOne({ _id: found.link.subject_id, is_active: true });
+	if (!admin) throw linkError('link_invalid');
+	if (!(await claimLink(found.link, now))) throw linkError('link_used');
+	admin.password = bcrypt.hashSync(input.password, 10);
 	admin.token_version = (admin.token_version ?? 0) + 1;
 	await admin.save();
-	return { message: "Password changed successfully" };
+	logger.info(`admin: ${String(admin._id)} set a password (${found.link.purpose})`);
+	return { reset: true };
 };
 
-/** Change the signed-in admin's own password (the id comes from the token, never from the body). */
-export const resetAdminPassword = async (adminId: string, reqBody: { old_password?: unknown; new_password?: unknown; confirm_password?: unknown }) => {
-	const oldPassword = str(reqBody.old_password);
-	const newPassword = str(reqBody.new_password);
-	if (!oldPassword || !newPassword || !reqBody.confirm_password) {
-		throw new ApiError(httpStatus.BAD_REQUEST, "Please enter all required fields: [ old_password, new_password, confirm_password ]");
+/** The signed-in admin changes their password; other sessions end, this one continues with the returned token. */
+export const changePassword = async (adminId: Id, input: { current_password: string; new_password: string; confirm_password: string }) => {
+	if (input.new_password !== input.confirm_password) throw passwordsDoNotMatch();
+	const admin = await Admin.findOne({ _id: adminId, is_active: true });
+	if (!admin?.password || !(await bcrypt.compare(input.current_password, admin.password))) {
+		throw apiErrorWithData(httpStatus.BAD_REQUEST, 'The current password is not correct.', { reason: 'wrong_password' });
 	}
-	if (newPassword !== str(reqBody.confirm_password)) throw new ApiError(httpStatus.BAD_REQUEST, "New password and confirm password do not match.");
+	admin.password = bcrypt.hashSync(input.new_password, 10);
+	admin.token_version = (admin.token_version ?? 0) + 1;
+	await admin.save();
+	return { changed: true, token: sessionFor(admin) };
+};
+
+export const me = async (adminId: Id): Promise<AdminView> => {
+	const admin = await Admin.findOne({ _id: adminId, is_active: true });
+	if (!admin) throw notFound();
+	return view(admin);
+};
+
+// ---- Admin accounts (admins.manage) ----
+
+const sendPasswordLink = async (admin: IAdmin, now: Date): Promise<boolean> => {
+	const purpose = admin.password ? 'reset_password' : 'set_password';
+	const expires = purpose === 'set_password' ? new Date(now.getTime() + config.auth.adminSetPasswordTtlHours * 3_600_000) : passwordResetExpiry(now);
+	const token = await issueLink('admin', admin._id, purpose, expires);
+	return sendAdminPasswordLinkEmail(admin.email, adminLinkUrl('reset-password', token), purpose === 'set_password' ? 'welcome' : 'reset');
+};
+
+export const listAdmins = async (query: { active?: boolean }) => {
+	const filter = query.active === undefined ? {} : { is_active: query.active };
+	const admins = await Admin.find(filter).sort({ created_at: 1 });
+	return Promise.all(admins.map(view));
+};
+
+export const getAdmin = async (adminId: Id): Promise<AdminView> => {
 	const admin = await Admin.findById(adminId);
-	if (!admin?.password || !(await bcrypt.compare(oldPassword, admin.password))) throw new ApiError(httpStatus.BAD_REQUEST, "Incorrect old password.");
-	admin.password = await bcrypt.hash(newPassword, 10);
-	admin.token_version = (admin.token_version ?? 0) + 1;
+	if (!admin) throw notFound();
+	return view(admin);
+};
+
+/** Creates an admin without a password and emails the set-password link. */
+export const createAdmin = async (actor: AuditActor, input: { name: string; email: string; role_id: number }, now: Date = new Date()) => {
+	await assertAssignableRole(input.role_id);
+	if (await Admin.exists({ email: input.email })) throw apiErrorWithData(httpStatus.CONFLICT, 'An admin with this email already exists.', { reason: 'email_taken' });
+	const admin = await Admin.create({ name: input.name, email: input.email, role_id: input.role_id, password: null, created_by: new Types.ObjectId(actor.id) });
+	const sent = await sendPasswordLink(admin, now);
+	await audit(actor, { action: 'admin.create', target: String(admin._id), after: { name: input.name, email: input.email, role_id: input.role_id } }, now);
+	return { ...(await view(admin)), password_link_sent: sent };
+};
+
+/** Name, email, role, active. Not your own role or active flag; never the last active super admin's role or activity. */
+export const updateAdmin = async (actor: AuditActor, adminId: Id, input: { name?: string; email?: string; role_id?: number; is_active?: boolean }, now: Date = new Date()) => {
+	const admin = await Admin.findById(adminId);
+	if (!admin) throw notFound();
+	const self = String(admin._id) === actor.id;
+	const before = { name: admin.name ?? null, email: admin.email, role_id: admin.role_id ?? null, is_active: admin.is_active };
+	let revoke = false;
+	if (input.role_id !== undefined && input.role_id !== admin.role_id) {
+		if (self) throw apiErrorWithData(httpStatus.FORBIDDEN, "You can't change your own role.", { reason: 'own_role' });
+		await assertAssignableRole(input.role_id);
+		if (await isLastActiveSuperAdmin(admin)) throw apiErrorWithData(httpStatus.FORBIDDEN, 'The last super admin must stay a super admin.', { reason: 'last_super_admin' });
+		admin.role_id = input.role_id;
+		revoke = true;
+	}
+	if (input.is_active !== undefined && input.is_active !== admin.is_active) {
+		if (self) throw apiErrorWithData(httpStatus.FORBIDDEN, "You can't deactivate your own account.", { reason: 'own_account' });
+		if (!input.is_active && (await isLastActiveSuperAdmin(admin))) throw apiErrorWithData(httpStatus.FORBIDDEN, "The last super admin can't be deactivated.", { reason: 'last_super_admin' });
+		admin.is_active = input.is_active;
+		revoke = true;
+	}
+	if (input.email !== undefined && input.email !== admin.email) {
+		if (await Admin.exists({ email: input.email, _id: { $ne: admin._id } })) throw apiErrorWithData(httpStatus.CONFLICT, 'An admin with this email already exists.', { reason: 'email_taken' });
+		admin.email = input.email;
+		revoke = true;
+	}
+	if (input.name !== undefined) admin.name = input.name;
+	if (revoke) admin.token_version = (admin.token_version ?? 0) + 1;
 	await admin.save();
-	// Every other session is revoked; this one continues with a fresh token.
-	return { message: "Password changed successfully.", token: sessionFor(admin) };
+	const after = { name: admin.name ?? null, email: admin.email, role_id: admin.role_id ?? null, is_active: admin.is_active };
+	await audit(actor, { action: 'admin.update', target: String(admin._id), before, after }, now);
+	return view(admin);
 };
 
-export const getProfile = async (body: BodyDefinition) => {
-	const { user } = body;
-	if (!user) throw new ApiError(httpStatus.BAD_REQUEST, "Failed to Get Profile.");
-	return user;
-};
-
-export const getAllAdmins = async () => Admin.find().select(SAFE_FIELDS);
-
-export const findAdminById = async (id: string) => {
-	const admin = await Admin.findById(id).select(SAFE_FIELDS);
-	if (!admin) throw new ApiError(httpStatus.NOT_FOUND, "Admin not found");
-	return admin;
-};
-
-/** Super admin only (route guard). An admin can't change their own role; a role change revokes the admin's tokens. */
-export const updateAdmin = async (actorId: string, body: { id?: unknown; name?: unknown; email?: unknown; role_id?: unknown }) => {
-	const id = str(body.id);
-	const admin = id ? await Admin.findById(id) : null;
-	if (!admin) throw new ApiError(httpStatus.NOT_FOUND, "Admin not found");
-	const newEmail = email(body.email);
-	if (newEmail && newEmail !== admin.email) {
-		if (await Admin.findOne({ email: newEmail })) throw new ApiError(httpStatus.BAD_REQUEST, "Email already taken");
-		admin.email = newEmail;
-		admin.token_version = (admin.token_version ?? 0) + 1;
-	}
-	const name = str(body.name);
-	if (name) admin.name = name;
-	if (body.role_id !== undefined && body.role_id !== null && body.role_id !== "") {
-		const roleId = Number(body.role_id);
-		if (String(admin._id) === actorId) throw apiErrorWithData(httpStatus.FORBIDDEN, "You can't change your own role.", { reason: "own_role" });
-		if (!Number.isInteger(roleId) || !(await Role.exists({ role_id: roleId, is_active: true }))) throw new ApiError(httpStatus.BAD_REQUEST, "Invalid role_id");
-		if (roleId !== admin.role_id) {
-			admin.role_id = roleId;
-			admin.token_version = (admin.token_version ?? 0) + 1;
-		}
-	}
-	await admin.save();
-	return safeView(admin);
-};
-
-export const deleteAdmin = async (actorId: string, body: { id?: unknown }) => {
-	const id = str(body.id);
-	if (id === actorId) throw apiErrorWithData(httpStatus.FORBIDDEN, "You can't delete your own account.", { reason: "own_account" });
-	const admin = id ? await Admin.findById(id) : null;
-	if (!admin) throw new ApiError(httpStatus.NOT_FOUND, "Admin not found");
-	if (admin.role_id === config.roles.superAdmin && (await Admin.countDocuments({ role_id: config.roles.superAdmin, is_active: true })) <= 1) {
-		throw apiErrorWithData(httpStatus.FORBIDDEN, "The last super admin can't be deleted.", { reason: "last_super_admin" });
-	}
-	await admin.deleteOne();
-	return { message: "Admin deleted successfully" };
+/** Emails a new set-password link (no password yet) or reset link; older links stop working. */
+export const resendPasswordLink = async (actor: AuditActor, adminId: Id, now: Date = new Date()) => {
+	const admin = await Admin.findOne({ _id: adminId, is_active: true });
+	if (!admin) throw notFound();
+	const sent = await sendPasswordLink(admin, now);
+	await audit(actor, { action: 'admin.password_link', target: String(admin._id), note: admin.password ? 'reset' : 'set' }, now);
+	return { password_link_sent: sent, purpose: admin.password ? 'reset_password' : 'set_password' };
 };

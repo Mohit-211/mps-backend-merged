@@ -6,10 +6,10 @@ import { userStatusTypes, userTypes } from '../../configs/constantTypes';
 import { IUser, OrganizationCountry, Profile, User, UserLoginTiming, UserToken } from '../../models';
 import { ApiError, apiErrorWithData } from '../../utils';
 import { generateAuthTokens } from '../common/token.service';
-import { sendForgotPasswordOTP, sendVerificationLinkEmail } from '../common/email.service';
+import { sendPasswordResetLinkEmail, sendVerificationLinkEmail } from '../common/email.service';
 import { createOrganizationForOwner, listMemberships, resolveOrgContext } from '../org/context';
 import { orgOnboardingState } from '../org/onboardingState';
-import { checkCode, issueCode } from './codes';
+import { claimLink, findLink, issueLink, linkError, passwordResetExpiry, passwordsDoNotMatch, userLinkUrl } from './links';
 import { consumeLinkToken, deleteUnverifiedAccount, emailNotVerifiedError, issueLinkToken, markVerified, ttlMs, verificationLink } from './emailVerification';
 import { LIMITS, hit } from './rateLimit';
 
@@ -20,7 +20,7 @@ import { LIMITS, hit } from './rateLimit';
 
 export interface Mailer {
 	sendVerification: (to: string, link: string) => Promise<boolean>;
-	sendReset: (to: string, code: string) => Promise<boolean>;
+	sendReset: (to: string, link: string) => Promise<boolean>;
 }
 
 export interface AuthDeps {
@@ -45,16 +45,10 @@ const BLOCKED_STATUSES = [userStatusTypes.REJECTED, userStatusTypes.BLOCKED, use
 /** Compared against when the email is unknown, so both answers take about as long. */
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
-const defaultMailer: Mailer = { sendVerification: sendVerificationLinkEmail, sendReset: sendForgotPasswordOTP };
+const defaultMailer: Mailer = { sendVerification: sendVerificationLinkEmail, sendReset: sendPasswordResetLinkEmail };
 
 const normaliseEmail = (email: string): string => email.trim().toLowerCase();
 
-const codeError = (reason: 'invalid_code' | 'code_expired', attemptsLeft: number) =>
-	apiErrorWithData(
-		httpStatus.BAD_REQUEST,
-		reason === 'invalid_code' ? 'The code is not correct.' : 'The code has expired or was used up. Ask for a new one.',
-		{ reason, attempts_left: attemptsLeft },
-	);
 
 /**
  * What the app needs after verify / login: tokens, the user, their organizations and onboarding.
@@ -179,31 +173,38 @@ export const createAuthService = (deps: AuthDeps = {}) => {
 		return sessionFor(user, { ip: meta.ip, at: now() });
 	};
 
-	/** Always answers the same (no account enumeration). */
+	/**
+	 * 13b: emails a reset link (FRONTEND_URL/reset-password?token=…, PASSWORD_RESET_TTL_MINUTES, single use; a
+	 * newer link replaces older ones). Always answers the same (no account enumeration). Rate-limited per email and IP.
+	 */
 	const forgotPassword = async (input: { email: string }, meta: RequestMeta) => {
 		const email = normaliseEmail(input.email);
 		await hit(LIMITS.forgotPerIp, [meta.ip], now());
 		await hit(LIMITS.forgotPerEmail, [email], now());
 		const user = await User.findOne({ email });
 		if (user && user.is_active && !BLOCKED_STATUSES.includes(user.status)) {
-			const code = await issueCode(user._id, 'reset_password', now());
-			await mailer.sendReset(email, code);
-			logger.info(`auth: password reset code sent for user ${String(user._id)}`);
+			const token = await issueLink('user', user._id, 'reset_password', passwordResetExpiry(now()));
+			await mailer.sendReset(email, userLinkUrl('reset-password', token));
+			logger.info(`auth: password reset link issued for user ${String(user._id)}`);
 		}
 		return { reset: 'sent_if_account_exists' };
 	};
 
-	/** Sets a new password with a reset code, and signs out every session (refresh tokens revoked). */
-	const resetPassword = async (input: { email: string; code: string; password: string }) => {
-		const email = normaliseEmail(input.email);
-		await hit(LIMITS.resetPerEmail, [email], now());
-		const user = await User.findOne({ email });
-		if (!user) throw codeError('code_expired', 0);
-		const check = await checkCode(user._id, 'reset_password', input.code, now());
-		if ('reason' in check) throw codeError(check.reason, check.attempts_left);
+	/**
+	 * Sets a new password with a reset link: the passwords must match and meet the rules (validator). The link
+	 * proves the mailbox, so the email counts as verified; every session ends (refresh tokens and token_version).
+	 */
+	const resetPassword = async (input: { token: string; password: string; confirm_password: string }, meta: RequestMeta) => {
+		await hit(LIMITS.resetPerIp, [meta.ip], now());
+		if (input.password !== input.confirm_password) throw passwordsDoNotMatch();
+		const found = await findLink(['reset_password'], input.token, now());
+		if ('reason' in found) throw linkError(found.reason);
+		if (found.link.subject_kind !== 'user') throw linkError('link_invalid');
+		const user = await User.findById(found.link.subject_id);
+		if (!user || !user.is_active || BLOCKED_STATUSES.includes(user.status)) throw linkError('link_invalid');
+		if (!(await claimLink(found.link, now()))) throw linkError('link_used');
 		user.password = bcrypt.hashSync(input.password, 10);
 		await user.save();
-		// A reset code proves the mailbox, so a still-unverified account counts as verified.
 		await markVerified(user._id, now());
 		// Phase 10: access tokens stop working at once too (token_version).
 		await User.updateOne({ _id: user._id }, { $inc: { token_version: 1 } });

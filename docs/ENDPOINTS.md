@@ -67,9 +67,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-29, Phase 13b in progress)
 
-**203 endpoints:** 202 live, 1 dev-only.
-- **By origin:** 157 rebuilt or new, 46 legacy.
-- **By auth:** 92 user, 74 platform admin (each with a permission), 37 none.
+**202 endpoints:** 201 live, 1 dev-only.
+- **By origin:** 167 rebuilt or new, 35 legacy.
+- **By auth:** 92 user, 74 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -83,6 +83,8 @@ This block is recounted with every commit that changes the catalogue.
 
 **Phase 13b legacy sweep:** `/system/*` (4) and `GET/DELETE /logs` removed (the `system.read` permission with them).
 
+**Phase 13b password links:** no OTP or code remains. User reset is by link (`/auth/forgot-password`, `/auth/reset-password`); the admin OTP routes (`sendOTP`, `verifyOTP`, `forgotPassword`) and the legacy-shaped admin routes (`register`, `getAllAdmins`, `getAdminById/:id`, `getProfile`, `resetPassword`, `updateAdmin`, `deleteAdmin`) were replaced by `/admin/auth/{login, forgot-password, reset-password, change-password, me}` and `/admin/admins`.
+
 ## Catalogue: all current endpoints
 
 Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (acts in the current organization), `user + owner` (member of the location's organization, otherwise 404), `refresh token`, `admin`. The security findings for legacy routes (S1–S30) are in [AUDIT.md](AUDIT.md) and the [ROUTES.md](ROUTES.md) snapshot.
@@ -91,18 +93,17 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/admin/auth/register` | admin (`admins.manage`) | Create Admin User (crypto temporary password, emailed) | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/login` | none (rate-limited) | Login Admin User: an admin session token (12 h, `ADMIN_JWT_SECRET`) | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/sendOTP` | none (rate-limited) | Send OTP (10 min, 5 attempts; same answer for unknown emails) | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/verifyOTP` | none (rate-limited) | Verify OTP; with `otp_type=FORGOT_PASSWORD` returns a single-use 15-min reset token | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/resetPassword` | admin | Change the signed-in admin's password (other sessions revoked; returns a new token) | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/forgotPassword` | none (reset token) | Set a new password with the reset token (sessions revoked) | legacy, changed 10 | live |
-| GET | `/api/v1/admin/auth/getAllAdmins` | admin (`admins.manage`) | Get All Admins (no password/OTP/token fields) | legacy, changed 10 | live |
-| GET | `/api/v1/admin/auth/getAdminById/:id` | admin (`admins.manage`) | Find Admin By Id | legacy, changed 10 | live |
-| GET | `/api/v1/admin/auth/getProfile` | admin | Get Profile | legacy | live |
+| POST | `/api/v1/admin/auth/login` | none (rate-limited) | Sign in: `{ admin, token }` (a 12 h admin session, `ADMIN_JWT_SECRET`) | 10, rebuilt 13b | live |
+| POST | `/api/v1/admin/auth/forgot-password` | none (rate-limited) | Email a reset link `ADMIN_FRONTEND_URL/reset-password?token=…` (60 min, single use); same answer for unknown emails | 13b | live |
+| POST | `/api/v1/admin/auth/reset-password` | none (link token, rate-limited) | Set the password with a reset link or a new admin's set-password link; every session of that admin ends | 13b | live |
+| POST | `/api/v1/admin/auth/change-password` | admin | Change your own password (current, new, confirm); other sessions end; returns a new token | 13b | live |
+| GET | `/api/v1/admin/auth/me` | admin | The signed-in admin: role name and permissions | 13b | live |
+| GET | `/api/v1/admin/admins` | admin (`admins.manage`) | Admin accounts (`?active=true\|false`) | 13b | live |
+| POST | `/api/v1/admin/admins` | admin (`admins.manage`) | Create an admin (`name, email, role_id`); no password: a set-password link is emailed (72 h) | 13b | live |
+| GET | `/api/v1/admin/admins/:adminId` | admin (`admins.manage`) | One admin | 13b | live |
+| PATCH | `/api/v1/admin/admins/:adminId` | admin (`admins.manage`) | Name, email, role, `is_active` (deactivate; admins are never deleted). Not your own role or activity; the last super admin stays | 13b | live |
+| POST | `/api/v1/admin/admins/:adminId/password-link` | admin (`admins.manage`) | Email a new set-password link (no password yet) or reset link; older links stop working | 13b | live |
 | GET | `/api/v1/admin/roles` | admin (`admins.manage`) | The admin roles (super admin, admin, editor) with the permissions each grants; read-only (roles are fixed in `adminPermissions.ts`) | 13b | live |
-| PUT | `/api/v1/admin/auth/updateAdmin` | admin (`admins.manage`) | Update Admin (not your own role; a role or email change revokes that admin's tokens) | legacy, changed 10 | live |
-| DELETE | `/api/v1/admin/auth/deleteAdmin` | admin (`admins.manage`) | Delete Admin (not yourself, not the last super admin) | legacy, changed 10 | live |
 
 ### Auth (rebuilt app)
 
@@ -112,8 +113,8 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/auth/verify-email` | none (rate-limited) | Verify the email with the link token; the first time returns the session, then `already_verified` (400 `link_expired` / `link_invalid`) | 8, changed 8.1 | live |
 | POST | `/api/v1/auth/resend-verification` | none (rate-limited) | New verification link; older links stop working (same answer whether or not the account exists). Replaces `/auth/verify-email/resend` | 8.1 | live |
 | POST | `/api/v1/auth/login` | none | Login; returns tokens, organizations and onboarding (403 `email_not_verified`: no tokens until the email is verified) | 8 | live |
-| POST | `/api/v1/auth/forgot-password` | none | Password reset code by email (same answer whether or not the account exists) | 8 | live |
-| POST | `/api/v1/auth/reset-password` | none | New password with the reset code; signs out every session | 8 | live |
+| POST | `/api/v1/auth/forgot-password` | none (rate-limited) | Email a reset link `FRONTEND_URL/reset-password?token=…` (60 min, single use, a newer link replaces older ones; same answer whether or not the account exists) | 8, changed 13b | live |
+| POST | `/api/v1/auth/reset-password` | none (link token, rate-limited) | New password with the reset link (`token, password, confirm_password`); marks the email verified; signs out every session | 8, changed 13b | live |
 | POST | `/api/v1/auth/refresh` | none (refresh token in the body) | New access + refresh token; the used refresh token stops working (rotation) | 13b | live |
 | POST | `/api/v1/auth/logout` | none (refresh token in the body) | Ends that session (its refresh token) | 13b | live |
 | POST | `/api/v1/auth/change-password` | user | Change the password (current one required); ends every other session and returns new tokens | 13b | live |
@@ -523,7 +524,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 31 | POST | `/auth/resend-verification` | none | `{ email }` | `{ email_verification: 'sent_if_pending' }` |
 | 32 | POST | `/auth/login` | none | `{ email, password }` | Session; **403** `email_not_verified` |
 | 33 | POST | `/auth/forgot-password` | none | `{ email }` | `{ reset: 'sent_if_account_exists' }` |
-| 34 | POST | `/auth/reset-password` | none | `{ email, code, password }` | `{ reset: true }` (sessions revoked) |
+| 34 | POST | `/auth/reset-password` | none | `{ token, password, confirm_password }` (password rules as signup) | `{ reset: true }` (sessions revoked, email verified); **400** `link_invalid` (unknown, replaced or used), `link_expired`, `passwords_do_not_match` |
 | 35 | GET | `/organization` | user + org | – | `{ organization, role, memberships }` |
 | 36 | PATCH | `/organization` | user + org (owner) | `{ name?, country? }` | As #35 |
 | 37 | GET | `/organization/usage` | user + org | – | `{ plan: { id, name, kind }, billing: { state, read_only, trial_ends_at, current_period_end }, locations: { used, limit, max }, users: { used, limit }, tokens: { balance }, keywords: { used, limit: null }, clients, api_usage: { … } }` (13a; `api_usage` 12.5) |

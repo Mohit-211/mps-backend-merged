@@ -3,9 +3,9 @@ import request from 'supertest';
 import { Types } from 'mongoose';
 import { queryTypesArr } from '../../src/configs/constantTypes';
 import logger from '../../src/configs/logger';
-import { ApiUsage, AuthCode, Client, GbpReport, Location, Membership, Organization, RankRun, User, UserGBP } from '../../src/models';
+import { ApiUsage, AuthLink, Client, GbpReport, Location, Membership, Organization, RankRun, User, UserGBP } from '../../src/models';
 import { activateBilling } from '../helpers/billing';
-import { hashLinkToken } from '../../src/services/auth/emailVerification';
+import { hashLinkToken } from '../../src/services/auth/links';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { loadPlacesFixture } from '../helpers/fakeTransport';
 import { addMember, clearDb, createLocation, createUser, ensureOrg, keywordsOf, startTestDb } from '../helpers/mongoose';
@@ -22,7 +22,7 @@ jest.mock('../../src/services/common/email.service', () => ({
 	...jest.requireActual('../../src/services/common/email.service'),
 	// Phase 8.1: verification is a link; `code` holds the link's token.
 	sendVerificationLinkEmail: jest.fn(async (to: string, link: string) => sentCodes.push({ to, code: new URL(link).searchParams.get('token') ?? '', kind: 'verify' }) > 0),
-	sendForgotPasswordOTP: jest.fn(async (to: string, code: string) => sentCodes.push({ to, code, kind: 'reset' }) > 0),
+	sendPasswordResetLinkEmail: jest.fn(async (to: string, link: string) => sentCodes.push({ to, code: new URL(link).searchParams.get('token') ?? '', kind: 'reset' }) > 0),
 }));
 
 const detailsCalls: string[] = [];
@@ -74,7 +74,7 @@ const auth = (token: string, orgId?: string) => ({ Authorization: `Bearer ${toke
 let db: { stop: () => Promise<void> };
 beforeAll(async () => {
 	db = await startTestDb();
-	await Promise.all([AuthCode.syncIndexes(), Organization.syncIndexes(), UserGBP.syncIndexes(), GbpReport.syncIndexes()]);
+	await Promise.all([AuthLink.syncIndexes(), Organization.syncIndexes(), UserGBP.syncIndexes(), GbpReport.syncIndexes()]);
 }, 60000);
 afterAll(async () => db.stop());
 beforeEach(async () => {
@@ -108,8 +108,8 @@ describe('auth', () => {
 		expect(await Membership.countDocuments({ organization_id: org?._id, user_id: user?._id, role: 'owner' })).toBe(1);
 
 		const { code } = sentCodes[0];
-		const stored = await AuthCode.findOne({ user_id: user?._id }).lean();
-		expect(stored?.code_hash).toBe(hashLinkToken(code));
+		const stored = await AuthLink.findOne({ subject_kind: 'user', subject_id: user?._id }).lean();
+		expect(stored?.token_hash).toBe(hashLinkToken(code));
 		expect(JSON.stringify(stored)).not.toContain(`"${code}"`);
 
 		const unverified = await request(app).post('/api/v1/auth/login').send({ email: 'pat@agency.test', password: 'secret123' });
@@ -153,7 +153,7 @@ describe('auth', () => {
 
 	// Link expiry, reuse, resend and cleanup: tests/routes/emailVerification.routes.test.ts (Phase 8.1).
 
-	it('resend and forgot answer the same for unknown accounts; reset changes the password and signs out', async () => {
+	it('resend and forgot answer the same for unknown accounts; reset by link changes the password and signs out', async () => {
 		const unknownResend = await request(app).post('/api/v1/auth/resend-verification').send({ email: 'ghost@x.test' });
 		const unknownForgot = await request(app).post('/api/v1/auth/forgot-password').send({ email: 'ghost@x.test' });
 		expect([unknownResend.status, unknownForgot.status]).toEqual([200, 200]);
@@ -164,11 +164,36 @@ describe('auth', () => {
 		await User.updateOne({ email: 'pat@agency.test' }, { $set: { status: 'ACCEPTED', email_verified_at: new Date() } });
 		const forgot = await request(app).post('/api/v1/auth/forgot-password').send({ email: 'pat@agency.test' });
 		expect(forgot.body.message).toBe(unknownForgot.body.message);
-		const reset = sentCodes.find((c) => c.kind === 'reset');
-		expect(reset).toBeDefined();
-		expect((await request(app).post('/api/v1/auth/reset-password').send({ email: 'pat@agency.test', code: reset?.code, password: 'newpass456' })).status).toBe(200);
+		const session = await request(app).post('/api/v1/auth/login').send({ email: 'pat@agency.test', password: 'secret123' });
+		const first = sentCodes.filter((c) => c.kind === 'reset')[0].code;
+		const reset = (token: string, password = 'newpass456', confirm = password) =>
+			request(app).post('/api/v1/auth/reset-password').send({ token, password, confirm_password: confirm });
+		// A newer link replaces the older one; mismatched or weak passwords are refused; a bad token is link_invalid.
+		await request(app).post('/api/v1/auth/forgot-password').send({ email: 'pat@agency.test' });
+		const second = sentCodes.filter((c) => c.kind === 'reset')[1].code;
+		expect((await reset(first)).body.data).toMatchObject({ reason: 'link_invalid' });
+		expect((await reset(second, 'newpass456', 'newpass457')).body.data).toMatchObject({ reason: 'passwords_do_not_match' });
+		expect((await reset(second, 'short', 'short')).status).toBe(400);
+		expect((await reset('garbage')).body.data).toMatchObject({ reason: 'link_invalid' });
+		const link = await AuthLink.findOne({ subject_kind: 'user', purpose: 'reset_password' }).lean();
+		expect(link?.expires_at.getTime()).toBeLessThanOrEqual(Date.now() + 60 * 60_000);
+		expect((await reset(second)).status).toBe(200);
+		expect((await reset(second)).body.data).toMatchObject({ reason: 'link_invalid' }); // single use
+		expect((await request(app).post('/api/v1/auth/refresh').send({ refresh_token: session.body.data.tokens.refresh.token })).status).toBe(401);
 		expect((await request(app).post('/api/v1/auth/login').send({ email: 'pat@agency.test', password: 'secret123' })).status).toBe(401);
 		expect((await request(app).post('/api/v1/auth/login').send({ email: 'pat@agency.test', password: 'newpass456' })).status).toBe(200);
+	});
+
+	it('reset: an expired link answers link_expired; the link proves the mailbox, so an unverified account becomes verified', async () => {
+		await request(app).post('/api/v1/auth/signup').send(signupBody());
+		await request(app).post('/api/v1/auth/forgot-password').send({ email: 'pat@agency.test' });
+		const token = sentCodes.filter((c) => c.kind === 'reset')[0].code;
+		await AuthLink.updateOne({ purpose: 'reset_password' }, { $set: { expires_at: new Date(Date.now() - 1000) } });
+		expect((await request(app).post('/api/v1/auth/reset-password').send({ token, password: 'newpass456', confirm_password: 'newpass456' })).body.data).toMatchObject({ reason: 'link_expired' });
+		await request(app).post('/api/v1/auth/forgot-password').send({ email: 'pat@agency.test' });
+		const fresh = sentCodes.filter((c) => c.kind === 'reset')[1].code;
+		expect((await request(app).post('/api/v1/auth/reset-password').send({ token: fresh, password: 'newpass456', confirm_password: 'newpass456' })).status).toBe(200);
+		expect((await User.findOne({ email: 'pat@agency.test' }).lean())?.email_verified_at).toBeInstanceOf(Date);
 	});
 
 	it('rate limits: login 10 per 15 minutes per email + IP (429 with retry_after_seconds)', async () => {

@@ -3,7 +3,7 @@ import httpStatus from 'http-status';
 import { Types } from 'mongoose';
 import logger from '../../configs/logger';
 import { tokenTypes, userStatusTypes } from '../../configs/constantTypes';
-import { AuthCode, IUser, IUserToken, Membership, Profile, User, UserLoginTiming, UserToken } from '../../models';
+import { AuthLink, IUser, IUserToken, Membership, Profile, User, UserLoginTiming, UserToken } from '../../models';
 import { ApiError, apiErrorWithData } from '../../utils';
 import { generateAuthTokens, revokeUserSessions, verifyToken } from '../common/token.service';
 import { bindingService } from '../gbp/binding.service';
@@ -117,7 +117,7 @@ export const createSessionService = (deps: { now?: () => Date } = {}) => {
 			Profile.deleteOne({ user_id: user._id }),
 			UserToken.deleteMany({ user_id: user._id }),
 			UserLoginTiming.deleteMany({ user_id: user._id }),
-			AuthCode.deleteMany({ user_id: user._id }),
+			AuthLink.deleteMany({ subject_kind: 'user', subject_id: user._id }),
 		]);
 		await User.deleteOne({ _id: user._id });
 		logger.info(`auth: user ${String(user._id)} deleted their account`);

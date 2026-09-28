@@ -65,7 +65,9 @@ const envVarsSchema = Joi.object({
 	GBP_KEYWORD_ROLLING_MONTHS: Joi.number().integer().min(1).max(6).default(2),
 	INVITATION_TTL_DAYS: Joi.number().integer().min(1).max(30).default(7).description('Lifetime of team invitation links'),
 	FRONTEND_URL: Joi.string().uri().allow('').default('').description('Base URL of the web app (invitation links, PayPal return URLs)'),
-	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of password-reset codes'),
+	PASSWORD_RESET_TTL_MINUTES: Joi.number().integer().min(5).max(1440).default(60).description('13b: lifetime of password-reset links (users and admins)'),
+	ADMIN_FRONTEND_URL: Joi.string().uri().allow('').default('').description('13b: base URL of the admin panel (admin password links: /reset-password?token=…)'),
+	ADMIN_SET_PASSWORD_TTL_HOURS: Joi.number().integer().min(1).max(336).default(72).description('13b: lifetime of the set-password link emailed to a new admin'),
 	EMAIL_VERIFICATION_TTL_HOURS: Joi.number().integer().min(1).max(168).default(24).description('Phase 8.1: verification link lifetime; unverified signups are deleted after it'),
 	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
 	REPORTS_STORAGE_DIR: Joi.string().default('./storage/reports').description('Reports center (Phase 12): private directory for report PDFs and branding logos (never served statically)'),
@@ -227,7 +229,9 @@ interface Config {
 	};
 
 	auth: {
-		codeTtlMinutes: number;
+		passwordResetTtlMinutes: number;
+		adminFrontendUrl: string;
+		adminSetPasswordTtlHours: number;
 		/** Phase 8.1: verification link lifetime and the unverified-account deadline, in hours. */
 		emailVerificationTtlHours: number;
 		/** Team invitation lifetime in days (Phase 11). */
@@ -386,7 +390,9 @@ const config: Config = {
 	},
 
 	auth: {
-		codeTtlMinutes: envVars.AUTH_CODE_TTL_MINUTES,
+		passwordResetTtlMinutes: envVars.PASSWORD_RESET_TTL_MINUTES,
+		adminFrontendUrl: envVars.ADMIN_FRONTEND_URL ?? '',
+		adminSetPasswordTtlHours: envVars.ADMIN_SET_PASSWORD_TTL_HOURS,
 		emailVerificationTtlHours: envVars.EMAIL_VERIFICATION_TTL_HOURS,
 		invitationTtlDays: envVars.INVITATION_TTL_DAYS,
 		frontendUrl: envVars.FRONTEND_URL ?? '',
