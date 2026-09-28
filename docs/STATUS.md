@@ -243,6 +243,34 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   | (b) token pack | not tested | not tested |
   | (b) extra location slots | not tested | not tested |
 
+## Legacy leftovers (audit 2026-09-28, decision pending)
+
+Checked after 13a: every file, model, export, route and dependency against what the rebuilt code uses.
+
+**Dead: safe to delete (no endpoint or behaviour changes):**
+- `UserAttachment` model (no references).
+- `randomatic` + `@types/randomatic` (never imported).
+- The heartbeat `node-cron` in `src/app.ts`: logs "still running" every minute in every pm2 process. `node-cron` then has no users either.
+- ~45 unused exports in `src/configs/constantTypes.ts`: payment, booking, appointment, call, refund, tax, currency, gateway and citation-order enums from the original template.
+- `role.middleware` `isSuperAdmin` / `isAdmin` / `isEditor` / `isUser` (replaced by admin permissions); `constants/selectFields.locationSelect`; `email.service.sendResetPasswordConfirmationMail`.
+- Upload fields `gifs`, `docs`, `audios` (accepted, never read) and the file routes `/gifs`, `/docs/:filename`, `/songs` (`/songs` serves a folder nothing writes; audio goes to `audios`). Images and videos stay (blog, legacy white-label, GBP posts).
+- Dead `User` fields: `stripe_customer_id`, `is_proof_verify`, `referral_code`, `available_credit`, `square_customer_id`, `trial`, `subscription_status`, `current_plan_id`, `is_analytics_connected`, `socket_id`, `user_name`. They are still selected by the auth middleware and returned by the legacy profile, so removing them changes those responses.
+- `fcm_token` (saved at legacy login, never used: no push notifications).
+- The `countriesnow.space` seeding script (`seed-country-city-state`); `dumps/` already holds the data.
+
+**Features made useless by rebuilt ones (endpoints; need the frontend's OK):**
+- `/user/clients` (5, already deprecated) → `/clients`.
+- `/white-label-profiles` (5, deprecated) → organization branding.
+- `/user/auth/employee/*` (4, not marked deprecated) → team invitations (Phase 11).
+- `POST /user/notifications`: toggles `notification_status`, which nothing reads (notifications are Phase 15).
+- `/admin/operations/*` (6): lists "agencies" / "businesses" by `user_type`, not organizations → 13b.
+- `/supports` (6) → 13b support tickets.
+- Roles CRUD (5): admin permissions are fixed to role ids 1 / 2 / 4, so a created role grants nothing.
+- Swagger `/docs`: the initial-commit file with 7 paths (ENDPOINTS.md is the real catalogue) → 9b.
+- The legacy `/user/auth` login / OTP / forgot-password (already deprecated) → `/auth/*`.
+
+**Legacy but still needed:** `/user/auth/{refresh-auth, logout, reset-password (change password), deactivate}` and `/user/profile` (no `/auth` equivalent yet); reference data (countries / states / cities / languages / timezones / business categories); blog, FAQ, contact-us; GBP posting (Phase 9, already on organization access); `payments` (read by `migrate:billing` and the legacy link); `UserLoginTiming` (written only by the legacy login; 13b's "last logins" needs the new `/auth/login` to write it).
+
 ## Pre-launch live validation (Mohit triggers it)
 
 Required for M5; not part of Phase 12.5's build:
