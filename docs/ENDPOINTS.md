@@ -4,7 +4,7 @@
 
 **Rule (Mohit, 2026-09-26):**
 - Every commit that adds, changes or removes an endpoint updates this file in the **same commit**, and [API.md](API.md) too when a request or response shape changes.
-- `npm run check:endpoints` loads the Express app, lists every registered route and compares it with the catalogue below. It fails on a route missing here, on an entry here with no route, on a bad status, and on a detail-table row (`#`) that isn't in the catalogue. It runs as part of `npm test`.
+- `npm run check:endpoints` loads the Express app, lists every registered route and compares it with the catalogue below. It fails on a route missing here, on an entry here with no route, on a bad status (there is no `deprecated` status: unused endpoints are deleted, Phase 13b), and on a detail-table row (`#`) that isn't in the catalogue. It runs as part of `npm test`.
 
 **Status values:**
 
@@ -12,7 +12,6 @@
 |---|---|
 | live | Registered in every environment |
 | behind flag | Registered, but answers only when a config flag enables it (the flag is named in the purpose) |
-| deprecated | Still registered; will be removed (the replacement is named in the purpose) |
 | dev only | Registered only when `NODE_ENV=development`; never in test or production |
 
 **Phase:** `legacy` = from the old codebase and not rebuilt; `legacy, rebuilt N` = old path, rebuilt in phase N; otherwise the phase that added it.
@@ -78,7 +77,9 @@ This block is recounted with every commit that changes the catalogue.
 
 **Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121), and 30 `/admin/billing/*` routes (#122–#151); the PayPal webhook kept its path with new handlers.
 
-**Coming:** Phase 9b removes the 14 deprecated routes once the frontend has moved.
+**Phase 13b step 1 (legacy removal):** 40 legacy routes deleted (no deprecated routes remain; the status no longer exists), the read-only `GET /admin/roles` added. Details in [LEGACY_FEATURES.md](LEGACY_FEATURES.md) "Removed in Phase 13b".
+
+**Coming (13b step 2):** the remaining `/user/auth/*` and `/user/profile` routes move to `/auth/*`.
 
 ## Catalogue: all current endpoints
 

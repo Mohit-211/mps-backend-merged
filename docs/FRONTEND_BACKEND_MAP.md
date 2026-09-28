@@ -46,7 +46,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Login | `POST /auth/login` (returns organizations + onboarding), `POST /user/auth/refresh-auth`, `POST /user/auth/logout` | **available (8)**. The legacy `/user/auth/login` is deprecated. |
+| Login | `POST /auth/login` (returns organizations + onboarding), `POST /user/auth/refresh-auth`, `POST /user/auth/logout` | **available (8)**. Session refresh / logout move to `/auth/*` in 13b step 2. |
 | Signup | `POST /auth/signup` (Business or Agency, user details, organization name, country, terms) | **available (8, 8.1)**: creates the user, the organization and the owner membership, and emails a **verification link**. Then show "Check your email" with a resend button (`POST /auth/resend-verification`). Unverified accounts are deleted after 24 h. |
 | Forgot password | `POST /auth/forgot-password` | **available (8)**: a 6-digit code by email (not a link); same answer whether or not the account exists |
 | Reset password | `POST /auth/reset-password` `{ email, code, password }` | **available (8)**; signs out every session. (Changing the password while logged in: legacy `POST /user/auth/reset-password`.) |

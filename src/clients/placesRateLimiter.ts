@@ -54,4 +54,3 @@ export const createMongoLimiter = (options: MongoLimiterOptions): AsyncLimiter =
 };
 
 /** No limit (tests and scripts without a database). */
-export const noLimiter: AsyncLimiter = { acquire: async () => undefined };

@@ -13,8 +13,6 @@ import { quoteSlots } from '../billing/slots';
 type Id = Types.ObjectId | string;
 type OrgLike = IOrganization | { _id: Id };
 
-export const countActiveLocations = (organizationId: Id) => Location.countDocuments({ organization_id: organizationId, is_active: true });
-
 /** Tracked keywords across the organization's active locations. */
 export const countKeywords = async (organizationId: Id): Promise<number> => {
 	const [row] = await Location.aggregate<{ total: number }>([

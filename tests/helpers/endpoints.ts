@@ -8,7 +8,8 @@ export interface RouteEntry {
 	path: string;
 }
 
-export const ENDPOINT_STATUSES = ['live', 'behind flag', 'deprecated', 'dev only'] as const;
+// 13b (Mohit, 2026-09-28): delete, don't deprecate, so `deprecated` is not a valid status.
+export const ENDPOINT_STATUSES = ['live', 'behind flag', 'dev only'] as const;
 export type EndpointStatus = (typeof ENDPOINT_STATUSES)[number];
 
 export interface DocEntry extends RouteEntry {
