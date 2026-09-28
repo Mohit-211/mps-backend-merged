@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { FrozenBranding, ReportType, SnapshotLocation } from '../../models';
 import { bucket, displayRank } from '../../ranking/rankCell';
 import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
-import { Block, CompetitorData, GbpAuditData, Part, RankTrackerData, ReportDocument, SnapshotData, Tone, isAvailable } from './types';
+import { Block, CitationReportData, CompetitorData, GbpAuditData, Part, RankTrackerData, ReportDocument, SnapshotData, Tone, isAvailable } from './types';
 
 // Reports center (Phase 12): turns frozen snapshot data into the document model (typed blocks). Pure.
 // The PDF renderer, the HTML share page, the in-app viewer (GET /reports/:id) and the email summary
@@ -12,6 +12,7 @@ export const TYPE_TITLES: Record<ReportType, string> = {
 	rank_tracker: 'Rank Tracker Report',
 	gbp_audit: 'Google Business Profile Audit',
 	competitor_analysis: 'Competitor Analysis',
+	citation: 'Citation Report',
 	full: 'Local SEO Report',
 };
 
@@ -24,6 +25,7 @@ const UNAVAILABLE_TEXT: Record<string, string> = {
 	no_gbp_report: 'The GBP report has not been generated yet.',
 	no_place_id: 'This location has no Google place.',
 	places_not_configured: 'Competitor data could not be fetched.',
+	no_citations_yet: 'No citations have been tracked for this location yet.',
 };
 
 export const unavailableText = (reason: string): string => UNAVAILABLE_TEXT[reason] ?? 'Not available.';
@@ -338,15 +340,91 @@ export const competitorBlocks = (d: CompetitorData): Block[] => {
 	return out;
 };
 
+// ---- Citations (Phase 16) ----
+
+const CITATION_STATUS_LABELS: Record<string, string> = {
+	not_checked: 'Not checked yet',
+	live_correct: 'Live, correct',
+	nap_wrong: 'Wrong NAP',
+	not_found: 'Not listed',
+	duplicate: 'Duplicate',
+	submitted: 'Submitted',
+	pending: 'Pending',
+	removed: 'Removed',
+};
+const DIRECTORY_TYPE_LABELS: Record<string, string> = { general: 'General', niche: 'Niche', aggregator: 'Aggregator', social: 'Social', government_chamber: 'Government / chamber' };
+const NAP_LABELS: Record<string, string> = { name: 'Name', address: 'Address', phone: 'Phone', website: 'Website' };
+const CHANGE_ACTIONS: Record<string, string> = { added: 'Added to the list', checked: 'Checked (no change)', updated: 'Details updated', removed_from_list: 'Taken off the list', restored: 'Put back on the list' };
+const statusLabel = (s: string | null): string => (s ? CITATION_STATUS_LABELS[s] ?? s : '-');
+
+export const citationBlocks = (d: CitationReportData): Block[] => {
+	const out: Block[] = [];
+	if (d.score) {
+		const c = d.score.counts;
+		out.push({
+			kind: 'kpis',
+			items: [
+				{ label: 'Citation Health', value: d.score.score === null ? '-' : `${d.score.score}`, sub: d.score.grade ? `Grade ${d.score.grade}` : 'Not scored yet', tone: d.score.score === null ? 'neutral' : d.score.score >= 70 ? 'good' : d.score.score < 55 ? 'bad' : 'neutral' },
+				{ label: 'Listings tracked', value: fmtNum(d.score.total), sub: `${fmtPct(d.score.coverage)} checked` },
+				{ label: 'Live and correct', value: fmtNum(c.live_correct ?? 0), tone: 'good' },
+				{ label: 'Wrong NAP', value: fmtNum(c.nap_wrong ?? 0), tone: (c.nap_wrong ?? 0) > 0 ? 'bad' : 'neutral' },
+				{ label: 'Not listed', value: fmtNum(c.not_found ?? 0), tone: (c.not_found ?? 0) > 0 ? 'bad' : 'neutral' },
+			],
+		});
+		out.push({
+			kind: 'table',
+			columns: [{ label: 'Status', weight: 3 }, { label: 'Listings', align: 'right' }],
+			rows: Object.entries(CITATION_STATUS_LABELS)
+				.filter(([k]) => (c[k] ?? 0) > 0)
+				.map(([k, label]) => [label, fmtNum(c[k] ?? 0)]),
+		});
+		out.push({ kind: 'paragraph', text: 'Citation Health weighs each checked listing by its status, the directory type and its authority. Listings not checked yet count only toward coverage.', muted: true });
+	}
+	if (d.nap_issues) {
+		out.push({ kind: 'heading', level: 2, text: 'Name, address and phone issues' });
+		if (d.nap_issues.rows.length) {
+			out.push({
+				kind: 'table',
+				columns: [{ label: 'Directory', weight: 2 }, { label: 'Field' }, { label: 'Listed as', weight: 3 }, { label: 'Should be', weight: 3 }],
+				rows: d.nap_issues.rows.map((r) => [r.directory, NAP_LABELS[r.field] ?? r.field, r.found ?? '-', r.expected ?? '-']),
+			});
+		} else {
+			out.push({ kind: 'paragraph', text: 'No name, address or phone differences found on the checked listings.', muted: true });
+		}
+	}
+	if (d.table) {
+		out.push({ kind: 'heading', level: 2, text: 'Citations' });
+		out.push({
+			kind: 'table',
+			columns: [{ label: 'Directory', weight: 3 }, { label: 'Type', weight: 2 }, { label: 'Status', weight: 2 }, { label: 'NAP issues', weight: 2 }, { label: 'Last checked', align: 'right', weight: 2 }],
+			rows: d.table.map((r) => [r.directory, DIRECTORY_TYPE_LABELS[r.type] ?? r.type, statusLabel(r.status), r.nap_issues.length ? r.nap_issues.map((f) => NAP_LABELS[f] ?? f).join(', ') : '-', fmtDate(r.last_checked_at)]),
+		});
+	}
+	if (d.changes) {
+		out.push({ kind: 'heading', level: 2, text: 'Recent changes' });
+		out.push(
+			d.changes.length
+				? {
+						kind: 'table',
+						columns: [{ label: 'Date', weight: 2 }, { label: 'Directory', weight: 3 }, { label: 'Change', weight: 4 }],
+						rows: d.changes.map((c) => [fmtDate(c.at), c.directory, c.action === 'status_changed' ? `${statusLabel(c.from)} → ${statusLabel(c.to)}` : CHANGE_ACTIONS[c.action] ?? c.action]),
+					}
+				: { kind: 'paragraph', text: 'No changes in this period.', muted: true },
+		);
+	}
+	return out;
+};
+
 // ---- Document ----
 
-const PART_TITLES = { rank_tracker: 'Rankings', gbp_audit: 'Google Business Profile', competitor_analysis: 'Competitors' } as const;
+const PART_TITLES = { rank_tracker: 'Rankings', gbp_audit: 'Google Business Profile', competitor_analysis: 'Competitors', citation: 'Citations' } as const;
 
 const partOf = (key: keyof SnapshotData, part: SnapshotData[keyof SnapshotData]): Block[] => {
 	if (!part) return [];
 	if (!isAvailable(part as Part<object>)) return [unavailable(PART_TITLES[key], part as { reason: string })];
 	if (key === 'rank_tracker') return rankTrackerBlocks(part as RankTrackerData);
 	if (key === 'gbp_audit') return gbpAuditBlocks(part as GbpAuditData);
+	if (key === 'citation') return citationBlocks(part as CitationReportData);
 	return competitorBlocks(part as CompetitorData);
 };
 
@@ -356,6 +434,10 @@ const periodOf = (type: ReportType, data: SnapshotData): string | null => {
 	const range = gbp ? { '28d': 'Last 28 days', '90d': 'Last 90 days', '12m': 'Last 12 months' }[gbp.range] : null;
 	if (type === 'rank_tracker' && rt) return `Rank run of ${fmtDate(rt.run.finished_at ?? rt.run.run_at)}`;
 	if (type === 'gbp_audit') return range;
+	if (type === 'citation') {
+		const c = data.citation && isAvailable(data.citation) ? data.citation : null;
+		return c ? `Citations as of ${fmtDate(c.as_of)}` : null;
+	}
 	if (type === 'full') return [rt ? `Rank run of ${fmtDate(rt.run.finished_at ?? rt.run.run_at)}` : null, range].filter(Boolean).join(' · ') || null;
 	return null;
 };
@@ -365,7 +447,7 @@ export const buildDocument = (input: { type: ReportType; location: SnapshotLocat
 	let blocks: Block[];
 	if (type === 'full') {
 		blocks = [];
-		for (const key of ['rank_tracker', 'gbp_audit', 'competitor_analysis'] as const) {
+		for (const key of ['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation'] as const) {
 			const part = data[key];
 			if (!part) continue;
 			// A part that is only an "unavailable" note doesn't start a new page.

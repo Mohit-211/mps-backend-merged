@@ -144,7 +144,9 @@ describe('POST /reports + generation', () => {
 		const full = (await request(app).get(`/api/v1/reports/${fullId}`).set(auth(unbound.token))).body.data;
 		expect(full.snapshot.data.gbp_audit).toEqual({ available: false, reason: 'gbp_not_connected' });
 		expect(full.snapshot.data.competitor_analysis.available).toBe(true);
-		expect(full.document.blocks.filter((b: { kind: string }) => b.kind === 'heading' && (b as unknown as { level: number }).level === 1)).toHaveLength(3);
+		// Phase 16: the Full report has a fourth part, Citations (here: none tracked yet).
+		expect(full.document.blocks.filter((b: { kind: string }) => b.kind === 'heading' && (b as unknown as { level: number }).level === 1)).toHaveLength(4);
+		expect(full.snapshot.data.citation).toEqual({ available: false, reason: 'no_citations_yet' });
 	});
 
 	it('validation: unknown section 400, no rank run 400, other organization 404, bad type 400', async () => {

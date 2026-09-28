@@ -9,6 +9,7 @@ import mongoose, { Types } from 'mongoose';
 import config from '../configs/config';
 import { GbpReport, IGbpReport, Location } from '../models';
 import { updateSummaryFromReport, updateSummaryFromRuns } from '../services/locations/summary';
+import { updateCitationSummary } from '../services/citations/summary';
 
 const main = async (): Promise<number> => {
 	await mongoose.connect(config.databases.mongodb.url, {
@@ -32,6 +33,8 @@ const main = async (): Promise<number> => {
 				await updateSummaryFromReport(_id as Types.ObjectId, report);
 				reports += 1;
 			}
+			// Phase 16: Citation Health.
+			await updateCitationSummary(_id as Types.ObjectId);
 		}
 		process.stdout.write(`Database ${db}: ${locations.length} location summaries rebuilt (${reports} with a GBP report).\n`);
 		return 0;

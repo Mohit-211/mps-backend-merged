@@ -13,7 +13,10 @@ import { PlacesRate } from '../clients/placesRateLimiter';
 import {
 	ApiUsage,
 	AuthCode,
+	CitationStatusLog,
 	Client,
+	Directory,
+	DirectoryCategory,
 	GbpKeywordMonthly,
 	GbpMetricDaily,
 	GbpProfileSnapshot,
@@ -22,6 +25,7 @@ import {
 	GbpSync,
 	Invitation,
 	Location,
+	LocationCitation,
 	Membership,
 	OAuthState,
 	Organization,
@@ -63,6 +67,11 @@ const MODELS: Record<string, Model<never>> = {
 	RankResultList,
 	ApiUsage,
 	PlacesRate,
+	// Phase 16: citations.
+	Directory,
+	DirectoryCategory,
+	LocationCitation,
+	CitationStatusLog,
 } as unknown as Record<string, Model<never>>;
 
 const main = async (): Promise<number> => {

@@ -42,7 +42,9 @@ import {
 	GbpReport,
 	GbpReview,
 	GbpSync,
+	CitationStatusLog,
 	ILocation,
+	LocationCitation,
 	Invitation,
 	IUser,
 	Location,
@@ -70,6 +72,8 @@ import { enqueueRankRun } from '../services/ranking/rankRun.service';
 import { executeRankRun } from '../services/ranking/rankRunExecutor';
 import { normaliseKeywords } from '../services/ranking/trackingSettings';
 import { createReportService } from '../services/reports/report.service';
+import { seedCitationDirectories } from '../services/citations/seed';
+import { writeDemoCitations } from '../services/citations/demo';
 import { reportStorage } from '../services/reports/storage';
 import { createShareService } from '../services/reports/share.service';
 
@@ -110,6 +114,9 @@ const removePreviousDemo = async (): Promise<void> => {
 	}
 	await Promise.all([
 		Report.deleteMany({ organization_id: { $in: orgIds } }),
+		// Phase 16: citation lists of the demo locations (the directory master list is shared and kept).
+		LocationCitation.deleteMany({ organization_id: { $in: orgIds } }),
+		CitationStatusLog.deleteMany({ organization_id: { $in: orgIds } }),
 		ReportSnapshot.deleteMany({ report_id: { $in: reportIds } }),
 		ReportShare.deleteMany({ organization_id: { $in: orgIds } }),
 		ReportSchedule.deleteMany({ organization_id: { $in: orgIds } }),
@@ -397,6 +404,11 @@ const main = async (): Promise<void> => {
 			},
 		},
 	);
+	// Phase 16: the starter directory master list and a citation list per demo location (before the reports, so
+	// the Citation Report and the Full reports include them).
+	const citationSeed = await seedCitationDirectories();
+	const citations = await writeDemoCitations([bLoc, a1, a2, a3] as ILocation[], now);
+
 	const reports = createReportService({ enqueue: async () => undefined });
 	const makeReport = async (location: ILocation, type: ReportType, userId: Types.ObjectId) => {
 		const fresh = (await Location.findById(location._id)) as ILocation;
@@ -407,6 +419,8 @@ const main = async (): Promise<void> => {
 	const reportIds: string[] = [];
 	reportIds.push(await makeReport(bLoc, 'rank_tracker', business._id), await makeReport(bLoc, 'full', business._id));
 	const auditId = await makeReport(a1, 'gbp_audit', agency._id);
+	const citationReportId = await makeReport(a1, 'citation', agency._id);
+	reportIds.push(citationReportId);
 	reportIds.push(await makeReport(a1, 'rank_tracker', agency._id), auditId, await makeReport(a1, 'competitor_analysis', agency._id), await makeReport(a3, 'full', agency._id));
 	const schedule = await ReportSchedule.create({
 		organization_id: orgId,
@@ -455,6 +469,12 @@ const main = async (): Promise<void> => {
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/report-schedules`);
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/organization/branding`);
 	out(`    curl -s -H "Authorization: Bearer $TOKEN_CLIENT" ${base}/reports   (Danforth Services' reports only)`);
+	out();
+	out(`Citations (Phase 16): ${citationSeed.directories.created + citationSeed.directories.updated + citationSeed.directories.unchanged} directories in the master list, ${citations.entries} listings on the demo locations (${citations.checked} checked, 60 days of history); Citation Report ${citationReportId}.`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/locations/${String(a1._id)}/citations`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" ${base}/locations/${String(a1._id)}/citations/changes`);
+	out(`    curl -s -H "Authorization: Bearer $TOKEN_AGENCY" -o citation-report.pdf ${base}/reports/${citationReportId}/pdf`);
+	out('  Admin endpoints (/api/v1/admin/citations/...) need a platform-admin token from POST /api/v1/admin/auth/login.');
 
 	await mongoose.disconnect();
 	process.exit(0);

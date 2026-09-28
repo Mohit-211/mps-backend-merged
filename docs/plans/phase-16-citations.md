@@ -1,4 +1,4 @@
-> **Status: approved by Mohit on 2026-09-27, build paused** (Mohit, 2026-09-27: "we will get back to citation and other stuff later on"). Nothing from this plan is built yet: no branch, no code.
+> **Status: built** on `claude/phase-16-citations` (2026-09-27), awaiting merge. "As built" notes: CLAUDE.md §12f; details and commits: docs/PROGRESS.md "Phase 16". Started 2026-09-27 (Mohit: "Resuming … Phase 16 is next"). Approved 2026-09-27, paused the same day, then resumed. Plan choices re-confirmed on resume: retire the whole `/citation/*` module and `serpapi` (incl. the old-Places-API call); keep the old order model renamed for the credit-payment code until Phase 13; `citations.view` + `citations.manage`; the score defaults as in §5; `csv-parse` / `csv-stringify`.
 >
 > **To resume:**
 > 1. Branch `claude/phase-16-citations` from `claude/rebuild`.

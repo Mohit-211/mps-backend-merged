@@ -18,6 +18,7 @@ import {
 	IReportSnapshot,
 	LeanRankRun,
 	Location,
+	LocationCitation,
 	RankRun,
 	REPORT_SECTIONS,
 	Report,
@@ -34,6 +35,7 @@ import { OrgContext } from '../org/context';
 import { brandingService } from './branding.service';
 import { buildDocument } from './blocks';
 import { renderPdf } from './render/pdf';
+import { buildCitationData } from './sections/citations';
 import { buildCompetitorData } from './sections/competitors';
 import { buildGbpAuditData } from './sections/gbpAudit';
 import { findReportRun, loadRankTrackerData } from './sections/rankTracker';
@@ -136,7 +138,13 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 					throw apiErrorWithData(httpStatus.BAD_REQUEST, 'No competitor comparison for this location yet.', { reason });
 				}
 			}
-			if (type === 'full' && !run && !gbp) throw apiErrorWithData(httpStatus.BAD_REQUEST, 'This location has no rankings or GBP report yet.', { reason: 'no_data' });
+			if (type === 'full' && !run && !gbp && !(await LocationCitation.exists({ location_id: location._id, active: true }))) {
+				throw apiErrorWithData(httpStatus.BAD_REQUEST, 'This location has no rankings, GBP report or citations yet.', { reason: 'no_data' });
+			}
+		}
+		// Phase 16: a Citation Report needs a citation list.
+		if (type === 'citation' && !(await LocationCitation.exists({ location_id: location._id, active: true }))) {
+			throw apiErrorWithData(httpStatus.BAD_REQUEST, 'No citations are tracked for this location yet.', { reason: 'no_citations_yet' });
 		}
 		return run;
 	};
@@ -294,7 +302,7 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 	// ---- generation (report-generate job) ----
 
 	const buildData = async (report: IReport, location: ILocation): Promise<{ data: SnapshotData; sources: IReportSnapshot['sources'] }> => {
-		const parts: ('rank_tracker' | 'gbp_audit' | 'competitor_analysis')[] = report.type === 'full' ? (report.sections as never[]) : [report.type as never];
+		const parts: ('rank_tracker' | 'gbp_audit' | 'competitor_analysis' | 'citation')[] = report.type === 'full' ? (report.sections as never[]) : [report.type as never];
 		const sectionsFor = (key: (typeof parts)[number]) => (report.type === 'full' ? [...REPORT_SECTIONS[key]] : report.sections);
 		const [gbp, bound] = await Promise.all([
 			GbpReport.findOne({ location_id: location._id }).lean<IGbpReport>(),
@@ -308,6 +316,8 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 				const loaded = runId ? await loadRankTrackerData(location._id as Types.ObjectId, runId, sectionsFor(key)) : null;
 				data.rank_tracker = loaded ? loaded.data : off('no_rank_run');
 				if (loaded) rankRunId = loaded.run_id;
+			} else if (key === 'citation') {
+				data.citation = await buildCitationData(location, report.params?.range ?? '28d', sectionsFor(key), now());
 			} else if (key === 'gbp_audit') {
 				if (!bound) data.gbp_audit = off('gbp_not_connected');
 				else if (!gbp) data.gbp_audit = off('no_gbp_report');

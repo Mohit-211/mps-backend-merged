@@ -25,7 +25,7 @@ Status as of 2026-09-27: everything through Phases 12.5, 10 and 8.1 is merged an
 | Permission | Roles | Routes |
 |---|---|---|
 | `admins.manage` | super admin | `/admin/auth/{register, getAllAdmins, getAdminById/:id, updateAdmin, deleteAdmin}`, `/roles` (all) |
-| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `GET /subscription`, `/subscription/{coupons, payments/all}`, `/payments/getAllPayments`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId`, `/citation/getAllCitatioList` |
+| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `GET /subscription`, `/subscription/{coupons, payments/all}`, `/payments/getAllPayments`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId` |
 | `platform.write` | super admin, admin | `PUT /admin/operations/updateAgencyStatus`, `POST/PUT/DELETE /subscription[/:plan_id]`, `/subscription/{coupon/generate, send-subscription-welcome-mail}`, `PUT /supports/updateSupportTicketStatus`, `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
 | `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |
 | `system.read` | super admin | `/system/{info, process, time, usage}`, `GET/DELETE /logs` |
@@ -59,8 +59,8 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Business dashboard | `GET /dashboard` (business shape) | **available (11)**: visibility (average rank, change, top-3 rate, trend), GBP Score + grade + change, rating/reviews (public numbers until v4), ranking movement, key competitor, top 5 recommended actions, last/next refresh. "Local Visibility score" = the average-rank block (no separate score). "Citation health": **planned (Phase 16)**. |
-| Agency dashboard | `GET /dashboard` (agency shape) | **available (11)**: client and location counts, portfolio averages (rank, GBP Score), statuses (reconnect / setup), locations with ranking declines, GBP issues, recommended actions, portfolio table (paged, sortable). "Unanswered reviews across portfolio" needs v4; "Reports ready/scheduled/failed": use `GET /reports?status=` and `GET /report-schedules` (Phase 12; not in the dashboard response). |
+| Business dashboard | `GET /dashboard` (business shape) | **available (11)**: visibility (average rank, change, top-3 rate, trend), GBP Score + grade + change, rating/reviews (public numbers until v4), ranking movement, key competitor, top 5 recommended actions, last/next refresh. "Local Visibility score" = the average-rank block (no separate score). "Citation health": **available (16)**: the `citations` block (score, grade, coverage, listings, live / wrong NAP / not listed / unchecked counts) and `locations[].citation_score`; recommended actions `citations:nap_wrong` and `citations:not_found`. |
+| Agency dashboard | `GET /dashboard` (agency shape) | **available (11)**: client and location counts, portfolio averages (rank, GBP Score), statuses (reconnect / setup), locations with ranking declines, GBP issues, recommended actions, portfolio table (paged, sortable). Citations (16): `portfolio.avg_citation_score`, the `citations` block, and `table.rows[].citations`. "Unanswered reviews across portfolio" needs v4; "Reports ready/scheduled/failed": use `GET /reports?status=` and `GET /report-schedules` (Phase 12; not in the dashboard response). |
 
 ## Locations
 
@@ -101,10 +101,10 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Citation dashboard per location (Citation Health score, counts by status, recent changes) | – | **planned (Phase 16)**: manual, admin-managed citation tracking (no external citation APIs). Read-only for organization users; a client_user sees its assigned clients only. |
-| Citation table (directory, type, status, NAP issues, listing link, last checked) | – | **planned (Phase 16)** |
-| Admin: directory master list, categories, per-location citation lists, work queue | – | **planned (Phase 16)**, platform admins only (needs Phase 10's admin auth and roles) |
-| Legacy citation screens / campaign UI | legacy `/citation/*` (tracker via SerpAPI, broken, AUDIT C13) | legacy; Phase 16 audits it and lists what's reused, replaced or retired. Don't build on it. |
+| Citation dashboard per location (Citation Health score, counts by status, recent changes) | `GET /locations/:id/citations` (`health`, `counts`, `recent_changes`, `last_checked_at`), `GET /locations/:id/citations/changes` | **available (16)**: read-only for every organization role (a client_user only for its clients' locations). Before an admin builds the list: `{ available: false, reason: "no_citations_yet" }`. Changes show "MyPageSEO team"; internal notes are never shown. |
+| Citation table (directory, type, status, NAP issues, listing link, last checked) | `GET /locations/:id/citations[?status=]` → `citations[]` | **available (16)**: problems first (`nap_wrong`, `duplicate`, `not_found`, …); `nap_issues: [{ field, found, expected }]`. |
+| Admin: directory master list, categories, per-location citation lists, work queue | `/admin/citations/directories*` (incl. CSV import / export), `/admin/citations/categories*`, `/admin/citations/business-categories`, `/admin/citations/locations/:id` (+ `/suggest`, `/entries`), `/admin/citations/entries/*` (update, bulk, remove, restore, history), `/admin/citations/queue/{unchecked,stale,recent}` | **available (Phase 16)**: platform admins only (`citations.view` to read, `citations.manage` to change). API.md "Citations (Phase 16)" |
+| Legacy citation screens / campaign UI | – | **removed (Phase 16)**: the legacy `/citation/*` routes (campaign ordering, SerpAPI tracker, builder stub) are gone. Don't build them. |
 
 ## Competitors
 
@@ -124,7 +124,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Download / email / archive | `GET /reports/:id/pdf`, `POST /reports/:id/email { recipients, message? }`, `DELETE /reports/:id` | **available (12)**. Emails above 10 MB carry a 30-day link instead of the attachment. |
 | Share link | `POST /reports/:id/share { expires_in_days? }`, `GET /reports/:id/shares`, `DELETE /reports/:id/shares/:shareId`; public page `/r/<token>` | **available (12)**. The URL is shown once; branded, noindex, revocable. |
 | Scheduled reports | `GET/POST /report-schedules`, `GET/PATCH/DELETE /report-schedules/:id` (`next_expected`, `last_sent_at`, `last_error`) | **available (12)**: monthly only, after each covered location's automatic refresh; location or client (agency) scope. |
-| Citation Report | – | **planned (Phase 16)**: in the Reports center (PDF, email, schedules, share links), plus a Citations section in the Full report. Data source decided (Mohit, 2026-09-27): manual, admin-managed tracking. |
+| Citation Report | `POST /reports { type: "citation" }`, then the usual report endpoints (PDF, email, share, `POST /report-schedules { type: "citation" }`) | **available (16)**: sections `score`, `table`, `nap_issues`, `changes`; the Full report has a Citations part. Needs a citation list (else **400** `no_citations_yet`). |
 
 ## Agency
 

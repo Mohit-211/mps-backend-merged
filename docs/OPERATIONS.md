@@ -178,7 +178,7 @@ TEST_LOGS=1 npm test   # show winston output while testing
 npm run lint        # eslint over src/, tests/ and index.ts (every depth)
 ```
 
-- **Lint baseline (2026-09-27): 169 errors, all in legacy modules.** They are in payments / subscriptions / PayPal, the old citation module (retired in Phase 16), white-label, legacy GBP posting (Phase 9), support, legacy user auth, admin operations and old models. The rebuilt modules and all tests have **0**.
+- **Lint baseline (2026-09-27, after Phase 16): 137 errors, all in legacy modules.** They are in payments / subscriptions / PayPal, white-label, legacy GBP posting (Phase 9), support, legacy user auth, admin operations and old models. The rebuilt modules and all tests have **0**. (It was 169 before Phase 16 deleted the old citation module.)
   - Gate: files you touch add no new errors.
   - Until 2026-09-27 the script was `eslint src/**/*.ts` with an unquoted glob. `sh` has no `**`, so it linted only files exactly one folder deep (159 of 365), and the old "32" baseline under-counted. The globs are quoted now, so ESLint expands them itself.
 - **Editor: use the project's TypeScript.** VS Code bundles TypeScript **6.0**, while the project builds with **5.9.3** (`node_modules/typescript`).
@@ -223,7 +223,24 @@ npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 acces
   - One team invitation is pending (its token isn't printed).
 - **Reports center (Phase 12):** real PDFs rendered offline into `REPORTS_STORAGE_DIR` (business: Rank Tracker + Full; agency: Rank Tracker, GBP Audit and Competitor Analysis for Maple Leaf, a Full report for Danforth without GBP), agency white-label branding with a generated logo, one monthly schedule (client Maple Leaf Group) and one 30-day share link (printed; it uses `SHARE_BASE_URL`, else `API_BASE_URL`, so set it to the port the dev server listens on).
 
+- **Citations (Phase 16):**
+  - The starter master list is seeded (50 directories, 5 category groups).
+  - Each demo location gets a suggested list (22 listings) with mixed statuses and 60 days of history (the Toronto locations also get Ontario's chamber); a few checks are older than 90 days, for the stale queue.
+  - One Citation Report is generated, and the Full reports include a Citations part.
+
 **How:** the real rank-run and report code with **offline** Places clients: **0 Google calls**. The demo Google connection is a placeholder that is never used. **Output:** one password for all demo accounts, three tokens, ids and `curl` examples. Same guards as `seed:rank-demo` (development + `mps_rebuild`; only the demo accounts' data and the demo plan are replaced).
+
+## Citations (Phase 16)
+
+Manual, admin-managed citation tracking (no external citation APIs, no Google calls). The API is in API.md "Citations (Phase 16)".
+
+- **Starter master list:** `npm run seed:citation-directories [-- --confirm]` upserts 5 directory categories and 50 US / CA directories. The data is in `src/scripts/data/`: `directory-categories.json` and `citation-directories.csv`, the same CSV format as the admin import. It is idempotent (upserts by slug / domain, never deletes) and prints created / updated / unchanged.
+  - When the `businesscategories` collection is empty, the seed first loads `dumps/businessCategory.json` (the 4,101 Google categories, as `npm run mongo-migrate` does). Without them no location can match a category group.
+  - Authority values in the starter CSV are placeholder estimates (marked in `notes`); the admin team replaces them.
+- **Suggestions** run when a location completes onboarding, and on `POST /admin/citations/locations/:id/suggest`. Changing the master list doesn't touch existing lists: re-run suggest per location.
+- **Citation Health weights:** `src/citations/scoring.config.ts` (change only with Mohit's approval). Every change of an entry refreshes `Location.summary.citation_*`; `npm run summaries:rebuild` recomputes them.
+- **Stale queue:** `CITATION_STALE_DAYS` (default 90) is the default N of `GET /admin/citations/queue/stale`.
+- **Permissions:** `citations.view` / `citations.manage` (`src/configs/adminPermissions.ts`), both held by super admin, admin and editor.
 
 ## Organizations, plan limits and auth (Phase 8)
 
@@ -341,10 +358,15 @@ On any database that already has data, in this order, **before the new version s
 10. **`npm run migrate:branding -- --confirm`** (Phase 12): legacy white-label profiles → organization branding (agencies without branding only; copies logos into the storage directory). Idempotent. Run `db:sync-indexes` (step 6) after this release too: it builds the report indexes (Phase 12.5: also `rank_result_lists`, `api_usage` and the `places_rate` TTL index).
     **Phase 12.5 `.env`:** `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60` (decided 2026-09-27); remove `COMPETITOR_DETAILS_ATMOSPHERE`. Do the Google Cloud checklist (Ranking quality section) before the first monthly refresh.
 11. **Phase 10 data cleanup:** delete the old Search Console token rows, which may hold plaintext tokens (the feature was removed in 9a): `db.user_auths.deleteMany({ token_type: "ANALYTICS" })` (back up first, step 1). Check the `roles` collection holds role_id 1 (super admin), 2 (admin) and 4 (editor) as in `SUP_ADM_ROLE_ID` / `ADM_ROLE_ID` / `EDTR_ROLE_ID`: admin permissions are derived from them.
-12. **`npm run migrate:email-verified -- --confirm`** (Phase 8.1), **before the new code starts** (step 13). It marks every existing user email-verified and moves `PENDING` / `REVIEWING` → `ACCEPTED`. **Required:** without it, existing users are refused at login (403 `email_not_verified`). Idempotent; it sends no email.
+12. **`npm run migrate:email-verified -- --confirm`** (Phase 8.1), **before the new code starts** (step 14). It marks every existing user email-verified and moves `PENDING` / `REVIEWING` → `ACCEPTED`. **Required:** without it, existing users are refused at login (403 `email_not_verified`). Idempotent; it sends no email.
     - The hourly `unverified-cleanup` job deletes only accounts created by the Phase 8.1 signup (they carry a `verification_deadline`), so it can never delete an older account, even before this step.
     - Set `FRONTEND_URL` to the web app's origin: verification links go to `FRONTEND_URL/verify-email?token=…`, and the frontend must have that page.
     - The script also builds the `users.verification_deadline` index (add-only); `db:sync-indexes` (step 6) builds the new `auth_codes` hash index.
-13. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup`) and `Recurring job scheduled: monthly-refresh` / `report-retention` / `unverified-cleanup`.
+13. **Phase 16 (citations):**
+    - `npm run db:sync-indexes -- --confirm` builds the four citation collections' indexes (`directories`, `directory_categories`, `location_citations`, `citation_status_logs`).
+    - Then `npm run seed:citation-directories -- --confirm` loads the starter master list (and the Google business categories if that collection is empty).
+    - Optionally set `CITATION_STALE_DAYS`.
+    - The old citation collections (`citationDirectorys`, `citations`, `campaigns`, `aggregators`, …) are no longer read (MIGRATION.md). `locationCitations` is still used by the credit-payment code until Phase 13.
+14. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup`) and `Recurring job scheduled: monthly-refresh` / `report-retention` / `unverified-cleanup`.
 
 `--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.

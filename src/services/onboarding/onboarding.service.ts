@@ -19,6 +19,7 @@ import { EnqueueResult, RunOverCapError, enqueueRankRun } from '../ranking/rankR
 import { SyncEnqueueResult, enqueueGbpSync } from '../gbp/sync.service';
 import { initialSchedule } from '../refresh/cadence';
 import { withDefaults } from '../ranking/trackingSettings';
+import { suggestForLocation } from '../citations/suggest';
 
 // Onboarding (Phase 7a, organizations since Phase 8): connect Google → pick a Business Profile (creates
 // or links a Location of the organization and binds it) → keywords → competitors → complete (first rank
@@ -302,6 +303,14 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 			},
 		);
 		logger.info(`onboarding: location ${String(location._id)} completed (rank run ${run.run_id}, next refresh ${schedule.next_refresh_at.toISOString()})`);
+		// Phase 16: the location's first citation list (directories matching its category and country).
+		// A failure never blocks completion; admins can run the suggestion again.
+		try {
+			const suggested = await suggestForLocation(location._id);
+			logger.info(`onboarding: location ${String(location._id)} citation suggestions added=${suggested.added.length} category_matched=${suggested.category_matched}`);
+		} catch (err) {
+			logger.warn(`onboarding: citation suggestions failed for location ${String(location._id)}: ${(err as Error).message}`);
+		}
 		return {
 			completed: true,
 			completed_at: at,

@@ -1,59 +1,25 @@
-Node and Mongo using Typescript basic setup just install and ready to serve
+# MyPageSEO backend
 
-## Purpose
+The backend of MyPageSEO: a local SEO platform for US and Canadian businesses and agencies, focused on Google Maps / Google Business Profile visibility. It covers rank tracking (Rank Tracker, Local Search Grid, Local Map Ranking), the GBP report, citations, a reports center, organizations and teams, and billing.
 
-Our main purpose with this Skeleton is to start server application with node js and typescript and mongodb.
+Node.js + TypeScript + Express + MongoDB (Mongoose), background jobs on agenda, run with pm2.
 
-## Common Features
+## Start here
 
-## Common Features
+1. [docs/STATUS.md](docs/STATUS.md): the current state and the next step.
+2. [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md): what's built, what works, what doesn't, what's left.
+3. [CLAUDE.md](CLAUDE.md): the rules and every phase's spec.
 
-- Quick start
-    - Simple scaffolding based on Typescript syntax
-    - Easy global environment configuration and error handling
-    - Flexible for adding new features
+Reference: [docs/ENDPOINTS.md](docs/ENDPOINTS.md) (every endpoint), [docs/API.md](docs/API.md) (examples), [docs/FRONTEND_BACKEND_MAP.md](docs/FRONTEND_BACKEND_MAP.md) (screens → endpoints), [docs/OPERATIONS.md](docs/OPERATIONS.md) (setup, jobs, deploy checklist).
 
+## Quick start
 
-- Documentation Standards
-    - Swagger documentation support and Postman collections
-    - Clear instructions in the readme file
+```sh
+cp .env.example .env   # fill in local values (local MongoDB database mps_rebuild)
+npm ci
+npm run build          # TypeScript → build/
+npm test               # offline: no API keys, in-memory MongoDB
+npm run dev            # http://localhost:<PORT>/api/healthcheck
+```
 
-
-- Production Ready Setup 
-    - Followed best practices for security and efficiency
-    - Integrated Winston Logger and included only necessary npm modules
-  
-## Core NPM Module
-
-- [x] `express`, `@types/express`
-- [x] `@types/node`
-- [x] `typescript`
-- [x] `dotenv`
-- [x] `cors`
-- [x] `helmet`
-- [x] `http-status`
-- [x] `winston`
-
-## Start The application in Development Mode
-
-- Clone the Application `git clone https://github.com/dipu03/node-typescript-mongodb-boilerplate-setup-final.git`
-- Install the dependencies `npm install`
-- Start the application `npm run dev`
-
-## Start The application in Production Mode
-
-- Install the dependencies `npm install`
-- Create the build `npm run build`
-- Start the application `npm run start`
-- Before starting make sure to update your `.env` values for your refrence just check `.env.example`
-
-## Swagger API Documentation
-
-The swagger documentation is available at the following url `${host}/docs`:  
-
-## Default System Health Status API
-
-- `${host}/api/system/info` - Return the system information in response
-- `${host}/system/time` - Return the current time in response
-- `${host}/system/usage` - Return the process and system memory usage in response
-- `${host}/system/process` -  Return the process details in response
+Demo data without any API key: `npm run seed:demo-orgs`. Full setup and every script: [docs/OPERATIONS.md](docs/OPERATIONS.md).

@@ -55,7 +55,7 @@ afterAll(async () => db.stop());
 describe('admin guards from ENDPOINTS.md', () => {
 	it('covers every admin-only group (sanity)', () => {
 		expect(guarded.length).toBeGreaterThanOrEqual(45);
-		expect(new Set(guarded.map((g) => g.permission))).toEqual(new Set(['admins.manage', 'platform.read', 'platform.write', 'content.manage', 'system.read']));
+		expect(new Set(guarded.map((g) => g.permission))).toEqual(new Set(['admins.manage', 'platform.read', 'platform.write', 'content.manage', 'system.read', 'citations.view', 'citations.manage']));
 	});
 
 	it.each(guarded.map((g) => [`${g.method} ${g.path}`, g] as const))('%s', async (_name, g) => {

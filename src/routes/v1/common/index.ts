@@ -10,12 +10,12 @@ import contactUsRoutes from './contactUs.route';
 
 import locationRoute from './location.route';
 import rankingRoute from './ranking.route';
+import citationsRoute from './citations.route';
 import onboardingRoute from './onboarding.route';
 import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
 import whiteLabelRoute from './whitelabelProfile.route';
 import gbpPSRoute from './gbpPostSchedular.route';
-import citationRoute from './citation.route';
 import paymentRoute from './payment.route';
 import blogRoute from './blog.routes';
 import blogCategoryRoutes from './blogCategory.routes';
@@ -75,6 +75,11 @@ const commonRoutes = [
 		route: rankingRoute,
 	},
 	{
+		// Citations (Phase 16): /locations/:locationId/citations[/changes], read-only.
+		path: '/locations',
+		route: citationsRoute,
+	},
+	{
 		// Phase 8: signup / verify / login / password reset for the rebuilt app
 		path: '/auth',
 		route: authRoute,
@@ -124,10 +129,6 @@ const commonRoutes = [
 	{
 		path: '/gbp',
 		route: gbpPSRoute,
-	},
-	{
-		path: '/citation',
-		route: citationRoute,
 	},
 	{
 		path: '/payments',

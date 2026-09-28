@@ -1,6 +1,6 @@
 # Project summary: the MyPageSEO backend rebuild
 
-_Snapshot written 2026-09-27 at a planned pause. Mohit: "we will get back to citation and other stuff later on." Read this first when you circle back, then [STATUS.md](STATUS.md) for the live state and [CLAUDE.md](../CLAUDE.md) for the rules. Update this file whenever a phase finishes or the picture changes._
+_Snapshot updated 2026-09-27 at the end of Phase 16 (citations built on `claude/phase-16-citations`, awaiting merge). First written at the planned pause earlier that day. Read this first when you circle back, then [STATUS.md](STATUS.md) for the live state and [CLAUDE.md](../CLAUDE.md) for the rules. Update this file whenever a phase finishes or the picture changes._
 
 ## 1. Where to start when you come back
 
@@ -24,8 +24,8 @@ _Snapshot written 2026-09-27 at a planned pause. Mohit: "we will get back to cit
 git checkout claude/rebuild && git pull
 npm ci
 npm run build          # expect 0 TypeScript errors
-npm test               # expect 76 suites, 743 tests, all passing (includes check:endpoints)
-npm run lint           # expect 169 errors, all in legacy modules (0 in rebuilt code and tests)
+npm test               # expect 84 suites, 800 tests, all passing (includes check:endpoints)
+npm run lint           # expect 137 errors, all in legacy modules (0 in rebuilt code and tests)
 npm run seed:demo-orgs # demo Business + Agency organizations, reports, dashboards (local mps_rebuild only)
 npm run dev            # then GET /api/healthcheck → 200; stop all three processes (cross-env, nodemon, ts-node) afterwards
 ```
@@ -36,13 +36,13 @@ In VS Code, use the workspace TypeScript: run "TypeScript: Select TypeScript Ver
 
 | Item | Value |
 |---|---|
-| Branch | `claude/rebuild` (all work is merged into it; `main` is untouched at `62240ac`) |
-| Commits on `claude/rebuild` since `main` | about 140 |
-| Source | ~42,600 lines of TypeScript in `src/` (365 files), 57 models |
-| Tests | 76 suites, **743 tests**, offline (no API key, no network; in-memory MongoDB) |
+| Branch | `claude/rebuild` (everything through 8.1 merged and pushed); Phase 16 on `claude/phase-16-citations` awaiting merge; `main` untouched at `62240ac` |
+| Commits since `main` | about 147 (including Phase 16) |
+| Source | ~42,400 lines of TypeScript in `src/` (382 files), 55 model files (Phase 16 added 4 and deleted 6 legacy ones) |
+| Tests | 84 suites, **800 tests**, offline (no API key, no network; in-memory MongoDB) |
 | Build | 0 TypeScript errors (TypeScript 5.9.3) |
-| Lint | 169 errors, **all in legacy modules**; 0 in the rebuilt code and tests |
-| Endpoints | **208**: 193 live, 14 deprecated, 1 dev-only; 72 rebuilt or new, 136 legacy; auth: 107 user, 52 admin, 47 none, 2 refresh token |
+| Lint | 137 errors, **all in legacy modules**; 0 in the rebuilt code and tests |
+| Endpoints | **220**: 205 live, 14 deprecated, 1 dev-only; 97 rebuilt or new, 123 legacy; auth: 97 user, 74 admin, 47 none, 2 refresh token |
 | Background jobs | 10: `post-to-gbp`, `rank-run`, `gbp-sync`, `gbp-report`, `monthly-refresh`, `report-generate`, `report-email`, `report-schedule-dispatch`, `report-retention`, `unverified-cleanup` |
 | Live Google calls so far | Places: Phase 5.5 validation (106 IDs-only, 7 Pro, 3 Details) and the variance test (at least 180 IDs-only, 0 Pro). GBP: 1 OAuth exchange + 1 `accounts.list` (429, quota 0) |
 
@@ -74,6 +74,7 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 | 12.5 | Ranking quality: full depth (60), 3 samples 60 s apart with median, stored result lists, Map Ranking at 5 points, richer competitor data, a usage ledger + `cost:report`, Google attribution | `c5aee43` |
 | 10 | Security: admin auth + role permissions, every admin route guarded (tested from ENDPOINTS.md), helmet / CORS / body limits / upload limits, request sanitiser, PayPal webhook verification, revocable tokens, 1-day access tokens, log redaction | `3c776fd` |
 | 8.1 | Email verification by link (24 h), login blocked until verified, resend, hourly cleanup of unverified signups, `migrate:email-verified`; legacy register removed | `604f8d6` |
+| 16 | Citations: directory master list (CSV), category groups, per-location lists with suggestions and NAP checks, admin work queue, customer dashboard, Citation Health, Citation Report; legacy citation module and `serpapi` retired | awaiting merge |
 | (hygiene) | Editor TypeScript pinned to the workspace version, explicit tsconfig defaults, lint script covering every file, test lint fixes | `c35e378`, `bec6772`, `f8c7447` |
 
 **Also on `claude/rebuild` between phases:**
@@ -91,6 +92,7 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 - **Organizations and access:** Business / Agency signup, roles (owner / member / client_user read-only), plan limits, locations, clients, onboarding, dashboards, team invitations.
 - **Auth:** new `/auth` with link verification, the login gate, resend, cleanup job, password reset; token refresh; admin auth with permissions.
 - **Reports center:** create → snapshot → PDF → download / email / share / schedule / retention; white-label branding.
+- **Citations (Phase 16):** admin CRUD + CSV round trip, suggestions (country / region / category group), NAP mismatch guard, bulk, history, the three queues, customer view (no admin names or notes), dashboard blocks, the Citation Report and the Full report part, the starter seed (50 directories) and demo lists. Also checked on the dev server with a temporary admin.
 - **Security:** every admin-only route gives 401 / 403 correctly (a test driven by ENDPOINTS.md); traversal, operator keys, oversize bodies and bad tokens are all refused.
 
 **Verified live** (real Google calls, on Mohit's go):
@@ -107,23 +109,23 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 | **Real customers connecting Google** | Blocked | OAuth app verification (`business.manage` is a sensitive scope). |
 | **GBP Score / Public Score thresholds** | Starting values, uncalibrated | Needs real GBP data (the calibration steps are in PROGRESS.md, 7c). |
 | **Ranking accuracy in a big market** | Only one small market checked (informal) | The Dallas test + a formal `calibrate:score` (pre-launch, Mohit triggers). |
-| **Citations** | **Legacy module still live and broken**: the tracker returns SerpAPI fixture data, the builder is a stub, and one service calls the old paid Places API. Citation screens are "planned (Phase 16)". | Phase 16: plan approved, **build paused** ([plans/phase-16-citations.md](plans/phase-16-citations.md)). The Citation Report is required for M5. |
+| **Citations** | **Built (Phase 16), offline only.** The starter directory list has placeholder authority values; the real list is the admin team's work. The legacy module is gone. | Merge + deploy (`db:sync-indexes`, `seed:citation-directories`); the admin team curates the list and starts checking listings. |
 | **Billing / plans** | Legacy Square / PayPal / credits code untouched (only security fixes in Phase 10). Plan limits read optional `location_limit` / `keyword_limit`. | Phase 13. |
 | **GBP posting** | Legacy flow (`gbpPostSchedular`, `post-to-gbp` job) using v4; not rebuilt | Phase 9, needs v4 access. |
 | **Deprecated routes** | 14 still registered: legacy `/user/auth/*` login / OTP / forgot, `/user/clients*`, legacy white-label | Removed once the frontend has fully moved (9b). |
 | **Production** | Never deployed from the rebuild | Phase 14 (fresh server, backups, nginx, pm2, monitoring) + the deploy checklist in OPERATIONS.md. |
 | **Docs debt** | `swagger.json` is stale; `ARCHITECTURE.md` not written | 9b. ENDPOINTS.md + API.md are current and are the reference until then. |
-| **Tooling** | `moduleResolution: node` is removed in TypeScript 7; 169 legacy lint errors | OPERATIONS.md "Lint and editor setup"; STATUS.md backlog. |
+| **Tooling** | `moduleResolution: node` is removed in TypeScript 7; 137 legacy lint errors | OPERATIONS.md "Lint and editor setup"; STATUS.md backlog. |
 | **Maps ToS** | Accepted risk: names, competitor data and reports store Places content (with attribution) | Revisit before launch (STATUS.md "Maps ToS: accepted risk"). |
 
 ## 7. What's left (roadmap)
 
-**M5 = launch-ready** = 12 ✔ + 12.5 ✔ + 10 ✔ + 8.1 ✔ + **16** + **13** + **14**, plus the pre-launch live validation and the Google approvals.
+**M5 = launch-ready** = 12 ✔ + 12.5 ✔ + 10 ✔ + 8.1 ✔ + 16 (built, awaiting merge) + **13** + **14**, plus the pre-launch live validation and the Google approvals.
 
 | Next phases | Scope | State |
 |---|---|---|
-| **16 Citations** | Directory master list (CSV import / export), category groups, per-location lists with suggestions, status history, admin work queue, customer dashboard, Citation Health score, Citation Report; retire the legacy citation module and `serpapi` | Plan approved 2026-09-27, **paused** |
-| **13 Billing & plans** | Square / PayPal aligned with organizations, plan → limits, upgrade / downgrade, subscription-status gating, invoices; decide the future of citation credits | Planned; spec to be written in CLAUDE.md first |
+| **16 Citations** | Directory master list (CSV import / export), category groups, per-location lists with suggestions, status history, admin work queue, customer dashboard, Citation Health score, Citation Report; legacy citation module and `serpapi` retired | **Built, awaiting merge** |
+| **13 Billing & plans** | Square / PayPal aligned with organizations, plan → limits, upgrade / downgrade, subscription-status gating, invoices; **plus the admin panel backend for launch** (users, organizations, subscriptions, support tickets); decide the future of citation credits (`LegacyLocationCitation`) | **Next, in plan mode** (notes in CLAUDE.md §12h) |
 | **14 Production readiness** | Fresh server (Mongo, backups, nginx, pm2, log rotation, monitoring, alerts), deploy-checklist dry run, Maps ToS decision | Planned |
 | 9 GBP reviews & posting | Rebuild posting on `gbpClient`, AI review replies | Blocked on v4 |
 | 15 Notifications & automations | – | Planned |
@@ -155,10 +157,11 @@ Also in STATUS.md, "Open items":
   - `src/services/`:
     - `ranking`, `refresh`, `gbp`, `onboarding`, `locations`, `org`, `clients`
     - `dashboard`, `team`, `reports`, `usage`
-    - `auth` (including `emailVerification`), `admin` (`adminToken`)
+    - `auth` (including `emailVerification`), `admin` (`adminToken`), `citations` (Phase 16)
+  - `src/citations/`: citation matching and Citation Health, pure (`scoring.config.ts`)
   - `src/jobs/`: the 10 jobs above
   - `src/configs/`: `config`, `adminPermissions`, `pricing`, `multer`, `corsConfigs`
-- **Legacy code still in place:** payments / subscriptions / PayPal / Square / credits, citations (old), white-label (deprecated), GBP posting, support, blog, FAQ, contact-us, reference data, legacy `/user/auth` and `/user/clients`, admin operations. Guarded and hardened, not rebuilt.
+- **Legacy code still in place:** payments / subscriptions / PayPal / Square / credits (incl. the old citation *order* model `LegacyLocationCitation`, until Phase 13), white-label (deprecated), GBP posting, support, blog, FAQ, contact-us, reference data, legacy `/user/auth` and `/user/clients`, admin operations. Guarded and hardened, not rebuilt.
 - **Access model:** organization membership (owner / member / client_user), never `created_by`. The current organization comes from `X-Organization-Id` or the default. Platform admins use a separate token and permission matrix.
 - **Data rules:** no third-party fetch on a page view (jobs only). The monthly cadence per location. Snapshots for reports. The usage ledger for every Google call.
 

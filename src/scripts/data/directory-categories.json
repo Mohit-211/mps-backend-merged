@@ -1,0 +1,30 @@
+{
+	"_comment": "Phase 16 starter directory categories (industry groups). Each lists Google Business Profile category names (dumps/businessCategory.json); the seed resolves them to BusinessCategory ids and reports names it can't find.",
+	"categories": [
+		{
+			"slug": "home-services",
+			"name": "Home services",
+			"business_categories": ["Plumber", "Electrician", "HVAC contractor", "Air conditioning contractor", "Heating contractor", "Roofing contractor", "General contractor", "Locksmith", "Painter", "Landscaper", "Pest control service", "Carpet cleaning service", "House cleaning service", "Water damage restoration service", "Drainage service", "Garage door supplier", "Window installation service", "Flooring contractor", "Kitchen remodeler", "Bathroom remodeler", "Tree service", "Moving company", "Septic system service", "Gutter cleaning service", "Pressure washing service", "Fence contractor", "Concrete contractor", "Masonry contractor", "Appliance repair service"]
+		},
+		{
+			"slug": "legal",
+			"name": "Legal",
+			"business_categories": ["Lawyer", "Law firm", "Personal injury attorney", "Criminal justice attorney", "Family law attorney", "Divorce lawyer", "Estate planning attorney", "Immigration attorney", "Bankruptcy attorney", "Employment attorney", "Real estate attorney", "Tax attorney", "Notary public", "Paralegal services provider"]
+		},
+		{
+			"slug": "medical-dental",
+			"name": "Medical and dental",
+			"business_categories": ["Dentist", "Dental clinic", "Orthodontist", "Cosmetic dentist", "Emergency dental service", "Pediatric dentist", "Doctor", "Medical clinic", "Family practice physician", "Chiropractor", "Physical therapist", "Optometrist", "Pediatrician", "Dermatologist", "Psychologist", "Massage therapist", "Urgent care center", "Medical spa"]
+		},
+		{
+			"slug": "restaurants",
+			"name": "Restaurants and food",
+			"business_categories": ["Restaurant", "Pizza restaurant", "Cafe", "Coffee shop", "Bakery", "Bar", "Fast food restaurant", "Mexican restaurant", "Italian restaurant", "Chinese restaurant", "Sushi restaurant", "Indian restaurant", "Thai restaurant", "Hamburger restaurant", "Steak house", "Seafood restaurant", "Breakfast restaurant", "Brunch restaurant", "Vegetarian restaurant", "Caterer"]
+		},
+		{
+			"slug": "automotive",
+			"name": "Automotive",
+			"business_categories": ["Auto repair shop", "Car dealer", "Used car dealer", "Auto body shop", "Tire shop", "Oil change service", "Car wash", "Towing service", "Mechanic", "Auto glass shop", "Transmission shop", "Brake shop", "Car detailing service", "Auto parts store", "Motorcycle repair shop"]
+		}
+	]
+}

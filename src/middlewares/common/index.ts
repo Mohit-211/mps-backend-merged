@@ -4,7 +4,6 @@ import * as supportMiddleware from './support.middleware';
 
 import * as businessCategoryMiddleware from './businessCategory.middleware';
 import * as WhiteLabelProfileMiddleware from './whiteLabelProfile.middleware';
-import * as citationMiddleware from './citation.middleware';
 import * as gbpPostSchedularMiddleware from './gbpPostSchedular.middleware';
 import * as paymentMiddleware from './payment.middleware';
 
@@ -14,7 +13,6 @@ export {
     supportMiddleware,
     businessCategoryMiddleware,
     WhiteLabelProfileMiddleware,
-    citationMiddleware,
     gbpPostSchedularMiddleware,
     paymentMiddleware,
 };

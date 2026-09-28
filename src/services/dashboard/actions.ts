@@ -15,7 +15,7 @@ export interface ActionLocation {
 
 export interface RecommendedAction {
 	id: string;
-	source: 'gbp' | 'ranking' | 'setup' | 'connection';
+	source: 'gbp' | 'ranking' | 'setup' | 'connection' | 'citations';
 	location_id: string;
 	location_name: string;
 	title: string;
@@ -52,6 +52,15 @@ export const candidateActions = (l: ActionLocation): RecommendedAction[] => {
 	}
 	for (const f of s.top_fixes ?? []) {
 		out.push({ ...base, id: `gbp:${f.id}`, source: 'gbp', title: f.label, detail: f.fix_hint ?? '', impact: clamp(f.lost / 20) });
+	}
+	// Phase 16: citations with a wrong NAP, and directories where the business isn't listed.
+	const napWrong = s.citation_counts?.nap_wrong ?? 0;
+	if (napWrong > 0) {
+		out.push({ ...base, id: 'citations:nap_wrong', source: 'citations', title: `${napWrong} listing${napWrong === 1 ? '' : 's'} show${napWrong === 1 ? 's' : ''} the wrong name, address or phone`, detail: 'Inconsistent NAP across directories weakens local rankings. See the citation table for the fields to fix.', impact: clamp(0.3 + 0.1 * napWrong) });
+	}
+	const notFound = s.citation_counts?.not_found ?? 0;
+	if (notFound > 0) {
+		out.push({ ...base, id: 'citations:not_found', source: 'citations', title: `Not listed on ${notFound} director${notFound === 1 ? 'y' : 'ies'}`, detail: 'Getting listed on the missing directories adds citations Google can use to confirm the business.', impact: clamp(notFound / 20) });
 	}
 	return out;
 };

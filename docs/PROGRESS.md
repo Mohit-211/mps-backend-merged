@@ -1023,3 +1023,82 @@ Mohit paused the work: "we will get back to citation and other stuff later on". 
 - **FRONTEND_BACKEND_MAP.md:** the status line (2026-09-27). **PRODUCT.md:** the module table, the reports paragraph and the phase map. **OPERATIONS.md:** email verification by link (auth codes are now for password reset only).
 
 **Checks:** `npm run check:endpoints` passes; docs only, no code changes. **API calls:** none.
+
+## Phase 16: Citations (manual, admin-managed tracking)
+
+Branch `claude/phase-16-citations` (from `claude/rebuild` at `c921dc2`). Plan: [plans/phase-16-citations.md](plans/phase-16-citations.md), approved 2026-09-27. Plan choices were re-confirmed on resume: retire the legacy module and `serpapi`, keep the order model renamed, add `citations.view`, the score defaults, and csv-parse / csv-stringify. Offline: **0 Google calls**.
+
+**Commits:**
+- `a9c3033`: Phase 16 in progress; Phase 13 notes (CLAUDE.md §12h: the admin panel backend for launch; the legacy citation order model).
+- `289e772`: the legacy `/citation/*` module retired.
+  - Removed: 13 routes, the controller, middleware and service (805 lines, including its old-Places-API `place/details` call with our key), the SerpAPI helper, 5 models, unused constants, and `serpapi`.
+  - The order model became `LegacyLocationCitation` (collection `locationCitations`) for `payment.middleware` / `payment.service` (a minimal payments edit, flagged).
+- `5ea02a9`: models and the pure layer.
+  - Models `Directory`, `DirectoryCategory`, `LocationCitation`, `CitationStatusLog`.
+  - `src/citations/`: constants, US / CA regions, matching, Citation Health + `scoring.config.ts`.
+  - `src/utils/nap.ts`: the NAP helpers moved from the GBP audit section, plus address comparison.
+  - The worked example is tested: 50 D, then 66 C after one NAP fix.
+- `5df11a8`: the admin master list and categories.
+  - Directory CRUD and category groups mapped to the GBP business categories, plus a business-category search.
+  - CSV import (all-or-nothing, dry run, upsert by domain, per-row errors) and export (BOM, formula-safe).
+  - The `citations.view` permission; `csv-parse` + `csv-stringify`. ENDPOINTS #82–#93.
+- `2a59c90`: per-location lists and the queue.
+  - Suggestions by country, region and category group, also at onboarding completion. They never remove anything or re-add a removed entry.
+  - Entries: manual add; checks with a server-side NAP mismatch and 409 `nap_mismatch` unless `confirm`; bulk (request order); remove / restore; history.
+  - The work queue: unchecked, stale (`CITATION_STALE_DAYS` 90), recent; filtered by organization, client, status, directory and type; deleted locations excluded.
+  - `Location.summary.citation_*`. ENDPOINTS #94–#104.
+- `7e47b19`: the customer side.
+  - `GET /locations/:id/citations[/changes]`, read-only: problems first; NAP issues found vs expected; "MyPageSEO team" in place of admin names; internal notes hidden.
+  - The dashboard `citations` block, agency portfolio and table fields, and the actions `citations:nap_wrong` / `citations:not_found`.
+  - Organization-access tests (S15 moved here). ENDPOINTS #105–#106.
+- `02d2519`: the Citation Report (type `citation`: score, table, NAP issues, changes in range) and a Citations part in the Full report; schedules of type `citation`.
+- `263539c`: the starter master list and demo data.
+  - The starter list (`src/scripts/data/`): 5 category groups, 50 US / CA directories with placeholder authority values. `npm run seed:citation-directories` is idempotent and loads the GBP category dump when that collection is empty.
+  - `seed:demo-orgs`: citation lists with 60 days of history, plus a Citation Report.
+  - `db:sync-indexes` and `summaries:rebuild` now cover citations; the OPERATIONS deploy step is added.
+- (this commit): the end-of-phase docs.
+
+**Checks:**
+- **Tests:** `npm test` gives **84 suites, 800 tests**, offline (was 76 / 743). The admin guard matrix covers all 23 new `admin (citations.*)` rows. `check:endpoints` passes.
+- **Build and lint:** build 0 errors. Lint **137** (was 169; the retired legacy files took 32), **0 in new code and tests**.
+- **Seed:** 50 directories and 5 categories on local `mps_rebuild`; a second run left everything unchanged.
+- **Dev server** with a temporary local admin (removed afterwards; token never printed):
+  - directories 50, categories with counts, export → dry-run import 50 unchanged
+  - queues filled from the demo data; location view 57 (C)
+  - `live_correct` with a wrong phone → 409 `nap_mismatch`; a status update works
+  - bad token → 401, legacy `/citation/tracker` → 404, 0 Google calls; dev processes stopped
+- **Demo data:** `seed:demo-orgs` re-run to restore it (88 listings, 70 checked; 7 reports including a Citation Report).
+
+**Endpoints:** 208 → 220. The 13 legacy routes were removed; 23 admin routes and 2 customer routes were added; `/reports` gained type `citation`.
+
+**Decisions and flags:**
+- **Shared-file edits** (minimal):
+  - `payment.middleware.ts` (the model rename)
+  - `constantTypes.ts` / `constants/selectFields.ts` (unused citation constants removed)
+  - `onboarding.service.ts` (the suggestion hook)
+  - `dashboard` (the citations block)
+  - `seedDemoOrgs.ts`, `syncIndexes.ts`, `rebuildSummaries.ts`
+- **Reference-data edit:** `seed:citation-directories` loads `dumps/businessCategory.json` only when that collection is empty (the same insert as `mongo-migrate`).
+- **Open for Mohit / the admin team:**
+  - the starter list's authority values are placeholders
+  - the Citation Health weights (`scoring.config.ts`) are the approved defaults, tunable later
+  - Phase 13 decides whether the legacy citation credits survive
+
+**API calls:** none.
+
+## Junk-file cleanup (2026-09-27, on `claude/phase-16-citations`)
+
+Asked by Mohit before Phase 13. Every file was checked for references before deletion.
+- **Deleted:**
+  - `fix_ids.sh`: a one-off `_id` type codemod from the initial import; never run, referenced nowhere.
+  - `src/utils/timezone.ts`: a hardcoded time-zone list, imported nowhere.
+  - `public/assets/404image.jpg`, `public/assets/404.jpeg`: unused; only `404file.jpg` is served (`src/app.ts`).
+  - `tests/fixtures/gbp/error_location_forbidden.json`: an unused fixture.
+- **README.md:** the generic "Node + Mongo skeleton" template text was replaced by a short, accurate README pointing to STATUS, PROJECT_SUMMARY, CLAUDE.md and OPERATIONS.
+- **Kept:**
+  - `dumps/*` (seeded by `mongo-migrate` / `seed:citation-directories`)
+  - `swagger.json` (served at `/docs`; rewritten in 9b)
+  - `public/assets/404file.jpg`
+  - all configs
+- **Local only:** `.DS_Store`, `build/`, `logs/` and `storage/` are gitignored and never committed.
+- **Note:** the `precommit` npm script runs `lint-fix` + `prettier --write` over all files, against the "never run prettier on existing files" rule. It isn't wired to a git hook, so it only runs when called by hand. Don't run it.

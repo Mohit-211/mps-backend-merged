@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27, **planned pause**. Everything through Phases 12.5, 10 and 8.1 is merged and pushed; the sanitation pass is done. **Phase 16 (citations) has an approved plan ([plans/phase-16-citations.md](plans/phase-16-citations.md)); its build is paused** (Mohit: "we will get back to citation and other stuff later on"). **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-27. **Phase 16 (citations) is built** on `claude/phase-16-citations`, awaiting merge and push. Everything through Phases 12.5, 10 and 8.1 is merged and pushed; the sanitation pass is done. Plan: [plans/phase-16-citations.md](plans/phase-16-citations.md); as built: CLAUDE.md §12f. **Next:** Phase 13 (billing & plans + the admin panel backend for launch) in plan mode. **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
 
 ## Product goal
 
@@ -34,7 +34,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 12.5 | Ranking & data quality (full depth, 3 samples 60 s apart, richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution) | done | `claude/phase-12.5-quality` | yes (`c5aee43`) | M5 (pushed 2026-09-27) |
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
-| **16** | **Citations**: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | **paused (plan approved 2026-09-27; not built)** | `claude/phase-16-citations` (not created yet) | – | M5 |
+| **16** | **Citations**: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | **built, awaiting merge** | `claude/phase-16-citations` | – | M5 |
 | 13 | Billing & plans | planned | – | – | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
@@ -82,7 +82,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - **Sync:** the `gbp-sync` job stores performance (18-month backfill, then 40 days rolling), search keywords (6 months, then 2), the full profile, attributes, pending Google edits and verification, each type with its own status. Reviews, media and posts are built but behind `GBP_V4_ENABLED`.
   - **Refresh:** one `monthly-refresh` scheduler (per location, on its setup day at about 03:00 local) replaced the 15-minute rank scheduler. `POST/GET /locations/:id/refresh` (manual, 24 h per type). `GET /locations/:id/gbp/sync`.
   - **Settings:** `tracking.frequency` is `auto_monthly | manual_only`, with `npm run migrate:refresh`.
-- **Endpoint docs rule (2026-09-26):** [ENDPOINTS.md](ENDPOINTS.md) lists every current endpoint (208 on 2026-09-27) and `npm run check:endpoints` (part of `npm test`) fails when it drifts from the code. ROUTES.md is a frozen Phase 1 snapshot. A dev-only popup-connect page `GET /dev/gbp-connect` for the live test.
+- **Endpoint docs rule (2026-09-26):** [ENDPOINTS.md](ENDPOINTS.md) lists every current endpoint (220 after Phase 16) and `npm run check:endpoints` (part of `npm test`) fails when it drifts from the code. ROUTES.md is a frozen Phase 1 snapshot. A dev-only popup-connect page `GET /dev/gbp-connect` for the live test.
 - **GBP Score + report (7c), offline so far:**
   - **GBP Score** (private): 5 pillars, 26 checks, rescaled when data is missing (`partial`); today (v4 off) it runs on completeness, visibility and engagement. **Public Score** for the client and competitors alike.
   - **Competitor comparison** (client + tracked + top 3 of the map list) with gap insights; Place Details at most once per monthly cycle per business.
@@ -120,8 +120,18 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - invitations and password resets verify the email
   - `migrate:email-verified` marks existing users verified; legacy register removed
 - **Sanitation pass (2026-09-27):** the editor uses the workspace TypeScript 5.9 (`.vscode/settings.json`), the tsconfigs state their defaults, and the lint script covers every file. PROGRESS.md "Sanitation pass".
-- **Tests:** 743 pass (76 suites) with no API key and no network. Lint: 169 errors, all legacy (0 in rebuilt code and tests). Build: 0 errors.
-- **Endpoints:** 208 (193 live, 14 deprecated, 1 dev-only), all in [ENDPOINTS.md](ENDPOINTS.md).
+- **Citations (Phase 16), offline:**
+  - **Admin (platform admins, `citations.view` / `citations.manage`):**
+    - the directory master list (CRUD, filters) with CSV import (dry run, all-or-nothing, upsert by domain) and formula-safe export
+    - directory categories mapped to the Google business categories
+    - per-location lists: suggestions by country, region and category group (also at onboarding completion); checks with server-side NAP mismatch detection; bulk; remove / restore; full history
+    - a work queue: unchecked, stale N days, recent
+  - **Customers (read-only):** a citation dashboard + table per location (admin names and notes hidden), dashboard blocks and two recommended actions, and the **Citation Report** (+ a Citations part in the Full report; schedules work).
+  - **Citation Health** from `src/citations/scoring.config.ts`; the worked example scores 50 (D), and 66 (C) after one NAP fix.
+  - **Starter master list:** 50 US / CA directories in 5 category groups (`npm run seed:citation-directories`).
+  - **Retired:** the legacy `/citation/*` module (13 routes) and `serpapi`.
+- **Tests:** 800 pass (84 suites) with no API key and no network. Lint: 137 errors, all legacy (0 in rebuilt code and tests). Build: 0 errors.
+- **Endpoints:** 220 (205 live, 14 deprecated, 1 dev-only), all in [ENDPOINTS.md](ENDPOINTS.md).
 
 ## Key decisions
 
@@ -152,6 +162,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 2026-09-27 | **Phase 8.1:** email verification by link (not a code), valid 24 h. Unverified accounts get no tokens and are deleted after 24 h. Only 8.1 signups carry the deadline, so older accounts can never be deleted. Legacy `/user/auth/register` removed (disabled rather than ported). |
 | 2026-09-27 | **Phase 16 in M5** (the Citation Report is one of the four mandatory reports). **Plan approved, then build paused** by Mohit; resume from [plans/phase-16-citations.md](plans/phase-16-citations.md). Decisions in the plan: retire the legacy citation module and `serpapi`; `citations.view` + `citations.manage`; directory category groups; score defaults; CSV via `csv-parse` / `csv-stringify`. |
 | 2026-09-27 | **Tooling:** the editor uses the workspace TypeScript (5.9.3), not VS Code's bundled 6.0. The lint baseline is corrected to 169 legacy errors (the old script skipped nested folders). The TypeScript 7 move is backlog. |
+| 2026-09-27 | **Phase 16 (Mohit, on resume):** retire the whole legacy `/citation/*` module and `serpapi` (incl. its old-Places-API call); keep the old order model (`LegacyLocationCitation`) for the credit-payment code until Phase 13; a new `citations.view` permission beside `citations.manage`; the score defaults of the worked example (50 → D, 66 → C after one NAP fix), tunable in `scoring.config.ts`; `csv-parse` / `csv-stringify`. As built: `live_correct` with a NAP mismatch needs `confirm`; customers see "MyPageSEO team" and never internal notes; suggestions never remove anything. |
 | 2026-09-27 | **Phase 11 / M4:** dashboards read stored per-location summaries only (`Location.summary`, written after runs and reports); team management is owner-only; accepting an invitation as an existing account doesn't log in; invitation tokens travel in the body and are stored hashed; in development the invitation link is logged with the email masked. |
 
 ## Open items (owner: Mohit)
@@ -207,16 +218,18 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 
 - **TypeScript 7 readiness** (9b / 14): `moduleResolution: node` is removed in TS 7; the node16 move and the two dynamic imports are described in OPERATIONS.md "Lint and editor setup".
-- **Legacy lint debt:** 169 ESLint errors, all in legacy modules (baseline measured 2026-09-27, after fixing the lint script's glob). They shrink as Phases 9, 13 and 16 replace those modules.
+- **Legacy lint debt:** 137 ESLint errors, all in legacy modules (169 when first measured on 2026-09-27; Phase 16 removed 32 with the old citation module). They shrink as Phases 9 and 13 replace those modules.
 - (The Dallas test, the formal `calibrate:score` and the variance test moved to "Pre-launch live validation" and Phase 12.5.)
 - **Overall-average UX:** when one keyword is 60+ everywhere it counts as 61 and dominates `overallAvgRank` (Round 1: 31.2 from 1.4 and 61). Decide how the page explains or presents it.
 
 ## Next up
 
-1. **Paused (Mohit, 2026-09-27).** When work resumes, Mohit picks the next phase. The candidates toward M5 are **16 Citations** (plan approved: [plans/phase-16-citations.md](plans/phase-16-citations.md)), **13 Billing & plans** (spec to be written) and **14 Production readiness**. **Phase 8.1 at deploy:** run `npm run migrate:email-verified -- --confirm` **before** starting the new code, and set `FRONTEND_URL` (OPERATIONS.md deploy checklist step 12). The frontend needs the `/verify-email` page (API.md).
-2. **Then** 13 (billing & plans) and 14 (production readiness) toward M5.
-3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
-4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
+1. **Merge and push Phase 16** (commands in the phase summary). **At deploy:** `npm run db:sync-indexes -- --confirm`, then `npm run seed:citation-directories -- --confirm` (OPERATIONS.md deploy checklist step 13). The admin team then edits the starter list; the placeholder authority values need review.
+   - **Phase 8.1 at deploy:** run `npm run migrate:email-verified -- --confirm` **before** starting the new code, and set `FRONTEND_URL` (OPERATIONS.md deploy checklist step 12). The frontend needs the `/verify-email` page (API.md).
+2. **Then Phase 13** (billing & plans, plus the admin panel backend for launch: users, organizations, subscriptions, support tickets) in plan mode; it also decides the legacy citation credits (CLAUDE.md §12h).
+3. **Then** 14 (production readiness) toward M5.
+4. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
+5. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
 

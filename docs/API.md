@@ -1893,7 +1893,8 @@ A report freezes stored data (the rank run, the GBP report, the profile snapshot
 | `rank_tracker` | `summary`, `keywords`, `history` (last 12 runs), `grid` (heatmap per keyword), `movers` |
 | `gbp_audit` | `score`, `checks` (with top fixes), `performance` (`range` 28d/90d/12m), `keywords`, `profile` (with name/phone/website consistency), `verification`, `pending_edits`, `reviews_media_posts` (needs v4) |
 | `competitor_analysis` | `public_scores`, `table`, `ranks`, `insights` |
-| `full` | the report types it combines: `rank_tracker`, `gbp_audit`, `competitor_analysis` |
+| `citation` (Phase 16) | `score` (Citation Health, coverage, counts), `table` (every listing: directory, type, status, NAP issues, last checked), `nap_issues` (listed as vs should be), `changes` (the report's `range`) |
+| `full` | the report types it combines: `rank_tracker`, `gbp_audit`, `competitor_analysis`, `citation` (Phase 16) |
 
 A part that can't be shown is `{ available: false, reason }` in `snapshot.data` and an `unavailable` block in the document: `gbp_not_connected`, `v4_access_pending` ("Not available yet: this needs Google My Business v4 access"), `not_synced_yet`, `no_rank_run`, `no_gbp_report`. **Never sample data.**
 
@@ -2104,6 +2105,7 @@ Authorization: Bearer eyJ…
 | `platform.write` | super admin, admin |
 | `content.manage` | super admin, admin, editor |
 | `system.read` | super admin |
+| `citations.view` (Phase 16) | super admin, admin, editor |
 | `citations.manage` (Phase 16) | super admin, admin, editor |
 
 - **Errors:** no or invalid token → **401**; a missing permission → **403**: `{ "reason": "forbidden", "permission": "platform.read" }`. Rate limits → **429** `rate_limited`.
@@ -2114,3 +2116,210 @@ Authorization: Bearer eyJ…
 - Any request key starting with `$` or containing `.` → **400** `{ "reason": "invalid_input", "field": "body.email.$ne" }`.
 - Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, legacy white-label create/update, GBP post add); elsewhere a file → **400**.
 - 500 responses say "Something went wrong." (details only in development).
+
+## Citations (Phase 16)
+
+**Manual, admin-managed citation tracking.** Platform admins keep a **master list of directories**, put directories on each location's **citation list**, and record what they find: status, listing URL, NAP as seen. Organization users get a read-only dashboard, a table and a **Citation Health** score, plus a Citation Report in the Reports center. There are no external citation APIs and no Google calls.
+
+**Admin routes** (`/api/v1/admin/citations/*`) take a platform-admin token (see "Platform admin authentication"):
+- `citations.view` to read; `citations.manage` to change. Both are held by super admin, admin and editor.
+- Errors carry `data.reason`. Every catalogue row is in [ENDPOINTS.md](ENDPOINTS.md).
+
+### Directories and categories (admin)
+
+A **directory**:
+
+```json
+{ "id": "…", "name": "HomeStars", "url": "https://homestars.com/", "domain": "homestars.com", "type": "niche",
+  "categories": [ { "id": "…", "name": "Home services", "slug": "home-services" } ],
+  "countries": ["CA"], "regions": [], "authority": 60, "notes": null, "is_active": true,
+  "created_at": "2026-09-27T…", "updated_at": "2026-09-27T…" }
+```
+
+**Fields:**
+- **`type`:** `general | niche | aggregator | social | government_chamber`.
+- **`countries`:** `US` and / or `CA` (at least one).
+- **`categories`:** empty = fits every business. A `niche` directory needs at least one.
+- **`regions`:** optional 2-letter state / province codes. They limit the directory to part of a country, e.g. a state chamber.
+- **`authority`:** 0–100 or null (optional; weights the score).
+- **`domain`:** unique, taken from `url` without `www.`.
+
+**Writes:**
+- **Create:** `POST /admin/citations/directories { name, url, type, countries, category_ids?, regions?, authority?, notes?, is_active? }` → **201**.
+- **Errors:** **400** `{ reason: "invalid_directory", problems: [{ field, message }] }`; **409** `{ reason: "domain_taken", domain }`.
+- **Delete:** deactivates the directory. Entries that use it keep it, and it is no longer suggested.
+
+A **directory category** is an industry group mapped to the Google business categories (`GET /admin/citations/business-categories?q=plumb` → `[{ id, name }]`):
+
+```json
+{ "id": "…", "name": "Home services", "slug": "home-services", "is_active": true,
+  "business_categories": [ { "id": "…", "name": "Plumber" }, { "id": "…", "name": "Electrician" } ], "directory_count": 6 }
+```
+
+A category can't be deleted while directories use it: **409** `{ reason: "in_use", directory_count }`. Deactivate it instead.
+
+### Directory CSV import / export (admin)
+
+`GET /admin/citations/directories/export` downloads `citation-directories-<date>.csv`: UTF-8 with a BOM, so Excel reads accents correctly.
+
+```csv
+name,url,type,countries,categories,regions,authority,notes,active
+Angi,https://www.angi.com/,niche,US,home-services,,85,,true
+Texas Chamber Directory,https://example-chamber.org/,government_chamber,US,,TX,40,Region-limited example,true
+Yelp,https://www.yelp.com/,general,US|CA,,,93,,true
+```
+
+`POST /admin/citations/directories/import?dry_run=true` takes the file as the body, with `Content-Type: text/csv` (≤ 1 MB, ≤ 2,000 rows).
+- The header is required; columns can come in any order. `name, url, type, countries` are required columns.
+- **Lists** are separated by `|`. **Categories** are directory-category **slugs**.
+- **Upsert key:** the domain of `url`. A file row with a known domain updates that directory; a new domain creates one.
+- Directories that are **not** in the file are left alone (never deleted).
+- **All-or-nothing:** any row error → **422** and nothing is applied. `dry_run=true` validates and counts without writing.
+
+```json
+{ "dry_run": false, "applied": true, "rows": 42, "created": 40, "updated": 1, "unchanged": 1, "errors": [] }
+```
+
+A failed import:
+
+```json
+{ "dry_run": false, "applied": false, "rows": 3, "created": 2, "updated": 0, "unchanged": 1,
+  "errors": [ { "row": 3, "field": "categories", "message": "unknown category \"lawyers\"" },
+              { "row": 4, "field": "url", "message": "duplicate domain \"yelp.com\" (also on line 2)" } ] }
+```
+
+**Row rules:**
+
+| Column | Rule |
+|---|---|
+| name | 1–120 characters |
+| url | http(s) URL ≤ 300; unique domain within the file |
+| type | one of the 5 types |
+| countries | `US`, `CA` or `US\|CA` |
+| categories | existing slugs; required for `niche` |
+| regions | 2-letter codes valid for the listed countries |
+| authority | empty or an integer 0–100 |
+| active | `true`, `false` or empty (= true) |
+
+**Other errors:**
+- File-level problems → **400** with `invalid_csv` (unreadable), `invalid_csv_header` (`missing` / `unknown` columns), `empty_csv` or `too_many_rows`.
+- **Export safety:** cells starting with `= + - @` are prefixed with `'`, so a spreadsheet never runs them as formulas. Re-importing such a cell keeps the `'`.
+
+### A location's citation list (admin)
+
+`GET /admin/citations/locations/:locationId` is the admin screen for one location:
+
+```json
+{ "location": { "id": "…", "name": "Maple Leaf Plumbing & Heating", "city": "Toronto", "state": "Ontario", "country": "Canada",
+                "organization": { "id": "…", "name": "Pat Agency", "type": "agency" }, "client": { "id": "…", "name": "Maple Leaf" },
+                "nap": { "name": "Maple Leaf Plumbing & Heating", "address": "100 Queen St E", "phone": "4165550100", "website": "https://example.test" } },
+  "business_categories": ["Plumber"], "category_groups": [ { "id": "…", "name": "Home services" } ], "category_matched": true,
+  "health": { "score": 50, "grade": "D", "coverage": 0.83, "scored": 5, "total": 6,
+              "counts": { "not_checked": 1, "live_correct": 2, "nap_wrong": 1, "not_found": 1, "duplicate": 0, "submitted": 1, "pending": 0, "removed": 0 } },
+  "entries": [ {
+      "id": "…", "directory": { "id": "…", "name": "Data Axle", "url": "https://www.data-axle.com/", "domain": "data-axle.com", "type": "aggregator", "authority": 80, "is_active": true },
+      "status": "nap_wrong", "listing_url": "https://…", "nap_found": { "name": "Maple Leaf Plumbing and Heating", "address": "100 Queen Street East", "phone": "(416) 555-0199", "website": null },
+      "mismatch_fields": ["phone"], "notes": null, "last_checked_at": "2026-09-27T…", "checked_by": "<admin id>", "source": "suggested", "active": true } ],
+  "removed_from_list": [] }
+```
+
+- **`nap`:** the NAP a listing should show (the location's own name, address, phone, website).
+- **`category_matched: false`:** none of the location's business categories (stored category + GBP primary / additional) is in a directory category, so only directories without categories are suggested.
+
+**Suggestions:** `POST …/suggest[?dry_run=true]` adds, as `not_checked`, every **active** directory that:
+- lists the location's country (US / CA),
+- fits its state / province when the directory has `regions`, and
+- has no categories, or shares a category group with the location.
+
+It never removes anything and never re-adds a directory an admin took off the list.
+- It also runs **automatically when onboarding completes** (`POST /onboarding/complete`); a failure there never blocks completion.
+- Locations outside the US / CA get `reason: "unsupported_country"` and nothing is added.
+
+**Recording a check:** `PATCH /admin/citations/entries/:entryId`:
+
+```json
+{ "status": "nap_wrong", "listing_url": "https://www.data-axle.com/biz/123",
+  "nap_found": { "name": "Maple Leaf Plumbing and Heating", "address": "100 Queen Street East", "phone": "(416) 555-0199" },
+  "note": "old phone number" }
+```
+
+→ `{ "entry": { …, "mismatch_fields": ["phone"], "last_checked_at": "…" }, "changed": ["status", "listing_url", "nap_found"] }`
+
+- **Statuses:** `not_checked | live_correct | nap_wrong | not_found | duplicate | submitted | pending | removed`. `removed` = the listing itself was taken down.
+- **`mismatch_fields`** is computed on the server after normalising:
+  - **name:** case, punctuation, `&` = "and"
+  - **address:** street line with abbreviations (Street = St), ZIP / postal code
+  - **phone:** the last 10 digits
+  - **website:** the host without `www.`
+
+  A field missing on either side is not compared.
+- **`live_correct` with a mismatch** → **409** `{ "reason": "nap_mismatch", "mismatch_fields": ["phone"] }`. Use `nap_wrong`, or send `"confirm": true`.
+- **`checked: true`** alone records "checked, no change". A change of status, NAP or URL also sets `last_checked_at` / `checked_by`; notes alone don't.
+- **Every change** writes one history row (`GET …/entries/:entryId/history`) and refreshes the location's Citation Health.
+
+**Bulk:** `POST /admin/citations/entries/bulk { entry_ids, status, note? }` → `{ updated, unchanged, skipped: [{ entry_id, reason }] }`. Entries whose NAP differs are skipped for `live_correct` (`nap_mismatch`).
+
+**Taking a directory off a list:** `DELETE /admin/citations/entries/:entryId` (restore: `POST …/restore`). The entry and its history are kept, and it stops counting in the score.
+
+### Work queue (admin)
+
+| Queue | What it lists | Sort |
+|---|---|---|
+| `GET /admin/citations/queue/unchecked` | locations with `not_checked` entries: `unchecked`, `active_entries`, `oldest_added_at` | waiting longest first |
+| `GET /admin/citations/queue/stale?days=90` | checked entries not checked again for N days (default `CITATION_STALE_DAYS` = 90), with `days_since_check` | oldest check first |
+| `GET /admin/citations/queue/recent?days=7` | history rows of the last N days, with directory and location | newest first |
+
+**Filters** on all three: `organization_id`, `client_id`, `directory_id`, `type`, plus `status` on `stale` and `recent` (on `recent` it is the new status); `page`, `limit` (≤ 100). Each row carries `location: { id, name, city, organization: { id, name }, client }`. Deleted locations and entries taken off a list are left out.
+
+### Citations for organization users (read-only)
+
+`GET /locations/:locationId/citations[?status=]`. Access is membership of the location's organization; a client_user sees only its clients' locations. Another organization's location → **404**.
+
+```json
+{ "available": true,
+  "health": { "score": 50, "grade": "D", "coverage": 0.83, "total": 6 },
+  "counts": { "not_checked": 1, "live_correct": 2, "nap_wrong": 1, "not_found": 1, "duplicate": 0, "submitted": 1, "pending": 0, "removed": 0 },
+  "last_checked_at": "2026-09-27T…",
+  "recent_changes": [ { "at": "2026-09-27T…", "directory": { "name": "Data Axle", "type": "aggregator" }, "action": "status_changed",
+                        "from": "not_checked", "to": "nap_wrong", "changed_fields": ["status", "nap_found"], "by": "MyPageSEO team" } ],
+  "citations": [
+    { "directory": { "name": "Data Axle", "url": "https://www.data-axle.com/", "type": "aggregator" }, "status": "nap_wrong",
+      "nap_issues": [ { "field": "phone", "found": "(416) 555-0199", "expected": "4165550100" } ],
+      "listing_url": "https://…", "last_checked_at": "2026-09-27T…" },
+    { "directory": { "name": "Yelp", "url": "https://www.yelp.com/", "type": "general" }, "status": "live_correct", "nap_issues": [], "listing_url": "https://…", "last_checked_at": "…" } ] }
+```
+
+- **Row order:** problems first: `nap_wrong`, `duplicate`, `not_found`, `pending`, `submitted`, `not_checked`, `live_correct`.
+- **Hidden from customers:** admin names and ids, and internal notes. Every change reads "MyPageSEO team".
+- **No list yet:** `{ "available": false, "reason": "no_citations_yet" }`. The list is created when onboarding completes, or by an admin.
+- **History:** `GET /locations/:locationId/citations/changes?page=&limit=` returns the same change rows, paginated (notes-only edits are not listed).
+
+**Dashboard** (`GET /dashboard`, Phase 16 additions):
+- **Business shape:** a `citations` block and `locations[].citation_score`.
+- **Agency shape:** `portfolio.avg_citation_score`, the `citations` block and `table.rows[].citations: { score, grade, nap_wrong }`.
+
+```json
+"citations": { "available": true, "score": 50, "grade": "D", "coverage": 0.83, "listings": 6,
+               "live_correct": 2, "nap_wrong": 1, "not_found": 1, "not_checked": 1 }
+```
+
+- **Not available:** `{ "available": false, "reason": "no_citations_yet" | "not_checked_yet" }`.
+- **Recommended actions** gain `citations:nap_wrong` ("N listings show the wrong name, address or phone") and `citations:not_found` ("Not listed on N directories"), with `source: "citations"`.
+
+### Citation Report (Reports center)
+
+`POST /reports { location_id, type: "citation", sections?, range? }` works like the other types. Its PDF, email, share link and monthly schedule behave the same (`type: "citation"` in `POST /report-schedules`).
+- **Sections:** `score`, `table`, `nap_issues`, `changes` (the changes within `range`: 28d, 90d or 12m).
+- **No list yet:** a location without a citation list → **400** `{ "reason": "no_citations_yet" }`.
+- **Full report:** has a fourth part, **Citations**. It shows "No citations have been tracked for this location yet." when the list is empty.
+- **Snapshot:** holds our own data only: directory names, statuses, the NAP as recorded, change dates. No admin names, no internal notes and no Google content, so the Citation Report carries no Google attribution.
+
+```json
+"citation": { "available": true, "as_of": "2026-09-27T…", "range": "28d",
+  "score": { "score": 50, "grade": "D", "coverage": 0.83, "total": 6, "counts": { "live_correct": 2, "nap_wrong": 1, "…": 0 } },
+  "nap_issues": { "expected": { "name": "…", "address": "…", "phone": "4165550100", "website": "…" },
+                  "rows": [ { "directory": "Data Axle", "field": "phone", "found": "(416) 555-0199", "expected": "4165550100" } ] },
+  "table": [ { "directory": "Data Axle", "type": "aggregator", "status": "nap_wrong", "listing_url": "https://…", "last_checked_at": "…", "nap_issues": ["phone"] } ],
+  "changes": [ { "at": "…", "directory": "Data Axle", "action": "status_changed", "from": "not_checked", "to": "nap_wrong" } ] }
+```
+

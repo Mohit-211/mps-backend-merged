@@ -3,9 +3,9 @@ import express from 'express';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
-import { Client, GBPPost, Membership, OTP, User } from '../../src/models';
+import { GBPPost, Membership, OTP, User } from '../../src/models';
 import { revokeUserSessions } from '../../src/services/common/token.service';
-import { addMember, clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
+import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 
 // Phase 10 (AUDIT S15, S22, S23, S24, S25): user tokens, the legacy OTP / reset flows, account
 // deletion and the remaining ownership checks, on the real app.
@@ -116,7 +116,7 @@ describe('account deletion (S23)', () => {
 });
 
 describe('ownership (S15, S25)', () => {
-	it("another organization's GBP post or citation list is not found", async () => {
+	it("another organization's GBP post is not found", async () => {
 		const { user: owner } = await createUser('owner@test.dev');
 		const loc = await createLocation(owner._id as Types.ObjectId);
 		const post = await GBPPost.collection.insertOne({ location_id: loc._id, is_active: true, gbpPostId: 'accounts/1/locations/2/localPosts/3' });
@@ -125,14 +125,7 @@ describe('ownership (S15, S25)', () => {
 		const del = await request(app).delete('/api/v1/gbp/post/remove').set(bearer(token)).send({ post_id: String(post.insertedId) });
 		expect(del.status).toBe(404);
 		expect((await GBPPost.collection.findOne({ _id: post.insertedId }))?.is_active).toBe(true);
-		const list = await request(app).get(`/api/v1/citation/lists/${String(loc._id)}`).set(bearer(token));
-		expect(list.status).toBe(400);
-		expect(list.body.message).toContain('Location not found');
-		// A client_user of the owner's agency without that client doesn't see it either.
-		const org = await ensureOrg(owner._id);
-		const client = await Client.create({ company_name: 'C', organization_id: org._id });
-		const { user: cu, token: cuToken } = await createUser('cu@test.dev');
-		await addMember(org._id, cu._id, 'client_user', [client._id as Types.ObjectId]);
-		expect((await request(app).get(`/api/v1/citation/lists/${String(loc._id)}`).set(bearer(cuToken))).status).toBe(400);
+		// The legacy citation list routes were retired in Phase 16; their access checks now live in
+		// tests/routes/citationsCustomer.routes.test.ts.
 	});
 });

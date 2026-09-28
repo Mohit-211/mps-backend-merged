@@ -11,7 +11,6 @@ import * as contactUsController from './contactUs.controller';
 import * as businessCategoryController from './businessCategory.controller';
 import * as whitelabelProfileController from './whitelabelProfile.controller';
 import * as gbpPSController from './gbpPostSchedular.controller';
-import * as citationController from './citation.controller';
 import * as paymentController from './payment.controller';
 import * as blogController from './blog.controller';
 import * as blogCategoryController from './blogCategory.controller';
@@ -29,7 +28,6 @@ export {
 	businessCategoryController,
 	whitelabelProfileController,
 	gbpPSController,
-	citationController,
 	paymentController,
 	blogController,
 	blogCategoryController

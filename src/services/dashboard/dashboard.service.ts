@@ -139,6 +139,26 @@ const visibilityOf = (items: Item[]) => ({
 	top3_rate: mean(items.map((i) => i.summary.top3_rate), 2),
 });
 
+/** Phase 16: Citation Health across the locations (from Location.summary). */
+const citationsBlock = (items: Item[]) => {
+	const scored = items.filter((i) => typeof i.summary.citation_score === 'number');
+	const listed = items.filter((i) => (i.summary.citation_total ?? 0) > 0);
+	const sum = (key: string) => listed.reduce((s, i) => s + (i.summary.citation_counts?.[key] ?? 0), 0);
+	if (!scored.length) return { available: false as const, reason: listed.length ? 'not_checked_yet' : 'no_citations_yet' };
+	const score = mean(scored.map((i) => i.summary.citation_score), 0) as number;
+	return {
+		available: true as const,
+		score,
+		grade: scored.length === 1 ? (scored[0].summary.citation_grade ?? gradeFor(score)) : gradeFor(score),
+		coverage: mean(listed.map((i) => i.summary.citation_coverage), 2),
+		listings: listed.reduce((s, i) => s + (i.summary.citation_total ?? 0), 0),
+		live_correct: sum('live_correct'),
+		nap_wrong: sum('nap_wrong'),
+		not_found: sum('not_found'),
+		not_checked: sum('not_checked'),
+	};
+};
+
 const refreshOf = (items: Item[]) => {
 	const last = items.map((i) => i.last_refreshed_at).filter((d): d is Date => d instanceof Date);
 	const next = items.map((i) => i.next_refresh_at).filter((d): d is Date => d instanceof Date);
@@ -154,6 +174,7 @@ const businessDashboard = (items: Item[]) => ({
 	visibility: { ...visibilityOf(items), trend: trendOf(items) },
 	gbp: gbpBlock(items),
 	reviews: reviewsBlock(items),
+	citations: citationsBlock(items),
 	movement: movementOf(items),
 	key_competitor: keyCompetitorOf(items),
 	recommended_actions: actionsFor(items),
@@ -166,6 +187,7 @@ const businessDashboard = (items: Item[]) => ({
 		avg_rank: i.summary.overall_avg_rank ?? null,
 		change: i.summary.overall_change ?? null,
 		gbp_score: i.summary.gbp_score ?? null,
+		citation_score: i.summary.citation_score ?? null,
 	})),
 });
 
@@ -207,6 +229,7 @@ const tableOf = (items: Item[], query: DashboardQuery) => {
 			status: i.status,
 			visibility: { avg_rank: i.summary.overall_avg_rank ?? null, change: i.summary.overall_change ?? null, top3_rate: i.summary.top3_rate ?? null },
 			gbp: typeof i.summary.gbp_score === 'number' ? { score: i.summary.gbp_score, grade: i.summary.gbp_grade ?? null, change: i.summary.gbp_score_change ?? null } : null,
+			citations: typeof i.summary.citation_score === 'number' ? { score: i.summary.citation_score, grade: i.summary.citation_grade ?? null, nap_wrong: i.summary.citation_counts?.nap_wrong ?? 0 } : null,
 		})),
 		page,
 		limit,
@@ -253,7 +276,9 @@ const agencyDashboard = (items: Item[], clientsCount: number, query: DashboardQu
 			avg_top3_rate: mean(items.map((i) => i.summary.top3_rate), 2),
 			avg_gbp_score: mean(scored.map((i) => i.summary.gbp_score)),
 			avg_gbp_score_change: mean(scored.map((i) => i.summary.gbp_score_change)),
+			avg_citation_score: mean(items.filter((i) => typeof i.summary.citation_score === 'number').map((i) => i.summary.citation_score)),
 		},
+		citations: citationsBlock(items),
 		status_counts: statusCounts(items),
 		declines,
 		gbp_issues: gbpIssues,

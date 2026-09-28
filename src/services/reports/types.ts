@@ -116,10 +116,23 @@ export interface CompetitorData {
 	reviews?: { name: string; is_self: boolean; items: { rating: number | null; text: string | null; when: string | null; author: string | null; author_uri: string | null }[] }[];
 }
 
+// ---- Citations (Phase 16) ----
+
+export interface CitationReportData {
+	available: true;
+	as_of: Date;
+	range: ReportRangeParam;
+	score?: { score: number | null; grade: string | null; coverage: number | null; total: number; counts: Record<string, number> };
+	table?: { directory: string; type: string; status: string; listing_url: string | null; last_checked_at: Date | null; nap_issues: string[] }[];
+	nap_issues?: { expected: { name: string | null; address: string | null; phone: string | null; website: string | null }; rows: { directory: string; field: string; found: string | null; expected: string | null }[] };
+	changes?: { at: Date; directory: string; action: string; from: string | null; to: string | null }[];
+}
+
 export interface SnapshotData {
 	rank_tracker?: Part<RankTrackerData>;
 	gbp_audit?: Part<GbpAuditData>;
 	competitor_analysis?: Part<CompetitorData>;
+	citation?: Part<CitationReportData>;
 }
 
 // ---- Document model ----

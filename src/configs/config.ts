@@ -68,6 +68,7 @@ const envVarsSchema = Joi.object({
 	EMAIL_VERIFICATION_TTL_HOURS: Joi.number().integer().min(1).max(168).default(24).description('Phase 8.1: verification link lifetime; unverified signups are deleted after it'),
 	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
 	REPORTS_STORAGE_DIR: Joi.string().default('./storage/reports').description('Reports center (Phase 12): private directory for report PDFs and branding logos (never served statically)'),
+	CITATION_STALE_DAYS: Joi.number().integer().min(1).max(730).default(90).description('Phase 16: citation entries not checked for this many days appear in the admin work queue'),
 	REPORT_RETENTION_MONTHS: Joi.number().integer().min(1).max(120).default(24).description('Generated reports (PDF + snapshot) are deleted after this many months'),
 	REPORT_RENDER_CONCURRENCY: Joi.number().integer().min(1).max(2).default(1).description('report-generate jobs at once per process'),
 	REPORT_EMAIL_MAX_ATTACHMENT_MB: Joi.number().min(1).max(25).default(10).description('Larger report PDFs are emailed as a 30-day share link instead of an attachment'),
@@ -233,6 +234,11 @@ interface Config {
 		debounceSeconds: number;
 	};
 
+	citations: {
+		/** Phase 16: default N of the admin "not checked in N days" queue. */
+		staleDays: number;
+	};
+
 	paypal: {
 		/** Phase 10: webhook signature verification; empty = every webhook is refused. */
 		webhookId: string;
@@ -376,6 +382,10 @@ const config: Config = {
 
 	report: {
 		debounceSeconds: envVars.REPORT_DEBOUNCE_SECONDS,
+	},
+
+	citations: {
+		staleDays: envVars.CITATION_STALE_DAYS,
 	},
 
 	paypal: {

@@ -22,7 +22,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
-- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.manage` (Phase 16; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -48,15 +48,17 @@
 
 ---
 
-## Summary (2026-09-27)
+## Summary (2026-09-27, Phase 16 built)
 
-**208 endpoints:** 193 live, 14 deprecated, 1 dev-only.
-- **By origin:** 72 rebuilt or new, 136 legacy.
-- **By auth:** 107 user, 52 platform admin (each with a permission), 47 none, 2 refresh token.
+**220 endpoints:** 205 live, 14 deprecated, 1 dev-only.
+- **By origin:** 97 rebuilt or new, 123 legacy.
+- **By auth:** 97 user, 74 platform admin (each with a permission), 47 none, 2 refresh token.
 
-**Coming changes** (approved plans, not built):
-- **Phase 16** retires the 13 legacy `/citation/*` routes and adds `/admin/citations/*` plus `GET /locations/:locationId/citations[/changes]`. See [plans/phase-16-citations.md](plans/phase-16-citations.md), §4.
-- **Phase 9b** removes the 14 deprecated routes once the frontend has moved.
+This block is recounted with every commit that changes the catalogue.
+
+**Phase 16 (citations):** the 13 legacy `/citation/*` routes were retired. It added 23 `/admin/citations/*` routes (#82–#104) and 2 customer routes (#105–#106), and the report type `citation` (#61).
+
+**Coming:** Phase 9b removes the 14 deprecated routes once the frontend has moved.
 
 ## Catalogue: all current endpoints
 
@@ -262,25 +264,37 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user (owner) | Get White Label Profile Detail. Replaced by #75 | legacy, changed 10 | deprecated |
 | DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile. Replaced by #76 / #79 | legacy | deprecated |
 
-### Citations
+### Citations (Phase 16)
 
-**Legacy, to be retired in Phase 16** (plan approved, build paused: [plans/phase-16-citations.md](plans/phase-16-citations.md)). The tracker returns SerpAPI sample data and the builder is a stub; the frontend must not build on these routes.
+Manual, admin-managed citation tracking (no external citation APIs). Admin routes need a platform-admin token with `citations.view` (read) or `citations.manage` (write). Examples: [API.md](API.md#citations-phase-16).
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/citation/manual/listings/pricings` | user | Get Manual Submission Prices | legacy | live |
-| GET | `/api/v1/citation/aggregators/list` | user | Get Aggregators Details | legacy | live |
-| GET | `/api/v1/citation/remove/prices/list` | user | Get Citatio Remove Prices | legacy | live |
-| GET | `/api/v1/citation/lists/:location_id` | user | Get Citatio List | legacy | live |
-| POST | `/api/v1/citation/campaign/add/new` | user | Add Citation Campaign | legacy | live |
-| POST | `/api/v1/citation/campaign/add/busines/info` | user | Add Citation Campaign Busines Info | legacy | live |
-| GET | `/api/v1/citation/:location_id/campaign/:campaign_id/details` | user | Get Campaign Details | legacy | live |
-| GET | `/api/v1/citation/:location_id/campaign/all` | user | Get All Campaign | legacy | live |
-| GET | `/api/v1/citation/locations/campaigns/list/all` | user | Get All Citation By Token | legacy | live |
-| POST | `/api/v1/citation/tracker` | user | Generate Citation Tracker Report | legacy | live |
-| GET | `/api/v1/citation/tracker` | user | Get Citation Tracker Report | legacy | live |
-| POST | `/api/v1/citation/builder` | user | Citation Builder | legacy | live |
-| GET | `/api/v1/citation/getAllCitatioList` | admin (`platform.read`) | Get All Citatio List | legacy, changed 10 | live |
+| GET | `/api/v1/admin/citations/directories` | admin (`citations.view`) | Directory master list (search, type, country, category, active; paginated) | 16 | live |
+| POST | `/api/v1/admin/citations/directories` | admin (`citations.manage`) | Create a directory | 16 | live |
+| GET | `/api/v1/admin/citations/directories/export` | admin (`citations.view`) | Export every directory as CSV | 16 | live |
+| POST | `/api/v1/admin/citations/directories/import` | admin (`citations.manage`) | Import directories from CSV (`text/csv`; `?dry_run=true`; all-or-nothing; upsert by domain) | 16 | live |
+| GET | `/api/v1/admin/citations/directories/:directoryId` | admin (`citations.view`) | Directory detail + how many locations use it | 16 | live |
+| PATCH | `/api/v1/admin/citations/directories/:directoryId` | admin (`citations.manage`) | Update a directory | 16 | live |
+| DELETE | `/api/v1/admin/citations/directories/:directoryId` | admin (`citations.manage`) | Deactivate a directory (entries keep it; no longer suggested) | 16 | live |
+| GET | `/api/v1/admin/citations/categories` | admin (`citations.view`) | Directory categories (industry groups) with their GBP business categories and directory counts | 16 | live |
+| POST | `/api/v1/admin/citations/categories` | admin (`citations.manage`) | Create a directory category | 16 | live |
+| PATCH | `/api/v1/admin/citations/categories/:categoryId` | admin (`citations.manage`) | Update a directory category | 16 | live |
+| DELETE | `/api/v1/admin/citations/categories/:categoryId` | admin (`citations.manage`) | Delete a directory category (409 `in_use` while directories use it) | 16 | live |
+| GET | `/api/v1/admin/citations/business-categories` | admin (`citations.view`) | Search the GBP business categories (`?q=`, 20 results) for mapping | 16 | live |
+| GET | `/api/v1/admin/citations/locations/:locationId` | admin (`citations.view`) | A location's citation list: expected NAP, category matching, Citation Health, entries (and those taken off the list) | 16 | live |
+| POST | `/api/v1/admin/citations/locations/:locationId/suggest` | admin (`citations.manage`) | Add the matching directories (country, region, category group) as `not_checked`; `?dry_run=true` previews | 16 | live |
+| POST | `/api/v1/admin/citations/locations/:locationId/entries` | admin (`citations.manage`) | Add directories by hand (restores ones taken off the list) | 16 | live |
+| POST | `/api/v1/admin/citations/entries/bulk` | admin (`citations.manage`) | One status for up to 200 entries | 16 | live |
+| PATCH | `/api/v1/admin/citations/entries/:entryId` | admin (`citations.manage`) | Record a check: status, listing URL, NAP found (mismatch computed), notes, "checked, no change" | 16 | live |
+| DELETE | `/api/v1/admin/citations/entries/:entryId` | admin (`citations.manage`) | Take a directory off the location's list (history kept) | 16 | live |
+| POST | `/api/v1/admin/citations/entries/:entryId/restore` | admin (`citations.manage`) | Put a directory back on the list | 16 | live |
+| GET | `/api/v1/admin/citations/entries/:entryId/history` | admin (`citations.view`) | Every change of one entry (who, when, from → to, fields, note) | 16 | live |
+| GET | `/api/v1/admin/citations/queue/unchecked` | admin (`citations.view`) | Work queue: locations with unchecked citations, waiting longest first | 16 | live |
+| GET | `/api/v1/admin/citations/queue/stale` | admin (`citations.view`) | Work queue: entries not checked for N days (`CITATION_STALE_DAYS`, default 90) | 16 | live |
+| GET | `/api/v1/admin/citations/queue/recent` | admin (`citations.view`) | Work queue: changes of the last N days (default 7) | 16 | live |
+| GET | `/api/v1/locations/:locationId/citations` | user + owner (read-only) | Citation dashboard + table for a location: Citation Health, counts, NAP issues, recent changes (`?status=`) | 16 | live |
+| GET | `/api/v1/locations/:locationId/citations/changes` | user + owner (read-only) | A location's citation change history (paginated; shown as "MyPageSEO team") | 16 | live |
 
 ### Payments & subscriptions
 
@@ -524,7 +538,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 51 | DELETE | `/clients/:clientId/locations/:locationId` | user + org (agency, owner/member) | – | `{ unassigned, client_id, location_id }` |
 | 52 | POST | `/onboarding/skip` | user + org (owner/member) | `{ step: google\|reporting_brand }` | As #17 |
 
-| 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order` | Business: `{ type, locations_count, visibility, gbp, reviews, movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio, status_counts, declines, gbp_issues, recommended_actions, table }` |
+| 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order` | Business: `{ type, locations_count, visibility, gbp, reviews, citations (16), movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio (+ avg_citation_score), citations (16), status_counts, declines, gbp_issues, recommended_actions, table (rows + citations) }` |
 | 54 | POST | `/organization/invitations` | user + org (owner) | `{ email, role: member\|client_user, client_ids? }` | **201** `{ invitation_id, email, role, client_ids, status, expires_at, email_sent }`; **409** `already_member` |
 | 55 | GET | `/organization/invitations` | user + org (owner) | `status?` | `[{ invitation_id, email, role, client_ids, status, expires_at, invited_by, created_at }]` |
 | 56 | DELETE | `/organization/invitations/:invitationId` | user + org (owner) | – | `{ revoked, invitation_id }` |
@@ -550,7 +564,7 @@ A report freezes stored data (rank runs, the GBP report, the profile snapshot) a
 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
-| 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_data` |
+| 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|citation (16)\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_citations_yet` (16), `no_data` |
 | 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), page, limit` | `{ reports: [view], page, limit, total }` |
 | 63 | GET | `/reports/:reportId` | user + org | – | `{ report, snapshot: { location, data, sources } \| null, document: { title, period, generated_at, branding, blocks } \| null }` |
 | 64 | GET | `/reports/:reportId/pdf` | user + org | – | `application/pdf` attachment; **409** `not_ready` / `expired` |
@@ -596,9 +610,43 @@ No new endpoints; changed responses (examples in [API.md](API.md#ranking--data-q
 - **#28 competitor rows:** `photo_count` (0–10; 10 = "10+"), `photos_capped`, `reviews` (up to 5, with `author: { name, uri }`), `recent_review_at`; insights `photos_gap`, `review_freshness`.
 - **Reports** (#61): Rank Tracker gains the section `map_ranking`, Competitor Analysis the section `reviews`.
 
+### Citations (Phase 16)
+
+Admin auth: a platform-admin token with the permission shown. Errors carry `data.reason`. Shapes and examples: [API.md](API.md#citations-phase-16).
+
+| # | Method | Path | Auth | Params / body | Returns |
+|---|---|---|---|---|---|
+| 82 | GET | `/admin/citations/directories` | admin (`citations.view`) | `q, type, country (US\|CA), category_id, active, page, limit (≤ 100)` | `{ directories: [directory], page, limit, total }` |
+| 83 | POST | `/admin/citations/directories` | admin (`citations.manage`) | `{ name, url, type, countries, category_ids?, regions?, authority?, notes?, is_active? }` | **201** directory; **400** `invalid_directory` (`problems[]`); **409** `domain_taken` |
+| 84 | GET | `/admin/citations/directories/export` | admin (`citations.view`) | – | `text/csv` (UTF-8 with BOM), columns `name,url,type,countries,categories,regions,authority,notes,active` |
+| 85 | POST | `/admin/citations/directories/import` | admin (`citations.manage`) | body: the CSV (`Content-Type: text/csv`, ≤ 1 MB, ≤ 2,000 rows); `?dry_run=true` | `{ dry_run, applied, rows, created, updated, unchanged, errors: [{ row, field, message }] }`; **422** with `errors` (nothing applied); **400** `invalid_csv`, `invalid_csv_header`, `empty_csv`, `too_many_rows` |
+| 86 | GET | `/admin/citations/directories/:directoryId` | admin (`citations.view`) | – | directory + `used_by_locations` |
+| 87 | PATCH | `/admin/citations/directories/:directoryId` | admin (`citations.manage`) | any field of #83 | directory |
+| 88 | DELETE | `/admin/citations/directories/:directoryId` | admin (`citations.manage`) | – | directory with `is_active: false` |
+| 89 | GET | `/admin/citations/categories` | admin (`citations.view`) | – | `[{ id, name, slug, is_active, business_categories: [{ id, name }], directory_count }]` |
+| 90 | POST | `/admin/citations/categories` | admin (`citations.manage`) | `{ name, slug?, business_category_ids?, is_active? }` | **201** category; **409** `slug_taken`; **400** `unknown_business_category` |
+| 91 | PATCH | `/admin/citations/categories/:categoryId` | admin (`citations.manage`) | any field of #90 | category |
+| 92 | DELETE | `/admin/citations/categories/:categoryId` | admin (`citations.manage`) | – | `{ deleted: true }`; **409** `in_use` (`directory_count`) |
+| 93 | GET | `/admin/citations/business-categories` | admin (`citations.view`) | `q` | `[{ id, name }]` (20, by name) |
+| 94 | GET | `/admin/citations/locations/:locationId` | admin (`citations.view`) | – | `{ location: { id, name, city, state, country, organization, client, nap }, business_categories, category_groups, category_matched, health: { score, grade, coverage, counts, scored, total }, entries: [entry], removed_from_list: [entry] }`; **404** deleted or unknown location |
+| 95 | POST | `/admin/citations/locations/:locationId/suggest` | admin (`citations.manage`) | `?dry_run=true` | `{ country, region, business_categories, category_groups, category_matched, dry_run, added: [{ directory_id, name, type }], already_listed, reason? (unsupported_country) }` |
+| 96 | POST | `/admin/citations/locations/:locationId/entries` | admin (`citations.manage`) | `{ directory_ids: [id] (≤ 200) }` | `{ added, restored, already_listed, health }`; **400** `invalid_directory` (`unknown`, `inactive`) |
+| 97 | POST | `/admin/citations/entries/bulk` | admin (`citations.manage`) | `{ entry_ids (≤ 200), status, note? }` | `{ updated, unchanged, skipped: [{ entry_id, reason: not_found\|entry_removed\|nap_mismatch }] }` (request order) |
+| 98 | PATCH | `/admin/citations/entries/:entryId` | admin (`citations.manage`) | `{ status?, listing_url?, nap_found?: { name, address, phone, website }, notes?, checked?, confirm?, note? }` | `{ entry, changed }`; **409** `nap_mismatch` (`mismatch_fields`; send `confirm: true`), **409** `entry_removed` |
+| 99 | DELETE | `/admin/citations/entries/:entryId` | admin (`citations.manage`) | `{ note? }` | `{ entry (active: false), changed }` |
+| 100 | POST | `/admin/citations/entries/:entryId/restore` | admin (`citations.manage`) | `{ note? }` | `{ entry (active: true), changed }` |
+| 101 | GET | `/admin/citations/entries/:entryId/history` | admin (`citations.view`) | `page, limit` | `{ history: [{ id, action, from, to, changed_fields, note, by: { admin_id, name }, at }], page, limit, total }` |
+| 102 | GET | `/admin/citations/queue/unchecked` | admin (`citations.view`) | `organization_id, client_id, directory_id, type, page, limit` | `{ locations: [{ location: { id, name, city, organization, client }, unchecked, active_entries, oldest_added_at }], page, limit, total }` |
+| 103 | GET | `/admin/citations/queue/stale` | admin (`citations.view`) | `days (default 90), organization_id, client_id, status, directory_id, type, page, limit` | `{ days, entries: [entry + location + days_since_check], page, limit, total }` |
+| 104 | GET | `/admin/citations/queue/recent` | admin (`citations.view`) | `days (default 7), organization_id, client_id, status (the new status), directory_id, type, page, limit` | `{ days, changes: [history row + directory + location], page, limit, total }` |
+| 105 | GET | `/locations/:locationId/citations` | user + owner | `status` | `{ available: true, health: { score, grade, coverage, total }, counts, last_checked_at, recent_changes: [change], citations: [{ directory: { name, url, type }, status, nap_issues: [{ field, found, expected }], listing_url, last_checked_at }] }` (problems first); `{ available: false, reason: "no_citations_yet" }` |
+| 106 | GET | `/locations/:locationId/citations/changes` | user + owner | `page, limit` | `{ changes: [{ at, directory: { name, type }, action, from, to, changed_fields, by: "MyPageSEO team" }], page, limit, total }` |
+
 ## Removed endpoints
 
 Removed in Phase 8: `GET /locations/google-locations/:name` and `GET /locations/google-locations/details/:placeId` (unauthenticated proxies to the old paid Places API; use `GET /places/search`), and `PUT /locations` (now `PATCH /locations/:locationId`).
+
+Removed in Phase 16: the 13 legacy `/api/v1/citation/*` routes (manual pricings, aggregators, remove prices, `lists/:location_id`, campaign add / business info / details / all, `locations/campaigns/list/all`, tracker GET / POST, builder, `getAllCitatioList`). They were a paid citation-campaign ordering flow with a SerpAPI "tracker" returning sample data and a stub builder; replaced by the Phase 16 citation endpoints. See [plans/phase-16-citations.md](plans/phase-16-citations.md) §1.
 
 Removed in Phase 8.1: `POST /api/v1/auth/verify-email/resend` (now `POST /api/v1/auth/resend-verification`) and the legacy `POST /api/v1/user/auth/register` (use `POST /api/v1/auth/signup`).
 
