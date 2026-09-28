@@ -1987,7 +1987,7 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
 { "recipients": ["owner@mapleleafgroup.example"], "message": "Here is this month's report." }
 ```
 
-→ `{ "sent": true, "recipients": 1, "delivery": "attachment" }` (`"link"` above `REPORT_EMAIL_MAX_ATTACHMENT_MB`, with a 30-day share link in the email). Sender: `"<email_sender_name>"` or `"<agency name> via MyPageSEO"` from the `EMAIL_FROM` address; `Reply-To` from branding. In development nothing is sent: `sent: false` and the delivery is logged with masked recipients. **429** `rate_limited` above 20 per hour per organization.
+→ `{ "sent": true, "recipients": 1, "delivery": "attachment" }` (`"link"` above `REPORT_EMAIL_MAX_ATTACHMENT_MB`, with a 30-day share link in the email). Sender: `"<email_sender_name>"` or `"<agency name> via MyPageSEO"` from the `EMAIL_FROM` address; `Reply-To` from branding. `sent: false` when the email was only logged (`EMAIL_TRANSPORT=log`, the default outside production). **429** `rate_limited` above 20 per hour per organization.
 
 ### Share links
 

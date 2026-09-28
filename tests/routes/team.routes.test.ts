@@ -5,7 +5,7 @@ import { queryTypesArr } from '../../src/configs/constantTypes';
 import logger from '../../src/configs/logger';
 import { Client, Invitation, Membership, Organization, RateLimit, User } from '../../src/models';
 import { resolveOrgContext } from '../../src/services/org/context';
-import { createInvitationService, hashToken, maskEmail } from '../../src/services/team/invitation.service';
+import { createInvitationService, hashToken } from '../../src/services/team/invitation.service';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { addMember, clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 import { activateBilling } from '../helpers/billing';
@@ -169,33 +169,27 @@ describe('members', () => {
 });
 
 describe('invitation email and logs', () => {
-	it('development: nothing is sent and the link is logged with the email masked; elsewhere the link is never logged', async () => {
+	it('the link goes to the email service (EMAIL_TRANSPORT decides send or log); the invitation service never logs it', async () => {
 		const { user } = await agencyOwner();
 		const ctx = await resolveOrgContext(String(user._id));
 		const info = jest.spyOn(logger, 'info');
 		const mailer = { sendInvitation: jest.fn(async () => true) };
-
-		const dev = await createInvitationService({ mailer, env: 'development' }).invite(ctx, { email: 'jane@example.com', role: 'member' });
-		expect(dev.email_sent).toBe(false);
-		expect(mailer.sendInvitation).not.toHaveBeenCalled();
-		const devLog = info.mock.calls.map((c) => String(c[0])).join('\n');
-		expect(devLog).toContain(`invitation for ${maskEmail('jane@example.com')}: `);
-		expect(devLog).not.toContain('jane@example.com');
-
-		info.mockClear();
-		const prod = await createInvitationService({ mailer, env: 'production' }).invite(ctx, { email: 'joe@example.com', role: 'member' });
-		expect(prod.email_sent).toBe(true);
+		const res = await createInvitationService({ mailer }).invite(ctx, { email: 'joe@example.com', role: 'member' });
+		expect(res.email_sent).toBe(true);
 		const link = (mailer.sendInvitation.mock.calls[0] as unknown as [string, string])[1];
-		const prodLog = info.mock.calls.map((c) => String(c[0])).join('\n');
-		expect(prodLog).not.toContain(tokenOf(link));
-		expect(prodLog).not.toContain('joe@example.com');
+		const logged = info.mock.calls.map((c) => String(c[0])).join('\n');
+		expect(logged).not.toContain(tokenOf(link));
+		expect(logged).not.toContain('joe@example.com');
+		// Only logged (EMAIL_TRANSPORT=log): email_sent is false.
+		const logOnly = await createInvitationService({ mailer: { sendInvitation: async () => false } }).invite(ctx, { email: 'ann@example.com', role: 'member' });
+		expect(logOnly.email_sent).toBe(false);
 		info.mockRestore();
 	});
 
 	it('users are pooled per paid location: 403 user_limit_reached; re-sending an invitation is fine; members over the limit keep access (Phase 13a)', async () => {
 		const { user } = await agencyOwner();
 		const ctx = await resolveOrgContext(String(user._id));
-		const service = createInvitationService({ mailer: { sendInvitation: async () => true }, env: 'test' });
+		const service = createInvitationService({ mailer: { sendInvitation: async () => true } });
 		// Trial: 3 users (owner + 2 invitations).
 		await service.invite(ctx, { email: 'u1@example.com', role: 'member' });
 		await service.invite(ctx, { email: 'u2@example.com', role: 'member' });
@@ -215,7 +209,7 @@ describe('invitation email and logs', () => {
 		const ctx = await resolveOrgContext(String(user._id));
 		// Phase 13a: enough paid locations that the user pool (3 per location) isn't the limit here.
 		await activateBilling(ctx.organization._id as Types.ObjectId, { quantity: 10 });
-		const service = createInvitationService({ mailer: { sendInvitation: async () => true }, env: 'test' });
+		const service = createInvitationService({ mailer: { sendInvitation: async () => true } });
 		for (let i = 0; i < 20; i += 1) await service.invite(ctx, { email: `p${i}@example.com`, role: 'member' });
 		await expect(service.invite(ctx, { email: 'p20@example.com', role: 'member' })).rejects.toMatchObject({ statusCode: 429 });
 	});

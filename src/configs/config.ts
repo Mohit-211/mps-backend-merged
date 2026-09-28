@@ -30,6 +30,11 @@ const envVarsSchema = Joi.object({
 	EMAIL_FROM: Joi.string().description(
 		'the from field in the emails sent by the app',
 	),
+	EMAIL_TRANSPORT: Joi.string()
+		.valid('smtp', 'log')
+		.default((parent: { NODE_ENV?: string }) => (parent.NODE_ENV === 'production' ? 'smtp' : 'log'))
+		.description('13b: smtp sends every email; log only logs it (recipient masked, link shown). Default: smtp in production, log elsewhere'),
+	SUPPORT_EMAIL: Joi.string().email().allow('').default('').description('13b: the support inbox (contact-form and support-ticket notifications); empty = not sent'),
 
 
 	GOOGLE_PLACE_API_KEY: Joi.string().allow('').description('Places API key; optional until live testing'),
@@ -171,6 +176,10 @@ interface Config {
 			};
 		};
 		from?: string;
+		/** 13b: 'smtp' sends every email; 'log' only logs it (recipient masked, link shown). */
+		transport: 'smtp' | 'log';
+		/** 13b: the support inbox for contact-form and support-ticket notifications ('' = none). */
+		supportInbox: string;
 	};
 
 	googleApis: {
@@ -334,6 +343,8 @@ const config: Config = {
 			},
 		},
 		from: envVars.EMAIL_FROM,
+		transport: envVars.EMAIL_TRANSPORT,
+		supportInbox: envVars.SUPPORT_EMAIL,
 	},
 
 	googleApis: {

@@ -77,6 +77,20 @@ On a healthy start the log shows:
 - "✅ Agenda connected and ready."
 - "🚀 Agenda has started and is processing jobs."
 
+## Email (13b)
+
+Every email goes through one service (`src/services/common/email.service.ts`, `deliver()`) and one switch, **`EMAIL_TRANSPORT`**:
+
+| Value | What happens | Default |
+|---|---|---|
+| `smtp` | Sent through `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD`, From `EMAIL_FROM` (display names vary: branding for reports, "MyPageSEO Billing" for billing) | production |
+| `log` | Not sent. One log line per email: `email [<kind>] not sent (EMAIL_TRANSPORT=log): "<subject>" to j***@example.com: <link>` | development, test |
+
+- **Kinds:** `verification`, `password_reset`, `invitation`, `report`, `billing`, `admin`, `contact`, `support`. No per-feature exceptions: `EMAIL_TRANSPORT=smtp` in development sends every kind for real (use a test mailbox).
+- **Log mode prints links** (verify, reset, invitation, share): that is its purpose locally. In production the app warns at startup if `EMAIL_TRANSPORT=log`.
+- **Responses:** `email_sent` (invitations) and `sent` (report emails) are `false` when the email was only logged.
+- **`SUPPORT_EMAIL`:** the support inbox for contact-form notifications (and, from 13b step 6, support tickets); empty = not sent. (It was hardcoded before 13b.)
+
 ## Background jobs (agenda)
 
 - `src/configs/agenda.ts` owns the agenda instance. It opens **its own** MongoDB connection (from the same `MONGODB_*` values) and stores jobs in the `agendaJobs` collection. This is deliberate: `agenda@5` must use its bundled MongoDB driver 4 (AUDIT C25).
@@ -91,7 +105,7 @@ On a healthy start the log shows:
 - **Retention:** `REPORT_RETENTION_MONTHS` (24). The daily `report-retention` job deletes older PDFs and snapshots (status `expired`).
 - **Rendering:** PDFKit in-process (pure Node, no Chromium, **no system packages**). Measured on the seeded data: an 8-page Full report takes about 50 ms of CPU and about 40 MB of transient memory; the heap is flat across 100 renders. `REPORT_RENDER_CONCURRENCY` (1, max 2) limits renders per pm2 process.
 - **Jobs:** `report-generate` (one report), `report-email` (a scheduled report once ready), `report-schedule-dispatch` (after a location's GBP report: creates the reports due for its monthly cycle), `report-retention` (daily).
-- **Email:** From is `EMAIL_FROM` with the branding's sender name; Reply-To from branding. PDFs above `REPORT_EMAIL_MAX_ATTACHMENT_MB` (10) are sent as a 30-day share link. Nothing is sent in development (logged with masked recipients).
+- **Email:** From is `EMAIL_FROM` with the branding's sender name; Reply-To from branding. PDFs above `REPORT_EMAIL_MAX_ATTACHMENT_MB` (10) are sent as a 30-day share link. Sent or logged per `EMAIL_TRANSPORT` (see "Email").
 - **Share links:** `SHARE_BASE_URL` (else `API_BASE_URL`) + `/r/<token>`, served by this app outside `/api/v1`. If nginx only proxies `/api`, add a location for `/r/`. The request log redacts the token.
 
 ## Ranking quality, Google API usage and cost (Phase 12.5)
@@ -253,7 +267,7 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
   - Token expiry (only packs with `expires_after_days`; off by default): what is left of an expired pack is removed. Oldest tokens are spent first.
 - `billing-reminders`, daily: trial ending in 3 days and in 1 day (organizations without a subscription), and each manual invoice once it is past due.
 
-**Emails** (`src/services/billing/billingEmails.ts`): receipt (invoice PDF attached), invoice issued (manual, PDF attached), invoice overdue, payment failed, subscription activated / cancelled, trial ending. They go to the billing email (`PATCH /billing/details`), else the owner. In development and test nothing is sent: the subject is logged with the address masked.
+**Emails** (`src/services/billing/billingEmails.ts`): receipt (invoice PDF attached), invoice issued (manual, PDF attached), invoice overdue, payment failed, subscription activated / cancelled, trial ending. They go to the billing email (`PATCH /billing/details`), else the owner. Sent or logged per `EMAIL_TRANSPORT` (see "Email").
 
 **Tokens:** manual refreshes and "run now" spend `tokens_per_refresh` (per type, default 1); the monthly refresh is free. A refresh that fails entirely (including the stuck guards) is refunded automatically. The trial grants `trial.tokens` (default 0) at organization creation.
 
@@ -314,8 +328,8 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 ## Organizations, plan limits and auth (Phase 8)
 
 - **Limits (Phase 13a):** come from billing: the trial allowances (1 location, 3 users), then the paid location quantity and 3 users per paid location, and the plan's cap (20 locations on the standard plan). There is no organization-wide keyword cap (20 per location). `DEFAULT_LOCATION_LIMIT` / `DEFAULT_KEYWORD_LIMIT` were removed.
-- **Team invitations (Phase 11):** links are `${FRONTEND_URL}/invite?token=…`, valid `INVITATION_TTL_DAYS` (7). Emails use the SMTP settings. In development nothing is sent: the link is logged with the recipient masked.
-- **Email verification (Phase 8.1):** a link `${FRONTEND_URL}/verify-email?token=…`, valid `EMAIL_VERIFICATION_TTL_HOURS` (24); the token is stored as a SHA-256 hash. The hourly `unverified-cleanup` job deletes signups not verified in time. In development the link is logged with the email masked.
+- **Team invitations (Phase 11):** links are `${FRONTEND_URL}/invite?token=…`, valid `INVITATION_TTL_DAYS` (7). Sent or logged per `EMAIL_TRANSPORT` (see "Email").
+- **Email verification (Phase 8.1):** a link `${FRONTEND_URL}/verify-email?token=…`, valid `EMAIL_VERIFICATION_TTL_HOURS` (24); the token is stored as a SHA-256 hash. The hourly `unverified-cleanup` job deletes signups not verified in time. Sent or logged per `EMAIL_TRANSPORT` (see "Email").
 - **Auth codes** (password reset only since 8.1): `AUTH_CODE_TTL_MINUTES` (15). Codes are HMAC-hashed with a key derived from `JWT_SECRET` (changing `JWT_SECRET` invalidates pending codes). Rate-limit counters are in `rate_limits` (TTL); IP-based limits need `trust proxy` (Phase 10).
 
 ## Ranking jobs

@@ -3,7 +3,6 @@ import express from 'express';
 import request from 'supertest';
 import logger from '../../src/configs/logger';
 import { AuthCode, Client, Invitation, Membership, Organization, Profile, User, UserToken } from '../../src/models';
-import { createAuthService } from '../../src/services/auth/auth.service';
 import { cleanupUnverifiedAccounts, hashLinkToken } from '../../src/services/auth/emailVerification';
 import { hashToken as hashInvitationToken } from '../../src/services/team/invitation.service';
 import { clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
@@ -131,20 +130,6 @@ describe('signup → verify by link → login', () => {
 		for (let i = 0; i < 3; i++) await resend('limit@signup.test');
 		const limited = await resend('limit@signup.test');
 		expect(limited.status).toBe(429);
-	});
-
-	it('development sends nothing and logs the link with the email masked', async () => {
-		const mailer = { sendVerification: jest.fn(async () => true), sendReset: jest.fn(async () => true) };
-		const info = jest.spyOn(logger, 'info');
-		await createAuthService({ mailer, env: 'development' }).signup(
-			{ account_type: 'agency', name: 'Dev', email: 'dev.person@signup.test', password: PASSWORD, organization_name: 'Dev Co', country: 'CA' },
-			{ ip: '127.0.0.1' },
-		);
-		expect(mailer.sendVerification).not.toHaveBeenCalled();
-		const logged = info.mock.calls.map((c) => String(c[0])).join('\n');
-		expect(logged).toMatch(/email verification for d\*\*\*@signup\.test: http:\/\/localhost:3000\/verify-email\?token=/);
-		expect(logged).not.toContain('dev.person@');
-		info.mockRestore();
 	});
 });
 

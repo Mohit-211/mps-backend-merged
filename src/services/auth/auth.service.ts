@@ -9,7 +9,6 @@ import { generateAuthTokens } from '../common/token.service';
 import { sendForgotPasswordOTP, sendVerificationLinkEmail } from '../common/email.service';
 import { createOrganizationForOwner, listMemberships, resolveOrgContext } from '../org/context';
 import { orgOnboardingState } from '../org/onboardingState';
-import { maskEmail } from '../team/invitation.service';
 import { checkCode, issueCode } from './codes';
 import { consumeLinkToken, deleteUnverifiedAccount, emailNotVerifiedError, issueLinkToken, markVerified, ttlMs, verificationLink } from './emailVerification';
 import { LIMITS, hit } from './rateLimit';
@@ -27,8 +26,6 @@ export interface Mailer {
 export interface AuthDeps {
 	mailer?: Mailer;
 	now?: () => Date;
-	/** Defaults to NODE_ENV. In development nothing is sent: the link is logged with the email masked. */
-	env?: string;
 }
 
 export interface RequestMeta {
@@ -91,15 +88,10 @@ export const sessionFor = async (user: IUser, login?: { ip: string; at?: Date })
 export const createAuthService = (deps: AuthDeps = {}) => {
 	const mailer = deps.mailer ?? defaultMailer;
 	const now = deps.now ?? (() => new Date());
-	const env = deps.env ?? config.essentials.env;
 
 	const sendLink = async (email: string, token: string): Promise<boolean> => {
-		const link = verificationLink(token);
-		if (env === 'development') {
-			logger.info(`email verification for ${maskEmail(email)}: ${link}`);
-			return true;
-		}
-		return mailer.sendVerification(email, link);
+		// 13b: sent or logged by the email service (EMAIL_TRANSPORT), like every other email.
+		return mailer.sendVerification(email, verificationLink(token));
 	};
 
 

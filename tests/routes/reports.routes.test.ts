@@ -14,7 +14,7 @@ import { addMember, clearDb, createLocation, createUser, ensureOrg, keywordsOf, 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 const scheduleMock = jest.fn<Promise<object>, unknown[]>(async () => ({}));
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: scheduleMock, cancel: jest.fn() }), stopAgenda: jest.fn() }));
-const mailMock = jest.fn<Promise<undefined>, unknown[]>(async () => undefined);
+const mailMock = jest.fn<Promise<boolean>, unknown[]>(async () => true);
 jest.mock('../../src/services/common/email.service', () => ({ sendReportEmail: (...args: unknown[]) => mailMock(...args) }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
@@ -227,20 +227,20 @@ describe('POST /reports/:id/email', () => {
 		expect(limited.status).toBe(429);
 	});
 
-	it('above the attachment limit a 30-day share link is emailed; development only logs', async () => {
+	it('above the attachment limit a 30-day share link is emailed; sent is false when the email service only logged it', async () => {
 		const { token, id } = await setup();
 		const reportId = await createAndGenerate(token, { location_id: id, type: 'rank_tracker' });
 		const report = await Report.findById(reportId);
-		const mailer = jest.fn(async () => undefined);
-		const big = await createReportEmailService({ mailer, env: 'test', maxAttachmentBytes: 10 }).send(report, ['a@x.test'], { sentBy: null, rateLimited: false });
+		const mailer = jest.fn(async () => true);
+		const big = await createReportEmailService({ mailer, maxAttachmentBytes: 10 }).send(report, ['a@x.test'], { sentBy: null, rateLimited: false });
 		expect(big).toEqual({ sent: true, recipients: 1, delivery: 'link' });
 		const call = (mailer.mock.calls[0] as unknown as [{ attachment: unknown; text: string }])[0];
 		expect(call.attachment).toBeNull();
 		expect(call.text).toMatch(/\/r\/[A-Za-z0-9_-]{43}/);
 		expect(await ReportShare.findOne({ report_id: reportId }).lean()).toMatchObject({ purpose: 'email_link', expires_at: expect.any(Date) });
-		const devMailer = jest.fn(async () => undefined);
-		expect(await createReportEmailService({ mailer: devMailer, env: 'development' }).send(report, ['a@x.test'], { sentBy: null, rateLimited: false })).toMatchObject({ sent: false });
-		expect(devMailer).not.toHaveBeenCalled();
+		const logOnly = jest.fn(async () => false);
+		expect(await createReportEmailService({ mailer: logOnly }).send(report, ['a@x.test'], { sentBy: null, rateLimited: false })).toMatchObject({ sent: false });
+		expect(logOnly).toHaveBeenCalledTimes(1);
 	});
 });
 

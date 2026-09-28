@@ -1,14 +1,12 @@
 import { Types } from 'mongoose';
 import config from '../../configs/config';
-import logger from '../../configs/logger';
 import { IInvoice, Invoice, IOrganization, Organization, User } from '../../models';
 import { sendBillingEmail } from '../common/email.service';
-import { maskEmail } from '../team/invitation.service';
 import { invoiceService } from './invoices';
 import type { BillingNotice } from './notify';
 
 // Billing emails (Phase 13a). Sent to the billing email (billing details), else the owner. Invoices are
-// attached as PDF. In development nothing is sent: the notice is logged with the address masked.
+// attached as PDF. Sent or logged by the email service (EMAIL_TRANSPORT, 13b).
 
 const esc = (v: string) => v.replace(/[<>&"]/g, '');
 const day = (d: Date | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : '');
@@ -72,10 +70,6 @@ export const sendBillingNotice = async (n: BillingNotice): Promise<void> => {
 	const to = await recipientOf(org);
 	if (!mail || !to) return;
 	const lines = [...mail.lines.filter(Boolean), `Billing: ${billingUrl()}`];
-	if (config.essentials.env === 'development' || config.essentials.env === 'test') {
-		logger.info(`billing email (not sent in ${config.essentials.env}) "${mail.subject}" to ${maskEmail(to)}`);
-		return;
-	}
 	const pdf = mail.invoice ? await invoiceService.readPdf(mail.invoice) : null;
 	await sendBillingEmail({
 		to,
@@ -83,5 +77,6 @@ export const sendBillingNotice = async (n: BillingNotice): Promise<void> => {
 		text: lines.join('\n\n'),
 		html: lines.map((l) => `<p>${esc(l)}</p>`).join(''),
 		attachment: pdf && mail.invoice ? { filename: `${mail.invoice.number}.pdf`, content: pdf } : null,
+		link: billingUrl(),
 	});
 };
