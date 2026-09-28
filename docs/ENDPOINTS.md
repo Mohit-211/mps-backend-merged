@@ -68,9 +68,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**226 endpoints:** 221 live, 4 deprecated, 1 dev-only.
-- **By origin:** 152 rebuilt or new, 74 legacy.
-- **By auth:** 95 user, 89 platform admin (each with a permission), 40 none, 2 refresh token.
+**220 endpoints:** 215 live, 4 deprecated, 1 dev-only.
+- **By origin:** 152 rebuilt or new, 68 legacy.
+- **By auth:** 92 user, 86 platform admin (each with a permission), 40 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -376,12 +376,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | POST | `/api/v1/faqs` | admin (`content.manage`) | Create Faq | legacy, changed 10 | live |
 | PUT | `/api/v1/faqs/:faqId` | admin (`content.manage`) | Update Faq | legacy, changed 10 | live |
 | DELETE | `/api/v1/faqs/:faqId` | admin (`content.manage`) | Delete Faq | legacy, changed 10 | live |
-| POST | `/api/v1/supports` | user | Create Support | legacy | live |
-| GET | `/api/v1/supports` | user | Get All Support | legacy | live |
-| DELETE | `/api/v1/supports/:supportId` | user | Delete Support | legacy | live |
-| GET | `/api/v1/supports/getAllSupportByAdmin` | admin (`platform.read`) | Get All Support Tickets By Admin | legacy, changed 10 | live |
-| PUT | `/api/v1/supports/updateSupportTicketStatus` | admin (`platform.write`) | Update Support Ticket Status | legacy, changed 10 | live |
-| GET | `/api/v1/supports/getSupportTicketStatusCounts` | admin (`platform.read`) | Get Support Ticket Status Counts | legacy, changed 10 | live |
 | POST | `/api/v1/contact-us` | none | Create Contact Us | legacy | live |
 | GET | `/api/v1/contact-us/get` | admin (`platform.read`) | Get All Contact Us | legacy, changed 10 | live |
 | GET | `/api/v1/contact-us/:contactId` | admin (`platform.read`) | Get Contact Us By Id | legacy, changed 10 | live |

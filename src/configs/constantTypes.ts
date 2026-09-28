@@ -136,34 +136,6 @@ export const mongoOperationsTypes = {
 	FIND_ONE_AND_DELETE: 'findOneAndDelete',
 };
 
-export const ticketStatusTypes = {
-	OPEN: 'open',
-	IN_PROGRESS: 'in_progress',
-	RESOLVED: 'resolved',
-	CLOSED: 'closed',
-};
-
-export const ticketStatusTypesArr = ['open', 'in_progress', 'resolved', 'closed']
-
-export const colors = {
-	DEFAULT: 'default',
-	MINIMAL: 'minimal',
-	RED: 'red',
-	BLUE: 'blue',
-};
-export const colorsArr = [
-	'default', 'minimal', 'red', 'blue',
-];
-export const reportsArr = [
-	'rank_tracker',
-	'local_search_grid',
-	'citation_tracker',
-	'citation_builder',
-	'reputation_manager',
-	'gbp_audit',
-	'local_search_audit',
-	'google_analytics'
-];
 export const reports = {
 	rank_tracker: 'rank_tracker',
 	local_search_grid: 'local_search_grid',

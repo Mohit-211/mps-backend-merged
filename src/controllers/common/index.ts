@@ -4,7 +4,6 @@ import * as roleController from './role.controller';
 import * as languageController from './language.controller';
 import * as timezoneController from './timezone.controller';
 import * as faqController from './faq.controller';
-import * as supportController from './support.controller';
 import * as contactUsController from './contactUs.controller';
 
 import * as businessCategoryController from './businessCategory.controller';
@@ -19,7 +18,6 @@ export {
 	languageController,
 	timezoneController,
 	faqController,
-	supportController,
 	contactUsController,
 	businessCategoryController,
 	gbpPSController,

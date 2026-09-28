@@ -14,7 +14,6 @@ export * from "./user_login_timings.model";
 export * from "./userToken.model";
 export * from "./userAuth.model";
 
-export * from "./support.model";
 export * from "./faq.model";
 
 export * from "./client.model";

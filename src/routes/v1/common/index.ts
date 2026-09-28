@@ -4,7 +4,6 @@ import  roleRoute from './role.route';
 import  languageRoute from './language.route';
 import  timezoneRoute from './timezone.route';
 import faqRoute from './faq.route';
-import supportRoute from './support.route';
 import subscriptionRoutes from './subscription.route';
 import contactUsRoutes from './contactUs.route';
 
@@ -52,10 +51,6 @@ const commonRoutes = [
 	{
 		path: '/faqs',
 		route: faqRoute,
-	},
-	{
-		path: '/supports',
-		route: supportRoute
 	},
 	{
 		path: '/subscription',

@@ -4,7 +4,6 @@ import * as tokenService from './token.service';
 import * as languageService from './language.service';
 import * as timezoneService from './timezone.service';
 import * as faqService from './faq.service';
-import * as supportService from './support.service';
 import * as contactUsService from './contactUs.service';
 
 import * as businessCategoryService from './businessCategory.service';
@@ -19,7 +18,6 @@ export {
     languageService,
     timezoneService,
     faqService,
-    supportService,
     contactUsService,
     businessCategoryService,
     gbpPSService,
