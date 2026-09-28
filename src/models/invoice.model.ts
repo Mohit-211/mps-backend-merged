@@ -38,6 +38,8 @@ export interface IInvoice extends Document {
 	paid_at: Date | null;
 	provider_ref: string | null;
 	payment_note: string | null;
+	/** Manual invoices: when the overdue reminder was sent. */
+	reminded_at: Date | null;
 	customer: InvoiceParty;
 	seller: InvoiceParty & { tax_id: string | null };
 	pdf: { file: string; bytes: number } | null;
@@ -67,6 +69,7 @@ const InvoiceSchema = new Schema<IInvoice>(
 		paid_at: { type: Date, default: null },
 		provider_ref: { type: String, default: null },
 		payment_note: { type: String, default: null },
+		reminded_at: { type: Date, default: null },
 		customer: { name: String, email: String, address: { type: [String], default: [] } },
 		seller: { name: String, email: String, address: { type: [String], default: [] }, tax_id: { type: String, default: null } },
 		pdf: { type: new Schema({ file: String, bytes: Number }, { _id: false }), default: null },

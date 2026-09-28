@@ -1,18 +1,20 @@
 import logger from '../../configs/logger';
+import { sendBillingNotice } from './billingEmails';
 
-// Billing notifications (Phase 13a). The event → email mapping lives here so services only say what
-// happened; emails are sent by D4's billing emails (development: logged, masked).
+// Billing notifications (Phase 13a). Services only say what happened; billingEmails turns it into an
+// email (development: logged with the address masked, nothing sent).
 
 export type BillingNotice =
 	| { kind: 'receipt'; organization_id: string; invoice_id: string }
 	| { kind: 'payment_failed'; organization_id: string; grace_ends_at: Date | null }
 	| { kind: 'subscription_cancelled'; organization_id: string; access_until: Date | null }
-	| { kind: 'subscription_activated'; organization_id: string };
+	| { kind: 'subscription_activated'; organization_id: string }
+	| { kind: 'trial_ending'; organization_id: string; days: number; trial_ends_at: Date }
+	| { kind: 'invoice_issued'; organization_id: string; invoice_id: string }
+	| { kind: 'invoice_overdue'; organization_id: string; invoice_id: string };
 
 type Sender = (n: BillingNotice) => Promise<void>;
-let sender: Sender = async (n) => {
-	logger.info(`billing: notice ${n.kind} for organization ${n.organization_id}`);
-};
+let sender: Sender = sendBillingNotice;
 
 export const setBillingNoticeSender = (s: Sender): void => {
 	sender = s;

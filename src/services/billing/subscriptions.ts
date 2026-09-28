@@ -11,7 +11,7 @@ import { loadEntitlement } from './entitlement.service';
 import { invoiceService } from './invoices';
 import { notify } from './notify';
 import { planForOrganization } from './plans';
-import { credit } from './tokens';
+import { creditOnce } from './tokens';
 
 // Subscriptions (Phase 13a): checkout, the PayPal status mapping, payments (first and renewals) and
 // cancellation. The webhooks are authoritative; /billing/sync re-reads PayPal after the return page.
@@ -208,7 +208,7 @@ export const createSubscriptionService = (deps: BillingDeps = {}) => {
 			},
 		);
 		const grant = (await planForOrganization(await orgOf(sub.organization_id))).monthly_token_grant;
-		if (grant > 0) await credit(sub.organization_id, 'monthly_grant', grant, { ref: `grant:${sale.id}`, note: 'Monthly token grant' }, at);
+		await creditOnce(sub.organization_id, 'monthly_grant', grant, `grant:${sale.id}`, 'Monthly token grant', at);
 		await notify({ kind: 'receipt', organization_id: String(sub.organization_id), invoice_id: String(invoice._id) });
 		return invoice;
 	};

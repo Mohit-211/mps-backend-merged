@@ -41,7 +41,7 @@ const TokenLedgerSchema = new Schema<ITokenLedger>(
 	{ collection: 'token_ledger' },
 );
 TokenLedgerSchema.index({ organization_id: 1, at: -1 });
-// A refund is written once per spend (idempotent hooks).
-TokenLedgerSchema.index({ ref: 1, type: 1 }, { unique: true, partialFilterExpression: { type: 'refund', ref: { $type: 'string' } } });
+// Written once per reference: a refund per spend, a monthly grant per payment / period, an expiry per purchase.
+TokenLedgerSchema.index({ ref: 1, type: 1 }, { unique: true, partialFilterExpression: { type: { $in: ['refund', 'monthly_grant', 'expiry'] }, ref: { $type: 'string' } } });
 
 export const TokenLedger: Model<ITokenLedger> = model<ITokenLedger>('TokenLedger', TokenLedgerSchema);

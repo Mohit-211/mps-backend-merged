@@ -5,7 +5,6 @@ import config from '../../configs/config';
 import logger from '../../configs/logger';
 import { forgotPasswordSendOTPFormat, adminCredentialsEmailFormat } from '../../constants';
 import { ApiError } from '../../utils';
-import subscriptionWelcomeEmailFormat from '../../constants/subscriptionwelcomeemailformat';
 import { contactUsAdminEmailFormat, contactUsConfirmationEmailFormat } from '../../constants/Contactusemailformat';
 
 // Type definition for sendEmail function parameters
@@ -110,6 +109,18 @@ export const sendReportEmail = async (input: {
     from: { name: input.senderName.replace(/["<>]/g, ''), address: fromAddress() },
     to: input.to,
     replyTo: input.replyTo ?? undefined,
+    subject: input.subject,
+    text: input.text,
+    html: input.html,
+    attachments: input.attachment ? [{ filename: input.attachment.filename, content: input.attachment.content, contentType: 'application/pdf' }] : [],
+  });
+};
+
+/** Phase 13a: billing emails (receipts, invoices, payment problems, trial reminders). Throws on failure. */
+export const sendBillingEmail = async (input: { to: string; subject: string; text: string; html: string; attachment: { filename: string; content: Buffer } | null }): Promise<void> => {
+  await transport.sendMail({
+    from: { name: 'MyPageSEO Billing', address: fromAddress() },
+    to: input.to,
     subject: input.subject,
     text: input.text,
     html: input.html,

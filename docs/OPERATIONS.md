@@ -242,6 +242,20 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 - **Stale queue:** `CITATION_STALE_DAYS` (default 90) is the default N of `GET /admin/citations/queue/stale`.
 - **Permissions:** `citations.view` / `citations.manage` (`src/configs/adminPermissions.ts`), both held by super admin, admin and editor.
 
+## Billing (Phase 13a)
+
+**Jobs** (one agenda document each, Mongo-locked):
+- `billing-renewals`, every 6 hours:
+  - PayPal renewal snapshots: 11 days before each renewal (`BILLING_RENEWAL_LEAD_DAYS`) it fixes quantity = the active locations (at least 1) and the prices in effect at the renewal date, then PATCHes the subscription's price. PayPal ignores price changes within 10 days of a charge for PayPal-funded subscriptions, so the job runs every 6 hours: a failed PATCH is retried while there is still time. `patch_errors` in the log line means a PATCH failed.
+  - Manual billing: at each period end the next period starts and an **open** invoice is issued, due in `MANUAL_INVOICE_DUE_DAYS` (14). It includes the prorated slot lines added since the last invoice. Comped subscriptions (`comp_until`) advance without an invoice.
+  - Monthly token grants (custom plans): credited once per payment (PayPal) or per period (manual).
+  - Token expiry (only packs with `expires_after_days`; off by default): what is left of an expired pack is removed. Oldest tokens are spent first.
+- `billing-reminders`, daily: trial ending in 3 days and in 1 day (organizations without a subscription), and each manual invoice once it is past due.
+
+**Emails** (`src/services/billing/billingEmails.ts`): receipt (invoice PDF attached), invoice issued (manual, PDF attached), invoice overdue, payment failed, subscription activated / cancelled, trial ending. They go to the billing email (`PATCH /billing/details`), else the owner. In development and test nothing is sent: the subject is logged with the address masked.
+
+**Tokens:** manual refreshes and "run now" spend `tokens_per_refresh` (per type, default 1); the monthly refresh is free. A refresh that fails entirely (including the stuck guards) is refunded automatically. The trial grants `trial.tokens` (default 0) at organization creation.
+
 ## Organizations, plan limits and auth (Phase 8)
 
 - **Migration:** `npm run migrate:organizations` (idempotent; `mps_rebuild`, or `-- --confirm` for another database after a backup of users, locations and clients). Every existing account gets an organization:
@@ -367,6 +381,6 @@ On any database that already has data, in this order, **before the new version s
     - Then `npm run seed:citation-directories -- --confirm` loads the starter master list (and the Google business categories if that collection is empty).
     - Optionally set `CITATION_STALE_DAYS`.
     - The old citation collections (`citationDirectorys`, `citations`, `campaigns`, `aggregators`, …) are no longer read (MIGRATION.md). `locationCitations` is still used by the credit-payment code until Phase 13.
-14. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup`) and `Recurring job scheduled: monthly-refresh` / `report-retention` / `unverified-cleanup`.
+14. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders`) and `Recurring job scheduled: monthly-refresh` / `report-retention` / `unverified-cleanup` / `billing-renewals` / `billing-reminders`.
 
 `--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.

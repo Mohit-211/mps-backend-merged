@@ -26,7 +26,8 @@ const write = async (organizationId: Id, type: LedgerType, amount: number, balan
 		at,
 	});
 
-/** Adds (or, for adjustments, removes) tokens. Balances never go below zero. */
+/** Adds (or, for adjustments, removes) tokens. Balances never go below zero. A duplicate once-per-reference
+ * entry throws the E11000 error with the balance unchanged. */
 export const credit = async (
 	organizationId: Id,
 	type: Exclude<LedgerType, 'spend'>,
@@ -39,7 +40,13 @@ export const credit = async (
 	if (amount < 0) filter.token_balance = { $gte: -amount };
 	const org = await Organization.findOneAndUpdate(filter, { $inc: { token_balance: amount } }, { new: true }).select({ token_balance: 1 }).lean<{ token_balance: number }>();
 	if (!org) throw apiErrorWithData(httpStatus.CONFLICT, 'The adjustment would make the balance negative.', { reason: 'insufficient_tokens' });
-	await write(organizationId, type, amount, org.token_balance, extra, at);
+	try {
+		await write(organizationId, type, amount, org.token_balance, extra, at);
+	} catch (err) {
+		// A once-per-reference entry (refund, monthly grant, expiry) already exists: undo the balance change.
+		await Organization.updateOne({ _id: organizationId }, { $inc: { token_balance: -amount } });
+		throw err;
+	}
 	return org.token_balance;
 };
 
@@ -77,7 +84,7 @@ export const refundSpend = async (ref: string, note: string, at: Date = new Date
 	try {
 		await credit(spent.organization_id, 'refund', -spent.amount, { ref, location_id: spent.location_id, note }, at);
 	} catch (err) {
-		if ((err as { code?: number }).code === 11000) return 0; // a parallel refund won
+		if ((err as { code?: number }).code === 11000) return 0; // a parallel refund won (credit undid its $inc)
 		throw err;
 	}
 	logger.info(`billing: refunded ${-spent.amount} tokens for ${ref}`);
@@ -95,3 +102,15 @@ export const ledgerView = (e: ITokenLedger) => ({
 	by: e.actor?.kind === 'admin' ? 'MyPageSEO team' : e.actor?.kind === 'user' ? 'user' : 'system',
 	at: e.at,
 });
+
+/** A once-per-reference credit (monthly grant, …): returns false when it was already written. */
+export const creditOnce = async (organizationId: Id, type: 'monthly_grant' | 'grant', amount: number, ref: string, note: string, at: Date = new Date()): Promise<boolean> => {
+	if (amount <= 0 || (await TokenLedger.exists({ ref, type }))) return false;
+	try {
+		await credit(organizationId, type, amount, { ref, note }, at);
+		return true;
+	} catch (err) {
+		if ((err as { code?: number }).code === 11000) return false;
+		throw err;
+	}
+};
