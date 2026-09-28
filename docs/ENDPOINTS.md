@@ -68,9 +68,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**212 endpoints:** 211 live, 1 dev-only.
-- **By origin:** 153 rebuilt or new, 59 legacy.
-- **By auth:** 92 user, 82 platform admin (each with a permission), 36 none, 2 refresh token.
+**211 endpoints:** 210 live, 1 dev-only.
+- **By origin:** 153 rebuilt or new, 58 legacy.
+- **By auth:** 92 user, 82 platform admin (each with a permission), 35 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -399,7 +399,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | GET | `/videos/:filename` | none | Serve an uploaded file (`public/uploads/videos`) | legacy | live |
 | GET | `/api/healthcheck` | none | Health check | legacy | live |
 | GET | `/ping` | none | Ping | legacy | live |
-| GET | `/docs` | none | Swagger UI | legacy | live |
 ### Development only
 
 | Method | Path | Auth | Purpose | Phase | Status |

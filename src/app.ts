@@ -8,9 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import requestIp from 'request-ip';
-import swaggerUi from 'swagger-ui-express';
 
-import swaggerDocument from '../swagger.json';
 import config from './configs/config';
 import corsConfigs from './configs/corsConfigs';
 import { successHandler, errorHandler } from './configs/morgan';
@@ -52,7 +50,7 @@ import('./configs/mongoConnection');
 app.set('trust proxy', config.security.trustProxyHops);
 
 // Phase 10 (AUDIT S9): every helmet header, with a strict CSP (no polyfill.io, no unsafe-eval). The API
-// serves JSON; /docs (Swagger UI) needs inline styles only. Uploaded images are embedded by the web app
+// serves JSON only (13b: Swagger UI removed, so no inline styles are needed). Uploaded images are embedded by the web app
 // on another origin, so resources may be loaded cross-origin. Routes with their own CSP (/r, /dev) override it.
 app.use(
 	helmet({
@@ -61,7 +59,7 @@ app.use(
 			directives: {
 				'default-src': ["'self'"],
 				'script-src': ["'self'"],
-				'style-src': ["'self'", "'unsafe-inline'"],
+				'style-src': ["'self'"],
 				'img-src': ["'self'", 'data:'],
 				'frame-ancestors': ["'none'"],
 			},
@@ -125,8 +123,6 @@ app.use('/r', shareRoutes);
 if (config.essentials.env === 'development') {
 	app.use('/dev', devConnectRoutes);
 }
-
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Phase 10 (AUDIT S3): reading and deleting logs is super admin only.
 app.get('/api/v1/logs', adminOnly('system.read'), (req, res) => {

@@ -37,7 +37,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
 | 15 | Notifications & automations | planned | – | – |
 | 17 | Ranking extras: keyword groups, larger grids (the variance test is done; Dallas is a pre-launch item) | planned | – | – |
-| 9b | Cleanup (swagger, ARCHITECTURE.md, final docs pass) | ongoing | – | – |
+| 9b | Cleanup (ARCHITECTURE.md, final docs pass; Swagger was removed in 13b) | ongoing | – | – |
 
 There is no Phase 2 (security moved to Phase 10, 2026-09-25). Milestone pushes: M1 after 3, M2 after 5, M3 after 7c, M4 after 11 (all pushed). **Since Phase 12, every merged phase is pushed** (Mohit, 2026-09-27: GitHub is the only off-machine backup); M5 marks launch-ready.
 

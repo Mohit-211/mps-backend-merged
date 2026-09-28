@@ -117,7 +117,7 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 | **GBP posting** | Legacy flow (`gbpPostSchedular`, `post-to-gbp` job) using v4; not rebuilt | Phase 9, needs v4 access. |
 | **Deprecated routes** | 14 still registered: legacy `/user/auth/*` login / OTP / forgot, `/user/clients*`, legacy white-label | Removed once the frontend has fully moved (9b). |
 | **Production** | Never deployed from the rebuild | Phase 14 (fresh server, backups, nginx, pm2, monitoring) + the deploy checklist in OPERATIONS.md. |
-| **Docs debt** | `swagger.json` is stale; `ARCHITECTURE.md` not written | 9b. ENDPOINTS.md + API.md are current and are the reference until then. |
+| **Docs debt** | `ARCHITECTURE.md` not written (Swagger removed in 13b) | 9b. ENDPOINTS.md + API.md are current and are the reference until then. |
 | **Tooling** | `moduleResolution: node` is removed in TypeScript 7; 137 legacy lint errors | OPERATIONS.md "Lint and editor setup"; STATUS.md backlog. |
 | **Maps ToS** | Accepted risk: names, competitor data and reports store Places content (with attribution) | Revisit before launch (STATUS.md "Maps ToS: accepted risk"). |
 
@@ -133,7 +133,7 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 | 9 GBP reviews & posting | Rebuild posting on `gbpClient`, AI review replies | Blocked on v4 |
 | 15 Notifications & automations | – | Planned |
 | 17 Ranking extras | Keyword groups, larger grids | Planned |
-| 9b Cleanup | swagger, ARCHITECTURE.md, final docs pass, remove deprecated routes, TypeScript 7 move | Ongoing |
+| 9b Cleanup | ARCHITECTURE.md, final docs pass, TypeScript 7 move | Ongoing |
 
 **Before starting any phase:** the spec goes in CLAUDE.md, then plan mode and Mohit's approval, then a branch `claude/phase-<n>-<slug>` from `claude/rebuild`. At the end: docs, the merge command, and the push command. Mohit runs them unless he asks otherwise.
 
