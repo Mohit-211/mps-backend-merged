@@ -1,6 +1,5 @@
 import  systemRoute from './system.route';
 import  countryRoute from './country.route';
-import  roleRoute from './role.route';
 import  languageRoute from './language.route';
 import  timezoneRoute from './timezone.route';
 import faqRoute from './faq.route';
@@ -35,10 +34,6 @@ const commonRoutes = [
 	{
 		path: '/countries',
 		route: countryRoute,
-	},
-	{
-		path: '/roles',
-		route: roleRoute,
 	},
 	{
 		path: '/languages',

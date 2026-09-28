@@ -1,5 +1,4 @@
 import * as countryService from './country.service';
-import * as roleService from './role.service';
 import * as tokenService from './token.service';
 import * as languageService from './language.service';
 import * as timezoneService from './timezone.service';
@@ -13,7 +12,6 @@ import * as blogService from './blog.service';
 
 export {
     countryService,
-    roleService,
     tokenService,
     languageService,
     timezoneService,

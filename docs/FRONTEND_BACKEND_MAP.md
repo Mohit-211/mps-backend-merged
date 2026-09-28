@@ -24,7 +24,7 @@ Status as of 2026-09-28: everything through Phase 16 (citations) is merged and p
 
 | Permission | Roles | Routes |
 |---|---|---|
-| `admins.manage` | super admin | `/admin/auth/{register, getAllAdmins, getAdminById/:id, updateAdmin, deleteAdmin}`, `/roles` (all) |
+| `admins.manage` | super admin | `/admin/auth/{register, getAllAdmins, getAdminById/:id, updateAdmin, deleteAdmin}`, `GET /admin/roles` (read-only role list for the role picker) |
 | `platform.read` | super admin, admin | `GET /contact-us/get`, `GET /contact-us/:contactId` |
 | `platform.write` | super admin, admin | `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
 | `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |

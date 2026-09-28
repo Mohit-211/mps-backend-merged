@@ -68,9 +68,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**220 endpoints:** 215 live, 4 deprecated, 1 dev-only.
-- **By origin:** 152 rebuilt or new, 68 legacy.
-- **By auth:** 92 user, 86 platform admin (each with a permission), 40 none, 2 refresh token.
+**217 endpoints:** 212 live, 4 deprecated, 1 dev-only.
+- **By origin:** 154 rebuilt or new, 63 legacy.
+- **By auth:** 92 user, 83 platform admin (each with a permission), 40 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -97,6 +97,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/admin/auth/getAllAdmins` | admin (`admins.manage`) | Get All Admins (no password/OTP/token fields) | legacy, changed 10 | live |
 | GET | `/api/v1/admin/auth/getAdminById/:id` | admin (`admins.manage`) | Find Admin By Id | legacy, changed 10 | live |
 | GET | `/api/v1/admin/auth/getProfile` | admin | Get Profile | legacy | live |
+| GET | `/api/v1/admin/roles` | admin (`admins.manage`) | The admin roles (super admin, admin, editor) with the permissions each grants; read-only (roles are fixed in `adminPermissions.ts`) | 13b | live |
 | PUT | `/api/v1/admin/auth/updateAdmin` | admin (`admins.manage`) | Update Admin (not your own role; a role or email change revokes that admin's tokens) | legacy, changed 10 | live |
 | DELETE | `/api/v1/admin/auth/deleteAdmin` | admin (`admins.manage`) | Delete Admin (not yourself, not the last super admin) | legacy, changed 10 | live |
 
@@ -357,11 +358,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | GET | `/api/v1/countries` | none | Get All Country | legacy | live |
 | GET | `/api/v1/countries/states/:countryId` | none | Get All State By Country Id | legacy | live |
 | GET | `/api/v1/countries/cities/:stateId` | none | Get All City By State Id | legacy | live |
-| POST | `/api/v1/roles` | admin (`admins.manage`) | Create Role | legacy, changed 10 | live |
-| GET | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Find Role By Id | legacy, changed 10 | live |
-| GET | `/api/v1/roles` | admin (`admins.manage`) | Get All Roles | legacy, changed 10 | live |
-| PUT | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Update Role | legacy, changed 10 | live |
-| DELETE | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Delete Role | legacy, changed 10 | live |
 | GET | `/api/v1/languages` | none | Get All Language | legacy | live |
 | GET | `/api/v1/timezones` | none | Get All Timezone | legacy | live |
 | POST | `/api/v1/business-categories` | admin (`content.manage`) | Create Business Category | legacy, changed 10 | live |

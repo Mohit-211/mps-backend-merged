@@ -2134,6 +2134,20 @@ Authorization: Bearer eyJ…
 - Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, GBP post add); elsewhere a file → **400**.
 - 500 responses say "Something went wrong." (details only in development).
 
+### `GET /api/v1/admin/roles` (Phase 13b, `admins.manage`)
+
+The fixed admin roles and what each may do (for the role picker when creating an admin):
+
+```json
+[
+  { "role_id": 1, "key": "superAdmin", "name": "Super Admin", "active": true, "permissions": ["admins.manage", "platform.read", "platform.write", "content.manage", "system.read", "citations.view", "citations.manage", "billing.read", "billing.manage"] },
+  { "role_id": 2, "key": "admin", "name": "Admin", "active": true, "permissions": ["platform.read", "platform.write", "content.manage", "citations.view", "citations.manage", "billing.read", "billing.manage"] },
+  { "role_id": 4, "key": "editor", "name": "Editor", "active": true, "permissions": ["content.manage", "citations.view", "citations.manage"] }
+]
+```
+
+Roles can't be created, edited or deleted (the legacy `/roles` CRUD was removed in 13b: a new role never had any permission).
+
 ## Citations (Phase 16)
 
 **Manual, admin-managed citation tracking.** Platform admins keep a **master list of directories**, put directories on each location's **citation list**, and record what they find: status, listing URL, NAP as seen. Organization users get a read-only dashboard, a table and a **Citation Health** score, plus a Citation Report in the Reports center. There are no external citation APIs and no Google calls.

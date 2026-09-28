@@ -1,6 +1,5 @@
 import * as systemController from './system.controller';
 import * as countryController from './country.controller';
-import * as roleController from './role.controller';
 import * as languageController from './language.controller';
 import * as timezoneController from './timezone.controller';
 import * as faqController from './faq.controller';
@@ -14,7 +13,6 @@ import * as blogCategoryController from './blogCategory.controller';
 export {
 	systemController,
 	countryController,
-	roleController,
 	languageController,
 	timezoneController,
 	faqController,

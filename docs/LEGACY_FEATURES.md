@@ -124,3 +124,4 @@ Mohit, 2026-09-28: the frontend is rebuilt from scratch against ENDPOINTS.md, so
 | `/user/auth/employee/*` (4 routes: add / remove / list / details) | Replaced by team invitations and member management (Phase 11); they created accounts with a password chosen by the owner |
 | `/admin/operations/*` (6 routes: agencies, businesses, clients by the old `user_type`) | Organizations replaced user types (Phase 8); the 13b admin panel (`/admin/users`, `/admin/organizations`) replaces them |
 | `/supports` (6 routes), the `Support` model, service, controller and middleware | Replaced by the 13b support tickets with threads (`/support/tickets`, `/admin/support/tickets`); existing tickets are migrated from the `supports` collection |
+| `/roles` CRUD (5 routes), `role.controller` / `role.service` | Admin permissions are fixed per role id (Phase 10), so a created or edited role granted nothing. Replaced by the read-only `GET /admin/roles` |
