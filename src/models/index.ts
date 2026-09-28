@@ -19,7 +19,6 @@ export * from "./faq.model";
 
 export * from "./client.model";
 export * from "./location.model";
-export * from "./whitelabelProfile.model";
 
 // razorpay
 export * from "./coupon.model";

@@ -14,7 +14,6 @@ import citationsRoute from './citations.route';
 import onboardingRoute from './onboarding.route';
 import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
-import whiteLabelRoute from './whitelabelProfile.route';
 import gbpPSRoute from './gbpPostSchedular.route';
 import billingRoute from './billing.route';
 import pricingRoute from './pricing.route';
@@ -122,10 +121,6 @@ const commonRoutes = [
 	{
 		path: '/business-categories',
 		route: businessCategoryRoute,
-	},
-	{
-		path: '/white-label-profiles',
-		route: whiteLabelRoute,
 	},
 	{
 		path: '/gbp',

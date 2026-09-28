@@ -2131,7 +2131,7 @@ Authorization: Bearer eyJ…
 - A bad, expired or revoked **user** token is **401** (it used to be 500 for a bad signature, 404 for a deleted user). Access tokens last 1 day; refresh as in "Session tokens and refresh" above (refresh tokens last 30 days, then sign in again).
 - Password changes and resets end every session of that user.
 - Any request key starting with `$` or containing `.` → **400** `{ "reason": "invalid_input", "field": "body.email.$ne" }`.
-- Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, legacy white-label create/update, GBP post add); elsewhere a file → **400**.
+- Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, GBP post add); elsewhere a file → **400**.
 - 500 responses say "Something went wrong." (details only in development).
 
 ## Citations (Phase 16)

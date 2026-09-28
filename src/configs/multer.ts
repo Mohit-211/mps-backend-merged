@@ -124,8 +124,6 @@ export const uploadFiles = [
 const FILE_ROUTES: { method: string; path: RegExp }[] = [
 	{ method: 'POST', path: /^\/api\/v1\/blog\/?$/ },
 	{ method: 'PUT', path: /^\/api\/v1\/blog\/[^/]+\/?$/ },
-	{ method: 'POST', path: /^\/api\/v1\/white-label-profiles\/?$/ },
-	{ method: 'PATCH', path: /^\/api\/v1\/white-label-profiles\/?$/ },
 	{ method: 'POST', path: /^\/api\/v1\/gbp\/post\/add\/?$/ },
 ];
 

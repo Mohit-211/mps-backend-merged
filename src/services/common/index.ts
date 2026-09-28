@@ -8,7 +8,6 @@ import * as supportService from './support.service';
 import * as contactUsService from './contactUs.service';
 
 import * as businessCategoryService from './businessCategory.service';
-import * as whitelabelProfileService from './whitelabelProfile.service';
 import * as gbpPSService from './gbpPostSchedular.service';
 import * as blogCategoryService from './blogCategory.service';
 import * as blogService from './blog.service';
@@ -23,7 +22,6 @@ export {
     supportService,
     contactUsService,
     businessCategoryService,
-    whitelabelProfileService,
     gbpPSService,
     blogCategoryService,
     blogService

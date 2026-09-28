@@ -86,10 +86,3 @@ describe('public by design', () => {
 	});
 });
 
-describe('white-label profile detail (S17)', () => {
-	it('is no longer public, and another user gets nothing', async () => {
-		expect((await send('GET', `/api/v1/white-label-profiles/${DUMMY_ID}`)).status).toBe(401);
-		const res = await send('GET', `/api/v1/white-label-profiles/${DUMMY_ID}`, userToken);
-		expect(res.status).toBe(404);
-	});
-});

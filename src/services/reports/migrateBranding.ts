@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { Types } from 'mongoose';
-import { IOrganization, Location, Organization, OrganizationBranding, WhitelabelProfile } from '../../models';
+import mongoose, { Types } from 'mongoose';
+import { IOrganization, Location, Organization, OrganizationBranding } from '../../models';
 import { MAX_LOGO_BYTES, imageTypeOf } from './branding.service';
 import { ReportStorage, reportStorage } from './storage';
 
@@ -45,9 +45,13 @@ export const migrateBranding = async (opts: { uploadsDir: string; storage?: Repo
 			continue;
 		}
 		const locationIds = await Location.find({ organization_id: org._id }).distinct('_id');
-		const profile = await WhitelabelProfile.findOne({ is_active: true, $or: [{ location_id: { $in: locationIds } }, { created_by: org.owner_user_id }] })
+		// 13b: the legacy model is gone; the old collection is read directly (only by this migration).
+		const profile = (await mongoose.connection
+			.collection('whitelabel_profiles')
+			.find({ is_active: true, deleted_at: null, $or: [{ location_id: { $in: locationIds } }, { created_by: org.owner_user_id }] })
 			.sort({ is_primary: -1, created_at: -1 })
-			.lean<LegacyProfile>();
+			.limit(1)
+			.next()) as unknown as LegacyProfile | null;
 		if (!profile) {
 			rows.push({ ...base, result: 'no_profile', logo: null });
 			continue;

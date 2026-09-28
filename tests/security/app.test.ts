@@ -49,7 +49,7 @@ describe('uploads (S7)', () => {
 
 	it('an upload route refuses an unauthenticated upload before writing the file', async () => {
 		const before = countUploads();
-		const res = await request(app).post('/api/v1/white-label-profiles').attach('images', Buffer.from([0x89, 0x50, 0x4e, 0x47]), 'logo.png');
+		const res = await request(app).post('/api/v1/gbp/post/add').attach('images', Buffer.from([0x89, 0x50, 0x4e, 0x47]), 'logo.png');
 		expect(res.status).toBe(401);
 		expect(countUploads()).toBe(before);
 	});

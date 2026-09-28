@@ -11,5 +11,3 @@ export const faqSelect = "question answer is_active created_at";
 export const supportSelect =
   "name email subject address message mobile is_active status created_at";
 export const businessCategorySelect = "name slug is_active created_at";
-
-export const whitelabelProfileSelect = "location_id name header footer color file_type file_name file_uri file_size external external_url external_reports_lists client_access_restriction_for_reputation_manager is_primary is_active created_at created_by";

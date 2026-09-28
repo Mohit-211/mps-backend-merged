@@ -68,9 +68,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**241 endpoints:** 231 live, 9 deprecated, 1 dev-only.
-- **By origin:** 152 rebuilt or new, 89 legacy.
-- **By auth:** 104 user, 95 platform admin (each with a permission), 40 none, 2 refresh token.
+**236 endpoints:** 231 live, 4 deprecated, 1 dev-only.
+- **By origin:** 152 rebuilt or new, 84 legacy.
+- **By auth:** 99 user, 95 platform admin (each with a permission), 40 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -267,16 +267,6 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/gbp/post/add` | user | Add Post To GBP | legacy | live |
 | GET | `/api/v1/gbp/post/all/:location_id/:type` | user | Get All Post By Location Id | legacy | live |
 | DELETE | `/api/v1/gbp/post/remove` | user | Delete Post | legacy | live |
-
-### White label
-
-| Method | Path | Auth | Purpose | Phase | Status |
-|---|---|---|---|---|---|
-| POST | `/api/v1/white-label-profiles` | user | Create New Profile. Replaced by organization branding (#76, #78); data carried over by `npm run migrate:branding` | legacy | deprecated |
-| PATCH | `/api/v1/white-label-profiles` | user | Update White Label Profile. Replaced by #76 | legacy | deprecated |
-| GET | `/api/v1/white-label-profiles` | user | Get White Label Profile. Replaced by #75 | legacy | deprecated |
-| GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user (owner) | Get White Label Profile Detail. Replaced by #75 | legacy, changed 10 | deprecated |
-| DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile. Replaced by #76 / #79 | legacy | deprecated |
 
 ### Citations (Phase 16)
 

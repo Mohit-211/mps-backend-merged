@@ -1,8 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { Types } from 'mongoose';
-import { Organization, Report, ReportSnapshot, WhitelabelProfile } from '../../../src/models';
+import mongoose, { Types } from 'mongoose';
+import { Organization, Report, ReportSnapshot } from '../../../src/models';
 import { migrateBranding } from '../../../src/services/reports/migrateBranding';
 import { createReportService } from '../../../src/services/reports/report.service';
 import { createStorage } from '../../../src/services/reports/storage';
@@ -56,7 +56,7 @@ describe('migrate:branding', () => {
 		const org = await ensureOrg(user._id, 'agency');
 		const loc = await createLocation(user._id as Types.ObjectId);
 		const legacy = (over: Record<string, unknown>) =>
-			WhitelabelProfile.collection.insertOne({ name: 'Old', header: 'h', footer: 'f', color: 'default', is_active: true, is_primary: false, created_at: new Date('2025-01-01'), ...over });
+			mongoose.connection.collection('whitelabel_profiles').insertOne({ name: 'Old', header: 'h', footer: 'f', color: 'default', is_active: true, is_primary: false, created_at: new Date('2025-01-01'), ...over });
 		await legacy({ location_id: loc._id, name: 'Acme Old', header: 'Call 555-0100', footer: 'Acme Ltd', color: 'red', file_name: 'logo-1.png', is_primary: true });
 		await legacy({ created_by: user._id, name: 'Newer, not primary' });
 		const { user: biz } = await createUser('biz@test.dev');
