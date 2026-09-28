@@ -7,29 +7,6 @@ import {
   validatePassword,
 } from "../../utils";
 
-export const sendOTP = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["email", "type"]);
-  const result = await userAuthService.sendOTP(body);
-  return responseWrapper(res, result, "OTP has been Sent To Your Email");
-});
-
-export const verifyOTP = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["email", "type", "otp"]);
-  const status = await userAuthService.verifyOTP(body);
-  return responseWrapper(
-    res,
-    status,
-    "OTP has been verified. Please Create Your Profile."
-  );
-});
-
-export const login = catchAsync(async (req, res) => {
-  const body = pick(req.body, ["email", "password", "ip_address"]);
-  const header = pick(req.headers, ["time_zone"]);
-  const response = await userAuthService.login(body, header);
-  return responseWrapper(res, response, "Successfully Logged in.");
-});
-
 export const resetPassword = catchAsync(async (req, res) => {
   const { new_password, confirm_password } = req.body;
 
@@ -52,19 +29,6 @@ export const resetPassword = catchAsync(async (req, res) => {
   }
 
   const response = await userAuthService.resetPassword(req.body);
-  return responseWrapper(res, response, "Password changed Successfully.");
-});
-
-export const forgotPassword = catchAsync(async (req, res) => {
-  const body = pick(req.body, [
-    "user",
-    "otpDoc",
-    "email",
-    "password",
-    "confirm_password",
-    "token",
-  ]);
-  const response = await userAuthService.forgotPassword(body);
   return responseWrapper(res, response, "Password changed Successfully.");
 });
 

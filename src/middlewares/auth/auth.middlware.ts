@@ -1,19 +1,9 @@
-import crypto from "crypto";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from "http-status";
-import validator from "validator";
 
-import {
-  responseWrapper,
-  ApiError,
-  catchAsync,
-} from "../../utils";
-import {
-  otpTypes,
-  tokenTypes,
-  userStatusTypes,
-} from "../../configs/constantTypes";
-import { City, Country, OTP, State, User } from "../../models";
+import { responseWrapper, ApiError, catchAsync } from "../../utils";
+import { tokenTypes, userStatusTypes } from "../../configs/constantTypes";
+import { City, Country, State, User } from "../../models";
 import { tokenService } from "../../services";
 import mongoose from "mongoose";
 
@@ -131,90 +121,6 @@ export const verifyRefreshAuthJWTToken = catchAsync(async (req, res, next) => {
         error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
         error.message
       )
-    );
-  }
-});
-
-export const validateSignInReqBody = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
-  const { time_zone } = req.headers;
-  if (!time_zone) {
-    return responseWrapper(
-      res,
-      "",
-      "Please Enter Required Fields : time_zone inside headers",
-      httpStatus.BAD_REQUEST
-    );
-  }
-  if (!email || !password) {
-    return responseWrapper(
-      res,
-      "",
-      "Please Enter Required Fields : [email, password]",
-      httpStatus.BAD_REQUEST
-    );
-  }
-  if (!validator.isEmail(email)) {
-    return responseWrapper(
-      res,
-      "",
-      "Invalid email format",
-      httpStatus.BAD_REQUEST
-    );
-  }
-  req.body.ip_address = req.ip;
-  next();
-});
-
-export const validateForgetPassordToken = catchAsync(async (req, res, next) => {
-  try {
-    const { email, password, confirm_password, token } = req.body;
-
-    if (!email || !password || !confirm_password || !token) {
-      return responseWrapper(
-        res,
-        "",
-        "Please Enter Required Fields : [ email || new_password || confirm_password || token ]",
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    if (typeof email !== "string" || typeof token !== "string") {
-      return responseWrapper(res, "", "Forget Password Token is not Valid.", httpStatus.BAD_REQUEST);
-    }
-    const userDoc = await User.findOne({ email: email, is_active: true });
-    if (!userDoc) {
-      return responseWrapper(
-        res,
-        "",
-        "Forget Password Token is not Valid.",
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    // Phase 10 (AUDIT S22): the token is stored hashed and expires 30 minutes after verification.
-    const otpDoc = await OTP.findOne({
-      email: email,
-      code: crypto.createHash("sha256").update(token).digest("hex"),
-      is_verified: true,
-      type: otpTypes.FORGOT_PASSWORD,
-      otp_expiration_time: { $gt: new Date() },
-    });
-    if (!otpDoc) {
-      return responseWrapper(
-        res,
-        "",
-        "Forget Password Token is not Valid.",
-        httpStatus.BAD_REQUEST
-      );
-    }
-    req.body.user = userDoc;
-    req.body.otpDoc = otpDoc;
-    next();
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
     );
   }
 });

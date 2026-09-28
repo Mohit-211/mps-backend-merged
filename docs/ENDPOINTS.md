@@ -68,9 +68,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**217 endpoints:** 212 live, 4 deprecated, 1 dev-only.
-- **By origin:** 154 rebuilt or new, 63 legacy.
-- **By auth:** 92 user, 83 platform admin (each with a permission), 40 none, 2 refresh token.
+**212 endpoints:** 211 live, 1 dev-only.
+- **By origin:** 153 rebuilt or new, 59 legacy.
+- **By auth:** 92 user, 82 platform admin (each with a permission), 36 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -118,11 +118,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/user/auth/otp` | none | Send a password-reset OTP (`FORGOT_PASSWORD` only since 8.1; `EMAIL_VERIFICATION` → 400 `verification_by_link`). Replaced by `/auth/forgot-password` | legacy | deprecated |
-| POST | `/api/v1/user/auth/verify-otp` | none | Verify a password-reset OTP (`FORGOT_PASSWORD` only since 8.1). Replaced by `/auth/reset-password` | legacy | deprecated |
-| POST | `/api/v1/user/auth/login` | none | Login (403 `email_not_verified` since 8.1). Replaced by `/auth/login` | legacy | deprecated |
 | POST | `/api/v1/user/auth/reset-password` | user | Reset Password | legacy | live |
-| POST | `/api/v1/user/auth/forgot-password` | none | Forgot Password. Replaced by `/auth/forgot-password` + `/auth/reset-password` | legacy | deprecated |
 | POST | `/api/v1/user/auth/refresh-auth` | refresh token | Refresh Auth | legacy | live |
 | POST | `/api/v1/user/auth/logout` | refresh token | Logout | legacy | live |
 | GET | `/api/v1/user/auth/deactivate` | user | Deactivate Account | legacy | live |

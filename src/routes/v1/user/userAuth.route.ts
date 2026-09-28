@@ -5,23 +5,10 @@ import { userAuthMiddleware } from "../../../middlewares";
 const router = express.Router();
 
 // Phase 8.1: the legacy POST /register was removed; sign up with POST /api/v1/auth/signup.
-router.post("/otp", userAuthController.sendOTP);
-router.post("/verify-otp", userAuthController.verifyOTP);
-router.post(
-  "/login",
-  [userAuthMiddleware.validateSignInReqBody],
-  userAuthController.login
-);
-
 router.post(
   "/reset-password",
   [userAuthMiddleware.verifyAuthJWTToken],
   userAuthController.resetPassword
-);
-router.post(
-  "/forgot-password",
-  [userAuthMiddleware.validateForgetPassordToken],
-  userAuthController.forgotPassword
 );
 
 router.post(

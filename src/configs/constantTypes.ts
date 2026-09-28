@@ -75,23 +75,6 @@ export const userStatusTypesArr: string[] = [
 	'BLOCKED',
 ];
 
-export const otpTypesArr: string[] = [
-	'EMAIL_VERIFICATION',
-	'MOBILE_VERIFICATION',
-	'FORGOT_PASSWORD',
-	'RESET_PASSWORD',
-	'CHANGE_EMAIL',
-	'CHANGE_MOBILE',
-	'TWO_FACTOR_AUTH',
-	'ACCOUNT_RECOVERY',
-	'PAYMENT_AUTHORIZATION',
-	'LOGIN_CONFIRMATION',
-	'TRANSACTION_APPROVAL',
-	'DEVICE_VERIFICATION',
-	'NEW_DEVICE_LOGIN',
-	'SECURITY_ALERT',
-];
-
 export const tokenTypesArr: string[] = [
 	'ACCESS',
 	'REFRESH',

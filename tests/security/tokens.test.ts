@@ -1,9 +1,8 @@
-import crypto from 'crypto';
 import express from 'express';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
-import { GBPPost, Membership, OTP, User } from '../../src/models';
+import { GBPPost, Membership, User } from '../../src/models';
 import { revokeUserSessions } from '../../src/services/common/token.service';
 import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 
@@ -68,41 +67,6 @@ describe('user tokens (S24)', () => {
 	});
 });
 
-describe('legacy OTP and forgot password (S22)', () => {
-	it('crypto codes, 5 attempts, a hashed reset token that expires and works once, and sessions revoked', async () => {
-		const { user, token } = await createUser('legacy@test.dev');
-		await ensureOrg(user._id);
-		expect((await request(app).post('/api/v1/user/auth/otp').send({ email: 'legacy@test.dev', type: 'FORGOT_PASSWORD' })).status).toBe(200);
-		const code = sentOtps[0];
-		expect(code).toMatch(/^\d{6}$/);
-		const verify = (otp: string) => request(app).post('/api/v1/user/auth/verify-otp').send({ email: 'legacy@test.dev', otp, type: 'FORGOT_PASSWORD' });
-		const wrong = code === '123456' ? '654321' : '123456';
-		for (let i = 0; i < 5; i++) expect((await verify(wrong)).status).toBe(400);
-		expect((await verify(code)).body.message).toContain('Too many attempts');
-
-		await request(app).post('/api/v1/user/auth/otp').send({ email: 'legacy@test.dev', type: 'FORGOT_PASSWORD' });
-		const ok = await verify(sentOtps[1]);
-		expect(ok.status).toBe(200);
-		const resetToken = ok.body.data as string;
-		expect(resetToken.length).toBeGreaterThanOrEqual(40);
-		const stored = await OTP.findOne({ email: 'legacy@test.dev', is_verified: true }).lean();
-		expect(stored?.code).toBe(crypto.createHash('sha256').update(resetToken).digest('hex'));
-		expect(stored?.otp_expiration_time.getTime()).toBeGreaterThan(Date.now() + 25 * 60 * 1000);
-
-		const set = () => request(app).post('/api/v1/user/auth/forgot-password').send({ email: 'legacy@test.dev', password: 'N3w-Password!', confirm_password: 'N3w-Password!', token: resetToken });
-		expect((await set()).status).toBe(200);
-		expect((await set()).status).toBe(400); // single use
-		expect((await me(token)).status).toBe(401); // sessions ended
-	});
-
-	it('an expired reset token is refused', async () => {
-		await createUser('late@test.dev');
-		const hashed = crypto.createHash('sha256').update('tok'.repeat(15)).digest('hex');
-		await OTP.create({ email: 'late@test.dev', type: 'FORGOT_PASSWORD', code: hashed, is_verified: true, otp_expiration_time: new Date(Date.now() - 1000) });
-		const res = await request(app).post('/api/v1/user/auth/forgot-password').send({ email: 'late@test.dev', password: 'x-Password-1', confirm_password: 'x-Password-1', token: 'tok'.repeat(15) });
-		expect(res.status).toBe(400);
-	});
-});
 
 describe('account deletion (S23)', () => {
 	it('ends memberships and sessions', async () => {

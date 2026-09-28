@@ -19,10 +19,10 @@ describe('request sanitiser (S6)', () => {
 	});
 
 	it('the app answers 400 invalid_input for operator objects in the body and the query', async () => {
-		const body = await request(app).post('/api/v1/user/auth/verify-otp').send({ email: { $ne: null }, otp: '123456' });
+		const body = await request(app).post('/api/v1/auth/login').send({ email: { $ne: null }, password: 'x' });
 		expect(body.status).toBe(400);
 		expect(body.body.data).toMatchObject({ reason: 'invalid_input', field: 'body.email.$ne' });
-		const query = await request(app).get('/api/v1/subscription/payment-status?subscription_id[$ne]=x');
+		const query = await request(app).get('/api/v1/pricing?country[$ne]=x');
 		expect(query.status).toBe(400);
 		expect(query.body.data).toMatchObject({ reason: 'invalid_input' });
 	});

@@ -255,17 +255,3 @@ describe('migrate:email-verified', () => {
 	});
 });
 
-describe('legacy /user/auth', () => {
-	it('register is gone, OTP routes only reset passwords, and login refuses unverified accounts', async () => {
-		expect((await request(app).post('/api/v1/user/auth/register').send({ email: 'x@legacy.test' })).status).toBe(404);
-		await signup();
-		const otp = await request(app).post('/api/v1/user/auth/otp').send({ email: EMAIL, type: 'EMAIL_VERIFICATION' });
-		expect(otp.status).toBe(400);
-		expect(otp.body.data).toEqual({ reason: 'verification_by_link' });
-		const verifyOtp = await request(app).post('/api/v1/user/auth/verify-otp').send({ email: EMAIL, otp: '123456', type: 'EMAIL_VERIFICATION' });
-		expect(verifyOtp.body.data).toEqual({ reason: 'verification_by_link' });
-		const legacyLogin = await request(app).post('/api/v1/user/auth/login').set('time_zone', 'UTC').send({ email: EMAIL, password: PASSWORD });
-		expect(legacyLogin.status).toBe(403);
-		expect(legacyLogin.body.data).toMatchObject({ reason: 'email_not_verified' });
-	});
-});

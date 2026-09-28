@@ -4,7 +4,7 @@ import { Types } from 'mongoose';
 import config from '../../configs/config';
 import logger from '../../configs/logger';
 import { userStatusTypes } from '../../configs/constantTypes';
-import { AuthCode, Client, IAuthCode, Invitation, Location, Membership, OTP, Organization, Profile, User, UserToken } from '../../models';
+import { AuthCode, Client, IAuthCode, Invitation, Location, Membership, Organization, Profile, User, UserToken } from '../../models';
 import { apiErrorWithData } from '../../utils';
 
 // Email verification by link (Phase 8.1). The link carries a random 32-byte token; only its SHA-256 is
@@ -108,7 +108,6 @@ export const deleteUnverifiedAccount = async (userId: UserId, now: Date = new Da
 	await Membership.deleteMany({ user_id: user._id });
 	await AuthCode.deleteMany({ user_id: user._id });
 	await UserToken.deleteMany({ user_id: user._id });
-	await OTP.deleteMany({ $or: [{ user_id: user._id }, { email: user.email }] });
 	await Profile.deleteMany({ user_id: user._id });
 	// A hard delete, so the email can sign up again. The filter repeats the conditions (a verify racing the job wins).
 	const res = await User.collection.deleteOne({ _id: user._id, email_verified_at: null, verification_deadline: { $lte: now } });

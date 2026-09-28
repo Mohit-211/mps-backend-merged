@@ -29,13 +29,10 @@ export const LIMITS = {
 	// Phase 12: report emails per organization, public share-link views per IP.
 	reportEmailPerOrg: { name: 'report-email:organization', max: 20, windowSeconds: 3600 },
 	sharePerIp: { name: 'share:ip', max: 60, windowSeconds: 60 },
-	// Phase 10: admin sign-in and OTP flows; legacy /user/auth OTP flows; guest checkout lookups.
+	// Phase 10: admin sign-in and OTP flows.
 	adminLoginPerEmailIp: { name: 'admin-login:email+ip', max: 10, windowSeconds: 900 },
 	adminOtpPerEmail: { name: 'admin-otp:email', max: 5, windowSeconds: 3600 },
 	adminOtpPerIp: { name: 'admin-otp:ip', max: 20, windowSeconds: 3600 },
-	legacyOtpPerEmail: { name: 'legacy-otp:email', max: 5, windowSeconds: 3600 },
-	legacyAuthPerIp: { name: 'legacy-auth:ip', max: 30, windowSeconds: 900 },
-	checkoutPerIp: { name: 'checkout:ip', max: 30, windowSeconds: 900 },
 } satisfies Record<string, Limit>;
 
 const keyOf = (limit: Limit, parts: string[]): string =>
