@@ -146,6 +146,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 
 | Date | Decision |
 |---|---|
+| 2026-09-28 | **Fresh database (Mohit):** the production database has no data worth keeping; the launch uses a fresh database and nothing is ever migrated from the old system. All migration scripts and "upgrade old rows" code are removed in 13b step 1; `npm run setup:fresh -- --confirm` sets up an empty database (indexes, reference data, standard billing plan, citation directories, first super admin). 13b step 6 starts with no support tickets. |
 | 2026-09-28 | **Delete, don't deprecate (Mohit):** the frontend is rebuilt from scratch against ENDPOINTS.md, so no backward compatibility is needed for any legacy endpoint or response shape; anything the rebuilt product doesn't use is deleted. 13a approved, merged (`2c77a8a`) and pushed. **13b order:** legacy removal → `/auth` session + account endpoints (legacy `/user/auth` and `/user/profile` deleted) → payment-provider interface → flaky tests → admin panel backend. |
 | 2026-09-28 | **Card payments (Mohit):** customers must be able to pay by card without a PayPal account. Sandbox check with US and CA buyers; "PayPal Account Optional" on; PayPal support asked about guest card checkout for subscriptions. Billing code goes behind one payment-provider interface in 13b's first commit (today it calls the PayPal client directly in 8 files). No second provider yet; "Decide before launch" after the sandbox result. |
 | 2026-09-28 | **Phase 13a billing model (Mohit):** per location, first location priced higher (first + (n − 1) × additional), standard plan capped at 20 locations (more = enterprise custom plan); dated prices per currency from each organization's next renewal; 3 users per paid location, pooled; 7-day trial then read-only; prorated one-time payments for extra slots; no refunds on removal; tokens (one-time packs) for manual refreshes, monthly refresh free, refund on a failed refresh; custom plans with manual (invoice) billing; no tax; coupons on token packs only; Square, credits and the guest checkout retired. **PayPal (verified):** no PayPal quantity (needs buyer consent) → per-subscription price override PATCHed 11 days before renewal; prorations and packs as Orders v2. **As built:** the renewal job runs every 6 h so a failed PATCH is retried inside the 10-day window; `billing.read` / `billing.manage` for super admin + admin; trial tokens granted at organization creation (default 0). |
@@ -193,7 +194,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 6. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 7. **Maps ToS: accepted risk for now**, revisit before launch: see "Maps ToS: accepted risk" below.
 8. **DataForSEO password change by the account owner (old credential in git history)** (AUDIT S13). The vendor was removed from the code, config and docs on 2026-09-27.
-9. **Phase 10 deploy:** replace the 12-character `JWT_SECRET` (≥ 32 characters; every user signs in again once), add `ADMIN_JWT_SECRET` and `PAYPAL_WEBHOOK_ID`, list every frontend origin in `ACCESSDOMAINS`, delete the old `ANALYTICS` token rows (OPERATIONS.md deploy checklist).
+9. **First deploy:** a fresh database set up with `npm run setup:fresh -- --confirm` (OPERATIONS.md "Deploy checklist"); secrets `JWT_SECRET` / `ADMIN_JWT_SECRET` (≥ 32 characters), `TOKEN_ENCRYPTION_KEY`, `ACCESSDOMAINS`, `FRONTEND_URL`, `SHARE_BASE_URL`, `SUPER_ADMIN_EMAIL`, the PayPal variables.
 10. **Frontend team notes** (Phase 10): token refresh (1-day access, 30-day refresh), admin panel sign-in and permissions, CORS origins: FRONTEND_BACKEND_MAP.md "Notes for the frontend team".
 11. **Prices, before launch (Mohit, 2026-09-28):** set in the billing admin (Phase 13a):
     - the first-location and additional-location prices per currency (`POST /admin/billing/plans/:planId/prices`); until then checkout answers 409 `price_not_set`
@@ -244,7 +245,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   | (b) token pack | not tested | not tested |
   | (b) extra location slots | not tested | not tested |
 
-## Legacy leftovers (audit 2026-09-28; decided: all of groups 1 and 2 are deleted in 13b step 1)
+## Legacy leftovers (audit 2026-09-28; all of groups 1 and 2 deleted in 13b step 1, plus every data migration: fresh database)
 
 Checked after 13a: every file, model, export, route and dependency against what the rebuilt code uses.
 
@@ -291,12 +292,10 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Merge and push Phase 13a** (commands in the phase summary). **At deploy** (OPERATIONS.md deploy checklist): `npm run db:sync-indexes -- --confirm`, then `npm run migrate:billing` (dry run) and `-- --confirm`; the PayPal env vars; remove `SQUARE_*`.
-   - Still at the first deploy: Phase 16's `seed:citation-directories -- --confirm` and Phase 8.1's `migrate:email-verified -- --confirm` (before starting the new code) with `FRONTEND_URL`.
-2. **Then Phase 13b** (admin panel backend + support: users, organizations with suspend, support tickets with threads, overview), per the approved plan.
-3. **Then** 14 (production readiness) toward M5. Before launch: prices (open item 11) and the PayPal sandbox test (open item 13).
-4. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
-5. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
+1. **Phase 13b in progress:** step 1 (legacy removal + fresh-database setup) is done; next step 2 (`/auth` session and account endpoints), then the provider interface, flaky tests and the admin panel.
+2. **Then** 14 (production readiness) toward M5. Before launch: prices (open item 11) and the PayPal sandbox test (open item 13).
+3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
+4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
 

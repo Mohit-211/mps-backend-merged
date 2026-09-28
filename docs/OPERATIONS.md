@@ -67,7 +67,7 @@ docker exec mps-mongo mongosh mps_rebuild --quiet --eval \
 
 Use the same `.env` values.
 
-Mongoose creates the collections and model indexes on first start. Seed reference data (roles, countries, and so on) with `npm run mongo-migrate`.
+Set up an empty database with `npm run setup:fresh -- --confirm` (indexes, reference data, billing plan, citation directories, first super admin; see "Deploy checklist"). Reference data alone: `npm run seed:reference-data`.
 
 On a healthy start the log shows:
 - "Mongo has connected successfully"
@@ -93,7 +93,6 @@ On a healthy start the log shows:
 - **Jobs:** `report-generate` (one report), `report-email` (a scheduled report once ready), `report-schedule-dispatch` (after a location's GBP report: creates the reports due for its monthly cycle), `report-retention` (daily).
 - **Email:** From is `EMAIL_FROM` with the branding's sender name; Reply-To from branding. PDFs above `REPORT_EMAIL_MAX_ATTACHMENT_MB` (10) are sent as a 30-day share link. Nothing is sent in development (logged with masked recipients).
 - **Share links:** `SHARE_BASE_URL` (else `API_BASE_URL`) + `/r/<token>`, served by this app outside `/api/v1`. If nginx only proxies `/api`, add a location for `/r/`. The request log redacts the token.
-- **Legacy white-label:** `npm run migrate:branding` copies each agency's legacy `/white-label-profiles` profile into organization branding (never overwrites; `--dry-run` prints the plan).
 
 ## Ranking quality, Google API usage and cost (Phase 12.5)
 
@@ -237,10 +236,10 @@ npm run seed:demo-orgs -- --v4-off  # the GBP report as it looks before v4 acces
 Manual, admin-managed citation tracking (no external citation APIs, no Google calls). The API is in API.md "Citations (Phase 16)".
 
 - **Starter master list:** `npm run seed:citation-directories [-- --confirm]` upserts 5 directory categories and 50 US / CA directories. The data is in `src/scripts/data/`: `directory-categories.json` and `citation-directories.csv`, the same CSV format as the admin import. It is idempotent (upserts by slug / domain, never deletes) and prints created / updated / unchanged.
-  - When the `businesscategories` collection is empty, the seed first loads `dumps/businessCategory.json` (the 4,101 Google categories, as `npm run mongo-migrate` does). Without them no location can match a category group.
+  - When the `businesscategories` collection is empty, the seed first loads `dumps/businessCategory.json` (the 4,101 Google categories, as `npm run seed:reference-data` does). Without them no location can match a category group.
   - Authority values in the starter CSV are placeholder estimates (marked in `notes`); the admin team replaces them.
 - **Suggestions** run when a location completes onboarding, and on `POST /admin/citations/locations/:id/suggest`. Changing the master list doesn't touch existing lists: re-run suggest per location.
-- **Citation Health weights:** `src/citations/scoring.config.ts` (change only with Mohit's approval). Every change of an entry refreshes `Location.summary.citation_*`; `npm run summaries:rebuild` recomputes them.
+- **Citation Health weights:** `src/citations/scoring.config.ts` (change only with Mohit's approval). Every change of an entry refreshes `Location.summary.citation_*`.
 - **Stale queue:** `CITATION_STALE_DAYS` (default 90) is the default N of `GET /admin/citations/queue/stale`.
 - **Permissions:** `citations.view` / `citations.manage` (`src/configs/adminPermissions.ts`), both held by super admin, admin and editor.
 
@@ -315,12 +314,6 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 
 ## Organizations, plan limits and auth (Phase 8)
 
-- **Migration:** `npm run migrate:organizations` (idempotent; `mps_rebuild`, or `-- --confirm` for another database after a backup of users, locations and clients). Every existing account gets an organization:
-  - AGENCY → agency organization; BUSINESS or no type → business organization; the user is the owner and it becomes the default organization.
-  - EMPLOYEE → member of its owner's organization; CLIENT accounts are skipped (reported).
-  - Locations and clients get their creator's organization; locations also get `source`, `gbp_connected` and their list summary.
-  - Two locations with the same `place_id` in one organization: the second stays unassigned and unchanged, and is reported (exit code 3). Delete one, then re-run. The unique index is synced only when there are none.
-  - It prints the mapping (user ids and organization names, no emails). **Run it once when deploying Phase 8**, before the app serves requests: locations without an organization are not reachable.
 - **Limits (Phase 13a):** come from billing: the trial allowances (1 location, 3 users), then the paid location quantity and 3 users per paid location, and the plan's cap (20 locations on the standard plan). There is no organization-wide keyword cap (20 per location). `DEFAULT_LOCATION_LIMIT` / `DEFAULT_KEYWORD_LIMIT` were removed.
 - **Team invitations (Phase 11):** links are `${FRONTEND_URL}/invite?token=…`, valid `INVITATION_TTL_DAYS` (7). Emails use the SMTP settings. In development nothing is sent: the link is logged with the recipient masked.
 - **Email verification (Phase 8.1):** a link `${FRONTEND_URL}/verify-email?token=…`, valid `EMAIL_VERIFICATION_TTL_HOURS` (24); the token is stored as a SHA-256 hash. The hourly `unverified-cleanup` job deletes signups not verified in time. In development the link is logged with the email masked.
@@ -341,8 +334,6 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 - In development, runs use at most `RANK_DEV_MAX_KEYWORDS` (2) keywords and a 3×3 grid.
 - `STORE_PLACE_NAMES` (default `true`) controls whether Map Ranking business names are stored.
 - **Manual refresh:** at most once per `REFRESH_MIN_INTERVAL_HOURS` (24) per location per type (rankings, gbp); "run now" shares the rankings limit.
-
-**Migration (7b):** `npm run migrate:refresh` maps `tracking.frequency` weekly/monthly → `auto_monthly`, manual → `manual_only`, and gives every set-up location its monthly schedule. It is idempotent and makes no Google calls. It refuses a database other than `mps_rebuild` unless `--confirm` is passed; back up `locations` first. Run it once when deploying 7b.
 
 **GBP report (7c):**
 - **Place Details for the competitor comparison** (Enterprise SKU; client + up to 5 competitors): a business is fetched when it has no stored facts, when its facts predate the location's last automatic refresh (so at most once per monthly cycle), or after a manual `POST /refresh` when its facts are older than 24 h. So about 6 calls per location per month, plus at most 6 per manual refresh. The count is stored on the report (`api_calls.places_details`).
@@ -371,7 +362,6 @@ Setup and connection walkthrough: [GBP_CONNECT.md](GBP_CONNECT.md).
 | Command | What it does | Google calls | Who runs it |
 |---|---|---|---|
 | `npm run gbp:preflight -- <userId>` | Lists the user's GBP accounts and locations (names and IDs only). Reports "GBP API access not approved (quota 0)", "API not enabled", "Reconnect needed" or "Server not configured" clearly. Development + `mps_rebuild` only. | 1 per page of accounts + 1 per page of locations per account (+1 token refresh), ≤ 5/s | **Mohit** |
-| `npm run gbp:encrypt-tokens` | Encrypts plaintext GBP tokens in `user_auths` (idempotent). Needs `TOKEN_ENCRYPTION_KEY`; back up `user_auths` first. | None | Whoever migrates a server's data |
 | `npm run setup:live-test -- --token-only --token-file <path>` | Fresh login token for the live-test user; prints its user id and locations. | None | Anyone (development) |
 
 - **`TOKEN_ENCRYPTION_KEY`** (`openssl rand -hex 32`) is required in production. Losing or changing it means users must reconnect GBP.
@@ -407,43 +397,33 @@ Cluster-mode caveats, since every instance runs these:
 - the in-memory rate-limit store
 - `node-cache`
 
-## Deploy checklist
+## Deploy checklist (fresh database)
 
-On any database that already has data, in this order, **before the new version serves requests**:
+**The launch uses a fresh, empty database (Mohit, 2026-09-28). Nothing is migrated from the old system**, so there are no migration steps. In this order:
 
-1. **Back up** `users`, `locations`, `clients`, `organizations` and `user_auths` (and, from Phase 12, `REPORTS_STORAGE_DIR`).
-2. **`.env`:** set the new settings (see `.env.example`). In production `TOKEN_ENCRYPTION_KEY` is required; losing or changing it forces every user to reconnect GBP.
-   **Phase 10 (security), the app refuses to start in production without these:**
-   - **`JWT_SECRET`: rotate it.** At least 32 characters (`openssl rand -hex 32`); the current production secret is 12 characters. **Every user is signed out once** and signs in again.
-   - **`ADMIN_JWT_SECRET`:** new, at least 32 characters, different from `JWT_SECRET`. Existing admin tokens stop working; admins sign in again.
-   - **`PAYPAL_WEBHOOK_ID`:** from the PayPal developer dashboard (your app → Webhooks). Without it every webhook is refused.
-   - **`TRUST_PROXY_HOPS=1`** behind nginx (so rate limits and logs see the client IP); **`ACCESSDOMAINS`** must list every frontend origin (the wildcard CORS header is gone).
-   - `JWT_ACCESS_EXPIRATION_DAYS=1` (was 7; refresh tokens stay 30 days).
-3. **Install and build:** `npm ci` (the migration scripts run with ts-node, a dev dependency, so don't install with `--omit=dev` / `NODE_ENV=production`), then `npm run build`.
-4. **`npm run migrate:refresh -- --confirm`** (7b): tracking frequencies → `auto_monthly | manual_only`, plus the monthly refresh schedule. Idempotent.
-5. **`npm run migrate:organizations -- --confirm`** (Phase 8): every account gets an organization; locations and clients get theirs. **Required**: until it has run, existing locations can't be reached. Exit code 3 means duplicate `place_id`s within an organization: delete one of each pair it lists, then run it again (it syncs the unique index only when there are none). Idempotent.
-6. **`npm run db:sync-indexes -- --confirm`**: syncs the indexes of the rebuilt collections with their schemas, building new ones and dropping ones no longer defined. **Required on any database from before 7a**: its `user_auths` still has the old one-Google-account-per-user unique index, which blocks connecting a second account.
-7. **`npm run summaries:rebuild -- --confirm`** (Phase 11): recomputes every location's list and dashboard summary from its latest runs and report. Idempotent.
-8. **`npm run gbp:encrypt-tokens`**, only on a database with GBP connections from before Phase 6. Idempotent.
-9. **Reports storage (Phase 12):** create `REPORTS_STORAGE_DIR` (default `storage/reports` under the repo root), writable by the pm2 user and **not** under `public/`; add it to the backups. Set `SHARE_BASE_URL` to the public API origin, and make nginx forward `/r/` to the app. No system packages are needed (no Chromium).
-10. **`npm run migrate:branding -- --confirm`** (Phase 12): legacy white-label profiles → organization branding (agencies without branding only; copies logos into the storage directory). Idempotent. Run `db:sync-indexes` (step 6) after this release too: it builds the report indexes (Phase 12.5: also `rank_result_lists`, `api_usage` and the `places_rate` TTL index).
-    **Phase 12.5 `.env`:** `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60` (decided 2026-09-27); remove `COMPETITOR_DETAILS_ATMOSPHERE`. Do the Google Cloud checklist (Ranking quality section) before the first monthly refresh.
-11. **Phase 10 data cleanup:** delete the old Search Console token rows, which may hold plaintext tokens (the feature was removed in 9a): `db.user_auths.deleteMany({ token_type: "ANALYTICS" })` (back up first, step 1). Check the `roles` collection holds role_id 1 (super admin), 2 (admin) and 4 (editor) as in `SUP_ADM_ROLE_ID` / `ADM_ROLE_ID` / `EDTR_ROLE_ID`: admin permissions are derived from them.
-12. **`npm run migrate:email-verified -- --confirm`** (Phase 8.1), **before the new code starts** (step 15). It marks every existing user email-verified and moves `PENDING` / `REVIEWING` → `ACCEPTED`. **Required:** without it, existing users are refused at login (403 `email_not_verified`). Idempotent; it sends no email.
-    - The hourly `unverified-cleanup` job deletes only accounts created by the Phase 8.1 signup (they carry a `verification_deadline`), so it can never delete an older account, even before this step.
-    - Set `FRONTEND_URL` to the web app's origin: verification links go to `FRONTEND_URL/verify-email?token=…`, and the frontend must have that page.
-    - The script also builds the `users.verification_deadline` index (add-only); `db:sync-indexes` (step 6) builds the new `auth_codes` hash index.
-13. **Phase 16 (citations):**
-    - `npm run db:sync-indexes -- --confirm` builds the four citation collections' indexes (`directories`, `directory_categories`, `location_citations`, `citation_status_logs`).
-    - Then `npm run seed:citation-directories -- --confirm` loads the starter master list (and the Google business categories if that collection is empty).
-    - Optionally set `CITATION_STALE_DAYS`.
-    - The old citation collections (`citationDirectorys`, `citations`, `campaigns`, `aggregators`, …) are no longer read (MIGRATION.md). `locationCitations` was used by the credit-payment code until Phase 13a removed it.
-14. **Phase 13a (billing):**
-    - `.env`: the PayPal and billing variables (section "PayPal setup"); **remove** `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` (Square is gone).
-    - `npm run db:sync-indexes -- --confirm` builds the billing collections' indexes (`billing_plans`, `subscriptions`, `invoices`, `payment_orders`, `token_ledger`, `token_packs`, `coupons`, `billing_events`, `audit_logs`, `counters`).
-    - `npm run migrate:billing` (dry run: read the list of legacy subscriptions it will link and the unmatched ones), then `npm run migrate:billing -- --confirm`. It creates the standard plan, links legacy PayPal subscriptions by verified email, **starts a trial for every existing organization**, and deactivates legacy coupons. Link the unmatched ones with `POST /api/v1/admin/billing/legacy-payments/:paymentId/link`.
-    - Set the prices before customers' trials end (open item 11): checkout answers 409 `price_not_set` until then.
-    - The legacy collections `user_subscriptions`, `subscription_plans`, `paymentCreditPlans`, `location_credit_payments` and `locationCitations` are no longer read (MIGRATION.md).
-15. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (including `report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders`) and `Recurring job scheduled: monthly-refresh` / `report-retention` / `unverified-cleanup` / `billing-renewals` / `billing-reminders`.
+1. **Server:** MongoDB, nginx and pm2 installed (Phase 14 details the server). Create `REPORTS_STORAGE_DIR` (default `storage/reports` under the repo root), writable by the pm2 user and **not** under `public/`; include it in backups.
+2. **`.env`** (see `.env.example`). The app refuses to start in production without the security settings:
+   - `JWT_SECRET` and `ADMIN_JWT_SECRET`: each at least 32 characters (`openssl rand -hex 32`), different from each other.
+   - `TOKEN_ENCRYPTION_KEY` (`openssl rand -hex 32`); losing or changing it forces every user to reconnect GBP.
+   - `TRUST_PROXY_HOPS=1` behind nginx; `ACCESSDOMAINS` lists every frontend origin; `FRONTEND_URL` (verification links, PayPal return pages); `SHARE_BASE_URL` (public API origin; nginx forwards `/r/` to the app).
+   - Google: `GOOGLE_PLACE_API_KEY`, the GBP OAuth client, `GBP_V4_ENABLED` (false until v4 access).
+   - Ranking: `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`.
+   - PayPal and billing: section "PayPal setup" (`PAYPAL_WEBHOOK_ID` is set after step 5).
+   - First super admin: `SUPER_ADMIN_EMAIL` (and optionally `SUPER_ADMIN_PASSWORD`, at least 12 characters; otherwise a password is generated and shown once).
+3. **Install and build:** `npm ci` (the setup scripts run with ts-node, a dev dependency, so don't use `--omit=dev`), then `npm run build`.
+4. **`npm run setup:fresh -- --confirm`**. On the empty database it runs, in order (each step idempotent, so re-running is safe):
+   1. `db:sync-indexes`: every model's indexes
+   2. `seed:reference-data`: roles (super admin 1, admin 2, editor 4, as in `SUP_ADM_ROLE_ID` / `ADM_ROLE_ID` / `EDTR_ROLE_ID`), countries, states, cities, languages, time zones, business categories from `dumps/`
+   3. `billing:setup-plan`: the standard billing plan, without prices
+   4. `seed:citation-directories`: the starter directory master list
+   5. `admin:create-super`: the first super admin. **A generated password is printed once: store it.**
 
-`--confirm` is needed because the scripts refuse any database other than the local `mps_rebuild` without it. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google.
+   It refuses (exit 3) when the database already has organizations; `--force` overrides that. Each step also exists on its own (`npm run <step> -- --confirm`).
+5. **PayPal:** `npm run billing:paypal-setup -- --confirm` and the webhook (section "PayPal setup"); put the printed ids and `PAYPAL_WEBHOOK_ID` in `.env`.
+6. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (`post-to-gbp, rank-run, gbp-sync, gbp-report, monthly-refresh, report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders`) and the `Recurring job scheduled: …` lines.
+7. **After start, in the admin panel:** sign in as the super admin; set the prices, token packs and token costs (billing admin); review the citation directory list; create the other admins.
+8. Do the Google Cloud checklist (section "Ranking quality") before the first monthly refresh.
+
+**Later releases:** `npm ci && npm run build`, then `npm run db:sync-indexes -- --confirm` (new or changed indexes), then restart. The standard plan, reference data and citation seed are idempotent and can be re-run.
+
+`--confirm` is required on any database other than the local `mps_rebuild`. Run every script from the repo root with the target `.env` (or `ENV_FILE`). None of them calls Google; only `billing:paypal-setup` calls PayPal.

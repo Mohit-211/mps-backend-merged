@@ -147,9 +147,8 @@ Also in STATUS.md, "Open items":
 - **Credentials:** the DataForSEO password change by the account owner (the old credential is in git history).
 - **Deploy-time** (OPERATIONS.md deploy checklist):
   - rotate `JWT_SECRET` (at least 32 characters); set `ADMIN_JWT_SECRET`, `PAYPAL_WEBHOOK_ID`, `ACCESSDOMAINS`, `FRONTEND_URL` and `SHARE_BASE_URL`
-  - run the migrations in order, including **`migrate:email-verified` before the new code starts** and `migrate:billing` (13a)
+  - a fresh database: `npm run setup:fresh -- --confirm` (nothing is migrated from the old system)
   - the PayPal / billing variables; remove `SQUARE_*`
-  - delete the old `ANALYTICS` token rows
 - **Frontend:** build against FRONTEND_BACKEND_MAP.md: its "Notes for the frontend team", and the `/verify-email` page flow in API.md.
 
 ## 9. Architecture at a glance

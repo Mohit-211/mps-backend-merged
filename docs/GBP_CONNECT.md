@@ -109,7 +109,6 @@ Each state works once and lasts 10 minutes: click **Prepare** again before conne
 
 ## 4. Connect MyPageSEO locally (redirect fallback)
 
-
 1. Start the server: `npm run dev`.
 2. Get a login token for the live-test user from Phase 5.5. This refreshes the token only; the location and runs are kept.
    ```sh
@@ -214,10 +213,3 @@ Then run the scoring calibration against the real numbers ([PROGRESS.md](PROGRES
 | Disconnect one Google account | `POST /api/v1/user/auth/google/gbp/revoke {"google_sub": "…"}` (`google_sub` is optional with a single account). Revokes that account at Google, then removes only its bindings, their jobs and its tokens. |
 | Remove access from the Google side | [myaccount.google.com/permissions](https://myaccount.google.com/permissions) |
 
-## Existing connections (servers with old data)
-
-Connections made before Phase 6 have plaintext tokens. Each is re-encrypted on first use. To encrypt them all at once:
-1. Back up `user_auths`.
-2. With `TOKEN_ENCRYPTION_KEY` and the target database's `MONGODB_*` set, run `npm run gbp:encrypt-tokens`.
-
-It is idempotent (already-encrypted values are skipped) and never prints tokens.

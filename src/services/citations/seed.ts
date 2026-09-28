@@ -30,7 +30,7 @@ export interface SeedResult {
 export const seedCitationDirectories = async (opts: { dataDir?: string; loadBusinessCategories?: boolean } = {}): Promise<SeedResult> => {
 	const dir = opts.dataDir ?? SEED_DATA_DIR;
 	let loaded = 0;
-	// The GBP categories are reference data (normally loaded by `npm run mongo-migrate`); without them no
+	// The GBP categories are reference data (normally loaded by `npm run seed:reference-data` / `setup:fresh`); without them no
 	// location can match a directory category.
 	if ((opts.loadBusinessCategories ?? true) && (await BusinessCategory.estimatedDocumentCount()) === 0 && fs.existsSync(DUMP_BUSINESS_CATEGORIES)) {
 		const rows = JSON.parse(fs.readFileSync(DUMP_BUSINESS_CATEGORIES, 'utf8')) as { name: string; slug: string }[];
