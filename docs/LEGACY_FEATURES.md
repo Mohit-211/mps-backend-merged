@@ -121,3 +121,4 @@ Mohit, 2026-09-28: the frontend is rebuilt from scratch against ENDPOINTS.md, so
 | `/user/clients` (5 routes), the `isAgency` role check (`role.middleware`), `clientSelect` | Replaced by `/clients` (Phase 8, organization-scoped) |
 | `POST /user/notifications`, `User.notification_status` | The toggle switched a flag nothing read; notifications are Phase 15 |
 | `/white-label-profiles` (5 routes), the `WhitelabelProfile` model, service, controller, middleware and `whitelabelProfileSelect` | Replaced by organization branding (Phase 12). **`npm run migrate:branding` stays** until the first deploy has run it on the existing production database (its agencies' profiles are not migrated yet); it now reads `whitelabel_profiles` directly |
+| `/user/auth/employee/*` (4 routes: add / remove / list / details) | Replaced by team invitations and member management (Phase 11); they created accounts with a password chosen by the owner |

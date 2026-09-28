@@ -68,9 +68,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**236 endpoints:** 231 live, 4 deprecated, 1 dev-only.
-- **By origin:** 152 rebuilt or new, 84 legacy.
-- **By auth:** 99 user, 95 platform admin (each with a permission), 40 none, 2 refresh token.
+**232 endpoints:** 227 live, 4 deprecated, 1 dev-only.
+- **By origin:** 152 rebuilt or new, 80 legacy.
+- **By auth:** 95 user, 95 platform admin (each with a permission), 40 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -131,10 +131,6 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/user/auth/refresh-auth` | refresh token | Refresh Auth | legacy | live |
 | POST | `/api/v1/user/auth/logout` | refresh token | Logout | legacy | live |
 | GET | `/api/v1/user/auth/deactivate` | user | Deactivate Account | legacy | live |
-| POST | `/api/v1/user/auth/employee/add` | user | Add Employee (Phase 8: also a `member` of the owner's organizations) | legacy | live |
-| DELETE | `/api/v1/user/auth/employee/remove` | user | Delete Employee (Phase 8: memberships removed) | legacy | live |
-| GET | `/api/v1/user/auth/employee/all` | user | Get All Employee By Owner | legacy | live |
-| GET | `/api/v1/user/auth/employee/details/:employee_id` | user | Employee Details | legacy | live |
 | GET | `/api/v1/user/profile` | user | Get Profile | legacy | live |
 | PUT | `/api/v1/user/profile` | user | Update Profile | legacy | live |
 

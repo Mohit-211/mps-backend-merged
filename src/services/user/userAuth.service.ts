@@ -4,32 +4,26 @@ import validator from "validator";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import moment from "moment-timezone";
-import mongoose from "mongoose";
 import {
-  mongoOperationsTypes,
   otpTypes,
   otpTypesArr,
   tokenTypes,
   userStatusTypes,
-  userTypes,
 } from "../../configs/constantTypes";
-import { ApiError, mongoFunctions } from "../../utils";
+import { ApiError } from "../../utils";
 import {
   IUser,
-  IUserAuth,
   IUserLoginTiming,
   IUserToken,
   OTP,
   Profile,
   User,
-  UserAuth,
   UserLoginTiming,
   UserToken,
 } from "../../models";
 import {
   BodyDefinition,
   HeaderDefinition,
-  ParamsDefinition,
   QueryDefinition,
 } from "../../types/RouteDefinition";
 import {
@@ -44,9 +38,7 @@ import { LIMITS, hit } from "../auth/rateLimit";
 import { emailNotVerifiedError } from "../auth/emailVerification";
 import { apiErrorWithData } from "../../utils";
 import { TokenDefination } from "../../types/interfaces";
-import config from "../../configs/config";
 import { gbpOAuthService } from "../gbp/oauth.service";
-import { addMemberToOwnedOrganizations } from "../org/context";
 import { Membership } from "../../models";
 import { bindingService } from "../gbp/binding.service";
 import { tokenStore } from "../gbp/tokenStore";
@@ -478,244 +470,4 @@ export const gBPAuthCallback = async (query: QueryDefinition) =>
 export const gBPConnectionRevoke = async (body: BodyDefinition) => {
   const { user, google_sub } = body;
   return bindingService.disconnect(user._id, typeof google_sub === "string" ? google_sub : undefined);
-};
-
-export const addEmployee = async (body: BodyDefinition) => {
-  try {
-    const {
-      name,
-      email,
-      mobile,
-      password,
-      user
-    } = body;
-
-    const salt = bcrypt.genSaltSync(10);
-    const userObj = {
-      email,
-      password: bcrypt.hashSync(password, salt),
-      role_id: config.roles.user,
-      user_type: userTypes.employee,
-      owner_id: user._id,
-      status: userStatusTypes.ACCEPTED,
-      // Phase 8.1: created by the owner, so no verification step (and never cleaned up).
-      email_verified_at: new Date(),
-    };
-    const userDoc = await User.create(userObj);
-    if (!userDoc) {
-      throw new ApiError(
-        httpStatus.INTERNAL_SERVER_ERROR,
-        "Failed to create new user account"
-      );
-    }
-    const profileObj = {
-      user_id: userDoc._id,
-      name,
-      mobile: mobile ? mobile : null,
-      business_address: user?.user_profile?.business_address ? user?.user_profile?.business_address : null,
-      business_name: user?.user_profile?.business_name ? user?.user_profile?.business_name : null,
-      website_url: user?.user_profile?.website_url ? user?.user_profile?.website_url : null,
-      zip_code: user?.user_profile?.zip_code ? user?.user_profile?.zip_code : null,
-    };
-
-
-    const profileDoc = await Profile.create(profileObj);
-    if (!profileDoc) {
-      throw new ApiError(
-        httpStatus.INTERNAL_SERVER_ERROR,
-        "Failed to create new user profile"
-      );
-    }
-
-    // Phase 8: the employee is a member of the owner's organizations.
-    await addMemberToOwnedOrganizations(user._id, userDoc._id);
-
-    return "New Employee Created Successfully.";
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-};
-
-export const deleteEmployee = async (body: BodyDefinition) => {
-  try {
-    const {
-      employee_id,
-      user
-    } = body;
-    if (!employee_id) {
-      throw new ApiError(httpStatus.NOT_FOUND, "Please provide employee_id");
-    }
-    const userDoc = await User.findOne({ _id: employee_id, owner_id: user._id, user_type: userTypes.employee });
-    if (!userDoc) {
-      throw new ApiError(httpStatus.NOT_FOUND, "Employee not found or you do not have permission to delete");
-    }
-
-    const profileDoc = await Profile.findOneAndDelete({ user_id: userDoc._id });
-    if (!profileDoc) {
-      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, "Failed to delete employee profile");
-    }
-
-    await User.findByIdAndDelete(userDoc._id);
-    // Phase 8: remove the employee's memberships.
-    await Membership.updateMany({ user_id: userDoc._id }, { $set: { status: "removed" } });
-
-    return "Employee deleted successfully.";
-  } catch (error: any) {
-    throw new ApiError(
-      error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-};
-
-export const getAllEmployeeByOwner = async (body: BodyDefinition) => {
-  try {
-    const {
-      user
-    } = body;
-    const employees = await User.aggregate([
-      {
-        $match: {
-          status: userStatusTypes.ACCEPTED,
-          user_type: userTypes.employee,
-          owner_id: new mongoose.Types.ObjectId(`${user._id}`),
-        },
-      },
-      {
-        $lookup: {
-          from: "profiles",
-          localField: "_id",
-          foreignField: "user_id",
-          as: "user_profile",
-        },
-      },
-      {
-        $unwind: {
-          path: "$user_profile",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $project: {
-          email: 1,
-          user_type: 1,
-          role_id: 1,
-          status: 1,
-          is_active: 1,
-          is_gbp_connected: 1,
-          "user_profile._id": 1,
-          "user_profile.user_id": 1,
-          "user_profile.name": 1,
-          "user_profile.mobile": 1,
-          "user_profile.is_active": 1,
-        },
-      },
-    ]);
-    if (!employees) {
-      throw new ApiError(httpStatus.NOT_FOUND, "Failed to get all employee");
-    }
-
-    return employees;
-  } catch (error: any) {
-    throw new ApiError(
-      error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-};
-
-export const employeeDetails = async (body: BodyDefinition, params: ParamsDefinition) => {
-  try {
-    const {
-      user
-    } = body;
-    const {
-      employee_id,
-    } = params;
-    if (!employee_id) {
-      throw new ApiError(httpStatus.NOT_FOUND, "Please provide employee_id");
-    }
-
-    const employees = await User.aggregate([
-      {
-        $match: {
-          _id: new mongoose.Types.ObjectId(`${employee_id}`),
-          status: userStatusTypes.ACCEPTED,
-          user_type: userTypes.employee,
-          owner_id: new mongoose.Types.ObjectId(`${user._id}`),
-        },
-      },
-      {
-        $lookup: {
-          from: "profiles",
-          localField: "_id",
-          foreignField: "user_id",
-          as: "user_profile",
-        },
-      },
-      {
-        $unwind: {
-          path: "$user_profile",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "owner_id",
-          foreignField: "_id",
-          as: "owner_details",
-        },
-      },
-      {
-        $unwind: {
-          path: "$owner_details",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "profiles",
-          localField: "owner_details._id",
-          foreignField: "user_id",
-          as: "owner_details.profile",
-        },
-      },
-      { $unwind: { path: "$owner_details.profile", preserveNullAndEmptyArrays: true } },
-
-      {
-        $project: {
-          email: 1,
-          user_type: 1,
-          role_id: 1,
-          status: 1,
-          is_active: 1,
-          is_gbp_connected: 1,
-          "user_profile._id": 1,
-          "user_profile.user_id": 1,
-          "user_profile.name": 1,
-          "user_profile.mobile": 1,
-          "user_profile.is_active": 1,
-          "owner_details._id": 1,
-          "owner_details.email": 1,
-          "owner_details.profile._id": 1,
-          "owner_details.profile.name": 1,
-          "owner_details.profile.mobile": 1,
-        },
-      },
-    ]);
-
-    if (!employees) {
-      throw new ApiError(httpStatus.NOT_FOUND, "Employee not found");
-    }
-    return employees;
-  } catch (error: any) {
-    throw new ApiError(
-      error.statusCode || httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
 };

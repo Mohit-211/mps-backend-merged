@@ -7,7 +7,6 @@ import {
   responseWrapper,
   ApiError,
   catchAsync,
-  validatePassword,
 } from "../../utils";
 import {
   otpTypes,
@@ -268,70 +267,6 @@ export const validateUpdateProfilerBody = catchAsync(async (req, res, next) => {
       req.body.city_name = cityDoc.name;
     }
 
-    next();
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-});
-
-export const validateAddEmployeeBody = catchAsync(async (req, res, next) => {
-  try {
-    const {
-      name,
-      email,
-      mobile,
-      password,
-      user,
-    } = req.body;
-
-    if (
-      !name ||
-      !email ||
-      !password ||
-      !mobile
-    ) {
-      return responseWrapper(
-        res,
-        "",
-        "Please Enter Required Fields: [name, email, password, mobile]",
-        httpStatus.BAD_REQUEST
-      );
-    }
-    if (!['AGENCY', 'BUSINESS'].includes(user.user_type)) {
-      return responseWrapper(
-        res,
-        "",
-        `You are not allow to access this route`,
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    if (!validator.isEmail(email) || name.length === 0) {
-      return responseWrapper(res, "", "Invalid Email", httpStatus.BAD_REQUEST);
-    }
-
-    if (await User.isEmailTaken(email)) {
-      return responseWrapper(
-        res,
-        "",
-        "Email already taken",
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    if (!validatePassword(password)) {
-      return responseWrapper(
-        res,
-        "",
-        "Password should have a minimum length of 8 characters and must have at least 2 digits and No Blank Space",
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    req.headers.ip_address = req.clientIp;
     next();
   } catch (error) {
     throw new ApiError(

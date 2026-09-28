@@ -64,38 +64,4 @@ router.post(
   userAuthController.gBPConnectionRevoke
 );
 
-// Employee
-router.post(
-  "/employee/add",
-  [
-    userAuthMiddleware.verifyAuthJWTToken,
-    userAuthMiddleware.validateAddEmployeeBody,
-  ],
-  userAuthController.addEmployee
-);
-
-router.delete(
-  "/employee/remove",
-  [
-    userAuthMiddleware.verifyAuthJWTToken,
-  ],
-  userAuthController.deleteEmployee
-)
-
-router.get(
-  "/employee/all",
-  [
-    userAuthMiddleware.verifyAuthJWTToken,
-  ],
-  userAuthController.getAllEmployeeByOwner
-)
-
-router.get(
-  "/employee/details/:employee_id",
-  [
-    userAuthMiddleware.verifyAuthJWTToken,
-  ],
-  userAuthController.employeeDetails
-)
-
 export default router;
