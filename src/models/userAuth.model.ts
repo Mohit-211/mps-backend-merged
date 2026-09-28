@@ -1,10 +1,6 @@
-import { Document, Schema, Model, model, Types } from 'mongoose';
+import { Document, Schema, Model, model } from 'mongoose';
 import { tokenTypes, tokenTypesArr } from '../configs/constantTypes';
-import {
-	addTimestamps,
-	globalQueryFilters,
-	toJSON,
-} from '../configs/mongoPlugins';
+import { addTimestamps, globalQueryFilters, toJSON } from '../configs/mongoPlugins';
 
 export interface IUserAuth extends Document {
 	user_id: Schema.Types.ObjectId;

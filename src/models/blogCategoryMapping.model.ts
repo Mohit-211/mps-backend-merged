@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import mongoose, { Document, Schema, Model } from 'mongoose';
-import httpStatus from 'http-status';
-import { ApiError } from '../utils';
 
 export interface IBlogCategoryMapping extends Document {
 	blog_id: Schema.Types.ObjectId;
