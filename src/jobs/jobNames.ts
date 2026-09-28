@@ -19,6 +19,10 @@ export const JOB_NAMES = {
 	REPORT_RETENTION: 'report-retention',
 	/** Phase 8.1: hourly, deletes signups not verified within EMAIL_VERIFICATION_TTL_HOURS. */
 	UNVERIFIED_CLEANUP: 'unverified-cleanup',
+	/** Phase 13a: every 6 hours, renewal snapshots (PayPal price 11 days ahead), manual invoices, token expiry. */
+	BILLING_RENEWALS: 'billing-renewals',
+	/** Phase 13a: daily, trial-ending and overdue-invoice reminders. */
+	BILLING_REMINDERS: 'billing-reminders',
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];

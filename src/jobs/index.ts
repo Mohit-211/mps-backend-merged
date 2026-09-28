@@ -8,6 +8,7 @@ import { defineGbpReportJob } from './gbpReport.job';
 import { MONTHLY_REFRESH_INTERVAL, defineMonthlyRefreshJob } from './monthlyRefresh.job';
 import { REPORT_RETENTION_INTERVAL, defineReportJobs } from './reports.job';
 import { UNVERIFIED_CLEANUP_INTERVAL, defineUnverifiedCleanupJob } from './unverifiedCleanup.job';
+import { BILLING_REMINDERS_INTERVAL, BILLING_RENEWALS_INTERVAL, defineBillingJobs } from './billing.job';
 
 // The single job registry. src/server.ts calls defineAllJobs() before startAgenda(), then
 // scheduleRecurringJobs() once agenda is running.
@@ -21,6 +22,7 @@ export const defineAllJobs = (agenda: Agenda): string[] => {
 	defineMonthlyRefreshJob(agenda);
 	defineReportJobs(agenda);
 	defineUnverifiedCleanupJob(agenda);
+	defineBillingJobs(agenda);
 	const names = Object.keys((agenda as unknown as { _definitions: Record<string, unknown> })._definitions);
 	logger.info(`Agenda jobs defined: ${names.join(', ')}`);
 	return names;
@@ -39,4 +41,8 @@ export const scheduleRecurringJobs = async (agenda: Agenda): Promise<void> => {
 	logger.info(`Recurring job scheduled: ${JOB_NAMES.REPORT_RETENTION} every ${REPORT_RETENTION_INTERVAL}`);
 	await agenda.every(UNVERIFIED_CLEANUP_INTERVAL, JOB_NAMES.UNVERIFIED_CLEANUP, {});
 	logger.info(`Recurring job scheduled: ${JOB_NAMES.UNVERIFIED_CLEANUP} every ${UNVERIFIED_CLEANUP_INTERVAL}`);
+	await agenda.every(BILLING_RENEWALS_INTERVAL, JOB_NAMES.BILLING_RENEWALS, {});
+	logger.info(`Recurring job scheduled: ${JOB_NAMES.BILLING_RENEWALS} every ${BILLING_RENEWALS_INTERVAL}`);
+	await agenda.every(BILLING_REMINDERS_INTERVAL, JOB_NAMES.BILLING_REMINDERS, {});
+	logger.info(`Recurring job scheduled: ${JOB_NAMES.BILLING_REMINDERS} every ${BILLING_REMINDERS_INTERVAL}`);
 };

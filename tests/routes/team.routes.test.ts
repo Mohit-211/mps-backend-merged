@@ -8,6 +8,7 @@ import { resolveOrgContext } from '../../src/services/org/context';
 import { createInvitationService, hashToken, maskEmail } from '../../src/services/team/invitation.service';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { addMember, clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
+import { activateBilling } from '../helpers/billing';
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 
@@ -191,9 +192,29 @@ describe('invitation email and logs', () => {
 		info.mockRestore();
 	});
 
+	it('users are pooled per paid location: 403 user_limit_reached; re-sending an invitation is fine; members over the limit keep access (Phase 13a)', async () => {
+		const { user } = await agencyOwner();
+		const ctx = await resolveOrgContext(String(user._id));
+		const service = createInvitationService({ mailer: { sendInvitation: async () => true }, env: 'test' });
+		// Trial: 3 users (owner + 2 invitations).
+		await service.invite(ctx, { email: 'u1@example.com', role: 'member' });
+		await service.invite(ctx, { email: 'u2@example.com', role: 'member' });
+		await expect(service.invite(ctx, { email: 'u3@example.com', role: 'member' })).rejects.toMatchObject({ statusCode: 403, data: { reason: 'user_limit_reached', used: 3, limit: 3 } });
+		await expect(service.invite(ctx, { email: 'u2@example.com', role: 'member' })).resolves.toMatchObject({ email: 'u2@example.com' });
+		// Two paid locations → 6 users.
+		await activateBilling(ctx.organization._id as Types.ObjectId, { quantity: 2 });
+		await expect(service.invite(ctx, { email: 'u3@example.com', role: 'member' })).resolves.toBeDefined();
+		// Back to 1 paid location: nobody loses access, but no new invitations.
+		await activateBilling(ctx.organization._id as Types.ObjectId, { quantity: 1 });
+		await expect(service.invite(ctx, { email: 'u4@example.com', role: 'member' })).rejects.toMatchObject({ data: { reason: 'user_limit_reached', used: 4, limit: 3 } });
+		expect(await Invitation.countDocuments({ organization_id: ctx.organization._id, status: 'pending' })).toBe(3);
+	});
+
 	it('invitations are rate-limited per organization (20 an hour)', async () => {
 		const { user } = await agencyOwner();
 		const ctx = await resolveOrgContext(String(user._id));
+		// Phase 13a: enough paid locations that the user pool (3 per location) isn't the limit here.
+		await activateBilling(ctx.organization._id as Types.ObjectId, { quantity: 10 });
 		const service = createInvitationService({ mailer: { sendInvitation: async () => true }, env: 'test' });
 		for (let i = 0; i < 20; i += 1) await service.invite(ctx, { email: `p${i}@example.com`, role: 'member' });
 		await expect(service.invite(ctx, { email: 'p20@example.com', role: 'member' })).rejects.toMatchObject({ statusCode: 429 });

@@ -2,6 +2,8 @@ import { Types } from 'mongoose';
 import httpStatus from 'http-status';
 import { IMembership, IOrganization, Membership, Organization, User } from '../../models';
 import { apiErrorWithData } from '../../utils';
+import { standardPlan } from '../billing/plans';
+import { credit } from '../billing/tokens';
 
 // Organization context (Phase 8): which organization a request acts in, and the caller's role there.
 // The X-Organization-Id header picks one of the user's organizations; otherwise the user's default
@@ -55,8 +57,12 @@ export const createOrganizationForOwner = async (
 	userId: UserId,
 	input: { name: string; type: IOrganization['type']; country: IOrganization['country'] },
 ): Promise<IOrganization> => {
-	const organization = await Organization.create({ name: input.name, type: input.type, country: input.country, owner_user_id: userId });
+	// Phase 13a: every new organization starts its trial (the standard plan's length and token allowance).
+	const plan = await standardPlan();
+	const now = new Date();
+	const organization = await Organization.create({ name: input.name, type: input.type, country: input.country, owner_user_id: userId, trial_ends_at: new Date(now.getTime() + plan.trial.days * 86_400_000) });
 	await Membership.create({ organization_id: organization._id, user_id: userId, role: 'owner', created_by: userId });
+	if (plan.trial.tokens > 0) await credit(organization._id as Types.ObjectId, 'grant', plan.trial.tokens, { note: 'Trial tokens' }, now);
 	await User.updateOne({ _id: userId }, { $set: { default_organization_id: organization._id } });
 	return organization;
 };

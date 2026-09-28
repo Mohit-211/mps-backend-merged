@@ -30,8 +30,8 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 12.5 | Ranking & data quality: full depth, repeated sampling (3 samples, 60 s), richer competitor data, Map Ranking at 5 points, cost visibility, Google attribution | done | `claude/phase-12.5-quality` | M5 (pushed) |
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
 | 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
-| **16** | **Citations**: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | **built, awaiting merge** | `claude/phase-16-citations` | M5 |
-| 13 | Billing & plans: existing Square/PayPal flows aligned with organizations; plan → limits; upgrade/downgrade; subscription-status gating; invoices list; **plus the admin panel backend for launch** (users, organizations, subscriptions, support tickets). Notes: §12h | planned (plan mode after 16) | – | M5 |
+| 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | done | `claude/phase-16-citations` | M5 (pushed) |
+| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | **13a built, awaiting merge**; 13b next | `claude/phase-13a-billing` | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
@@ -88,7 +88,7 @@ All three ranking pages are powered by **one ranking engine** and **one fixed ke
 
 ### OUT of scope (do not modify, do not refactor, do not reformat)
 - Citations (all `citation*` files and models) **until Phase 16** (spec §12f), blog, blog categories, FAQ, support, contact-us, white-label, countries/states/cities, languages, timezones, roles, business categories.
-- Payments and subscriptions (Square, PayPal, Razorpay, coupons, plans, credits), **except** the security items listed in Phase 10 if approved.
+- Payments and subscriptions outside the Phase 13 rebuild (Razorpay and legacy gateway enums). Phase 13a replaced plans, PayPal, coupons and invoices, and removed Square and credits (§12h).
 - Admin panel features, except the Phase 10 security items if approved.
 
 If an in-scope change *requires* touching an out-of-scope file (e.g. a shared util or `src/models/index.ts` export), make the smallest possible change and call it out explicitly in the phase summary.
@@ -139,7 +139,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 done. 16 Citations built (awaiting merge). **Next: 13 Billing & plans**, in plan mode, including the admin panel backend (§12h) → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 → 16 done. **13a Billing built (awaiting merge); next: 13b** admin panel backend + support (§12h) → 14 Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 **Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
 
@@ -189,8 +189,9 @@ Use plan mode before each phase: show the plan and the list of files to create/m
   - **Admin auth:** `src/services/admin/adminToken.ts`, the permission matrix in `src/configs/adminPermissions.ts`, and `adminOnly(permission)` in `src/middlewares/auth/adminAuth.middleware.ts`. ENDPOINTS.md's `admin (permission)` column drives `tests/routes/adminGuards.routes.test.ts`.
   - **User tokens:** revocable via `token_version`; access tokens last 1 day, refresh tokens 30 days.
   - **Email verification by link:** `src/services/auth/emailVerification.ts` (`User.email_verified_at`, `verification_deadline`), job `unverified-cleanup`, script `migrate:email-verified`.
-- **Citations (Phase 16):** `src/citations/` (pure: matching, Citation Health, `scoring.config.ts`), `src/services/citations/`, models `Directory`, `DirectoryCategory`, `LocationCitation`, `CitationStatusLog`. Admin routes at `/admin/citations/*` (`citations.view` / `citations.manage`); customer routes at `/locations/:id/citations[/changes]` (read-only); report type `citation`. Starter data: `npm run seed:citation-directories` (`src/scripts/data/`). The legacy citation module and `serpapi` are gone; `LegacyLocationCitation` remains for credit payments (§12h).
-- **Tooling:** the editor uses the workspace TypeScript 5.9.3 (`.vscode/settings.json`, committed), not VS Code's bundled 6.0. `npm run lint` covers `src`, `tests` and `index.ts`; the baseline is **137** legacy errors (169 before Phase 16 retired the legacy citation module), and rebuilt code must stay at 0.
+- **Citations (Phase 16):** `src/citations/` (pure: matching, Citation Health, `scoring.config.ts`), `src/services/citations/`, models `Directory`, `DirectoryCategory`, `LocationCitation`, `CitationStatusLog`. Admin routes at `/admin/citations/*` (`citations.view` / `citations.manage`); customer routes at `/locations/:id/citations[/changes]` (read-only); report type `citation`. Starter data: `npm run seed:citation-directories` (`src/scripts/data/`). The legacy citation module and `serpapi` are gone; `LegacyLocationCitation` was removed with the credits in 13a.
+- **Billing (Phase 13a):** pure layer `src/billing/` (constants, pricing, entitlement); `src/clients/paypalClient.ts`; `src/services/billing/` (entitlement, plans, slots, subscriptions, orders, coupons, tokens + refreshTokens, invoices + invoicePdf, webhook, renewals, reminders, billingEmails, account, admin, legacy, migrate, audit); models `BillingPlan`, `Subscription`, `Invoice`, `PaymentOrder`, `TokenLedger`, `TokenPack`, `Coupon`, `BillingEvent`, `AuditLog`, `Counter`; gates `requireBilling` / `requireFeature` (`src/middlewares/billing/`); routes `/billing`, `/pricing`, `/admin/billing/*`, webhook `/subscription/paypal/webhook`; jobs `billing-renewals`, `billing-reminders`; scripts `migrate:billing`, `billing:paypal-setup`.
+- **Tooling:** the editor uses the workspace TypeScript 5.9.3 (`.vscode/settings.json`, committed), not VS Code's bundled 6.0. `npm run lint` covers `src`, `tests` and `index.ts`; the baseline is **82** legacy errors (169 before Phase 16 retired the legacy citation module, 137 before 13a retired the legacy billing code), and rebuilt code must stay at 0.
 - GBP posting (legacy, kept until Phase 8): `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda). Its token comes from `gbpClient` through the binding's connection.
 
 ---
@@ -635,7 +636,7 @@ Tests: aggregation math (period comparisons with gaps in daily data), threshold 
 **Built** on `claude/phase-8-org-onboarding`. As built:
 - **Organizations and access:** see §3. Records under a location (runs, syncs, reports) belong to the organization through `location_id`. Google connections stay per user; members see a bound location's GBP data.
 - **Auth** (`/api/v1/auth/*`): signup (Business/Agency → user + organization + owner membership), verify-email (+ resend), login, forgot/reset password. 6-digit codes stored as HMAC, 15 minutes, 5 attempts, single use; Mongo rate limits (email-keyed; IP limits need Phase 10's `trust proxy`); logs carry user ids only. Legacy `/user/auth/{register,otp,verify-otp,login,forgot-password}` and `/user/clients*` are **deprecated** (still live); legacy register and employee add/remove got small organization/membership hooks.
-- **Plan limits:** optional `location_limit` / `keyword_limit` on `SubscriptionPlan` (flagged minimal edit; payment logic unchanged); defaults `DEFAULT_LOCATION_LIMIT=1`, `DEFAULT_KEYWORD_LIMIT` (none). `GET /organization/usage`.
+- **Plan limits:** optional `location_limit` / `keyword_limit` on `SubscriptionPlan` (flagged minimal edit; payment logic unchanged); defaults `DEFAULT_LOCATION_LIMIT=1`, `DEFAULT_KEYWORD_LIMIT` (none). `GET /organization/usage`. **Superseded in 13a:** limits come from the billing entitlement (§12h); `SubscriptionPlan` and the defaults are gone.
 - **Locations:** the legacy routes were **replaced** at the same paths (`GET/POST /locations`, `GET/DELETE /locations/:id`, `PATCH` instead of `PUT`), `google-locations/*` deleted. `POST /locations { place_id }` adds from a Places result (1 Details call). Soft delete cancels jobs and frees the slot. `GET /locations/:id/overview`. `Location.summary` is written by the rank-run and report hooks.
 - **Clients** (`/api/v1/clients`, agency only): CRUD, assign/unassign, detail with locations and summary; the `Client` model was reused and extended.
 - **Onboarding:** organization steps derived from data (`src/services/org/onboardingState.ts`), `POST /onboarding/skip`, location step `place_selected`, `/complete` without GBP. A bind to a location with a different `place_id` is refused (409 `place_id_mismatch`), and a place already in the organization gives 409 `duplicate_place`.
@@ -807,14 +808,14 @@ Branch `claude/phase-12.5-quality` from `claude/rebuild`. **Plan mode first; wai
 
 ## 12f. PHASE 16 — Citations (manual, admin-managed tracking)
 
-**Built** on `claude/phase-16-citations` (awaiting merge). As built:
+**Done** (merged `daff461`, pushed 2026-09-28). As built:
 - **Code:**
   - `src/citations/` (pure): `constants`, `regions` (US / CA codes), `match` (suggestions), `health` + `scoring.config.ts` (the Citation Health weights)
   - `src/utils/nap.ts`: NAP normalisation + mismatch, shared with the GBP audit report
   - `src/services/citations/`: `directory.service`, `category.service`, `csv`, `suggest`, `entries.service`, `queue.service`, `customer.service`, `summary`, `seed`, `demo`
   - routes: `src/routes/v1/admin/citations.route.ts` (`/admin/citations`, `adminOnly('citations.view'|'citations.manage')`) and `src/routes/v1/common/citations.route.ts` (`/locations/:id/citations[/changes]`, `loadOwnedLocation`)
   - `src/services/reports/sections/citations.ts`: the report type `citation` + the Full report part
-- **Models:** `Directory` (`directories`), `DirectoryCategory` (`directory_categories`), `LocationCitation` (`location_citations`), `CitationStatusLog` (`citation_status_logs`); `Location.summary.citation_*`. The legacy order model is kept as `LegacyLocationCitation` (§12h).
+- **Models:** `Directory` (`directories`), `DirectoryCategory` (`directory_categories`), `LocationCitation` (`location_citations`), `CitationStatusLog` (`citation_status_logs`); `Location.summary.citation_*`. The legacy order model was kept as `LegacyLocationCitation` until Phase 13a removed it with the credits.
 - **Permissions:** `citations.view` (new) + `citations.manage`, both super admin, admin and editor.
 - **Retired:** the whole legacy `/citation/*` module (13 routes, controller, middleware, service with its old-Places-API call, SerpAPI helper, 5 models, unused constants) and the `serpapi` package.
 - **Seeds:** `npm run seed:citation-directories` (5 category groups, 50 US / CA directories from `src/scripts/data/`; loads `dumps/businessCategory.json` when that collection is empty, a flagged reference-data edit). `seed:demo-orgs` adds citation lists with 60 days of history and a Citation Report.
@@ -861,12 +862,56 @@ Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data 
 
 **Gate.**
 
-## 12h. PHASE 13 — Billing & plans (notes; full spec before it starts)
+## 12h. PHASE 13 — Billing & plans + admin panel backend
 
-Runs after Phase 16, **plan mode first**. Collected so far (Mohit, 2026-09-27):
-- **Scope:** the existing Square / PayPal flows aligned with organizations; plan → limits; upgrade / downgrade; subscription-status gating; an invoices list.
-- **Admin panel backend needed for launch:** users, organizations, subscriptions and support tickets, on Phase 10's admin auth and permissions. The plan must cover it.
-- **Legacy citation order model (from Phase 16):** Phase 16 retired the paid citation-campaign flow but **kept its order model**, renamed `LegacyLocationCitation` (collection `locationCitations`). The credit-payment code still attaches payments to it: `payment.middleware.ts` takes `citation_location_id`, and `payment.service.ts` sets `citation_payment_id` / `orderStatus`. Phase 13 decides whether citation credits survive: rebuild them on the new citation model or remove that branch, and the credit plans with it (`PaymentCreditPlan`, `CreditPayment`, `User.available_credit`).
+**13a built** on `claude/phase-13a-billing` (2026-09-28), awaiting merge; as built below. The full approved plan, including the PayPal evidence, is in **`docs/plans/phase-13-billing-admin.md`**. It runs as two sub-phases, each merged and pushed: **13a billing**, then **13b admin panel + support** (`claude/phase-13b-admin-panel`).
+
+**Billing model (Mohit, 2026-09-28, final for now):**
+1. **Per location.** Monthly = `first_location_price` + (n − 1) × `additional_location_price` (the first location covers base costs). No other recurring items; all features included.
+   - The standard plan caps at **20 locations**; more is enterprise (a custom plan; 403 `enterprise_required`).
+   - Plans carry an `entitlements` map read through one helper (`hasFeature`), so tiers can be added later as data.
+   - Prices are dated per currency (USD / CAD) and apply from each organization's next renewal; invoices show what was actually charged.
+2. **Users:** 3 per paid location (plan setting), pooled per organization, owner included. Over the limit, existing users keep access and new invitations get 403 `user_limit_reached`.
+3. **Trial:** 7 days, no payment details. Admin-configurable allowances (1 location, 3 users, 0 tokens). Afterwards read-only: 402 on money-costing actions, and the monthly refresh skips the organization.
+4. **Adding a location at the paid quantity:** 402 with a prorated quote (at the additional-location price) → a one-time PayPal order → capture → the paid quantity goes up (next renewal too) → the location is added.
+5. **Removing a location:** no refund; the slot is reusable until period end; at renewal the quantity follows the active locations (minimum 1).
+6. **Tokens:** one-time packs (PayPal order), never a subscription.
+   - The monthly automatic refresh is free; manual refreshes (and "run now") cost admin-set tokens per type; the 24 h guard stays.
+   - Tokens never expire by default. A ledger records everything; a refresh that fails entirely is refunded.
+   - `POST /locations/:id/refresh` → 402 `insufficient_tokens`; `GET` shows costs and the balance.
+7. **Custom plans (enterprise):**
+   - their own prices, `max_locations`, users per location, trial length, entitlements, monthly token grant, token pack prices or a discount
+   - billing method `paypal` or `manual` (our invoices, admin-recorded payments, overdue → read-only after grace)
+   - every override audit-logged
+8. **No tax** (`tax_lines: []` kept for later). Coupons apply to **token packs only**. 7-day grace on failed payments. Our own numbered PDF invoices. Billing admin. `migrate:billing`.
+9. **Removed:** Square, credits and `LegacyLocationCitation`; the guest checkout.
+
+**PayPal mechanics (verified 2026-09-28; evidence in the plan):**
+- **No PayPal quantity:** `revise` needs buyer consent. Each subscription carries its own price override (`fixed_price`, which PATCH changes without consent), on one PayPal plan per currency; custom prices use the same override.
+- **The 10-day rule:** PayPal ignores price changes within 10 days of a charge, so the renewal amount is fixed 11 days ahead (the renewal snapshot).
+- **No PayPal proration:** prorated slots and token packs are one-time Orders v2 payments.
+- **Account:** a Business account + a REST app.
+- **No live PayPal calls** until Mohit provides sandbox credentials and says so.
+
+**13a as built (2026-09-28):**
+- **Pure layer** `src/billing/`: `pricing.ts` (dated prices, first + (n − 1) × additional, prorated slots incl. the post-snapshot next period, pack prices, coupons), `entitlement.ts` (states `trialing | active | past_due | inactive | suspended_by_admin`, `hasFeature`, add-location and invite decisions).
+- **Gates:** `requireBilling` (402 `subscription_required` / `organization_suspended`) on money-costing routes, `requireFeature` (403 `feature_not_included`) on feature routes; add location → 402 `location_payment_required` with a quote, 403 `enterprise_required` above the cap; invitations → 403 `user_limit_reached`; `monthly-refresh` and scheduled reports skip read-only organizations.
+- **Customer API** `/billing` (14 routes) + public `/pricing`; **admin** `/admin/billing/*` (30 routes, `billing.read` / `billing.manage`, super admin + admin, every change audit-logged); ENDPOINTS.md #107–#151.
+- **PayPal:** `paypalClient` (token cache, retry, idempotency keys, safe errors with `debug_id`); checkout with a per-subscription price override (and `start_time` after a still-paid cancelled period); webhooks idempotent per event id (`BillingEvent`), 500 on a handler error so PayPal retries; one-time orders captured exactly once (return page or webhook). Webhook verification now uses `paypalClient`.
+- **Renewals** (`billing-renewals`, every 6 h): the PayPal snapshot + price PATCH 11 days ahead (retried until it succeeds), manual-billing invoices at each period end (pending slot lines included), comp periods, monthly token grants, FIFO pack expiry. **Reminders** (`billing-reminders`, daily): trial ending 3 d / 1 d, overdue manual invoices.
+- **Tokens:** manual refresh and run-now spend per type (affordability checked before anything is queued; nothing charged when rate-limited or already running), linked to the run / sync and refunded when it fails entirely (executors, enqueue failure, stuck guards). Trial tokens granted at organization creation.
+- **Invoices:** `INV-YYYY-NNNNNN` per-year counter, frozen seller/customer, `charged_amount` + `mismatch` flag, `tax_lines: []`, PDFKit PDF in the private reports storage (`invoices/<org>/`); emails with the PDF attached (development/test: logged, masked).
+- **Retired:** the legacy plan CRUD, guest checkout, prefix coupons, payment lists and Square routes (15), `subscription.service`, `payment.service`, `paypal.service`, `configs/{square,paypal}.ts`, the `square` package, `SubscriptionPlan`, `UserSubscription`, `PaymentCreditPlan`, `CreditPayment`, `LegacyLocationCitation`; `Coupon` reworked (pack-only). Collections kept (MIGRATION.md).
+- **Scripts:** `migrate:billing` (dry run by default; standard plan, legacy guest subscriptions linked by verified email, trials, legacy coupons deactivated) and `billing:paypal-setup` (Mohit runs it; product + USD/CAD plans). `seed:demo-orgs` adds demo prices (only when none), packs, a coupon, tokens and an invoice.
+- **Not done in 13a:** live PayPal (sandbox test when Mohit provides credentials), real prices (Mohit sets them; checkout answers 409 `price_not_set` until then).
+
+**Payment provider interface (Mohit, 2026-09-28), 13b's first commit:** today billing calls `paypalClient` directly in 8 files (subscriptions, orders, renewals, webhook, admin, legacy, account, plus the webhook verification). 13b starts by moving that behind one provider interface:
+- `src/services/billing/providers/`: a `PaymentProvider` type (`startSubscription`, `getSubscription`, `setRenewalAmount`, `cancelSubscription`, `createOrder`, `captureOrder`, `verifyWebhook` + `parseWebhook` → provider-neutral billing events) and the PayPal implementation wrapping `paypalClient`.
+- Billing logic (subscriptions, orders, renewals, webhook handling, admin, migration) uses only the interface and provider-neutral statuses and events; `Subscription` / `PaymentOrder` / `Invoice` keep a `provider` field (`paypal` today).
+- The provider's own timing rule (PayPal ignores price changes within 10 days) becomes a property of the provider (`renewalLeadDays`), not a billing constant.
+- No behaviour change, all existing tests pass, no second provider. A card processor can be added later as another implementation without touching billing logic. The decision is in STATUS.md "Decide before launch" (cards without a PayPal account).
+
+**13b (as approved 2026-09-27):** admin users, organizations (suspend, links to billing admin), support tickets rebuilt with threads, and an admin overview; legacy `/admin/operations/*` and `/supports` deprecated.
 
 ## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)
 

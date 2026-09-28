@@ -8,7 +8,7 @@
  * Creates (or recreates) in mps_rebuild:
  * - a Business organization (business-demo@mypageseo.test): 1 GBP-connected location with 3 monthly
  *   rank runs, 18 months of GBP data and a GBP report;
- * - an Agency organization (agency-demo@mypageseo.test) on a demo plan (5 locations): 2 clients and 3
+ * - an Agency organization (agency-demo@mypageseo.test) on a comp subscription (5 locations): 2 clients and 3
  *   locations (2 GBP-connected, 1 added from a Places search: gbp_not_connected), each with rank runs
  *   and a report; plus a client user (agency-client@mypageseo.test) who sees one client only.
  *   Dashboard data (Phase 11): ranks improve and decline, Queen West has an unverified profile on a
@@ -17,11 +17,14 @@
  *   Tracker + Full; agency: Rank Tracker, GBP Audit and Competitor Analysis for Maple Leaf, a Full
  *   report for Danforth without GBP), agency white-label branding with a generated logo, one monthly
  *   schedule (client Maple Leaf Group) and one 30-day share link (printed).
+ * - Billing (Phase 13a): demo prices on the standard plan when it has none (USD 39/15, CAD 49/19), token
+ *   packs "Starter (demo)" / "Pro (demo)", coupon DEMO10; the agency has 10 tokens and a paid invoice,
+ *   the business is in its trial with 2 tokens.
  * Rank runs use the offline demo Places client; Place Details come from an offline demo client.
  * Prints logins, tokens and curl examples.
  *
  * Refuses to run unless NODE_ENV=development AND the connected database is mps_rebuild.
- * Only the demo accounts' own data (and the demo plan) are deleted and recreated.
+ * Only the demo accounts' own data are deleted and recreated (demo packs, coupon and prices are kept).
  */
 import { createHash, randomBytes } from 'crypto';
 import fs from 'fs/promises';
@@ -57,7 +60,13 @@ import {
 	ReportSchedule,
 	ReportShare,
 	ReportSnapshot,
-	SubscriptionPlan,
+	Subscription,
+	Invoice,
+	TokenLedger,
+	PaymentOrder,
+	BillingPlan,
+	TokenPack,
+	Coupon,
 	User,
 	UserAuth,
 	UserGBP,
@@ -76,13 +85,15 @@ import { seedCitationDirectories } from '../services/citations/seed';
 import { writeDemoCitations } from '../services/citations/demo';
 import { reportStorage } from '../services/reports/storage';
 import { createShareService } from '../services/reports/share.service';
+import { standardPlan } from '../services/billing/plans';
+import { invoiceService } from '../services/billing/invoices';
+import { credit } from '../services/billing/tokens';
 
 const BUSINESS_EMAIL = 'business-demo@mypageseo.test';
 const AGENCY_EMAIL = 'agency-demo@mypageseo.test';
 const CLIENT_USER_EMAIL = 'agency-client@mypageseo.test';
 /** Earlier demo accounts (seed:gbp-demo before Phase 8) are cleaned up too. */
 const OLD_EMAILS = ['gbp-demo@mypageseo.test'];
-const DEMO_PLAN = 'Demo Agency (seed)';
 const REQUIRED_DB = 'mps_rebuild';
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -135,7 +146,10 @@ const removePreviousDemo = async (): Promise<void> => {
 		Profile.deleteMany({ user_id: { $in: userIds } }),
 		UserToken.deleteMany({ user_id: { $in: userIds } }),
 		UserAuth.deleteMany({ user_id: { $in: userIds } }),
-		SubscriptionPlan.deleteMany({ name: DEMO_PLAN }),
+		Subscription.deleteMany({ organization_id: { $in: orgIds } }),
+		Invoice.deleteMany({ organization_id: { $in: orgIds } }),
+		TokenLedger.deleteMany({ organization_id: { $in: orgIds } }),
+		PaymentOrder.deleteMany({ organization_id: { $in: orgIds } }),
 	]);
 	await User.deleteMany({ _id: { $in: userIds } });
 };
@@ -326,10 +340,23 @@ const main = async (): Promise<void> => {
 
 	// ---- Agency organization: 2 clients, 3 locations, a client user, a demo plan ----
 	const agency = await createDemoUser(AGENCY_EMAIL, 'Northern Local SEO', userTypes.agency, password);
-	const plan = await SubscriptionPlan.create({ name: DEMO_PLAN, country: 'CANADA', currency: 'CAD', monthly_price: 0, location_limit: 5, keyword_limit: 60 });
-	await User.updateOne({ _id: agency._id }, { $set: { subscription_status: 'ACTIVE', current_plan_id: plan._id } });
 	const agencyOrg = await createOrganizationForOwner(agency._id, { name: 'Northern Local SEO', type: 'agency', country: 'CA' });
 	const orgId = agencyOrg._id as Types.ObjectId;
+	// Phase 13a: a comp (manual, free) subscription for 5 locations, so the demo agency isn't limited by the trial.
+	const standard = await standardPlan();
+	await Subscription.create({
+		organization_id: orgId,
+		plan_id: standard._id,
+		billing_method: 'manual',
+		currency: 'CAD',
+		status: 'active',
+		started_at: new Date(now - 40 * DAY),
+		current_period_start: new Date(now - 10 * DAY),
+		current_period_end: new Date(now + 20 * DAY),
+		paid_quantity: 5,
+		comp_until: new Date(now + 365 * DAY),
+		note: 'seed:demo-orgs',
+	});
 	const clientA = await Client.create({ company_name: 'Maple Leaf Group', company_URL: 'https://mapleleafgroup.example', contact_email: 'owner@mapleleafgroup.example', organization_id: orgId, created_by: agency._id });
 	const clientB = await Client.create({ company_name: 'Danforth Services', company_URL: 'https://danforth.example', organization_id: orgId, created_by: agency._id });
 
@@ -437,14 +464,46 @@ const main = async (): Promise<void> => {
 	});
 	const share = await createShareService().createFor((await Report.findById(auditId)) as never, { expiresInDays: 30, purpose: 'share', createdBy: String(agency._id) });
 
+	// ---- Billing (Phase 13a): demo prices (only when the standard plan has none; this is the dev
+	// database), two demo token packs and a coupon; tokens and a paid token-pack invoice for the agency.
+	const std = await standardPlan();
+	if (!std.prices?.length) {
+		await BillingPlan.updateOne(
+			{ _id: std._id },
+			{
+				$set: {
+					prices: [
+						{ currency: 'USD', first_location_price: 39, additional_location_price: 15, effective_from: new Date('2026-01-01T00:00:00Z'), set_by: null, set_at: new Date(now) },
+						{ currency: 'CAD', first_location_price: 49, additional_location_price: 19, effective_from: new Date('2026-01-01T00:00:00Z'), set_by: null, set_at: new Date(now) },
+					],
+				},
+			},
+		);
+	}
+	await TokenPack.updateOne({ name: 'Starter (demo)' }, { $setOnInsert: { name: 'Starter (demo)', tokens: 10, prices: [{ currency: 'USD', price: 15 }, { currency: 'CAD', price: 20 }], sort_order: 1 } }, { upsert: true });
+	await TokenPack.updateOne({ name: 'Pro (demo)' }, { $setOnInsert: { name: 'Pro (demo)', tokens: 50, prices: [{ currency: 'USD', price: 60 }, { currency: 'CAD', price: 80 }], sort_order: 2 } }, { upsert: true });
+	await Coupon.updateOne({ code: 'DEMO10' }, { $setOnInsert: { code: 'DEMO10', discount_type: 'percent', value: 10, note: 'seed:demo-orgs' } }, { upsert: true });
+	await credit(orgId, 'purchase', 10, { ref: 'seed:agency-pack', note: '10 tokens' }, new Date(now - 5 * DAY));
+	await invoiceService.issue({
+		organization_id: orgId,
+		kind: 'token_pack',
+		status: 'paid',
+		currency: 'CAD',
+		lines: [{ label: '10 tokens', quantity: 1, unit_price: 20, amount: 20 }],
+		provider_ref: `seed:${String(orgId)}:tokens`,
+		charged_amount: 20,
+		paid_at: new Date(now - 5 * DAY),
+	});
+	await credit(businessOrg._id as Types.ObjectId, 'grant', 2, { note: 'Demo tokens (seed)' }, new Date(now));
+
 	const tokenOf = async (user: IUser) => (await generateAuthTokens(user)).access.token as string;
 	const base = `http://localhost:${config.essentials.port}/api/v1`;
 	out(`Demo organizations created in mps_rebuild (offline demo clients: 0 Google API calls; v4 sections ${v4 ? 'filled' : 'off'}).`);
 	out(`Password for all demo accounts: ${password}`);
 	out();
-	out(`Business: ${BUSINESS_EMAIL}  organization ${String(businessOrg._id)}  location ${String(bLoc._id)}`);
+	out(`Business: ${BUSINESS_EMAIL}  organization ${String(businessOrg._id)}  location ${String(bLoc._id)} (7-day trial, 2 tokens)`);
 	out(`  TOKEN_BUSINESS='${await tokenOf(business)}'`);
-	out(`Agency:   ${AGENCY_EMAIL}  organization ${String(orgId)} (plan: 5 locations)`);
+	out(`Agency:   ${AGENCY_EMAIL}  organization ${String(orgId)} (comp subscription: 5 locations; 10 tokens, 1 paid invoice)`);
 	out(`  clients: Maple Leaf Group ${String(clientA._id)}, Danforth Services ${String(clientB._id)}`);
 	out(`  locations: ${String(a1._id)} (GBP), ${String(a2._id)} (GBP), ${String(a3._id)} (Places search: gbp_not_connected)`);
 	out(`  TOKEN_AGENCY='${await tokenOf(agency)}'`);

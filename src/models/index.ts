@@ -25,8 +25,6 @@ export * from "./whitelabelProfile.model";
 // razorpay
 export * from "./coupon.model";
 export * from "./payment.model";
-export * from "./subscriptionPlan.model";
-export * from "./userSubscription.model";
 export * from "./contactUs.model";
 
 // location service — GBP / rank tracking / reports
@@ -52,7 +50,16 @@ export * from "./apiUsage.model";
 
 
 // Legacy citation order (credit payments only; Phase 13 decides)
-export * from "./legacyLocationCitation.model";
+// Billing (Phase 13a)
+export * from "./billingPlan.model";
+export * from "./subscription.model";
+export * from "./invoice.model";
+export * from "./paymentOrder.model";
+export * from "./tokenLedger.model";
+export * from "./tokenPack.model";
+export * from "./billingEvent.model";
+export * from "./auditLog.model";
+export * from "./counter.model";
 // Citations (Phase 16)
 export * from "./directoryCategory.model";
 export * from "./directory.model";
@@ -60,8 +67,6 @@ export * from "./locationCitation.model";
 export * from "./citationStatusLog.model";
 
 // location service — credit-based payments (kept fully separate from subscription Payment above)
-export * from "./creditPayment.model";
-export * from "./paymentCreditPlans.model";
 
 // admin
 export * from "./admin.model";

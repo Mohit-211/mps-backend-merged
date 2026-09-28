@@ -1380,6 +1380,12 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
 
 `POST /locations/:id/rank-runs` ("run now") is the same as a rankings refresh: it shares the limit and returns **429** `{ next_allowed_at }` inside the window.
 
+**Tokens (Phase 13a).** Each type that is newly queued spends its token cost (`tokens.cost` in the GET below; default 1 each, set by an admin). The monthly automatic refresh is free.
+- Not enough tokens for everything that would be queued → **402** `{ "reason": "insufficient_tokens", "balance": 0, "cost": 2, "costs_by_type": { "rankings": 1, "gbp": 1 } }`. Nothing is queued and the 24 h limit isn't used up.
+- A rate-limited type, or one already in progress (`existing: true`), costs nothing.
+- A refresh that fails entirely (rank run or GBP sync `failed`, including the stuck guards) is refunded automatically; the ledger shows the spend and the refund (`GET /billing/tokens/ledger`).
+- A cost of 0 makes that type free.
+
 ### `GET /api/v1/locations/:locationId/refresh`
 
 ```json
@@ -1387,10 +1393,12 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
   "next_refresh_at": "2026-10-26T09:00:00.000Z", "last_auto_refresh_at": null,
   "rankings": { "next_allowed_at": "2026-09-27T13:00:00.000Z", "active_run": { "run_id": "66f6…", "status": "running" } },
   "gbp": { "next_allowed_at": null, "active_sync": null, "last_synced_at": "2026-09-26T09:02:11.000Z" },
-  "report": { "pending": true, "scheduled_for": "2026-09-26T13:04:00.000Z", "last_generated_at": "2026-08-26T09:07:40.000Z" } }
+  "report": { "pending": true, "scheduled_for": "2026-09-26T13:04:00.000Z", "last_generated_at": "2026-08-26T09:07:40.000Z" },
+  "tokens": { "cost": { "rankings": 1, "gbp": 1 }, "balance": 12 } }
 ```
 
 - `next_allowed_at: null` means the type can be refreshed now.
+- `tokens` (Phase 13a): the token cost per manual refresh type and the organization's balance.
 - `report` (7c): `pending` while a GBP report generation is scheduled (it runs about 2 minutes after a rank run or sync finishes).
 
 ### `GET /api/v1/locations/:locationId/gbp/sync[?syncId=]`
@@ -1557,7 +1565,7 @@ Every location, client and report belongs to an **organization** (Business or Ag
 
 - **Current organization:** the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. No organization → **403** `{ "reason": "no_organization" }`.
 - **Location routes** (`/locations/:locationId/...`, including tracking, rank runs, refresh and the GBP report) check membership of the location's organization: another organization's location is **404**; a `client_user` write is **403** `{ "reason": "read_only" }`.
-- **Refusals carry a reason** in `data`: `read_only`, `agency_only`, `owner_only`, `location_limit_reached`, `keyword_limit_reached`, `duplicate_place`, `place_id_mismatch`, `email_not_verified`, `rate_limited`.
+- **Refusals carry a reason** in `data`: `read_only`, `agency_only`, `owner_only`, `duplicate_place`, `place_id_mismatch`, `email_not_verified`, `rate_limited`, and (Phase 13a) `subscription_required`, `organization_suspended`, `location_payment_required`, `enterprise_required`, `user_limit_reached`, `feature_not_included`, `insufficient_tokens`.
 
 Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
@@ -1664,13 +1672,22 @@ Never retry a failed refresh in a loop. Run one refresh at a time and let concur
 `GET /organization/usage`
 
 ```json
-{ "plan": { "id": "6ab8…", "name": "Demo Agency (seed)", "source": "subscription" },
-  "locations": { "used": 3, "limit": 5 }, "keywords": { "used": 9, "limit": 60 }, "clients": { "used": 2 } }
+{ "plan": { "id": "6ab8…", "name": "Standard", "kind": "standard" },
+  "billing": { "state": "active", "read_only": false, "trial_ends_at": "2026-10-05T…", "current_period_end": "2026-10-28T…" },
+  "locations": { "used": 3, "limit": 5, "max": 20 }, "users": { "used": 4, "limit": 15 }, "tokens": { "balance": 12 },
+  "keywords": { "used": 9, "limit": null }, "clients": { "used": 2 } }
 ```
 
-- The plan is the owner's active subscription plan (`subscription_status: ACTIVE` + `current_plan_id`) with its `location_limit` / `keyword_limit`. Otherwise `source: "default"`: `DEFAULT_LOCATION_LIMIT` (1) and `DEFAULT_KEYWORD_LIMIT` (empty = no org-wide cap; 20 per location always applies). `clients` is `null` for a business.
-- Over the location limit, an add answers **403** `{ "reason": "location_limit_reached", "used": 1, "limit": 1, "plan": { … } }`. Deleting a location frees its slot at once.
-- `PUT /locations/:id/tracking` over the keyword limit: **403** `{ "reason": "keyword_limit_reached", "used": 2, "requested": 2, "limit": 3, "plan": { … } }`.
+**Phase 13a billing** (the full billing API is in "Billing (Phase 13a)"):
+- **`locations.limit`:** the trial allowance (1) or the paid quantity; `max` is the plan's cap (20 on the standard plan).
+- **`users.limit`:** 3 per paid location, pooled; the owner and pending invitations count.
+- **Keywords:** there is no organization-wide cap (20 per location always applies). `clients` is `null` for a business.
+- **Adding a location beyond the limit:**
+  - in the trial → **402** `{ "reason": "subscription_required" }`
+  - with a subscription → **402** `{ "reason": "location_payment_required", "used": 5, "paid": 5, "quote": { "quantity": 1, "amount": 14.5, "currency": "USD", "lines": [ … ], "period_end": "…", "new_paid_quantity": 6 } }`: pay the quote, then retry
+  - beyond the cap → **403** `{ "reason": "enterprise_required", "used": 20, "max": 20 }`
+- Deleting a location frees its slot for the rest of the paid period (no refund).
+- **Invitations** beyond the user pool: **403** `{ "reason": "user_limit_reached", "used": 6, "limit": 6 }`. Existing users keep access when the pool shrinks.
 
 `PATCH /organization` (owner) `{ name?, country? }` → as GET. `GET /organization/members` (owner/member) → `[{ user_id, name, email, role, client_ids, status }]`.
 
@@ -1701,7 +1718,7 @@ Never retry a failed refresh in a loop. Run one refresh at a time and let concur
   "api_calls": 1 }
 ```
 
-→ **201**. The same place already in the organization → **409** `{ "reason": "duplicate_place", "location_id": "…" }`. Over the plan limit → **403** `location_limit_reached` (checked before the Places call). Then set keywords and competitors and call `POST /onboarding/complete`.
+→ **201**. The same place already in the organization → **409** `{ "reason": "duplicate_place", "location_id": "…" }`. Beyond the billing limits → **402** `subscription_required` / `location_payment_required` (with a `quote`) or **403** `enterprise_required` (Phase 13a; checked before the Places call). Then set keywords and competitors and call `POST /onboarding/complete`.
 
 `GET /places/search?q=` without `locationId` is the add-location search (the organization's country, or `&country=US|CA`); each result carries `already_added` (a location id or `null`).
 
@@ -2323,3 +2340,160 @@ It never removes anything and never re-adds a directory an admin took off the li
   "changes": [ { "at": "…", "directory": "Data Axle", "action": "status_changed", "from": "not_checked", "to": "nap_wrong" } ] }
 ```
 
+
+## Billing (Phase 13a)
+
+One billing page. Money is in the organization's currency (US → USD, CA → CAD); monthly = first-location price + (n − 1) × additional-location price, n = paid locations (standard plan: up to 20). Read: owner and member; payments and changes: owner. Billing stays open when the organization is read-only. Catalogue: ENDPOINTS.md #107–#121.
+
+**PayPal flow for the frontend:**
+1. `POST /billing/checkout` (subscription), `POST /billing/location-slots` or `POST /billing/tokens/checkout` (one-time orders) → `approve_url`. Send the browser there.
+2. PayPal returns to `FRONTEND_URL/settings/billing?…`:
+   - subscription: `?checkout=success&subscription_id=…` (or `checkout=cancelled`) → call `POST /billing/sync`
+   - order: `?order=return&purpose=token_pack|location_slots&token=<PayPal order id>` (or `order=cancelled`) → call `POST /billing/orders/<token>/capture`
+3. The webhooks do the same work, so a closed tab still ends up paid; both paths are idempotent.
+
+### `GET /api/v1/billing`
+
+```json
+{
+  "state": "active",
+  "read_only": false,
+  "trial_ends_at": "2026-10-05T10:00:00.000Z",
+  "grace_ends_at": null,
+  "currency": "CAD",
+  "plan": { "id": "…", "name": "Standard", "kind": "standard", "max_locations": 20, "users_per_location": 3 },
+  "prices": {
+    "current": { "first_location": 49, "additional_location": 19 },
+    "upcoming": { "first_location": 55, "additional_location": 19, "effective_from": "2027-01-01T00:00:00.000Z" }
+  },
+  "subscription": {
+    "id": "…", "status": "active", "billing_method": "paypal", "paid_quantity": 3,
+    "price": { "first_location": 49, "additional_location": 19 },
+    "current_period_start": "2026-09-28T…", "current_period_end": "2026-10-28T…",
+    "cancel_at_period_end": false, "comp_until": null
+  },
+  "next_renewal": { "date": "2026-10-28T…", "quantity": 3, "amount": 87, "fixed": false },
+  "locations": { "active": 3, "allowed": 3, "max": 20 },
+  "users": { "used": 4, "limit": 9 },
+  "tokens": { "balance": 12, "cost_per_refresh": { "rankings": 1, "gbp": 1 } },
+  "billing_details": { "name": "Maple Leaf Inc.", "email": null, "address_line1": null, "address_line2": null, "city": "Toronto", "region": "ON", "postal_code": null, "country": "Canada" },
+  "online_payments": true
+}
+```
+
+- `state`: `trialing | active | past_due | inactive | suspended_by_admin`. `past_due` keeps full access until `grace_ends_at` (7 days); `inactive` and `suspended_by_admin` are read-only.
+- `next_renewal.fixed`: the amount was fixed by the renewal snapshot (11 days before the renewal); before that it is an estimate from the active locations and the price in effect at the renewal date. `null` when cancelled, comped or without a subscription.
+- A cancelled subscription keeps `state: "active"` until `current_period_end`.
+- `online_payments: false` → PayPal isn't configured (checkout answers 503 `billing_not_configured`).
+
+### `POST /api/v1/billing/checkout`
+
+No body. Quantity = the active locations (at least 1), at the current prices. → **201**
+
+```json
+{ "subscription_id": "…", "approve_url": "https://www.paypal.com/webapps/billing/subscriptions?ba_token=…", "quantity": 2, "currency": "CAD", "monthly_amount": 68, "starts_at": null }
+```
+
+`starts_at` is set when a cancelled subscription is still paid: the new one starts when that period ends. Errors: **409** `price_not_set` (prices not set yet), `already_subscribed`, `manual_billing` (billed by invoice); **403** `enterprise_required` (more active locations than the plan allows); **503** `billing_not_configured`.
+
+### `POST /api/v1/billing/sync`, `POST /api/v1/billing/cancel`
+
+`sync` re-reads the subscription at PayPal and returns the `GET /billing` body. `cancel { reason? }` cancels at PayPal and returns the `GET /billing` body (access continues to the end of the paid period); **409** `no_subscription`, `manual_billing`.
+
+### Location slots
+
+When `POST /locations` or `POST /onboarding/select-profile` answers **402** `location_payment_required` (with a `quote`), the organization is at its paid quantity:
+
+`GET /api/v1/billing/location-slots/quote?quantity=1` →
+
+```json
+{
+  "quantity": 1, "remaining_days": 12.5, "period_days": 30,
+  "lines": [{ "label": "Additional location, prorated to 2026-10-28", "quantity": 1, "unit_price": 7.92, "amount": 7.92 }],
+  "amount": 7.92, "currency": "CAD", "period_end": "2026-10-28T…",
+  "billing_method": "paypal", "paid_quantity": 3, "new_paid_quantity": 4
+}
+```
+
+Extra slots are always charged at the additional-location price, prorated to the period end. Within 11 days of the renewal the renewal amount is already fixed, so a second line adds the full next period for the slots. `POST /api/v1/billing/location-slots { "quantity": 1 }` → **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false, quote }`. After the capture, retry the location add. Manual billing: **200** `{ fulfilled: true, quote }` (the slot is available now; the prorated line goes on the next invoice). **402** `subscription_required` without an active subscription; **403** `enterprise_required` `{ max }` beyond the plan cap.
+
+Removing a location refunds nothing; the slot stays paid and reusable until the period ends, and the renewal counts the active locations.
+
+### Tokens
+
+Manual refreshes cost tokens (`tokens.cost_per_refresh`); the monthly automatic refresh is free.
+- `GET /api/v1/billing/token-packs` → `{ currency, packs: [{ id, name, tokens, currency, list_price, price, expires_after_days }] }` (`price` includes a custom plan's pack price or discount).
+- `POST /api/v1/billing/coupon/validate { pack_id, coupon_code }` → `{ pack_id, currency, price, discount, total }`.
+- `POST /api/v1/billing/tokens/checkout { pack_id, coupon_code? }` → **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false }`. A 100% coupon fulfils at once (**200**, `fulfilled: true`).
+- Coupon errors (**400**): `invalid_coupon`, `coupon_expired`, `coupon_exhausted`, `coupon_not_applicable`. **404** `pack_not_found`.
+- `GET /api/v1/billing/tokens/ledger?page=&limit=` →
+
+```json
+{
+  "balance": 9,
+  "entries": [
+    { "id": "…", "type": "spend", "amount": -1, "balance_after": 9, "ref": "rank_run:…", "location_id": "…", "note": "Manual rankings refresh", "by": "user", "at": "…" },
+    { "id": "…", "type": "purchase", "amount": 10, "balance_after": 10, "ref": "order:…", "location_id": null, "note": "10 tokens", "by": "system", "at": "…" }
+  ],
+  "page": 1, "limit": 20, "total": 2
+}
+```
+
+Ledger types: `purchase | spend | refund | grant | monthly_grant | adjustment | expiry`; `by` is `user`, `system` or `MyPageSEO team`.
+
+### `POST /api/v1/billing/orders/:orderId/capture`
+
+`:orderId` is PayPal's order id (the `token` query parameter of the return URL). → `{ status: "captured" | "pending", order_id, purpose, billing: <GET /billing> }`. Idempotent. **409** `order_not_approved` (the buyer hasn't approved yet), `order_closed`; **402** `payment_declined`; **404** `order_not_found`.
+
+### Invoices and billing details
+
+- `GET /api/v1/billing/invoices?page=&limit=` → `{ invoices: [{ id, number: "INV-2026-000042", kind: subscription|location_slots|token_pack|manual, status: open|paid|refunded|void, currency, lines: [{ label, quantity, unit_price, amount }], tax_lines: [], total, charged_amount, period_start, period_end, issued_at, due_at, paid_at, has_pdf }], page, limit, total }`
+- `GET /api/v1/billing/invoices/:invoiceId/pdf` → `application/pdf`
+- `PATCH /api/v1/billing/details` with any of `{ name, email, address_line1, address_line2, city, region, postal_code, country }` → the saved details. They print on the next invoices; issued invoices keep the details of their issue date.
+
+### `GET /api/v1/pricing?country=US|CA` (public)
+
+```json
+{
+  "currency": "USD",
+  "prices": { "current": { "first_location": 39, "additional_location": 15 }, "upcoming": null },
+  "max_locations": 20,
+  "users_per_location": 3,
+  "trial": { "days": 7, "locations": 1, "users": 3 },
+  "tokens_per_refresh": { "rankings": 1, "gbp": 1 },
+  "token_packs": [{ "id": "…", "name": "Starter", "tokens": 10, "price": 20, "currency": "USD" }]
+}
+```
+
+`prices.current` is `null` until prices are set. (The amounts above are examples only; real prices are set by an admin.)
+
+## Billing admin (Phase 13a)
+
+`/api/v1/admin/billing/*`, platform admins with `billing.read` (GET) / `billing.manage` (changes): super admin and admin. Every change is written to the audit log (`GET /admin/billing/audit`: who, when, before → after). Catalogue: ENDPOINTS.md #122–#151.
+
+**Prices.** `POST /admin/billing/plans/:planId/prices`:
+
+```json
+{ "currency": "USD", "first_location_price": 39, "additional_location_price": 15, "effective_from": "2026-11-01T00:00:00Z" }
+```
+
+- A price applies from each organization's first renewal on or after `effective_from`: the renewal snapshot (11 days before a renewal) uses the price in effect at the renewal date.
+- History is kept. Posting the same currency and date replaces that entry; a date before today is refused (`effective_from_in_past`).
+- Until the standard plan has a price for a currency, checkout in that currency answers 409 `price_not_set`.
+
+**Enterprise (custom plans).**
+1. `POST /admin/billing/organizations/:organizationId/custom-plan` with any plan settings, e.g. `{ "max_locations": null, "users_per_location": 5, "monthly_token_grant": 20, "token_pack_discount_percent": 15, "billing_method": "manual" }`. It is copied from the standard plan and starts without prices.
+2. Add its prices with `POST /admin/billing/plans/<custom plan id>/prices`.
+3. For invoice billing: `POST /admin/billing/organizations/:organizationId/manual-subscription { "quantity": 30, "comp_until"?: "…" }`.
+   - The first period is invoiced at once (open, due in `MANUAL_INVOICE_DUE_DAYS`); `billing-renewals` invoices each later period.
+   - Record payments with `POST /admin/billing/invoices/:invoiceId/payments { "note": "wire 4411" }`.
+   - An invoice unpaid 7 days after its due date makes the organization read-only until it is paid (or voided).
+4. PayPal custom prices need nothing more: the organization checks out as usual and its subscription carries the custom amount.
+5. `DELETE …/custom-plan` puts the organization back on the standard plan (its next renewal uses the standard prices).
+
+**Comp / trial / tokens.**
+- A manual subscription with `comp_until` is free until that date (no invoices).
+- `PATCH …/organizations/:organizationId/trial { "trial_ends_at": "…" }`.
+- `POST …/organizations/:organizationId/tokens { "amount": 5, "type": "grant", "note": "goodwill" }` (negative `adjustment`s can't take the balance below zero).
+
+**Legacy guest-checkout subscriptions.** `GET /admin/billing/legacy-payments?unlinked=true` lists the paid pre-13a PayPal subscriptions, with a suggested organization (the organization owned by the verified user with the same email). `POST …/legacy-payments/:paymentId/link { "organization_id": "…" }` creates the organization's subscription. The legacy price is kept for the current period; the next renewal snapshot re-prices it with first + (n − 1) × additional. `npm run migrate:billing` does the matching ones in bulk.

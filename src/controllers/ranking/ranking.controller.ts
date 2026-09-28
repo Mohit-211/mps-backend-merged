@@ -5,10 +5,7 @@ import { refreshLocation } from '../../services/refresh/refresh.service';
 import { requestReportSafely } from '../../services/gbp/report.service';
 import { gridView, mapRankingView, rankTrackerView } from '../../services/ranking/rankReports.service';
 import { getTracking, updateTracking } from '../../services/ranking/tracking.service';
-import { TrackingUpdate, normaliseKeywords, withDefaults } from '../../services/ranking/trackingSettings';
-import { assertKeywordLimit } from '../../services/org/limits';
-import { Organization } from '../../models';
-import config from '../../configs/config';
+import { TrackingUpdate, withDefaults } from '../../services/ranking/trackingSettings';
 import { catchAsync, responseWrapper } from '../../utils';
 
 // Ranking endpoints (CLAUDE.md §9.4). loadOwnedLocation has already checked ownership.
@@ -27,12 +24,7 @@ const reportQuery = (res: { locals: Record<string, unknown> }): ReportQuery => (
 export const getTrackingSettings = catchAsync(async (req, res) => responseWrapper(res, getTracking(location(res))));
 
 export const updateTrackingSettings = catchAsync(async (req, res) => {
-	const update = res.locals.trackingUpdate as TrackingUpdate;
-	// Phase 8: the organization's plan may cap tracked keywords across all its locations.
-	if (update.keywords) {
-		const org = await Organization.findById(location(res).organization_id).select({ owner_user_id: 1 }).lean();
-		if (org) await assertKeywordLimit(org, locationId(res), normaliseKeywords(update.keywords, config.ranking.maxKeywords).length);
-	}
+	// Phase 13a: no organization-wide keyword cap (the per-location cap RANK_MAX_KEYWORDS applies).
 	const before = [...withDefaults(location(res).tracking).competitors].sort().join(',');
 	const result = await updateTracking(location(res), res.locals.trackingUpdate as TrackingUpdate);
 	// 7c: a changed competitor set refreshes an existing GBP report (only new competitors cost a Place Details call).

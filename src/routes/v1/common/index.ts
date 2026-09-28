@@ -16,7 +16,8 @@ import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
 import whiteLabelRoute from './whitelabelProfile.route';
 import gbpPSRoute from './gbpPostSchedular.route';
-import paymentRoute from './payment.route';
+import billingRoute from './billing.route';
+import pricingRoute from './pricing.route';
 import blogRoute from './blog.routes';
 import blogCategoryRoutes from './blogCategory.routes';
 import authRoute from './auth.route';
@@ -131,8 +132,14 @@ const commonRoutes = [
 		route: gbpPSRoute,
 	},
 	{
-		path: '/payments',
-		route: paymentRoute,
+		// Phase 13a: the billing page (subscription, location slots, tokens, invoices)
+		path: '/billing',
+		route: billingRoute,
+	},
+	{
+		// Phase 13a: public pricing for the marketing site
+		path: '/pricing',
+		route: pricingRoute,
 	},
 	{
 		path: '/blog',

@@ -10,9 +10,12 @@ export const loadPlacesFixture = <T = unknown>(name: string): T =>
 export const loadGbpFixture = <T = unknown>(name: string): T =>
 	JSON.parse(fs.readFileSync(path.join(FIXTURE_ROOT, 'gbp', `${name}.json`), 'utf8')) as T;
 
-/** "gbp/<name>" loads from fixtures/gbp; a bare name loads from fixtures/places. */
+export const loadPaypalFixture = <T = unknown>(name: string): T =>
+	JSON.parse(fs.readFileSync(path.join(FIXTURE_ROOT, 'paypal', `${name}.json`), 'utf8')) as T;
+
+/** "gbp/<name>" and "paypal/<name>" load from their folders; a bare name loads from fixtures/places. */
 const loadFixture = (name: string): unknown =>
-	name.startsWith('gbp/') ? loadGbpFixture(name.slice(4)) : loadPlacesFixture(name);
+	name.startsWith('gbp/') ? loadGbpFixture(name.slice(4)) : name.startsWith('paypal/') ? loadPaypalFixture(name.slice(7)) : loadPlacesFixture(name);
 
 export const placeIds = loadPlacesFixture<{ target: string; competitor: string; movedFrom: string }>('ids');
 

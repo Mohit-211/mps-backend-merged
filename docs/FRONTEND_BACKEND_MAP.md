@@ -6,7 +6,7 @@ For the frontend team (Lovable). Every screen in the roadmap's **§16 Master Scr
 
 Every current endpoint (legacy included) is in [ENDPOINTS.md](ENDPOINTS.md); request and response shapes are in [API.md](API.md).
 
-Status as of 2026-09-27: everything through Phases 12.5, 10 and 8.1 is merged and pushed. Citations (Phase 16) and billing (Phase 13) are not built yet; their screens stay "planned". Summary: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md).
+Status as of 2026-09-28: everything through Phase 16 (citations) is merged and pushed. Billing (Phase 13a) is built (awaiting merge): the billing screen is **available**. The admin panel backend and support tickets (13b) are next. Summary: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md).
 
 ## Notes for the frontend team (Phase 10, 2026-09-27)
 
@@ -25,15 +25,22 @@ Status as of 2026-09-27: everything through Phases 12.5, 10 and 8.1 is merged an
 | Permission | Roles | Routes |
 |---|---|---|
 | `admins.manage` | super admin | `/admin/auth/{register, getAllAdmins, getAdminById/:id, updateAdmin, deleteAdmin}`, `/roles` (all) |
-| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `GET /subscription`, `/subscription/{coupons, payments/all}`, `/payments/getAllPayments`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId` |
-| `platform.write` | super admin, admin | `PUT /admin/operations/updateAgencyStatus`, `POST/PUT/DELETE /subscription[/:plan_id]`, `/subscription/{coupon/generate, send-subscription-welcome-mail}`, `PUT /supports/updateSupportTicketStatus`, `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
+| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId` |
+| `platform.write` | super admin, admin | `PUT /admin/operations/updateAgencyStatus`, `PUT /supports/updateSupportTicketStatus`, `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
 | `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |
 | `system.read` | super admin | `/system/{info, process, time, usage}`, `GET/DELETE /logs` |
-| `citations.manage` | super admin, admin, editor | Phase 16 citation admin (directories, per-location lists, work queue) |
+| `citations.view` / `citations.manage` | super admin, admin, editor | Phase 16 citation admin (directories, per-location lists, work queue) |
+| `billing.read` / `billing.manage` | super admin, admin | Phase 13a billing admin `/admin/billing/*`: prices, custom plans, subscriptions, invoices, tokens, packs, coupons, legacy links, audit log |
 
 The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (permission)`). The public admin routes are `login`, `sendOTP`, `verifyOTP` and `forgotPassword` (rate-limited).
 
 **3. CORS: register every frontend origin.** The wildcard CORS header is gone. The API answers cross-origin requests only from the origins listed in **`ACCESSDOMAINS`** (comma-separated, exact scheme + host + port, e.g. `https://app.mypageseo.com,https://admin.mypageseo.com`). A new frontend URL (staging, preview, admin panel) must be added there, and the API restarted, before it can call the API. Otherwise the browser blocks the request with a CORS error.
+
+**4. Billing (Phase 13a, 2026-09-28).**
+- **Read-only organizations:** after the trial (7 days) without a subscription, after a failed payment's 7-day grace, or with an overdue invoice past grace, money-costing actions answer **402** `{ reason: "subscription_required", billing: { state, trial_ends_at } }` (list in ENDPOINTS.md "Billing gates"). Show a banner linking to the billing page; reads keep working. Show `state` / `trial_ends_at` / `grace_ends_at` from `GET /billing`.
+- **Adding a location** beyond the paid quantity answers **402** `location_payment_required` with a `quote`: show it, call `POST /billing/location-slots`, send the user to `approve_url`, capture on return, then retry the add. **403** `enterprise_required` above the plan cap (20): show "contact us".
+- **Invitations** over the user limit (3 per paid location) answer **403** `user_limit_reached`.
+- **PayPal returns** to `FRONTEND_URL/settings/billing?...`: `checkout=success` → `POST /billing/sync`; `order=return&token=<id>` → `POST /billing/orders/<id>/capture`; `checkout=cancelled` / `order=cancelled` → show nothing.
 
 ## Auth
 
@@ -67,10 +74,10 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Screen | Backend | Status |
 |---|---|---|
 | Location list (`/locations`) | `GET /locations` (search, filter by client/status, sort, pages) | **available (8)**: name, city, client, rank + change, GBP score + grade, rating/reviews, status (`active \| setup_required \| gbp_not_connected \| reconnect_required`), last/next refresh. "Visibility" = the rank summary (no separate visibility score). |
-| Add location | (a) GBP: `GET /onboarding/gbp-profiles` → `POST /onboarding/select-profile`; (b) `GET /places/search?q=` → `POST /locations { place_id }` | **available (8)**: plan limit, one place per organization, optional client. No manual entry, by design. |
+| Add location | (a) GBP: `GET /onboarding/gbp-profiles` → `POST /onboarding/select-profile`; (b) `GET /places/search?q=` → `POST /locations { place_id }` | **available (8)**: plan limit, one place per organization, optional client. No manual entry, by design. **13a:** 402 `location_payment_required` (+ `quote`) at the paid quantity, 403 `enterprise_required` above the cap, 402 `subscription_required` when read-only. |
 | Location overview (`/locations/:id`) | `GET /locations/:id` (header), `GET /locations/:id/overview` | **available (8)**: header + rankings, GBP score, performance, reviews, competitors, refresh and empty states |
 | Location settings | `PUT/GET /locations/:id/tracking`, `PATCH /locations/:id` (name, timezone, client), `DELETE /locations/:id` (soft delete) | **available (8)** |
-| Refresh button | `POST /locations/:id/refresh`, `GET /locations/:id/refresh` (`next_allowed_at`, monthly schedule) | available (7b): once per 24 h per type |
+| Refresh button | `POST /locations/:id/refresh`, `GET /locations/:id/refresh` (`next_allowed_at`, monthly schedule, `tokens: { cost, balance }`) | available (7b): once per 24 h per type. **13a:** a manual refresh costs tokens (show the cost on the button); 402 `insufficient_tokens` → link to buying tokens. |
 | GBP data freshness | `GET /locations/:id/gbp/sync` (status per data type, last synced); `GET /locations/:id/refresh` → `report.pending` | available (7b, 7c) |
 
 ## Rankings
@@ -150,7 +157,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Team / permissions | roles `owner`, `member`, `client_user`; invitations, role change, removal (owner only) | **available (11)**. The legacy `/user/auth/employee/*` routes still work (they add a member directly). |
 | Integrations | GBP connections (above) | **partial**: GBP only. **Google Analytics / Search Console: not supported** (removed; organic scope). |
 | Notifications | legacy `POST /user/notifications` (toggle) | legacy toggle only; event notifications not planned yet |
-| Billing | legacy `/subscription/*`, `/payments/*`; limits via `GET /organization/usage` (12.5: + `api_usage`, Google API calls and a list-price estimate this and last month) | legacy (Square / PayPal). Plan limits (`location_limit`, `keyword_limit` on the plan) are enforced since Phase 8; the payment logic is unchanged. |
+| Billing (one page) | `GET /billing` (state, plan, prices, subscription, next renewal, locations / users / tokens, billing details), `POST /billing/{checkout, sync, cancel}`, `GET /billing/location-slots/quote` + `POST /billing/location-slots`, `GET /billing/token-packs`, `POST /billing/coupon/validate`, `POST /billing/tokens/checkout`, `POST /billing/orders/:orderId/capture`, `GET /billing/tokens/ledger`, `PATCH /billing/details`, `GET /billing/invoices[/:id/pdf]`; `GET /organization/usage` (limits + `api_usage`) | **available (13a)**: owner pays and edits, member reads, client_user no access. PayPal flow and return URLs: API.md "Billing (Phase 13a)". Pricing page on the marketing site: public `GET /pricing?country=US\|CA`. |
 | White label | `GET/PUT /organization/branding`, `GET/PUT/DELETE /organization/branding/logo` | **available (12), agency only**: agency name, logo (PNG/JPEG ≤ 512 KB), colours, footer/contact text, hide MyPageSEO, email sender name and reply-to. Business organizations use the default branding. The legacy `/white-label-profiles` routes are deprecated (`npm run migrate:branding` copies them). |
 | Security | – | not planned yet |
 

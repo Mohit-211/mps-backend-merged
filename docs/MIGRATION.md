@@ -16,6 +16,11 @@ The legacy cleanup (branch `claude/phase-9a-legacy-cleanup`) removed the code th
 | `citations` | old citation campaign line items | `location_citations` + `citation_status_logs` (Phase 16) |
 | `campaigns` | old citation campaigns | – (the paid campaign flow was retired in Phase 16) |
 | `aggregators`, `manualCitatonsCreditInfos`, `citationDuplicateRemoveCredits` | old citation pricing / credit tables | – (retired in Phase 16) |
+| `subscription_plans` | legacy plans (guest checkout, Phase 8 `location_limit`) | `billing_plans` (Phase 13a) |
+| `user_subscriptions` | legacy per-user subscriptions (unused) | `subscriptions` (Phase 13a) |
+| `paymentCreditPlans`, `location_credit_payments` | Square citation credits | – (retired in Phase 13a) |
+| `locationCitations` | legacy citation orders, read by the credit payments | – (retired in Phase 13a) |
+| `payments` | legacy guest-checkout PayPal payments | **still read** by `migrate:billing` and the admin legacy-link endpoint (`/admin/billing/legacy-payments`); archive only after every paid row is linked |
 
 **Archive example** (run against the right database, after a backup):
 
@@ -51,14 +56,21 @@ These can be deleted from server `.env` files. Leaving them does no harm: the co
 | SerpAPI / Moz / keyword search-volume vendor (removed 2026-09-27) | `SERP_API_KEY`, `SERP_API_TIMEOUT`, `SEO_MOZ_API_USERNAME`, `SEO_MOZ_API_PASSWORD`, `SEO_MOZ_API_KEY`, and the vendor's login / password vars |
 | Search Console | `GOOGLE_ANALYTICS_CLIENT_ID`, `GOOGLE_ANALYTICS_CLIENT_SECRET`, `GOOGLE_ANALYTICS_REDIRECT_URI` |
 | Places (legacy) | `GOOGLE_PLACE_API_URL` |
-| Square (unused parts) | `SQUARE_APPLICATION_ID`, `SQUARE_ENV` |
+| Square (removed in Phase 13a) | `SQUARE_APPLICATION_ID`, `SQUARE_ENV`, `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID` |
+| Plan limits (removed in Phase 13a) | `DEFAULT_LOCATION_LIMIT`, `DEFAULT_KEYWORD_LIMIT` |
 | Never read | `APPLY_ENCRYPTION`, `SECRET_KEY`, `COMPANY_SUPPORT_EMAIL`, `COMPANY_NAME`, `COMPANY_CITY`, `COMPANY_STATE`, `COMPANY_COUNTRY`, `COMAPNY_ADDRESS`, `JWT_RESET_PASSWORD_EXPIRATION_MINUTES`, `JWT_VERIFY_EMAIL_EXPIRATION_MINUTES`, `ADMIN_BASE_URL`, `ENG_ROLE_ID`, `FIN_ROLE_ID`, `MRK_ROLE_ID`, `HR_ROLE_ID`, `SALES_ROLE_ID` |
 
 **Kept, because code still uses them:**
-- Square: `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID` (payments)
-- PayPal: `PAYPAL_*`, `FRONTEND_URL`
+- PayPal and billing: `PAYPAL_*`, `TRIAL_DAYS`, `BILLING_*`, `MANUAL_INVOICE_DUE_DAYS`, `FRONTEND_URL` (Phase 13a; OPERATIONS.md "PayPal setup")
 - SMTP / email
 - JWT (secret and day-based expirations)
 - the role IDs that are read: `SUP_ADM_ROLE_ID`, `ADM_ROLE_ID`, `EDTR_ROLE_ID`, `USR_ROLE_ID`
 
-**Decided (Phase 16):** the legacy citation module and the `serpapi` package are removed. **Still in use:** `locationCitations`, the legacy citation *order* documents, now the model `LegacyLocationCitation`. The credit-payment code (`payment.middleware` / `payment.service`, `citation_location_id`) still attaches payments to them; Phase 13 decides whether citation credits survive (CLAUDE.md §12h).
+**Decided (Phase 16):** the legacy citation module and the `serpapi` package are removed. **Phase 13a** removed the citation credits too (Square, `payment.service`, `LegacyLocationCitation`), so `locationCitations` is no longer read.
+
+## Billing (Phase 13a)
+
+- **Rows and fields no longer used:** `users.current_plan_id` and `users.subscription_status` (the profile's `has_active_subscription` now comes from the organization's billing), `users.available_credit`, `users.square_customer_id`.
+- **`coupons`:** same collection, new shape. `migrate:billing` converts the legacy per-plan coupons to `{ discount_type: 'fixed', value: <old discount_amount> }` and deactivates them (coupons now apply to token packs only).
+- **Legacy guest-checkout subscriptions** (`payments` with a `paypal_subscription_id`): `migrate:billing` links each paid one to the organization owned by the verified user with the same email. The rest are listed by `GET /api/v1/admin/billing/legacy-payments?unlinked=true` for an admin to link. A linked subscription keeps its legacy PayPal price until its first renewal snapshot re-prices it with the standard formula.
+- **Organizations:** every organization without `trial_ends_at` gets a trial from the migration date (the standard trial length).

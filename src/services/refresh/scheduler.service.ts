@@ -3,6 +3,8 @@ import { ILocation, Location, RankRun, UserGBP } from '../../models';
 import { enqueueGbpSync, failStuckSyncs } from '../gbp/sync.service';
 import { enqueueRankRun } from '../ranking/rankRun.service';
 import { nextRefreshAt, zoneFor } from './cadence';
+import { loadEntitlement } from '../billing/entitlement.service';
+import { refundFailedAmong } from '../billing/refreshTokens';
 
 // monthly-refresh job body (Mohit, 2026-09-26). Replaces the Phase 5 rank-scheduler. Runs every 15
 // minutes; agenda's lock means one process in the pm2 cluster runs it at a time, and each location is
@@ -21,6 +23,7 @@ export const STUCK_GRACE_MS = 10 * 60 * 1000;
  */
 export const failStuckRuns = async (now: Date = new Date()): Promise<{ running: number; queued: number }> => {
 	const cutoff = new Date(now.getTime() - STUCK_AFTER_MS);
+	const candidates = await RankRun.find({ status: { $in: ['running', 'queued'] }, $or: [{ started_at: { $lt: cutoff } }, { run_at: { $lt: cutoff } }] }).distinct('_id');
 	const running = await RankRun.updateMany(
 		{
 			status: 'running',
@@ -33,6 +36,7 @@ export const failStuckRuns = async (now: Date = new Date()): Promise<{ running: 
 		{ status: 'queued', run_at: { $lt: cutoff } },
 		{ $set: { status: 'failed', active: false, finished_at: now, failure_reason: 'never started: queued > 30 min' } },
 	);
+	await refundFailedAmong('rankings', candidates);
 	return { running: running.modifiedCount, queued: queued.modifiedCount };
 };
 
@@ -49,6 +53,8 @@ export interface RefreshTickResult {
 	gbp_syncs: number;
 	failed: number;
 	stuck: { runs: number; syncs: number };
+	/** Phase 13a: due locations of read-only organizations (no trial or subscription). */
+	skipped_billing: number;
 }
 
 /**
@@ -71,6 +77,7 @@ export const runMonthlyRefreshTick = async (now: Date = new Date(), deps: Refres
 		gbp_syncs: 0,
 		failed: 0,
 		stuck: { runs: stuckRuns.running + stuckRuns.queued, syncs: stuckSyncs.running + stuckSyncs.queued },
+		skipped_billing: 0,
 	};
 
 	const due = await Location.find({
@@ -82,6 +89,14 @@ export const runMonthlyRefreshTick = async (now: Date = new Date(), deps: Refres
 		.sort({ 'refresh.next_refresh_at': 1 })
 		.limit(deps.limit ?? DUE_BATCH_LIMIT);
 	result.due = due.length;
+	// Phase 13a: organizations without an active trial or subscription (read-only) are skipped this month.
+	const readOnly = new Map<string, boolean>();
+	const isReadOnly = async (orgId: unknown): Promise<boolean> => {
+		if (!orgId) return false;
+		const key = String(orgId);
+		if (!readOnly.has(key)) readOnly.set(key, (await loadEntitlement(key, now)).entitlement.read_only);
+		return readOnly.get(key) as boolean;
+	};
 
 	for (const location of due) {
 		const refresh = location.refresh;
@@ -93,6 +108,11 @@ export const runMonthlyRefreshTick = async (now: Date = new Date(), deps: Refres
 			{ new: true },
 		);
 		if (!claimed) continue; // another tick claimed it
+		if (await isReadOnly(claimed.organization_id)) {
+			result.skipped_billing += 1;
+			await Location.updateOne({ _id: claimed._id }, { $set: { 'refresh.skipped_reason': 'billing', 'refresh.skipped_at': now } });
+			continue;
+		}
 		result.refreshed += 1;
 		if (!claimed.created_by) {
 			result.failed += 1;
@@ -122,7 +142,7 @@ export const runMonthlyRefreshTick = async (now: Date = new Date(), deps: Refres
 	}
 	if (result.due > 0 || result.stuck.runs > 0 || result.stuck.syncs > 0) {
 		logger.info(
-			`monthly-refresh: due=${result.due} refreshed=${result.refreshed} runs=${result.rank_runs} syncs=${result.gbp_syncs} failed=${result.failed} stuck=${result.stuck.runs}/${result.stuck.syncs}`,
+			`monthly-refresh: due=${result.due} refreshed=${result.refreshed} skipped_billing=${result.skipped_billing} runs=${result.rank_runs} syncs=${result.gbp_syncs} failed=${result.failed} stuck=${result.stuck.runs}/${result.stuck.syncs}`,
 		);
 	}
 	return result;

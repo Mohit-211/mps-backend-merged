@@ -1,0 +1,8 @@
+{ "id": "I-BW452GLLEP1G", "status": "ACTIVE", "status_update_time": "2026-09-28T10:02:11Z", "plan_id": "P-5ML4271244454362WXNWU5NQ", "custom_id": "REPLACED_IN_TEST", "start_time": "2026-09-28T10:00:05Z", "quantity": "1", "plan_overridden": true,
+  "subscriber": { "name": { "given_name": "Pat", "surname": "Owner" }, "email_address": "buyer@example.test", "payer_id": "PAYERID123" },
+  "billing_info": { "outstanding_balance": { "currency_code": "USD", "value": "0.00" },
+    "cycle_executions": [ { "tenure_type": "REGULAR", "sequence": 1, "cycles_completed": 1, "cycles_remaining": 0, "current_pricing_scheme_version": 1, "total_cycles": 0 } ],
+    "last_payment": { "amount": { "currency_code": "USD", "value": "128.00" }, "time": "2026-09-28T10:02:10Z" },
+    "next_billing_time": "2026-10-28T10:00:00Z", "failed_payments_count": 0 },
+  "create_time": "2026-09-28T10:00:05Z", "update_time": "2026-09-28T10:02:11Z",
+  "links": [ { "href": "https://api-m.sandbox.paypal.com/v1/billing/subscriptions/I-BW452GLLEP1G/cancel", "rel": "cancel", "method": "POST" } ] }

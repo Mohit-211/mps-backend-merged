@@ -1,13 +1,13 @@
 # Project summary: the MyPageSEO backend rebuild
 
-_Snapshot updated 2026-09-27 at the end of Phase 16 (citations built on `claude/phase-16-citations`, awaiting merge). First written at the planned pause earlier that day. Read this first when you circle back, then [STATUS.md](STATUS.md) for the live state and [CLAUDE.md](../CLAUDE.md) for the rules. Update this file whenever a phase finishes or the picture changes._
+_Snapshot updated 2026-09-28 at the end of Phase 13a (billing built on `claude/phase-13a-billing`, awaiting merge; Phase 16 merged and pushed). First written at the planned pause earlier that day. Read this first when you circle back, then [STATUS.md](STATUS.md) for the live state and [CLAUDE.md](../CLAUDE.md) for the rules. Update this file whenever a phase finishes or the picture changes._
 
 ## 1. Where to start when you come back
 
 1. **This file:** the big picture, what works, what doesn't, and what's left.
 2. **[STATUS.md](STATUS.md):** the phase table, open items for Mohit, what's blocked on Google, the Maps ToS risk register, and the next step.
 3. **[CLAUDE.md](../CLAUDE.md):** the rules (scope, git, safety, quality gates) and every phase spec with "as built" notes.
-4. **[plans/](plans/):** approved plans not built yet. Today that is only [plans/phase-16-citations.md](plans/phase-16-citations.md).
+4. **[plans/](plans/):** approved plans. [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md) is half built: 13a (billing) is done, and 13b (admin panel + support) is next.
 5. **[PROGRESS.md](PROGRESS.md):** the detailed history, commit by commit.
 
 **Reference docs:**
@@ -24,27 +24,27 @@ _Snapshot updated 2026-09-27 at the end of Phase 16 (citations built on `claude/
 git checkout claude/rebuild && git pull
 npm ci
 npm run build          # expect 0 TypeScript errors
-npm test               # expect 84 suites, 800 tests, all passing (includes check:endpoints)
-npm run lint           # expect 137 errors, all in legacy modules (0 in rebuilt code and tests)
+npm test               # expect 94 suites, 878 tests, all passing (includes check:endpoints)
+npm run lint           # expect 82 errors, all in legacy modules (0 in rebuilt code and tests)
 npm run seed:demo-orgs # demo Business + Agency organizations, reports, dashboards (local mps_rebuild only)
 npm run dev            # then GET /api/healthcheck → 200; stop all three processes (cross-env, nodemon, ts-node) afterwards
 ```
 
 In VS Code, use the workspace TypeScript: run "TypeScript: Select TypeScript Version" → "Use Workspace Version". See [OPERATIONS.md](OPERATIONS.md), "Lint and editor setup".
 
-## 2. Numbers at this snapshot (2026-09-27)
+## 2. Numbers at this snapshot (2026-09-28)
 
 | Item | Value |
 |---|---|
-| Branch | `claude/rebuild` (everything through 8.1 merged and pushed); Phase 16 on `claude/phase-16-citations` awaiting merge; `main` untouched at `62240ac` |
-| Commits since `main` | about 147 (including Phase 16) |
-| Source | ~42,400 lines of TypeScript in `src/` (382 files), 55 model files (Phase 16 added 4 and deleted 6 legacy ones) |
-| Tests | 84 suites, **800 tests**, offline (no API key, no network; in-memory MongoDB) |
+| Branch | `claude/rebuild` (everything through Phase 16 merged and pushed); Phase 13a on `claude/phase-13a-billing` awaiting merge; `main` untouched at `62240ac` |
+| Commits since `main` | about 162 (including 13a) |
+| Source | ~42,900 lines of TypeScript in `src/` (411 files), 58 model files (13a added 8 and deleted 5 legacy ones) |
+| Tests | 94 suites, **878 tests**, offline (no API key, no network; in-memory MongoDB; PayPal faked) |
 | Build | 0 TypeScript errors (TypeScript 5.9.3) |
-| Lint | 137 errors, **all in legacy modules**; 0 in the rebuilt code and tests |
-| Endpoints | **220**: 205 live, 14 deprecated, 1 dev-only; 97 rebuilt or new, 123 legacy; auth: 97 user, 74 admin, 47 none, 2 refresh token |
-| Background jobs | 10: `post-to-gbp`, `rank-run`, `gbp-sync`, `gbp-report`, `monthly-refresh`, `report-generate`, `report-email`, `report-schedule-dispatch`, `report-retention`, `unverified-cleanup` |
-| Live Google calls so far | Places: Phase 5.5 validation (106 IDs-only, 7 Pro, 3 Details) and the variance test (at least 180 IDs-only, 0 Pro). GBP: 1 OAuth exchange + 1 `accounts.list` (429, quota 0) |
+| Lint | 82 errors, **all in legacy modules**; 0 in the rebuilt code and tests |
+| Endpoints | **250**: 235 live, 14 deprecated, 1 dev-only; 143 rebuilt or new, 107 legacy; auth: 110 user, 95 admin, 43 none, 2 refresh token |
+| Background jobs | 12: `post-to-gbp`, `rank-run`, `gbp-sync`, `gbp-report`, `monthly-refresh`, `report-generate`, `report-email`, `report-schedule-dispatch`, `report-retention`, `unverified-cleanup`, `billing-renewals`, `billing-reminders` |
+| Live Google calls so far | Places: Phase 5.5 validation (106 IDs-only, 7 Pro, 3 Details) and the variance test (at least 180 IDs-only, 0 Pro). GBP: 1 OAuth exchange + 1 `accounts.list` (429, quota 0). PayPal: none yet |
 
 ## 3. What the product is
 
@@ -74,7 +74,8 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 | 12.5 | Ranking quality: full depth (60), 3 samples 60 s apart with median, stored result lists, Map Ranking at 5 points, richer competitor data, a usage ledger + `cost:report`, Google attribution | `c5aee43` |
 | 10 | Security: admin auth + role permissions, every admin route guarded (tested from ENDPOINTS.md), helmet / CORS / body limits / upload limits, request sanitiser, PayPal webhook verification, revocable tokens, 1-day access tokens, log redaction | `3c776fd` |
 | 8.1 | Email verification by link (24 h), login blocked until verified, resend, hourly cleanup of unverified signups, `migrate:email-verified`; legacy register removed | `604f8d6` |
-| 16 | Citations: directory master list (CSV), category groups, per-location lists with suggestions and NAP checks, admin work queue, customer dashboard, Citation Health, Citation Report; legacy citation module and `serpapi` retired | awaiting merge |
+| 16 | Citations: directory master list (CSV), category groups, per-location lists with suggestions and NAP checks, admin work queue, customer dashboard, Citation Health, Citation Report; legacy citation module and `serpapi` retired | `daff461` |
+| 13a | Billing: first + (n − 1) × additional location pricing with dated prices (USD / CAD), 20-location cap, 7-day trial then read-only, prorated location slots, tokens for manual refreshes (with refunds), PayPal subscriptions (price override, renewal snapshot 11 days ahead) and one-time orders, numbered PDF invoices, manual (invoice) billing, billing admin with audit log, `migrate:billing`; Square, credits and the guest checkout retired | awaiting merge |
 | (hygiene) | Editor TypeScript pinned to the workspace version, explicit tsconfig defaults, lint script covering every file, test lint fixes | `c35e378`, `bec6772`, `f8c7447` |
 
 **Also on `claude/rebuild` between phases:**
@@ -92,6 +93,7 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 - **Organizations and access:** Business / Agency signup, roles (owner / member / client_user read-only), plan limits, locations, clients, onboarding, dashboards, team invitations.
 - **Auth:** new `/auth` with link verification, the login gate, resend, cleanup job, password reset; token refresh; admin auth with permissions.
 - **Reports center:** create → snapshot → PDF → download / email / share / schedule / retention; white-label branding.
+- **Billing (Phase 13a), with PayPal faked:** gates (402 / 403 reasons), checkout → activation → payment → invoice PDF, replayed webhooks, the renewal snapshot and PATCH, location slots (quote → order → capture, idempotent), manual billing (invoices, recorded payments, overdue → read-only), tokens (spend, refund on failure, packs with coupons, refund of a pack), reminders, the billing admin, `migrate:billing`. Also checked on the dev server with the demo data. **Not verified live:** no PayPal sandbox run yet.
 - **Citations (Phase 16):** admin CRUD + CSV round trip, suggestions (country / region / category group), NAP mismatch guard, bulk, history, the three queues, customer view (no admin names or notes), dashboard blocks, the Citation Report and the Full report part, the starter seed (50 directories) and demo lists. Also checked on the dev server with a temporary admin.
 - **Security:** every admin-only route gives 401 / 403 correctly (a test driven by ENDPOINTS.md); traversal, operator keys, oversize bodies and bad tokens are all refused.
 
@@ -109,8 +111,9 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 | **Real customers connecting Google** | Blocked | OAuth app verification (`business.manage` is a sensitive scope). |
 | **GBP Score / Public Score thresholds** | Starting values, uncalibrated | Needs real GBP data (the calibration steps are in PROGRESS.md, 7c). |
 | **Ranking accuracy in a big market** | Only one small market checked (informal) | The Dallas test + a formal `calibrate:score` (pre-launch, Mohit triggers). |
-| **Citations** | **Built (Phase 16), offline only.** The starter directory list has placeholder authority values; the real list is the admin team's work. The legacy module is gone. | Merge + deploy (`db:sync-indexes`, `seed:citation-directories`); the admin team curates the list and starts checking listings. |
-| **Billing / plans** | Legacy Square / PayPal / credits code untouched (only security fixes in Phase 10). Plan limits read optional `location_limit` / `keyword_limit`. | Phase 13. |
+| **Citations** | **Merged (Phase 16), offline only.** The starter directory list has placeholder authority values; the real list is the admin team's work. The legacy module is gone. | Merge + deploy (`db:sync-indexes`, `seed:citation-directories`); the admin team curates the list and starts checking listings. |
+| **Billing / plans** | **Built (13a), offline only**: PayPal is faked in every test; no sandbox run yet. No prices are set (checkout answers 409 `price_not_set`). | Merge + deploy (`db:sync-indexes`, `migrate:billing`); Mohit sets prices, packs and token costs; PayPal sandbox credentials → `billing:paypal-setup` + webhook → the sandbox test. |
+| **Admin panel / support** | Legacy admin operations and `/supports` (guarded, not rebuilt). | Phase 13b. |
 | **GBP posting** | Legacy flow (`gbpPostSchedular`, `post-to-gbp` job) using v4; not rebuilt | Phase 9, needs v4 access. |
 | **Deprecated routes** | 14 still registered: legacy `/user/auth/*` login / OTP / forgot, `/user/clients*`, legacy white-label | Removed once the frontend has fully moved (9b). |
 | **Production** | Never deployed from the rebuild | Phase 14 (fresh server, backups, nginx, pm2, monitoring) + the deploy checklist in OPERATIONS.md. |
@@ -120,12 +123,12 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 
 ## 7. What's left (roadmap)
 
-**M5 = launch-ready** = 12 ✔ + 12.5 ✔ + 10 ✔ + 8.1 ✔ + 16 (built, awaiting merge) + **13** + **14**, plus the pre-launch live validation and the Google approvals.
+**M5 = launch-ready** = 12 ✔ + 12.5 ✔ + 10 ✔ + 8.1 ✔ + 16 ✔ + **13** (13a built, 13b next) + **14**, plus the pre-launch live validation and the Google approvals.
 
 | Next phases | Scope | State |
 |---|---|---|
-| **16 Citations** | Directory master list (CSV import / export), category groups, per-location lists with suggestions, status history, admin work queue, customer dashboard, Citation Health score, Citation Report; legacy citation module and `serpapi` retired | **Built, awaiting merge** |
-| **13 Billing & plans** | Square / PayPal aligned with organizations, plan → limits, upgrade / downgrade, subscription-status gating, invoices; **plus the admin panel backend for launch** (users, organizations, subscriptions, support tickets); decide the future of citation credits (`LegacyLocationCitation`) | **Next, in plan mode** (notes in CLAUDE.md §12h) |
+| **13a Billing** | Per-location pricing, tokens, PayPal, invoices, billing admin (CLAUDE.md §12h) | **Built, awaiting merge** |
+| **13b Admin panel + support** | Admin users, organizations (suspend), support tickets with threads, admin overview; legacy `/admin/operations/*` and `/supports` deprecated | **Next** (approved plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) |
 | **14 Production readiness** | Fresh server (Mongo, backups, nginx, pm2, log rotation, monitoring, alerts), deploy-checklist dry run, Maps ToS decision | Planned |
 | 9 GBP reviews & posting | Rebuild posting on `gbpClient`, AI review replies | Blocked on v4 |
 | 15 Notifications & automations | – | Planned |
@@ -140,10 +143,12 @@ Also in STATUS.md, "Open items":
 - **Google:** GBP API access request, v4 access, OAuth app verification; Authorised JavaScript origins on the OAuth client.
 - **Cost / quota:** check `src/configs/pricing.ts` against Google's price list; confirm the Places quota is at least 600 requests/minute; budget alerts.
 - **Live validation:** the Dallas test + a formal `calibrate:score`.
+- **Billing:** prices (first / additional location per currency), token packs and token costs in the billing admin; PayPal sandbox credentials, `billing:paypal-setup`, the webhook, then the sandbox test; invoice seller details (`BILLING_SELLER_*`).
 - **Credentials:** the DataForSEO password change by the account owner (the old credential is in git history).
 - **Deploy-time** (OPERATIONS.md deploy checklist):
   - rotate `JWT_SECRET` (at least 32 characters); set `ADMIN_JWT_SECRET`, `PAYPAL_WEBHOOK_ID`, `ACCESSDOMAINS`, `FRONTEND_URL` and `SHARE_BASE_URL`
-  - run the migrations in order, including **`migrate:email-verified` before the new code starts**
+  - run the migrations in order, including **`migrate:email-verified` before the new code starts** and `migrate:billing` (13a)
+  - the PayPal / billing variables; remove `SQUARE_*`
   - delete the old `ANALYTICS` token rows
 - **Frontend:** build against FRONTEND_BACKEND_MAP.md: its "Notes for the frontend team", and the `/verify-email` page flow in API.md.
 
@@ -157,11 +162,12 @@ Also in STATUS.md, "Open items":
   - `src/services/`:
     - `ranking`, `refresh`, `gbp`, `onboarding`, `locations`, `org`, `clients`
     - `dashboard`, `team`, `reports`, `usage`
-    - `auth` (including `emailVerification`), `admin` (`adminToken`), `citations` (Phase 16)
+    - `auth` (including `emailVerification`), `admin` (`adminToken`), `citations` (Phase 16), `billing` (Phase 13a)
   - `src/citations/`: citation matching and Citation Health, pure (`scoring.config.ts`)
-  - `src/jobs/`: the 10 jobs above
+  - `src/billing/`: pricing and entitlement, pure; `src/clients/paypalClient.ts`
+  - `src/jobs/`: the 12 jobs above
   - `src/configs/`: `config`, `adminPermissions`, `pricing`, `multer`, `corsConfigs`
-- **Legacy code still in place:** payments / subscriptions / PayPal / Square / credits (incl. the old citation *order* model `LegacyLocationCitation`, until Phase 13), white-label (deprecated), GBP posting, support, blog, FAQ, contact-us, reference data, legacy `/user/auth` and `/user/clients`, admin operations. Guarded and hardened, not rebuilt.
+- **Legacy code still in place:** white-label (deprecated), GBP posting, support, blog, FAQ, contact-us, reference data, legacy `/user/auth` and `/user/clients`, admin operations. Guarded and hardened, not rebuilt.
 - **Access model:** organization membership (owner / member / client_user), never `created_by`. The current organization comes from `X-Organization-Id` or the default. Platform admins use a separate token and permission matrix.
 - **Data rules:** no third-party fetch on a page view (jobs only). The monthly cadence per location. Snapshots for reports. The usage ledger for every Google call.
 
@@ -175,3 +181,4 @@ The full dated list is in STATUS.md "Key decisions". The ones that shape the fut
 - **Security:** admin auth on permissions; access tokens last 1 day, refresh tokens 30 days.
 - **Signup:** email verification by link; unverified signups are deleted after 24 h.
 - **Citations:** manual and admin-managed; no external citation APIs.
+- **Billing:** first + (n − 1) × additional location, 20-location cap (enterprise above), prices dated and applied at each organization's next renewal, tokens for manual refreshes, PayPal price override patched 11 days before renewal, no tax, coupons on token packs only.

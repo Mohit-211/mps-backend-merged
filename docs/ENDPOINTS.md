@@ -22,7 +22,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
-- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -41,22 +41,42 @@
 | 404 | Not found, or not yours |
 | 409 | Conflict |
 | 422 | Run over the call cap |
-| 403 | Phase 8: no access with a `reason` (`read_only`, `agency_only`, `owner_only`, `location_limit_reached`, `keyword_limit_reached`, `email_not_verified`, …) |
+| 402 | Phase 13a billing: `subscription_required` (trial over / no subscription / grace expired), `organization_suspended`, `location_payment_required` (with a prorated `quote`), `insufficient_tokens` |
+| 403 | Phase 8: no access with a `reason` (`read_only`, `agency_only`, `owner_only`, `email_not_verified`, …); Phase 13a: `enterprise_required` (beyond the plan's location cap), `user_limit_reached`, `feature_not_included` |
 | 429 | Daily search limit, or an auth rate limit (`rate_limited`, `retry_after_seconds`) |
 | 502 | Google failed |
 | 503 | Not configured / GBP access not approved |
 
 ---
 
-## Summary (2026-09-27, Phase 16 built)
+## Billing gates (Phase 13a)
 
-**220 endpoints:** 205 live, 14 deprecated, 1 dev-only.
-- **By origin:** 97 rebuilt or new, 123 legacy.
-- **By auth:** 97 user, 74 platform admin (each with a permission), 47 none, 2 refresh token.
+**402 `subscription_required`** answers these when the organization is read-only (trial over without a subscription, a failed payment past its 7-day grace, an overdue manual invoice past grace). The body is `{ reason, billing: { state, trial_ends_at } }`; an admin suspension gives `organization_suspended` instead.
+- `POST /locations`, `POST /onboarding/select-profile` (new location), `POST /onboarding/complete`, `PUT /locations/:id/center`
+- `GET /places/search`, `GET /locations/:id/competitor-suggestions`
+- `PUT /locations/:id/tracking`, `POST /locations/:id/rank-runs`, `POST /locations/:id/refresh`
+- `POST /reports`, `POST /reports/:id/email`, `POST /report-schedules`, `PATCH /report-schedules/:id`
+
+Reads, billing, support and GBP connect / bind stay open.
+
+**403 `feature_not_included`** answers the feature routes when the organization's plan switches that feature off. All features are on in the standard plan:
+- rank tracker / grid / map ranking
+- GBP report
+- citations
+- `POST /reports`
+- the white-label branding writes
+
+## Summary (2026-09-28, Phase 13a)
+
+**250 endpoints:** 235 live, 14 deprecated, 1 dev-only.
+- **By origin:** 143 rebuilt or new, 107 legacy.
+- **By auth:** 110 user, 95 platform admin (each with a permission), 43 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
 **Phase 16 (citations):** the 13 legacy `/citation/*` routes were retired. It added 23 `/admin/citations/*` routes (#82–#104) and 2 customer routes (#105–#106), and the report type `citation` (#61).
+
+**Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121), and 30 `/admin/billing/*` routes (#122–#151); the PayPal webhook kept its path with new handlers.
 
 **Coming:** Phase 9b removes the 14 deprecated routes once the frontend has moved.
 
@@ -199,7 +219,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 |---|---|---|---|---|---|
 | GET | `/api/v1/locations/:locationId/tracking` | user + owner | Ranking settings (keywords, competitors, grid, frequency) and the cost estimate | 5 | live |
 | PUT | `/api/v1/locations/:locationId/tracking` | user + owner | Update ranking settings (bumps `keywords_version` when the keyword set changes) | 5 | live |
-| POST | `/api/v1/locations/:locationId/rank-runs` | user + owner | "Run now": queue a rank run (one active run per location; 422 over the call cap; 7b: shares the 24 h rankings refresh limit, 429) | 5 | live |
+| POST | `/api/v1/locations/:locationId/rank-runs` | user + owner | "Run now": queue a rank run (one active run per location; 422 over the call cap; 7b: shares the 24 h rankings refresh limit, 429; 13a: costs the rankings token price, 402 `insufficient_tokens`) | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-runs` | user + owner | Run history (paginated) | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-runs/:runId` | user + owner | Run status, API calls, errors | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-tracker` | user + owner | Rank Tracker page (`?runId=`) | 5 | live |
@@ -236,8 +256,8 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/locations/:locationId/refresh` | user + owner | Manual refresh `{ types? }` (24 h per type) | 7b | live |
-| GET | `/api/v1/locations/:locationId/refresh` | user + owner | Refresh button state and monthly schedule | 7b | live |
+| POST | `/api/v1/locations/:locationId/refresh` | user + owner | Manual refresh `{ types? }` (24 h per type; 13a: tokens per type, 402 `insufficient_tokens`, refunded if it fails entirely) | 7b | live |
+| GET | `/api/v1/locations/:locationId/refresh` | user + owner | Refresh button state, monthly schedule, token costs and balance | 7b | live |
 | GET | `/api/v1/locations/:locationId/gbp/sync` | user + owner | Latest (or `?syncId=`) GBP sync, status per data type | 7b | live |
 
 ### GBP report
@@ -296,26 +316,65 @@ Manual, admin-managed citation tracking (no external citation APIs). Admin route
 | GET | `/api/v1/locations/:locationId/citations` | user + owner (read-only) | Citation dashboard + table for a location: Citation Health, counts, NAP issues, recent changes (`?status=`) | 16 | live |
 | GET | `/api/v1/locations/:locationId/citations/changes` | user + owner (read-only) | A location's citation change history (paginated; shown as "MyPageSEO team") | 16 | live |
 
-### Payments & subscriptions
+### Billing (Phase 13a)
+
+Read: owner and member (`client_user` → 403 `read_only`); payments and changes: owner only (403 `owner_only`). Billing stays open when the organization is read-only. Details: #107–#121 below; shapes in [API.md](API.md#billing-phase-13a).
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/subscription` | admin (`platform.write`) | Create Plan | legacy, changed 10 | live |
-| GET | `/api/v1/subscription` | admin (`platform.read`) | Get All Plans | legacy, changed 10 | live |
-| GET | `/api/v1/subscription/plans/country/:country` | none | Get Plans By Country | legacy | live |
-| PUT | `/api/v1/subscription/:plan_id` | admin (`platform.write`) | Update Plan | legacy, changed 10 | live |
-| DELETE | `/api/v1/subscription/:plan_id` | admin (`platform.write`) | Delete Plan | legacy, changed 10 | live |
-| POST | `/api/v1/subscription/create-subscription` | none (guest checkout, rate-limited) | Create Subscription | legacy | live |
-| POST | `/api/v1/subscription/paypal/webhook` | none (PayPal signature, verified with PayPal) | Paypal Webhook. Phase 10: refused (400 `invalid_signature`) unless PayPal confirms it (`PAYPAL_WEBHOOK_ID`) | legacy, changed 10 | live |
-| GET | `/api/v1/subscription/payment-status` | none (guest checkout, rate-limited) | Get Payment Status | legacy | live |
-| POST | `/api/v1/subscription/coupon/generate` | admin (`platform.write`) | Generate Coupon | legacy, changed 10 | live |
-| POST | `/api/v1/subscription/coupon/validate` | none | Validate Coupon | legacy | live |
-| GET | `/api/v1/subscription/coupons` | admin (`platform.read`) | Get All Coupons | legacy, changed 10 | live |
-| GET | `/api/v1/subscription/payments/all` | admin (`platform.read`) | Get All Payment History | legacy, changed 10 | live |
-| POST | `/api/v1/subscription/send-subscription-welcome-mail` | admin (`platform.write`) | Send Subscription Welcome Mail Controller | legacy, changed 10 | live |
-| POST | `/api/v1/payments/process-payment` | user | Make Square Payment | legacy | live |
-| GET | `/api/v1/payments/plans/list` | none | Get Plans | legacy | live |
-| GET | `/api/v1/payments/getAllPayments` | admin (`platform.read`) | Get All Payments | legacy, changed 10 | live |
+| GET | `/api/v1/billing` | user + org | The billing page: state, plan, prices (current + upcoming), subscription, next renewal, locations / users / tokens, billing details | 13a | live |
+| POST | `/api/v1/billing/checkout` | user + org (owner) | Start the PayPal subscription for the active locations → `approve_url` | 13a | live |
+| POST | `/api/v1/billing/sync` | user + org (owner) | Re-read the subscription at PayPal (after the return page) | 13a | live |
+| POST | `/api/v1/billing/cancel` | user + org (owner) | Cancel; access continues to the end of the paid period | 13a | live |
+| GET | `/api/v1/billing/location-slots/quote` | user + org | Prorated price of extra location slots (`?quantity=`) | 13a | live |
+| POST | `/api/v1/billing/location-slots` | user + org (owner) | Pay for extra slots (PayPal order → `approve_url`; manual billing: added at once, billed on the next invoice) | 13a | live |
+| GET | `/api/v1/billing/token-packs` | user + org | Token packs with this organization's prices | 13a | live |
+| POST | `/api/v1/billing/tokens/checkout` | user + org (owner) | Buy a token pack (coupon optional) → `approve_url` | 13a | live |
+| POST | `/api/v1/billing/coupon/validate` | user + org (owner) | Price of a pack with a coupon | 13a | live |
+| POST | `/api/v1/billing/orders/:orderId/capture` | user + org (owner) | Capture a PayPal order after the return page (idempotent; the webhook does the same) | 13a | live |
+| GET | `/api/v1/billing/tokens/ledger` | user + org | Token balance and ledger (paginated) | 13a | live |
+| PATCH | `/api/v1/billing/details` | user + org (owner) | Invoice name, email and address | 13a | live |
+| GET | `/api/v1/billing/invoices` | user + org | Invoices (paginated) | 13a | live |
+| GET | `/api/v1/billing/invoices/:invoiceId/pdf` | user + org | Invoice PDF | 13a | live |
+| GET | `/api/v1/pricing` | none | Public pricing for the marketing site (`?country=US\|CA`): first / additional location price, 20-location cap, trial, token packs | 13a | live |
+| POST | `/api/v1/subscription/paypal/webhook` | none (PayPal signature, verified with PayPal) | PayPal webhook: subscription, sale and order/capture events (idempotent per event id; 500 on a handler error so PayPal retries). Refused (400 `invalid_signature`) unless PayPal confirms it (`PAYPAL_WEBHOOK_ID`) | legacy, rebuilt 13a | live |
+
+### Billing admin (Phase 13a)
+
+Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every change is audit-logged. Details: #122–#151 below.
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/admin/billing/plans` | admin (`billing.read`) | The standard plan and the custom plans (`?kind=`, `?organization_id=`) | 13a | live |
+| GET | `/api/v1/admin/billing/plans/:planId` | admin (`billing.read`) | One plan with its dated prices | 13a | live |
+| PATCH | `/api/v1/admin/billing/plans/:planId` | admin (`billing.manage`) | Plan settings: entitlements, users per location, location cap, trial, token costs, monthly grant, pack prices / discount | 13a | live |
+| POST | `/api/v1/admin/billing/plans/:planId/prices` | admin (`billing.manage`) | A dated price per currency (first / additional location); applies from each organization's next renewal on or after the date | 13a | live |
+| GET | `/api/v1/admin/billing/organizations/:organizationId` | admin (`billing.read`) | An organization's billing: the billing page view, subscriptions, invoices, audit | 13a | live |
+| POST | `/api/v1/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | Give the organization a custom (enterprise) plan, optionally with billing method `manual` | 13a | live |
+| DELETE | `/api/v1/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | Back to the standard plan | 13a | live |
+| PATCH | `/api/v1/admin/billing/organizations/:organizationId/billing-method` | admin (`billing.manage`) | `paypal` or `manual` (409 while another method's subscription is open) | 13a | live |
+| POST | `/api/v1/admin/billing/organizations/:organizationId/manual-subscription` | admin (`billing.manage`) | Start a manual-billing subscription (invoices; optionally comped until a date) | 13a | live |
+| PATCH | `/api/v1/admin/billing/organizations/:organizationId/trial` | admin (`billing.manage`) | Set / extend the trial end | 13a | live |
+| POST | `/api/v1/admin/billing/organizations/:organizationId/tokens` | admin (`billing.manage`) | Grant or adjust tokens (with a note) | 13a | live |
+| GET | `/api/v1/admin/billing/organizations/:organizationId/tokens/ledger` | admin (`billing.read`) | The organization's token ledger | 13a | live |
+| GET | `/api/v1/admin/billing/subscriptions` | admin (`billing.read`) | Subscriptions (filter status, billing method, organization) | 13a | live |
+| GET | `/api/v1/admin/billing/subscriptions/:subscriptionId` | admin (`billing.read`) | A subscription with events, renewal snapshot and invoices | 13a | live |
+| PATCH | `/api/v1/admin/billing/subscriptions/:subscriptionId` | admin (`billing.manage`) | Comp until a date, note, paid quantity (manual only) | 13a | live |
+| POST | `/api/v1/admin/billing/subscriptions/:subscriptionId/sync` | admin (`billing.manage`) | Re-read the subscription at PayPal | 13a | live |
+| POST | `/api/v1/admin/billing/subscriptions/:subscriptionId/cancel` | admin (`billing.manage`) | Cancel (PayPal too); access to the period end | 13a | live |
+| GET | `/api/v1/admin/billing/invoices` | admin (`billing.read`) | Invoices (filter status, kind, organization, number prefix `q`) | 13a | live |
+| GET | `/api/v1/admin/billing/invoices/:invoiceId/pdf` | admin (`billing.read`) | Invoice PDF | 13a | live |
+| POST | `/api/v1/admin/billing/invoices/:invoiceId/payments` | admin (`billing.manage`) | Record the payment of an open (manual) invoice | 13a | live |
+| POST | `/api/v1/admin/billing/invoices/:invoiceId/void` | admin (`billing.manage`) | Void an open invoice | 13a | live |
+| GET | `/api/v1/admin/billing/token-packs` | admin (`billing.read`) | Token packs | 13a | live |
+| POST | `/api/v1/admin/billing/token-packs` | admin (`billing.manage`) | Create a token pack (prices per currency) | 13a | live |
+| PATCH | `/api/v1/admin/billing/token-packs/:packId` | admin (`billing.manage`) | Edit a token pack (`is_active: false` retires it) | 13a | live |
+| GET | `/api/v1/admin/billing/coupons` | admin (`billing.read`) | Coupons (token packs only) | 13a | live |
+| POST | `/api/v1/admin/billing/coupons` | admin (`billing.manage`) | Create a coupon | 13a | live |
+| PATCH | `/api/v1/admin/billing/coupons/:couponId` | admin (`billing.manage`) | Edit a coupon | 13a | live |
+| GET | `/api/v1/admin/billing/legacy-payments` | admin (`billing.read`) | Paid legacy guest-checkout subscriptions, linked or not, with a suggested organization (`?unlinked=true`) | 13a | live |
+| POST | `/api/v1/admin/billing/legacy-payments/:paymentId/link` | admin (`billing.manage`) | Link a legacy PayPal subscription to an organization | 13a | live |
+| GET | `/api/v1/admin/billing/audit` | admin (`billing.read`) | Billing audit log (who, when, before → after) | 13a | live |
 
 ### Reference data
 
@@ -402,7 +461,7 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 |---|---|---|---|---|---|---|---|
 | 1 | GET | `/locations/:locationId/tracking` | user, owner | `locationId` | – | – | Tracking settings (defaults filled) + the API-call estimate for a run |
 | 2 | PUT | `/locations/:locationId/tracking` | user, owner | `locationId` | – | At least one of the fields below | Saved settings, estimate, `keywords_version_bumped`, `onboarding_step` (onboarding locations only) |
-| 3 | POST | `/locations/:locationId/rank-runs` | user, owner | `locationId` | – | – | **202** `{ run_id, status, existing, estimate, dev_capped }` |
+| 3 | POST | `/locations/:locationId/rank-runs` | user, owner | `locationId` | – | – | **202** `{ run_id, status, existing, estimate, dev_capped }`; **402** `insufficient_tokens` (13a) |
 | 4 | GET | `/locations/:locationId/rank-runs` | user, owner | `locationId` | `page` (default 1), `limit` (default 15, max 100) | – | Run history: `{ runs, page, limit, total }` |
 | 5 | GET | `/locations/:locationId/rank-runs/:runId` | user, owner | `locationId`, `runId` | – | – | Run status, timings, `api_calls`, estimate (12.5: + `samples`, `mapPoints`), `config` (`samples`, `sample_spacing_sec`, `map_points`), `expected_duration_ms`, `errors_count`, `failure_reason` |
 
@@ -486,8 +545,8 @@ Every location refreshes **automatically once a month** (rankings, then the GBP 
 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
-| 25 | POST | `/locations/:locationId/refresh` | user, owner | body `{ types?: ["rankings","gbp"] }` (default: rankings, plus gbp when connected) | **202** `{ rankings: { run_id, status, existing, estimate, next_allowed_at } \| { skipped: 'rate_limited', next_allowed_at }, gbp: { sync_id, status, existing, estimated_calls, next_allowed_at } \| { skipped: 'gbp_not_connected' \| 'rate_limited', next_allowed_at } }` |
-| 26 | GET | `/locations/:locationId/refresh` | user, owner | – | Button state: `{ frequency, gbp_connected, next_refresh_at, last_auto_refresh_at, rankings: { next_allowed_at, active_run }, gbp: { next_allowed_at, active_sync, last_synced_at } \| null, report: { pending, scheduled_for, last_generated_at } }` |
+| 25 | POST | `/locations/:locationId/refresh` | user, owner | body `{ types?: ["rankings","gbp"] }` (default: rankings, plus gbp when connected) | **202** `{ rankings: { run_id, status, existing, estimate, next_allowed_at } \| { skipped: 'rate_limited', next_allowed_at }, gbp: { sync_id, status, existing, estimated_calls, next_allowed_at } \| { skipped: 'gbp_not_connected' \| 'rate_limited', next_allowed_at } }`; **402** `{ reason: insufficient_tokens, balance, cost, costs_by_type }` (13a) |
+| 26 | GET | `/locations/:locationId/refresh` | user, owner | – | Button state: `{ frequency, gbp_connected, next_refresh_at, last_auto_refresh_at, rankings: { next_allowed_at, active_run }, gbp: { next_allowed_at, active_sync, last_synced_at } \| null, report: { pending, scheduled_for, last_generated_at }, tokens: { cost: { rankings, gbp }, balance } }` |
 | 27 | GET | `/locations/:locationId/gbp/sync` | user, owner | query `syncId?` (24-hex) | `{ gbp_connected, sync: { sync_id, status, trigger, backfill, run_at, started_at, finished_at, duration_ms, types, api_calls, failure_reason } \| null, last_synced_at }` |
 
 **Notes:**
@@ -521,10 +580,10 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 34 | POST | `/auth/reset-password` | none | `{ email, code, password }` | `{ reset: true }` (sessions revoked) |
 | 35 | GET | `/organization` | user + org | – | `{ organization, role, memberships }` |
 | 36 | PATCH | `/organization` | user + org (owner) | `{ name?, country? }` | As #35 |
-| 37 | GET | `/organization/usage` | user + org | – | `{ plan, locations: { used, limit }, keywords: { used, limit }, clients, api_usage: { month, by_sku, estimated_cost_usd, previous_month, note } }` (12.5) |
+| 37 | GET | `/organization/usage` | user + org | – | `{ plan: { id, name, kind }, billing: { state, read_only, trial_ends_at, current_period_end }, locations: { used, limit, max }, users: { used, limit }, tokens: { balance }, keywords: { used, limit: null }, clients, api_usage: { … } }` (13a; `api_usage` 12.5) |
 | 38 | GET | `/organization/members` | user + org (owner/member) | – | `[{ user_id, name, email, role, client_ids, status }]` |
 | 39 | GET | `/locations` | user + org | `search, client_id, status, sort, order, page, limit` | `{ locations: [row], page, limit, total }` |
-| 40 | POST | `/locations` | user + org (owner/member) | `{ place_id, client_id? }` | **201** `{ location, api_calls }`; **409** `duplicate_place`; **403** `location_limit_reached` |
+| 40 | POST | `/locations` | user + org (owner/member) | `{ place_id, client_id? }` | **201** `{ location, api_calls }`; **409** `duplicate_place`; 13a: **402** `subscription_required` (trial allowance used / read-only), **402** `location_payment_required` `{ used, paid, quote }`, **403** `enterprise_required` `{ used, max }` |
 | 41 | GET | `/locations/:locationId` | user, owner | – | Location header |
 | 42 | GET | `/locations/:locationId/overview` | user, owner | – | Header + `rankings, gbp, performance, reviews, competitors, refresh, empty_states` |
 | 43 | PATCH | `/locations/:locationId` | user, owner (write) | `{ name?, timezone?, client_id? }` | Header |
@@ -539,7 +598,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 52 | POST | `/onboarding/skip` | user + org (owner/member) | `{ step: google\|reporting_brand }` | As #17 |
 
 | 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order` | Business: `{ type, locations_count, visibility, gbp, reviews, citations (16), movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio (+ avg_citation_score), citations (16), status_counts, declines, gbp_issues, recommended_actions, table (rows + citations) }` |
-| 54 | POST | `/organization/invitations` | user + org (owner) | `{ email, role: member\|client_user, client_ids? }` | **201** `{ invitation_id, email, role, client_ids, status, expires_at, email_sent }`; **409** `already_member` |
+| 54 | POST | `/organization/invitations` | user + org (owner) | `{ email, role: member\|client_user, client_ids? }` | **201** `{ invitation_id, email, role, client_ids, status, expires_at, email_sent }`; **409** `already_member`; 13a: **403** `user_limit_reached` `{ used, limit }` (users = 3 per paid location, pooled; pending invitations count) |
 | 55 | GET | `/organization/invitations` | user + org (owner) | `status?` | `[{ invitation_id, email, role, client_ids, status, expires_at, invited_by, created_at }]` |
 | 56 | DELETE | `/organization/invitations/:invitationId` | user + org (owner) | – | `{ revoked, invitation_id }` |
 | 57 | PATCH | `/organization/members/:userId` | user + org (owner) | `{ role, client_ids? }` | `{ user_id, role, client_ids }`; **403** `owner_protected` |
@@ -642,9 +701,68 @@ Admin auth: a platform-admin token with the permission shown. Errors carry `data
 | 105 | GET | `/locations/:locationId/citations` | user + owner | `status` | `{ available: true, health: { score, grade, coverage, total }, counts, last_checked_at, recent_changes: [change], citations: [{ directory: { name, url, type }, status, nap_issues: [{ field, found, expected }], listing_url, last_checked_at }] }` (problems first); `{ available: false, reason: "no_citations_yet" }` |
 | 106 | GET | `/locations/:locationId/citations/changes` | user + owner | `page, limit` | `{ changes: [{ at, directory: { name, type }, action, from, to, changed_fields, by: "MyPageSEO team" }], page, limit, total }` |
 
+### Billing (Phase 13a)
+
+Money is in the organization's currency (US → USD, CA → CAD). Errors carry `data.reason`. Shapes and examples: [API.md](API.md#billing-phase-13a).
+
+| # | Method | Path | Auth | Params / body | Returns |
+|---|---|---|---|---|---|
+| 107 | GET | `/billing` | user + org | – | `{ state, read_only, trial_ends_at, grace_ends_at, currency, plan: { id, name, kind, max_locations, users_per_location }, prices: { current: { first_location, additional_location } \| null, upcoming }, subscription \| null, next_renewal: { date, quantity, amount, fixed } \| null, locations: { active, allowed, max }, users: { used, limit }, tokens: { balance, cost_per_refresh }, billing_details, online_payments }` |
+| 108 | POST | `/billing/checkout` | user + org (owner) | – | **201** `{ subscription_id, approve_url, quantity, currency, monthly_amount, starts_at }`; **409** `price_not_set`, `already_subscribed`, `manual_billing`; **403** `enterprise_required`; **503** `billing_not_configured` |
+| 109 | POST | `/billing/sync` | user + org (owner) | – | #107 |
+| 110 | POST | `/billing/cancel` | user + org (owner) | `{ reason? }` | #107; **409** `no_subscription`, `manual_billing` |
+| 111 | GET | `/billing/location-slots/quote` | user + org | `quantity (1–100, default 1)` | `{ quantity, remaining_days, period_days, lines, amount, currency, period_end, billing_method, paid_quantity, new_paid_quantity }`; **402** `subscription_required`; **403** `enterprise_required` |
+| 112 | POST | `/billing/location-slots` | user + org (owner) | `{ quantity }` | **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false, quote }`; manual billing **200** `{ fulfilled: true, quote }`; 402 / 403 as #111 |
+| 113 | GET | `/billing/token-packs` | user + org | – | `{ currency, packs: [{ id, name, tokens, currency, list_price, price, expires_after_days }] }` |
+| 114 | POST | `/billing/tokens/checkout` | user + org (owner) | `{ pack_id, coupon_code? }` | **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false }` (a 100% coupon: **200** `fulfilled: true`); **404** `pack_not_found`; **400** `invalid_coupon`, `coupon_expired`, `coupon_exhausted`, `coupon_not_applicable` |
+| 115 | POST | `/billing/coupon/validate` | user + org (owner) | `{ pack_id, coupon_code }` | `{ pack_id, currency, price, discount, total }`; errors as #114 |
+| 116 | POST | `/billing/orders/:orderId/capture` | user + org (owner) | `:orderId` = PayPal order id (the `token` of the return URL) | `{ status: captured \| pending, order_id, purpose, billing: #107 }`; **404** `order_not_found`; **409** `order_not_approved`, `order_closed`; **402** `payment_declined` |
+| 117 | GET | `/billing/tokens/ledger` | user + org | `page, limit (≤ 100)` | `{ balance, entries: [{ id, type, amount, balance_after, ref, location_id, note, by, at }], page, limit, total }` |
+| 118 | PATCH | `/billing/details` | user + org (owner) | any of `{ name, email, address_line1, address_line2, city, region, postal_code, country }` | the saved details |
+| 119 | GET | `/billing/invoices` | user + org | `page, limit` | `{ invoices: [{ id, number, kind, status, currency, lines, tax_lines, total, charged_amount, period_start, period_end, issued_at, due_at, paid_at, has_pdf }], page, limit, total }` |
+| 120 | GET | `/billing/invoices/:invoiceId/pdf` | user + org | – | `application/pdf` (`INV-YYYY-NNNNNN.pdf`); **404** `not_found` |
+| 121 | GET | `/pricing` | none | `country (US\|CA, default US)` | `{ currency, prices: { current, upcoming }, max_locations, users_per_location, trial: { days, locations, users }, tokens_per_refresh, token_packs: [{ id, name, tokens, price, currency }] }` |
+
+### Billing admin (Phase 13a)
+
+| # | Method | Path | Auth | Params / body | Returns |
+|---|---|---|---|---|---|
+| 122 | GET | `/admin/billing/plans` | admin (`billing.read`) | `kind, organization_id` | `[plan]`: `{ id, name, kind, organization_id, entitlements, users_per_location, max_locations, trial, tokens_per_refresh, monthly_token_grant, token_pack_discount_percent, token_pack_prices, prices: [{ currency, first_location_price, additional_location_price, effective_from, set_by, set_at }], is_active }` |
+| 123 | GET | `/admin/billing/plans/:planId` | admin (`billing.read`) | – | plan; **404** `not_found` |
+| 124 | PATCH | `/admin/billing/plans/:planId` | admin (`billing.manage`) | any of `{ name, entitlements: { <feature>: bool }, users_per_location, max_locations (null = no cap, custom only), trial: { days, locations, users, tokens }, tokens_per_refresh: { rankings, gbp }, monthly_token_grant, token_pack_discount_percent, token_pack_prices: [{ pack_id, currency, price }], is_active }` | plan; **400** `invalid_plan` (standard: no cap removal, no deactivation) |
+| 125 | POST | `/admin/billing/plans/:planId/prices` | admin (`billing.manage`) | `{ currency (USD\|CAD), first_location_price, additional_location_price, effective_from }` | **201** plan (same currency + date replaces); **400** `effective_from_in_past` |
+| 126 | GET | `/admin/billing/organizations/:organizationId` | admin (`billing.read`) | – | `{ organization: { id, name, type, country, plan_id, billing_method, trial_ends_at, suspended_at }, billing: <GET /billing>, subscriptions, invoices, audit }` |
+| 127 | POST | `/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | plan fields of #124 + `billing_method?` | **201** plan (copied from the standard plan, prices empty: add them with #125); **409** `custom_plan_exists` |
+| 128 | DELETE | `/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | – | `{ plan_id: null }`; **409** `no_custom_plan` |
+| 129 | PATCH | `/admin/billing/organizations/:organizationId/billing-method` | admin (`billing.manage`) | `{ billing_method }` | `{ billing_method }`; **409** `subscription_open` |
+| 130 | POST | `/admin/billing/organizations/:organizationId/manual-subscription` | admin (`billing.manage`) | `{ quantity, starts_at?, comp_until?, currency?, note? }` | **201** subscription (the first period is invoiced unless comped); **409** `already_subscribed`; **403** `enterprise_required` |
+| 131 | PATCH | `/admin/billing/organizations/:organizationId/trial` | admin (`billing.manage`) | `{ trial_ends_at }` | `{ trial_ends_at }` (trial reminders reset) |
+| 132 | POST | `/admin/billing/organizations/:organizationId/tokens` | admin (`billing.manage`) | `{ amount (± integer, not 0), type: grant\|adjustment, note }` | `{ balance }`; **409** `insufficient_tokens` (a negative adjustment below zero); **400** `invalid_amount` |
+| 133 | GET | `/admin/billing/organizations/:organizationId/tokens/ledger` | admin (`billing.read`) | `page, limit` | as #117 |
+| 134 | GET | `/admin/billing/subscriptions` | admin (`billing.read`) | `status, billing_method, organization_id, page, limit` | `{ subscriptions: [subscription + organization_name], page, limit, total }` |
+| 135 | GET | `/admin/billing/subscriptions/:subscriptionId` | admin (`billing.read`) | – | subscription + `events`, `invoices` |
+| 136 | PATCH | `/admin/billing/subscriptions/:subscriptionId` | admin (`billing.manage`) | any of `{ comp_until, paid_quantity (manual only), note }` | subscription; **409** `not_manual` |
+| 137 | POST | `/admin/billing/subscriptions/:subscriptionId/sync` | admin (`billing.manage`) | – | subscription; **409** `not_paypal`; **503** `billing_not_configured` |
+| 138 | POST | `/admin/billing/subscriptions/:subscriptionId/cancel` | admin (`billing.manage`) | `{ reason? }` | subscription; **409** `not_open` |
+| 139 | GET | `/admin/billing/invoices` | admin (`billing.read`) | `status, kind, organization_id, q (number prefix), page, limit` | `{ invoices: [invoice + organization_id, customer, mismatch, payment_note], page, limit, total }` |
+| 140 | GET | `/admin/billing/invoices/:invoiceId/pdf` | admin (`billing.read`) | – | `application/pdf` |
+| 141 | POST | `/admin/billing/invoices/:invoiceId/payments` | admin (`billing.manage`) | `{ note }` | invoice (`paid`); **409** `invoice_not_open` |
+| 142 | POST | `/admin/billing/invoices/:invoiceId/void` | admin (`billing.manage`) | `{ note }` | invoice (`void`); **409** `invoice_not_open` |
+| 143 | GET | `/admin/billing/token-packs` | admin (`billing.read`) | – | `[{ id, name, tokens, prices: [{ currency, price }], expires_after_days, is_active, sort_order }]` |
+| 144 | POST | `/admin/billing/token-packs` | admin (`billing.manage`) | `{ name, tokens, prices, expires_after_days?, is_active?, sort_order? }` | **201** pack |
+| 145 | PATCH | `/admin/billing/token-packs/:packId` | admin (`billing.manage`) | any field of #143 | pack |
+| 146 | GET | `/admin/billing/coupons` | admin (`billing.read`) | – | `[{ id, code, discount_type, value, pack_ids, max_redemptions, redemptions, expires_at, is_active, note }]` |
+| 147 | POST | `/admin/billing/coupons` | admin (`billing.manage`) | `{ code, discount_type: percent\|fixed, value, pack_ids?, max_redemptions?, expires_at?, is_active?, note? }` | **201** coupon; **409** `code_taken` |
+| 148 | PATCH | `/admin/billing/coupons/:couponId` | admin (`billing.manage`) | any field of #146 except `code` | coupon |
+| 149 | GET | `/admin/billing/legacy-payments` | admin (`billing.read`) | `unlinked` | `[{ id, paypal_subscription_id, customer_email, customer_name, monthly_amount, status, subscription_status, created_at, linked, suggested_organization }]` |
+| 150 | POST | `/admin/billing/legacy-payments/:paymentId/link` | admin (`billing.manage`) | `{ organization_id }` | **201** subscription; **409** `already_linked`, `already_subscribed` |
+| 151 | GET | `/admin/billing/audit` | admin (`billing.read`) | `organization_id, action, page, limit` | `{ entries: [{ id, action, organization_id, target, before, after, note, by: { admin_id, name }, at }], page, limit, total }` |
+
 ## Removed endpoints
 
 Removed in Phase 8: `GET /locations/google-locations/:name` and `GET /locations/google-locations/details/:placeId` (unauthenticated proxies to the old paid Places API; use `GET /places/search`), and `PUT /locations` (now `PATCH /locations/:locationId`).
+
+Removed in Phase 13a: the legacy plan CRUD (`POST/GET /subscription`, `PUT/DELETE /subscription/:plan_id`), `GET /subscription/plans/country/:country` (→ `GET /pricing`), the guest checkout (`POST /subscription/create-subscription`, `GET /subscription/payment-status`), the prefix coupons (`POST /subscription/coupon/generate`, `POST /subscription/coupon/validate`, `GET /subscription/coupons`), `GET /subscription/payments/all`, `POST /subscription/send-subscription-welcome-mail`, and the Square citation-credit routes (`POST /payments/process-payment`, `GET /payments/plans/list`, `GET /payments/getAllPayments`). Replaced by `/billing`, `/pricing` and the billing admin (Phase 13a D5).
 
 Removed in Phase 16: the 13 legacy `/api/v1/citation/*` routes (manual pricings, aggregators, remove prices, `lists/:location_id`, campaign add / business info / details / all, `locations/campaigns/list/all`, tracker GET / POST, builder, `getAllCitatioList`). They were a paid citation-campaign ordering flow with a SerpAPI "tracker" returning sample data and a stub builder; replaced by the Phase 16 citation endpoints. See [plans/phase-16-citations.md](plans/phase-16-citations.md) §1.
 

@@ -12,6 +12,7 @@ import { sessionFor } from '../auth/auth.service';
 import { markVerified } from '../auth/emailVerification';
 import { LIMITS, hit } from '../auth/rateLimit';
 import { OrgContext } from '../org/context';
+import { assertCanInvite } from '../org/limits';
 
 // Team invitations (Phase 11). The owner invites by email (member, or client_user with clients in an
 // agency). The link carries a 32-byte random token; only its SHA-256 is stored. Valid INVITATION_TTL_DAYS,
@@ -83,6 +84,8 @@ export const createInvitationService = (deps: InvitationDeps = {}) => {
 		if (existing && (await Membership.exists({ organization_id: ctx.organization._id, user_id: existing._id, status: 'active' }))) {
 			throw apiErrorWithData(httpStatus.CONFLICT, 'This person is already a member of the organization.', { reason: 'already_member' });
 		}
+		// Phase 13a: users are pooled per paid location (a re-issued invitation for the same email doesn't count twice).
+		if (!(await Invitation.exists({ organization_id: ctx.organization._id, email, status: 'pending' }))) await assertCanInvite(ctx.organization);
 		const token = crypto.randomBytes(32).toString('base64url');
 		const fields = {
 			role: input.role,

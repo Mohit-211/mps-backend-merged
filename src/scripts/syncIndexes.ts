@@ -12,9 +12,14 @@ import config from '../configs/config';
 import { PlacesRate } from '../clients/placesRateLimiter';
 import {
 	ApiUsage,
+	AuditLog,
 	AuthCode,
+	BillingEvent,
+	BillingPlan,
 	CitationStatusLog,
 	Client,
+	Counter,
+	Coupon,
 	Directory,
 	DirectoryCategory,
 	GbpKeywordMonthly,
@@ -24,11 +29,13 @@ import {
 	GbpReview,
 	GbpSync,
 	Invitation,
+	Invoice,
 	Location,
 	LocationCitation,
 	Membership,
 	OAuthState,
 	Organization,
+	PaymentOrder,
 	PlacesUsage,
 	RankRun,
 	RankResultList,
@@ -37,6 +44,9 @@ import {
 	ReportSchedule,
 	ReportShare,
 	ReportSnapshot,
+	Subscription,
+	TokenLedger,
+	TokenPack,
 	UserAuth,
 	UserGBP,
 } from '../models';
@@ -72,6 +82,17 @@ const MODELS: Record<string, Model<never>> = {
 	DirectoryCategory,
 	LocationCitation,
 	CitationStatusLog,
+	// Phase 13a: billing.
+	BillingPlan,
+	Subscription,
+	Invoice,
+	PaymentOrder,
+	TokenLedger,
+	TokenPack,
+	Coupon,
+	BillingEvent,
+	AuditLog,
+	Counter,
 } as unknown as Record<string, Model<never>>;
 
 const main = async (): Promise<number> => {

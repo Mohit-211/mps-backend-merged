@@ -43,6 +43,7 @@ import {
 	mapVerification,
 } from './mappers';
 import { WindowSettings, dailyWindow, keywordMonths, toIsoDate, toIsoMonth } from './windows';
+import { refundFailedRefresh } from '../services/billing/refreshTokens';
 
 // gbp-sync job body (Phase 7b, CLAUDE.md §11 7.1). Fetches each data type independently: one type
 // failing never stops the others, except a connection-wide failure (reconnect needed, API access not
@@ -132,6 +133,8 @@ export const executeGbpSync = async (syncId: string, deps: SyncExecutorDeps = {}
 			},
 		);
 		logger.info(`gbp-sync ${syncId}: ${status} calls=${calls} ${GBP_SYNC_TYPES.map((t) => `${t}=${types[t].status}`).join(' ')}`);
+		// Phase 13a: a paid manual refresh that failed entirely gets its tokens back.
+		if (status === 'failed') await refundFailedRefresh('gbp', sync._id, failureReason ?? 'failed');
 		return { status, types, api_calls: calls };
 	};
 
