@@ -19,7 +19,6 @@ router.post('/organizations/:organizationId/custom-plan', [...manage, v.validate
 router.delete('/organizations/:organizationId/custom-plan', manage, billing.removeCustomPlan);
 router.patch('/organizations/:organizationId/billing-method', [...manage, v.validateBillingMethod], billing.setBillingMethod);
 router.post('/organizations/:organizationId/manual-subscription', [...manage, v.validateManualSubscription], billing.startManual);
-router.patch('/organizations/:organizationId/trial', [...manage, v.validateTrial], billing.extendTrial);
 router.post('/organizations/:organizationId/tokens', [...manage, v.validateTokens], billing.adjustTokens);
 router.get('/organizations/:organizationId/tokens/ledger', [...read, v.validatePage], billing.organizationLedger);
 

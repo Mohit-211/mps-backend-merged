@@ -97,7 +97,7 @@ export const createOrderService = (deps: BillingDeps = {}) => {
 		if (e.read_only || !e.subscribed || !loaded.subscription || loaded.subscription.status === 'cancelled' || loaded.subscription.status === 'expired') {
 			throw apiErrorWithData(httpStatus.PAYMENT_REQUIRED, 'An active subscription is required to add location slots.', { reason: 'subscription_required' });
 		}
-		const max = loaded.plan.max_locations;
+		const max = e.locations.max;
 		if (max !== null && e.locations.allowed + quantity > max) {
 			throw apiErrorWithData(httpStatus.FORBIDDEN, 'More locations need an enterprise plan.', { reason: 'enterprise_required', max });
 		}

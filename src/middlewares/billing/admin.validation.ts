@@ -46,7 +46,6 @@ export const validateManualSubscription = validate(
 	'body',
 	['quantity', 'starts_at', 'comp_until', 'currency', 'note'],
 );
-export const validateTrial = validate(Joi.object({ trial_ends_at: Joi.date().iso().required() }), 'body', ['trial_ends_at']);
 export const validateTokens = validate(
 	Joi.object({ amount: Joi.number().integer().min(-100000).max(100000).invalid(0).required(), type: Joi.string().valid('grant', 'adjustment').default('adjustment'), note: note.required() }),
 	'body',

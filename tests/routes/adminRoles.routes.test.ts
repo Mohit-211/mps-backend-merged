@@ -26,7 +26,7 @@ describe('GET /admin/roles', () => {
 		expect(res.status).toBe(200);
 		expect(res.body.data.map((r: { key: string }) => r.key)).toEqual(['superAdmin', 'admin', 'editor']);
 		expect(res.body.data[0].permissions).toContain('admins.manage');
-		expect(res.body.data[2].permissions).toEqual(['content.manage', 'citations.view', 'citations.manage']);
+		expect(res.body.data[2].permissions).toEqual(['content.manage', 'citations.view', 'citations.manage', 'support.read', 'support.manage']);
 		expect((await request(app).post('/api/v1/roles').set({ Authorization: `Bearer ${token}` }).send({})).status).toBe(404);
 	});
 });

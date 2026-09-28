@@ -6,7 +6,7 @@ For the frontend team (Lovable). Every screen in the roadmap's **§16 Master Scr
 
 Every current endpoint (legacy included) is in [ENDPOINTS.md](ENDPOINTS.md); request and response shapes are in [API.md](API.md).
 
-Status as of 2026-09-28: everything through Phase 16 (citations) is merged and pushed. Billing (Phase 13a) is built (awaiting merge): the billing screen is **available**. The admin panel backend and support tickets (13b) are next. Summary: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md).
+Status as of 2026-09-29: everything through Phase 13a (billing) is merged and pushed; Phase 13b (built, awaiting merge) adds the `/auth` session and account endpoints, password reset by link, the admin panel backend and support tickets. The call sequences of the core flows are in [FLOWS.md](FLOWS.md). Summary: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md).
 
 ## Notes for the frontend team (Phase 10, 2026-09-27)
 
@@ -26,8 +26,9 @@ Status as of 2026-09-28: everything through Phase 16 (citations) is merged and p
 | Permission | Roles | Routes |
 |---|---|---|
 | `admins.manage` | super admin | `/admin/admins` (list, create, detail, edit / deactivate, password link), `GET /admin/roles` (read-only role list for the role picker) |
-| `platform.read` | super admin, admin | `GET /contact-us/get`, `GET /contact-us/:contactId` |
-| `platform.write` | super admin, admin | `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
+| `platform.read` | super admin, admin | `GET /admin/overview`, `GET /admin/users[/:userId]`, `GET /admin/organizations[/:organizationId]` (13b); `GET /contact-us/get`, `GET /contact-us/:contactId` |
+| `platform.write` | super admin, admin | users: disable / enable / sign out everywhere / resend verification / mark verified; organizations: suspend / unsuspend, trial, limit overrides (13b); `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
+| `support.read` / `support.manage` | super admin, admin, editor | `/admin/support/tickets*` (13b): the ticket queue, counts, threads, replies and internal notes, status / priority / assignee |
 | `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |
 | `citations.view` / `citations.manage` | super admin, admin, editor | Phase 16 citation admin (directories, per-location lists, work queue) |
 | `billing.read` / `billing.manage` | super admin, admin | Phase 13a billing admin `/admin/billing/*`: prices, custom plans, subscriptions, invoices, tokens, packs, coupons, audit log |
@@ -165,7 +166,18 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Help / support tickets | – | **planned (13b)**: support tickets with threads (the legacy `/supports` routes were removed) |
+| Help / support tickets | `POST/GET /support/tickets`, `GET /support/tickets/:id`, `POST …/messages`, `POST …/close` | **available (13b)**: tickets with threads for every organization role (a client_user sees its own). Team replies show as "MyPageSEO team". Statuses `open → in_progress → waiting_on_customer → resolved → closed`; replying reopens a resolved ticket; a closed one is **409** `ticket_closed`. Shapes: API.md "Support tickets". |
+
+## Admin panel (platform admins)
+
+| Screen | Backend | Status |
+|---|---|---|
+| Overview | `GET /admin/overview` | **available (13b)**: organizations by type and state, paying subscriptions and MRR per currency, trials ending, token sales, signups, open tickets |
+| Users | `/admin/users*` | **available (13b)**: search, detail (memberships, logins, Google connections), disable / enable, sign out everywhere, resend verification, mark verified |
+| Organizations | `/admin/organizations*`, `/admin/billing/*` | **available (13b)**: list with billing state, detail (members, locations, clients, billing, invoices, citations), suspend, trial, limit overrides; billing actions in the billing admin |
+| Support queue | `/admin/support/tickets*` | **available (13b)** |
+| Admin accounts | `/admin/admins*`, `GET /admin/roles`, `GET /admin/auth/me`, `POST /admin/auth/change-password` | **available (13b)** |
+| Citations, billing | `/admin/citations/*`, `/admin/billing/*` | **available (16, 13a)** |
 
 ## Not supported (don't build these)
 

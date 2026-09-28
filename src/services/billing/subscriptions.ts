@@ -51,8 +51,9 @@ export const createSubscriptionService = (deps: BillingDeps = {}) => {
 		if (!provider.canSubscribe(currency)) throw notConfigured();
 
 		const active = await Location.countDocuments({ organization_id: organizationId, is_active: true });
-		if (plan.max_locations !== null && active > plan.max_locations) {
-			throw apiErrorWithData(httpStatus.FORBIDDEN, 'This number of locations needs an enterprise plan.', { reason: 'enterprise_required', max: plan.max_locations });
+		const max = loaded.entitlement.locations.max;
+		if (max !== null && active > max) {
+			throw apiErrorWithData(httpStatus.FORBIDDEN, 'This number of locations needs an enterprise plan.', { reason: 'enterprise_required', max });
 		}
 		const quantity = Math.max(1, active);
 		// A cancelled subscription still paid until its period end: the new one starts then.

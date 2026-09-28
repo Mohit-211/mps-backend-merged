@@ -21,7 +21,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
-- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin), `support.read` and `support.manage` (Phase 13b; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -67,9 +67,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-29, Phase 13b in progress)
 
-**202 endpoints:** 201 live, 1 dev-only.
-- **By origin:** 167 rebuilt or new, 35 legacy.
-- **By auth:** 92 user, 74 platform admin (each with a permission), 36 none.
+**225 endpoints:** 224 live, 1 dev-only.
+- **By origin:** 190 rebuilt or new, 35 legacy.
+- **By auth:** 97 user, 92 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -324,7 +324,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | DELETE | `/api/v1/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | Back to the standard plan | 13a | live |
 | PATCH | `/api/v1/admin/billing/organizations/:organizationId/billing-method` | admin (`billing.manage`) | `paypal` or `manual` (409 while another method's subscription is open) | 13a | live |
 | POST | `/api/v1/admin/billing/organizations/:organizationId/manual-subscription` | admin (`billing.manage`) | Start a manual-billing subscription (invoices; optionally comped until a date) | 13a | live |
-| PATCH | `/api/v1/admin/billing/organizations/:organizationId/trial` | admin (`billing.manage`) | Set / extend the trial end | 13a | live |
 | POST | `/api/v1/admin/billing/organizations/:organizationId/tokens` | admin (`billing.manage`) | Grant or adjust tokens (with a note) | 13a | live |
 | GET | `/api/v1/admin/billing/organizations/:organizationId/tokens/ledger` | admin (`billing.read`) | The organization's token ledger | 13a | live |
 | GET | `/api/v1/admin/billing/subscriptions` | admin (`billing.read`) | Subscriptions (filter status, billing method, organization) | 13a | live |
@@ -343,6 +342,44 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | POST | `/api/v1/admin/billing/coupons` | admin (`billing.manage`) | Create a coupon | 13a | live |
 | PATCH | `/api/v1/admin/billing/coupons/:couponId` | admin (`billing.manage`) | Edit a coupon | 13a | live |
 | GET | `/api/v1/admin/billing/audit` | admin (`billing.read`) | Billing audit log (who, when, before → after) | 13a | live |
+
+### Admin panel (Phase 13b)
+
+Platform admins: overview, users and organizations need `platform.read` / `platform.write` (super admin, admin); support tickets need `support.read` / `support.manage` (super admin, admin, editor). Every change is audit-logged. Shapes: [API.md](API.md#admin-panel-phase-13b).
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/admin/overview` | admin (`platform.read`) | Platform overview: organizations by type and billing state, paying subscriptions and MRR per currency, trials ending in 7 days, token sales and signups (30 days), open tickets | 13b | live |
+| GET | `/api/v1/admin/users` | admin (`platform.read`) | Users: search by email or name, filter active / disabled / unverified | 13b | live |
+| GET | `/api/v1/admin/users/:userId` | admin (`platform.read`) | A user: memberships, verification, last logins, Google connections | 13b | live |
+| POST | `/api/v1/admin/users/:userId/disable` | admin (`platform.write`) | Disable sign-in (reason required); ends every session | 13b | live |
+| POST | `/api/v1/admin/users/:userId/enable` | admin (`platform.write`) | Enable a disabled user | 13b | live |
+| POST | `/api/v1/admin/users/:userId/logout` | admin (`platform.write`) | End every session of the user | 13b | live |
+| POST | `/api/v1/admin/users/:userId/resend-verification` | admin (`platform.write`) | Send a new email-verification link | 13b | live |
+| POST | `/api/v1/admin/users/:userId/verify` | admin (`platform.write`) | Mark the email verified | 13b | live |
+| GET | `/api/v1/admin/organizations` | admin (`platform.read`) | Organizations: search (name, owner email), type, billing state, plan, trial ending within N days | 13b | live |
+| GET | `/api/v1/admin/organizations/:organizationId` | admin (`platform.read`) | An organization: owner, members, locations, clients, billing, invoices, citations | 13b | live |
+| POST | `/api/v1/admin/organizations/:organizationId/suspend` | admin (`platform.write`) | Suspend (reason required): read-only, money-costing actions answer 402 `organization_suspended` | 13b | live |
+| POST | `/api/v1/admin/organizations/:organizationId/unsuspend` | admin (`platform.write`) | Lift a suspension | 13b | live |
+| PATCH | `/api/v1/admin/organizations/:organizationId/trial` | admin (`platform.write`) | Set / extend the trial end (moved here from the billing admin) | 13b | live |
+| PATCH | `/api/v1/admin/organizations/:organizationId/limits` | admin (`platform.write`) | Limit overrides on top of the plan: `max_locations` (null = no cap), `extra_users`; an empty body clears them | 13b | live |
+| GET | `/api/v1/admin/support/tickets` | admin (`support.read`) | Support tickets: filter status, organization, assignee, unassigned, number / subject search | 13b | live |
+| GET | `/api/v1/admin/support/tickets/counts` | admin (`support.read`) | Ticket counts by status, unassigned open | 13b | live |
+| GET | `/api/v1/admin/support/tickets/:ticketId` | admin (`support.read`) | A ticket with its full thread (internal notes included) | 13b | live |
+| POST | `/api/v1/admin/support/tickets/:ticketId/messages` | admin (`support.manage`) | Reply to the customer, or an internal note (`internal: true`); the first reply assigns the ticket | 13b | live |
+| PATCH | `/api/v1/admin/support/tickets/:ticketId` | admin (`support.manage`) | Status, priority, assignee | 13b | live |
+
+### Support tickets (Phase 13b)
+
+Every organization role may open and follow tickets; a client_user sees only its own. Shapes: [API.md](API.md#support-tickets-phase-13b).
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/support/tickets` | user + org | Open a ticket `{ subject, category?, message, location_id? }` | 13b | live |
+| GET | `/api/v1/support/tickets` | user + org | The organization's tickets (a client_user: its own), `?status=` | 13b | live |
+| GET | `/api/v1/support/tickets/:ticketId` | user + org | A ticket with its thread (team replies shown as "MyPageSEO team"; internal notes never shown) | 13b | live |
+| POST | `/api/v1/support/tickets/:ticketId/messages` | user + org | Reply (reopens a resolved ticket; a closed one: 409 `ticket_closed`) | 13b | live |
+| POST | `/api/v1/support/tickets/:ticketId/close` | user + org | Close the ticket | 13b | live |
 
 ### Reference data
 
@@ -683,7 +720,6 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | 128 | DELETE | `/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | – | `{ plan_id: null }`; **409** `no_custom_plan` |
 | 129 | PATCH | `/admin/billing/organizations/:organizationId/billing-method` | admin (`billing.manage`) | `{ billing_method }` | `{ billing_method }`; **409** `subscription_open` |
 | 130 | POST | `/admin/billing/organizations/:organizationId/manual-subscription` | admin (`billing.manage`) | `{ quantity, starts_at?, comp_until?, currency?, note? }` | **201** subscription (the first period is invoiced unless comped); **409** `already_subscribed`; **403** `enterprise_required` |
-| 131 | PATCH | `/admin/billing/organizations/:organizationId/trial` | admin (`billing.manage`) | `{ trial_ends_at }` | `{ trial_ends_at }` (trial reminders reset) |
 | 132 | POST | `/admin/billing/organizations/:organizationId/tokens` | admin (`billing.manage`) | `{ amount (± integer, not 0), type: grant\|adjustment, note }` | `{ balance }`; **409** `insufficient_tokens` (a negative adjustment below zero); **400** `invalid_amount` |
 | 133 | GET | `/admin/billing/organizations/:organizationId/tokens/ledger` | admin (`billing.read`) | `page, limit` | as #117 |
 | 134 | GET | `/admin/billing/subscriptions` | admin (`billing.read`) | `status, billing_method, organization_id, page, limit` | `{ subscriptions: [subscription + organization_name], page, limit, total }` |

@@ -14,6 +14,7 @@ import businessCategoryRoute from './businessCategory.route';
 import gbpPSRoute from './gbpPostSchedular.route';
 import billingRoute from './billing.route';
 import pricingRoute from './pricing.route';
+import supportRoute from './support.route';
 import blogRoute from './blog.routes';
 import blogCategoryRoutes from './blogCategory.routes';
 import authRoute from './auth.route';
@@ -120,6 +121,11 @@ const commonRoutes = [
 		// Phase 13a: public pricing for the marketing site
 		path: '/pricing',
 		route: pricingRoute,
+	},
+	{
+		// Phase 13b: support tickets (organization users)
+		path: '/support',
+		route: supportRoute,
 	},
 	{
 		path: '/blog',

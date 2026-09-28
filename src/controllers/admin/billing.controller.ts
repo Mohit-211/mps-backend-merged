@@ -26,7 +26,6 @@ export const createCustomPlan = catchAsync(async (req, res) => responseWrapper(r
 export const removeCustomPlan = catchAsync(async (req, res) => responseWrapper(res, await admin.removeCustomPlan(actor(res), p(req, 'organizationId')), 'Back on the standard plan.'));
 export const setBillingMethod = catchAsync(async (req, res) => responseWrapper(res, await admin.setBillingMethod(actor(res), p(req, 'organizationId'), input(res).billing_method), 'Billing method saved.'));
 export const startManual = catchAsync(async (req, res) => responseWrapper(res, await admin.startManualSubscription(actor(res), p(req, 'organizationId'), input(res)), 'Manual subscription started.', httpStatus.CREATED));
-export const extendTrial = catchAsync(async (req, res) => responseWrapper(res, await admin.extendTrial(actor(res), p(req, 'organizationId'), new Date(input(res).trial_ends_at)), 'Trial updated.'));
 export const adjustTokens = catchAsync(async (req, res) => responseWrapper(res, await admin.adjustTokens(actor(res), p(req, 'organizationId'), input(res)), 'Tokens updated.'));
 export const organizationLedger = catchAsync(async (req, res) => responseWrapper(res, await admin.organizationLedger(p(req, 'organizationId'), input(res).page, input(res).limit)));
 

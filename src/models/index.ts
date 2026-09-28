@@ -68,3 +68,5 @@ export * from "./admin.model";
 export * from "./blog.model";
 export * from "./blogCategory.model";
 export * from "./blogCategoryMapping.model";
+// support tickets (Phase 13b)
+export * from "./supportTicket.model";

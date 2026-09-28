@@ -2512,6 +2512,59 @@ Ledger types: `purchase | spend | refund | grant | monthly_grant | adjustment | 
 
 **Comp / trial / tokens.**
 - A manual subscription with `comp_until` is free until that date (no invoices).
-- `PATCH …/organizations/:organizationId/trial { "trial_ends_at": "…" }`.
+- Trial extension: `PATCH /api/v1/admin/organizations/:organizationId/trial { "trial_ends_at": "…" }` (admin panel, 13b).
 - `POST …/organizations/:organizationId/tokens { "amount": 5, "type": "grant", "note": "goodwill" }` (negative `adjustment`s can't take the balance below zero).
 
+
+## Admin panel (Phase 13b)
+
+`/api/v1/admin/*`, platform admins. Catalogue: ENDPOINTS.md "Admin panel (Phase 13b)". Every change is written to the audit log (actions `admin.user.*`, `admin.organization.*`).
+
+**`GET /admin/overview`**
+
+```json
+{
+  "organizations": { "total": 42, "by_type": { "business": 30, "agency": 12 }, "by_state": { "trialing": 9, "active": 28, "past_due": 2, "inactive": 3 } },
+  "subscriptions": { "paying": 30, "past_due": 2, "mrr": { "USD": 2140, "CAD": 890 } },
+  "trials_ending_7d": 4,
+  "token_sales_30d": { "USD": { "count": 6, "total": 120 } },
+  "signups_30d": { "users": 18, "organizations": 11 },
+  "open_tickets": 5,
+  "generated_at": "…"
+}
+```
+
+MRR = what each open paid subscription charges per month (first + (paid − 1) × additional); comped subscriptions are excluded.
+
+**Users.**
+- `GET /admin/users?q=&status=active|disabled|unverified&page=&limit=` → `{ users: [{ id, email, name, user_type, status, disabled, email_verified_at, created_at, last_login_at, organizations }], page, limit, total }`
+- `GET /admin/users/:userId` adds `mobile`, `memberships: [{ organization_id, organization, type, role, status }]`, `recent_logins: [{ at, logged_out_at, ip }]` (last 10) and `google_connections: [{ google_email, status }]`.
+- `POST …/disable { reason }` blocks sign-in and ends every session; `POST …/enable`; `POST …/logout` ends every session; `POST …/resend-verification`, `POST …/verify` (**409** `already_verified`).
+
+**Organizations.**
+- `GET /admin/organizations?q=&type=&state=&plan=standard|custom&trial_ending_days=` → `{ organizations: [{ id, name, type, country, owner_email, plan, state, trial_ends_at, locations: { used, allowed, max }, users: { used, limit }, token_balance, suspended_at, created_at }], page, limit, total }`.
+- `GET /admin/organizations/:organizationId` → `{ organization: { …, owner, suspended_at, suspended_reason, limit_overrides }, members, locations, clients, billing: <GET /billing>, invoices, citations: { <status>: count } }`.
+- `POST …/suspend { reason }`: the organization becomes read-only. Money-costing actions answer **402** `organization_suspended`; reads keep working. **409** `already_suspended`. `POST …/unsuspend { note? }` (**409** `not_suspended`).
+- `PATCH …/trial { trial_ends_at }`.
+- `PATCH …/limits { max_locations?: number | null, extra_users?: number }`: overrides on top of the plan. `max_locations: null` = no cap; `extra_users` is added to the pooled user limit. An empty body `{}` clears the overrides.
+
+## Support tickets (Phase 13b)
+
+**Customer side** (`/api/v1/support/tickets`, any organization role; a client_user sees only its own tickets):
+- `POST /support/tickets { subject, category?: billing|technical|account|data|other, message, location_id? }` → **201** `{ id, number: "TCK-000001", subject, category, status: "open", priority, location_id, messages, last_message_at, last_message_by, created_at, closed_at, thread: [{ id, author: { kind, name }, body, created_at }] }`
+- `GET /support/tickets?status=&page=&limit=`, `GET /support/tickets/:ticketId` (with `thread`)
+- `POST /support/tickets/:ticketId/messages { message }`: status back to `open` (also reopens a resolved ticket); **409** `ticket_closed` on a closed one.
+- `POST /support/tickets/:ticketId/close`
+
+Team replies appear as `{ "kind": "team", "name": "MyPageSEO team" }`; internal notes are never shown.
+
+**Statuses:** `open` (waiting for the team) → `in_progress` → `waiting_on_customer` (after a team reply) → `resolved` → `closed`.
+
+**Team side** (`/api/v1/admin/support/tickets`, `support.read` / `support.manage`):
+- `GET …?status=&organization_id=&assigned_to=&unassigned=true&q=` (q: a number prefix such as `TCK-00` or words of the subject); each ticket adds `organization`, `created_by: { id, email }` and `assigned_to`.
+- `GET …/counts` → `{ open, in_progress, waiting_on_customer, resolved, closed, unassigned_open }`.
+- `GET …/:ticketId`: the full thread, internal notes included (`internal: true`).
+- `POST …/:ticketId/messages { message, internal?: false }`: a reply sets `waiting_on_customer` and emails the customer; an internal note changes nothing for the customer. The first team message assigns the ticket to its author.
+- `PATCH …/:ticketId { status?, priority?: low|normal|high, assigned_to?: <admin id> | null }`.
+
+**Emails:** a new ticket and customer replies go to `SUPPORT_EMAIL`; team replies go to the customer with a link to `FRONTEND_URL/support/<id>`. Sent or logged per `EMAIL_TRANSPORT` (OPERATIONS.md "Email").

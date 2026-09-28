@@ -2,6 +2,7 @@ import adminAuthRoute from './adminAuth.route';
 import adminCitationsRoute from './citations.route';
 import adminBillingRoute from './billing.route';
 import adminRolesRoute from './roles.route';
+import adminPanelRoute from './adminPanel.route';
 import adminAccountsRoute from './admins.route';
 
 
@@ -29,6 +30,11 @@ const adminRoutes = [
 		// Phase 13b: the admin roles and their permissions (read-only).
 		path: '/admin/roles',
 		route: adminRolesRoute,
+	},
+	{
+		// Phase 13b: admin panel (overview, users, organizations, support tickets).
+		path: '/admin',
+		route: adminPanelRoute,
 	},
 ];
 

@@ -182,6 +182,18 @@ export const sendAdminPasswordLinkEmail = async (to: string, link: string, purpo
   });
 };
 
+/** 13b: support ticket notifications (to the support inbox or the customer). Throws on an SMTP failure. */
+export const sendSupportEmail = async (input: { to: string; subject: string; text: string; link?: string | null }): Promise<void> =>
+  deliver({
+    kind: 'support',
+    to: input.to,
+    subject: input.subject,
+    text: input.text,
+    html: input.text.split('\n\n').map((p) => `<p>${esc(p)}</p>`).join(''),
+    fromName: 'MyPageSEO Support',
+    link: input.link ?? null,
+  });
+
 export const sendContactUsConfirmationMail = async (to: string, name: string): Promise<void> => {
   await deliver({
     kind: 'contact',

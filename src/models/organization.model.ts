@@ -54,6 +54,8 @@ export interface IOrganization extends Document {
 	/** Phase 13b: an admin suspension makes the organization read-only. */
 	suspended_at?: Date | null;
 	suspended_reason?: string | null;
+	/** Phase 13b: per-organization overrides on top of the plan (admin panel). null max_locations = no cap. */
+	limit_overrides?: { max_locations?: number | null; extra_users?: number } | null;
 	/** Phase 13a: trial-ending reminders already sent (for the current trial end). */
 	billing_reminders?: { trial_ends_at: Date | null; sent: number[] } | null;
 	is_active: boolean;
@@ -79,6 +81,7 @@ const OrganizationSchema = new Schema<IOrganization>(
 		token_balance: { type: Number, default: 0 },
 		suspended_at: { type: Date, default: null },
 		suspended_reason: { type: String, default: null },
+		limit_overrides: { type: Schema.Types.Mixed, default: null },
 		billing_reminders: { type: Schema.Types.Mixed, default: null },
 		is_active: { type: Boolean, default: true },
 	},

@@ -36,7 +36,7 @@ export const cancel = catchAsync(async (req, res) => {
 export const slotsQuote = catchAsync(async (req, res) => {
 	const { quantity } = res.locals.slotsInput as { quantity: number };
 	const loaded = await loadEntitlement(String(orgId(res)));
-	const max = loaded.plan.max_locations;
+	const max = loaded.entitlement.locations.max;
 	if (max !== null && loaded.entitlement.locations.allowed + quantity > max) {
 		throw apiErrorWithData(httpStatus.FORBIDDEN, 'More locations need an enterprise plan.', { reason: 'enterprise_required', max });
 	}

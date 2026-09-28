@@ -96,15 +96,11 @@ describe('billing admin', () => {
 		expect(await BillingPlan.findById(planId).lean()).toMatchObject({ is_active: false });
 	});
 
-	it('comp, trial extension and token grants', async () => {
+	it('comp and token grants (13b: the trial extension moved to PATCH /admin/organizations/:id/trial)', async () => {
 		const { orgId } = await customer();
 		let res = await request(app).post(`${base}/organizations/${String(orgId)}/manual-subscription`).set(bearer(adminToken)).send({ quantity: 3, comp_until: new Date(Date.now() + 90 * DAY).toISOString() });
 		expect(res.status).toBe(201);
 		expect(await Invoice.countDocuments({ organization_id: orgId })).toBe(0);
-
-		const until = new Date(Date.now() + 30 * DAY).toISOString();
-		res = await request(app).patch(`${base}/organizations/${String(orgId)}/trial`).set(bearer(adminToken)).send({ trial_ends_at: until });
-		expect(new Date(res.body.data.trial_ends_at).toISOString()).toBe(until);
 
 		res = await request(app).post(`${base}/organizations/${String(orgId)}/tokens`).set(bearer(adminToken)).send({ amount: 5, type: 'grant', note: 'goodwill' });
 		expect(res.body.data).toEqual({ balance: 5 });

@@ -235,13 +235,6 @@ export const startManualSubscription = async (actor: AuditActor, organizationId:
 	return subscriptionView(sub);
 };
 
-export const extendTrial = async (actor: AuditActor, organizationId: string, until: Date) => {
-	const org = await loadOrg(organizationId);
-	await Organization.updateOne({ _id: org._id }, { $set: { trial_ends_at: until, billing_reminders: null } });
-	await audit(actor, { action: 'billing.trial', organization_id: org._id, before: org.trial_ends_at ?? null, after: until });
-	return { trial_ends_at: until };
-};
-
 export const adjustTokens = async (actor: AuditActor, organizationId: string, input: { amount: number; type: 'grant' | 'adjustment'; note: string }) => {
 	const org = await loadOrg(organizationId);
 	if (input.type === 'grant' && input.amount <= 0) throw apiErrorWithData(httpStatus.BAD_REQUEST, 'A grant must be positive.', { reason: 'invalid_amount' });
