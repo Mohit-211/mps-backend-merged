@@ -9,7 +9,14 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 // The binary version is pinned in package.json (config.mongodbMemoryServer.version).
 // Set MONGOMS_SYSTEM_BINARY to use a locally installed mongod instead of downloading one.
 
-export const startMemoryMongo = async (): Promise<MongoMemoryServer> => MongoMemoryServer.create({ instance: { dbName: 'mps_test' } });
+// Every test file creates (and at the end drops) its own database, and WiredTiger keeps a file open per
+// collection and index. With the default settings idle handles stay open for minutes and dropped files are only
+// removed at the next checkpoint (60 s), so a full parallel run reached the open-file limit ("24: Too many open
+// files", then index builds "interrupted at shutdown"). Close idle handles after a few seconds and checkpoint
+// every 5 s so the files of dropped test databases go away promptly.
+const MONGOD_ARGS = ['--wiredTigerEngineConfigString', 'file_manager=(close_idle_time=5,close_scan_interval=5,close_handle_minimum=100)', '--syncdelay', '5'];
+
+export const startMemoryMongo = async (): Promise<MongoMemoryServer> => MongoMemoryServer.create({ instance: { dbName: 'mps_test', args: MONGOD_ARGS } });
 
 /** The shared server's URI (set by globalSetup). */
 export const testMongoUri = (): string => {
