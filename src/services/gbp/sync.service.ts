@@ -8,6 +8,7 @@ import { scheduleJob } from '../../jobs/defineJob';
 import { GBP_SYNC_TYPES, GbpSync, GbpSyncTrigger, ILocation, IGbpSync, UserGBP } from '../../models';
 import { ApiError } from '../../utils';
 import { WindowSettings, keywordMonths } from '../../gbp/windows';
+import { refundFailedAmong } from '../billing/refreshTokens';
 
 // Queueing GBP syncs (Phase 7b): one active sync per location (unique partial index), job data
 // { sync_id } only, like rank runs.
@@ -103,6 +104,7 @@ const STUCK_AFTER_MS = 30 * 60 * 1000;
 /** Fails syncs stuck in running (> 30 min) or never started (queued > 30 min), freeing their locations. */
 export const failStuckSyncs = async (now: Date = new Date()): Promise<{ running: number; queued: number }> => {
 	const cutoff = new Date(now.getTime() - STUCK_AFTER_MS);
+	const candidates = await GbpSync.find({ $or: [{ status: 'running', started_at: { $lt: cutoff } }, { status: 'queued', run_at: { $lt: cutoff } }] }).distinct('_id');
 	const running = await GbpSync.updateMany(
 		{ status: 'running', started_at: { $lt: cutoff } },
 		{ $set: { status: 'failed', active: false, finished_at: now, failure_reason: 'stuck: running > 30 min' } },
@@ -111,6 +113,7 @@ export const failStuckSyncs = async (now: Date = new Date()): Promise<{ running:
 		{ status: 'queued', run_at: { $lt: cutoff } },
 		{ $set: { status: 'failed', active: false, finished_at: now, failure_reason: 'never started: queued > 30 min' } },
 	);
+	await refundFailedAmong('gbp', candidates);
 	return { running: running.modifiedCount, queued: queued.modifiedCount };
 };
 

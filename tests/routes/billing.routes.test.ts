@@ -62,6 +62,7 @@ const setPrices = async () => {
 const owner = async () => {
 	const { user, token } = await createUser('owner@test.dev');
 	const org = await ensureOrg(user._id);
+	await Organization.updateOne({ _id: org._id }, { $set: { token_balance: 0 } });
 	return { user, token, org, orgId: org._id as Types.ObjectId };
 };
 

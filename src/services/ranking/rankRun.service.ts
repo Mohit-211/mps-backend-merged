@@ -10,6 +10,7 @@ import { ILocation } from '../../models/location.model';
 import { IRankRun, RankRun, RankRunStatus, RankRunTrigger } from '../../models/rankRun.model';
 import { CallEstimate, regionFromCountry } from '../../ranking';
 import { ApiError } from '../../utils';
+import { refundFailedRefresh } from '../billing/refreshTokens';
 import { RunPlanOptions, planRun } from './runPlan';
 import { withDefaults } from './trackingSettings';
 
@@ -127,6 +128,7 @@ export const enqueueRankRun = async (
 			{ $set: { status: 'failed', active: false, failure_reason: 'could not schedule the rank-run job' } },
 		);
 		logger.error(`rank-run scheduling failed for run ${String(run._id)}: ${(err as Error).message}`);
+		await refundFailedRefresh('rankings', run._id, 'could not schedule the rank-run job');
 		throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Could not schedule the rank run');
 	}
 

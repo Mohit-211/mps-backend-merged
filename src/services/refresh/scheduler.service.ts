@@ -4,6 +4,7 @@ import { enqueueGbpSync, failStuckSyncs } from '../gbp/sync.service';
 import { enqueueRankRun } from '../ranking/rankRun.service';
 import { nextRefreshAt, zoneFor } from './cadence';
 import { loadEntitlement } from '../billing/entitlement.service';
+import { refundFailedAmong } from '../billing/refreshTokens';
 
 // monthly-refresh job body (Mohit, 2026-09-26). Replaces the Phase 5 rank-scheduler. Runs every 15
 // minutes; agenda's lock means one process in the pm2 cluster runs it at a time, and each location is
@@ -22,6 +23,7 @@ export const STUCK_GRACE_MS = 10 * 60 * 1000;
  */
 export const failStuckRuns = async (now: Date = new Date()): Promise<{ running: number; queued: number }> => {
 	const cutoff = new Date(now.getTime() - STUCK_AFTER_MS);
+	const candidates = await RankRun.find({ status: { $in: ['running', 'queued'] }, $or: [{ started_at: { $lt: cutoff } }, { run_at: { $lt: cutoff } }] }).distinct('_id');
 	const running = await RankRun.updateMany(
 		{
 			status: 'running',
@@ -34,6 +36,7 @@ export const failStuckRuns = async (now: Date = new Date()): Promise<{ running: 
 		{ status: 'queued', run_at: { $lt: cutoff } },
 		{ $set: { status: 'failed', active: false, finished_at: now, failure_reason: 'never started: queued > 30 min' } },
 	);
+	await refundFailedAmong('rankings', candidates);
 	return { running: running.modifiedCount, queued: queued.modifiedCount };
 };
 

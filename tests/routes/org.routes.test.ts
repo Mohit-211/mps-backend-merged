@@ -201,7 +201,7 @@ describe('organization and usage', () => {
 			billing: { state: 'trialing', read_only: false },
 			locations: { used: 1, limit: 1, max: 20 },
 			users: { used: 1, limit: 3 },
-			tokens: { balance: 0 },
+			tokens: { balance: 100 },
 			keywords: { used: 2, limit: null },
 			clients: { used: 0 },
 		});

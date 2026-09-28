@@ -56,8 +56,9 @@ export const TORONTO = { lat: 43.6629, lng: -79.3347 };
 export const ensureOrg = async (userId: Types.ObjectId | string, type: IOrganization['type'] = 'business'): Promise<IOrganization> => {
 	const owned = await Organization.findOne({ owner_user_id: userId });
 	if (owned) return owned;
-	// Phase 13a: like a real signup, a new organization starts in its trial.
-	const org = await Organization.create({ name: `Org ${String(userId).slice(-6)}`, type, country: 'CA', owner_user_id: userId, trial_ends_at: new Date(Date.now() + 7 * 86_400_000) });
+	// Phase 13a: like a real signup, a new organization starts in its trial. Tests get 100 tokens so manual
+	// refreshes work; the token rules themselves are tested in tests/routes/refreshTokens.routes.test.ts.
+	const org = await Organization.create({ name: `Org ${String(userId).slice(-6)}`, type, country: 'CA', owner_user_id: userId, trial_ends_at: new Date(Date.now() + 7 * 86_400_000), token_balance: 100 });
 	await Membership.create({ organization_id: org._id, user_id: userId, role: 'owner' });
 	await User.updateOne({ _id: userId }, { $set: { default_organization_id: org._id } });
 	return org;

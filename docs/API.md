@@ -1380,6 +1380,12 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
 
 `POST /locations/:id/rank-runs` ("run now") is the same as a rankings refresh: it shares the limit and returns **429** `{ next_allowed_at }` inside the window.
 
+**Tokens (Phase 13a).** Each type that is newly queued spends its token cost (`tokens.cost` in the GET below; default 1 each, set by an admin). The monthly automatic refresh is free.
+- Not enough tokens for everything that would be queued → **402** `{ "reason": "insufficient_tokens", "balance": 0, "cost": 2, "costs_by_type": { "rankings": 1, "gbp": 1 } }`. Nothing is queued and the 24 h limit isn't used up.
+- A rate-limited type, or one already in progress (`existing: true`), costs nothing.
+- A refresh that fails entirely (rank run or GBP sync `failed`, including the stuck guards) is refunded automatically; the ledger shows the spend and the refund (`GET /billing/tokens/ledger`).
+- A cost of 0 makes that type free.
+
 ### `GET /api/v1/locations/:locationId/refresh`
 
 ```json
@@ -1387,10 +1393,12 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
   "next_refresh_at": "2026-10-26T09:00:00.000Z", "last_auto_refresh_at": null,
   "rankings": { "next_allowed_at": "2026-09-27T13:00:00.000Z", "active_run": { "run_id": "66f6…", "status": "running" } },
   "gbp": { "next_allowed_at": null, "active_sync": null, "last_synced_at": "2026-09-26T09:02:11.000Z" },
-  "report": { "pending": true, "scheduled_for": "2026-09-26T13:04:00.000Z", "last_generated_at": "2026-08-26T09:07:40.000Z" } }
+  "report": { "pending": true, "scheduled_for": "2026-09-26T13:04:00.000Z", "last_generated_at": "2026-08-26T09:07:40.000Z" },
+  "tokens": { "cost": { "rankings": 1, "gbp": 1 }, "balance": 12 } }
 ```
 
 - `next_allowed_at: null` means the type can be refreshed now.
+- `tokens` (Phase 13a): the token cost per manual refresh type and the organization's balance.
 - `report` (7c): `pending` while a GBP report generation is scheduled (it runs about 2 minutes after a rank run or sync finishes).
 
 ### `GET /api/v1/locations/:locationId/gbp/sync[?syncId=]`

@@ -30,6 +30,7 @@ import {
 	summarise,
 	trackerPoints,
 } from '../../ranking';
+import { refundFailedRefresh } from '../billing/refreshTokens';
 
 // The rank-run job body (CLAUDE.md §9.3). Loads the run, resolves the center, runs every keyword
 // over tracker ∪ grid points through ONE engine (shared cache; Phase 12.5: full depth and N samples
@@ -92,6 +93,8 @@ const finish = async (
 		{ _id: run.location_id },
 		{ $set: { 'tracking.last_run_at': now, 'tracking.last_error': failureReason } },
 	);
+	// Phase 13a: a paid manual refresh that failed entirely gets its tokens back.
+	if (status === 'failed') await refundFailedRefresh('rankings', run._id, failureReason ?? 'failed');
 };
 
 export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Promise<ExecuteResult> => {

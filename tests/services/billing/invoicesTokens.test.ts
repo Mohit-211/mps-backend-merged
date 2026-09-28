@@ -23,7 +23,9 @@ beforeEach(clearDb);
 
 const org = async () => {
 	const { user } = await createUser(`o${Math.random().toString(36).slice(2, 8)}@example.com`);
-	return ensureOrg(user._id);
+	const org = await ensureOrg(user._id);
+	await Organization.updateOne({ _id: org._id }, { $set: { token_balance: 0 } });
+	return org;
 };
 
 describe('invoices', () => {

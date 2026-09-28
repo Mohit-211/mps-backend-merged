@@ -1,8 +1,11 @@
 import { Types } from 'mongoose';
 import httpStatus from 'http-status';
 import config from '../../configs/config';
-import { GbpSync, ILocation, Location, RankRun, RefreshType, UserGBP } from '../../models';
-import { ApiError } from '../../utils';
+import { GbpSync, ILocation, Location, Organization, RankRun, RefreshType, UserGBP } from '../../models';
+import { ApiError, apiErrorWithData } from '../../utils';
+import { loadEntitlement } from '../billing/entitlement.service';
+import { refreshRef } from '../billing/refreshTokens';
+import { linkSpend, refundSpend, spend } from '../billing/tokens';
 import { ReportState, forceCompetitorRefresh, reportState } from '../gbp/report.service';
 import { SyncEnqueueResult, enqueueGbpSync } from '../gbp/sync.service';
 import { EnqueueResult, enqueueRankRun } from '../ranking/rankRun.service';
@@ -12,6 +15,8 @@ import { withDefaults } from '../ranking/trackingSettings';
 // at most once per REFRESH_MIN_INTERVAL_HOURS per location per type. The limit is claimed with a
 // compare-and-set on refresh.last_manual.<type>, so parallel clicks can't double-queue. A run/sync
 // already in progress is returned instead and doesn't use up the limit.
+// Phase 13a: each newly queued type spends tokens_per_refresh[type] (402 insufficient_tokens when the
+// balance is short); the spend is linked to the run / sync and refunded if it fails entirely.
 
 export const REFRESH_TYPES: RefreshType[] = ['rankings', 'gbp'];
 
@@ -37,6 +42,8 @@ export interface RefreshDeps {
 	minIntervalHours?: number;
 	enqueueRun?: (location: ILocation, userId: UserId) => Promise<EnqueueResult>;
 	enqueueSync?: (location: ILocation, userId: UserId) => Promise<SyncEnqueueResult>;
+	/** Token cost per type (default: the organization's plan). */
+	costs?: Record<RefreshType, number>;
 }
 
 const lastManualPath = (type: RefreshType) => `refresh.last_manual.${type}`;
@@ -75,6 +82,23 @@ export const refreshLocation = async (
 	const types: RefreshType[] = requested && requested.length > 0 ? [...new Set(requested)] : bound ? ['rankings', 'gbp'] : ['rankings'];
 	const result: RefreshResult = { all_rate_limited: false };
 	let limited = 0;
+	const organizationId = location.organization_id as Types.ObjectId | undefined;
+	const costs = deps.costs ?? (organizationId ? (await loadEntitlement(String(organizationId), now)).entitlement.tokens.cost_per_refresh : { rankings: 0, gbp: 0 });
+
+	// Tokens: everything that would be newly queued must be affordable before anything is queued.
+	if (organizationId) {
+		const payable: RefreshType[] = [];
+		for (const type of types) {
+			if (type === 'gbp' && !bound) continue;
+			const active = type === 'rankings' ? await RankRun.exists({ location_id: location._id, active: true }) : await GbpSync.exists({ location_id: location._id, active: true });
+			const last = (await Location.findById(location._id).lean<ILocation>())?.refresh?.last_manual?.[type] ?? null;
+			const limitedNow = last && addHours(new Date(last), hours).getTime() > now.getTime();
+			if (!active && !limitedNow && costs[type] > 0) payable.push(type);
+		}
+		const cost = payable.reduce((s, t) => s + costs[t], 0);
+		const balance = (await Organization.findById(organizationId).select({ token_balance: 1 }).lean<{ token_balance?: number }>())?.token_balance ?? 0;
+		if (cost > balance) throw insufficientTokens(balance, cost, costs);
+	}
 
 	for (const type of types) {
 		if (type === 'gbp' && !bound) {
@@ -102,12 +126,31 @@ export const refreshLocation = async (
 			else result.gbp = skipped;
 			continue;
 		}
+		const paid = organizationId && costs[type] > 0 ? await spend(organizationId, costs[type], { location_id: location._id as Types.ObjectId, actor: { kind: 'user', id: new Types.ObjectId(String(userId)), name: null }, note: `Manual ${type} refresh` }, now) : null;
+		if (paid && !paid.ok) {
+			await releaseSlot(location._id, type, slot.previous);
+			throw insufficientTokens(paid.balance, costs[type], costs);
+		}
+		let queued: { existing: boolean; id: string };
 		try {
-			if (type === 'rankings') result.rankings = { ...(await enqueueRun(location, userId)), next_allowed_at: addHours(now, hours) };
-			else result.gbp = { ...(await enqueueSync(location, userId)), next_allowed_at: addHours(now, hours) };
+			if (type === 'rankings') {
+				const r = await enqueueRun(location, userId);
+				result.rankings = { ...r, next_allowed_at: addHours(now, hours) };
+				queued = { existing: r.existing, id: r.run_id };
+			} else {
+				const r = await enqueueSync(location, userId);
+				result.gbp = { ...r, next_allowed_at: addHours(now, hours) };
+				queued = { existing: r.existing, id: r.sync_id };
+			}
 		} catch (err) {
 			await releaseSlot(location._id, type, slot.previous); // nothing was queued: give the slot back
+			if (paid?.entry_id) await refundUnused(paid.entry_id, 'nothing was queued');
 			throw err;
+		}
+		if (paid?.entry_id) {
+			// A run / sync started in between: nothing new was queued, so nothing is charged.
+			if (queued.existing) await refundUnused(paid.entry_id, 'already in progress');
+			else await linkSpend(paid.entry_id, refreshRef(type, queued.id));
 		}
 	}
 	result.all_rate_limited = limited > 0 && limited === types.filter((t) => t !== 'gbp' || bound).length;
@@ -116,6 +159,15 @@ export const refreshLocation = async (
 		await forceCompetitorRefresh(location._id as Types.ObjectId, now);
 	}
 	return result;
+};
+
+const insufficientTokens = (balance: number, cost: number, costs: Record<RefreshType, number>) =>
+	apiErrorWithData(httpStatus.PAYMENT_REQUIRED, 'Not enough tokens for this refresh.', { reason: 'insufficient_tokens', balance, cost, costs_by_type: costs });
+
+const refundUnused = async (entryId: string, why: string) => {
+	const ref = `unused:${entryId}`;
+	await linkSpend(entryId, ref);
+	await refundSpend(ref, `Refund: ${why}`);
 };
 
 export interface RefreshState {
@@ -127,6 +179,8 @@ export interface RefreshState {
 	gbp: { next_allowed_at: Date | null; active_sync: { sync_id: string; status: string } | null; last_synced_at: Date | null } | null;
 	/** 7c: the GBP report generation (pending after a run or sync finishes, debounced). */
 	report: ReportState;
+	/** Phase 13a: tokens per manual refresh type and the organization's balance. */
+	tokens: { cost: Record<RefreshType, number>; balance: number };
 }
 
 /** Button state for the frontend (GET /locations/:id/refresh). */
@@ -153,7 +207,14 @@ export const getRefreshState = async (location: ILocation, now: Date = new Date(
 				}
 			: null,
 		report: reportState(fresh, now),
+		tokens: await tokenState(fresh),
 	};
+};
+
+const tokenState = async (location: ILocation): Promise<RefreshState['tokens']> => {
+	if (!location.organization_id) return { cost: { rankings: 0, gbp: 0 }, balance: 0 };
+	const { entitlement } = await loadEntitlement(String(location.organization_id));
+	return { cost: entitlement.tokens.cost_per_refresh, balance: entitlement.tokens.balance };
 };
 
 export const invalidRefreshTypes = (types: unknown): ApiError | null => {

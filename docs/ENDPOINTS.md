@@ -219,7 +219,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 |---|---|---|---|---|---|
 | GET | `/api/v1/locations/:locationId/tracking` | user + owner | Ranking settings (keywords, competitors, grid, frequency) and the cost estimate | 5 | live |
 | PUT | `/api/v1/locations/:locationId/tracking` | user + owner | Update ranking settings (bumps `keywords_version` when the keyword set changes) | 5 | live |
-| POST | `/api/v1/locations/:locationId/rank-runs` | user + owner | "Run now": queue a rank run (one active run per location; 422 over the call cap; 7b: shares the 24 h rankings refresh limit, 429) | 5 | live |
+| POST | `/api/v1/locations/:locationId/rank-runs` | user + owner | "Run now": queue a rank run (one active run per location; 422 over the call cap; 7b: shares the 24 h rankings refresh limit, 429; 13a: costs the rankings token price, 402 `insufficient_tokens`) | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-runs` | user + owner | Run history (paginated) | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-runs/:runId` | user + owner | Run status, API calls, errors | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-tracker` | user + owner | Rank Tracker page (`?runId=`) | 5 | live |
@@ -256,8 +256,8 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/locations/:locationId/refresh` | user + owner | Manual refresh `{ types? }` (24 h per type) | 7b | live |
-| GET | `/api/v1/locations/:locationId/refresh` | user + owner | Refresh button state and monthly schedule | 7b | live |
+| POST | `/api/v1/locations/:locationId/refresh` | user + owner | Manual refresh `{ types? }` (24 h per type; 13a: tokens per type, 402 `insufficient_tokens`, refunded if it fails entirely) | 7b | live |
+| GET | `/api/v1/locations/:locationId/refresh` | user + owner | Refresh button state, monthly schedule, token costs and balance | 7b | live |
 | GET | `/api/v1/locations/:locationId/gbp/sync` | user + owner | Latest (or `?syncId=`) GBP sync, status per data type | 7b | live |
 
 ### GBP report
@@ -424,7 +424,7 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 |---|---|---|---|---|---|---|---|
 | 1 | GET | `/locations/:locationId/tracking` | user, owner | `locationId` | – | – | Tracking settings (defaults filled) + the API-call estimate for a run |
 | 2 | PUT | `/locations/:locationId/tracking` | user, owner | `locationId` | – | At least one of the fields below | Saved settings, estimate, `keywords_version_bumped`, `onboarding_step` (onboarding locations only) |
-| 3 | POST | `/locations/:locationId/rank-runs` | user, owner | `locationId` | – | – | **202** `{ run_id, status, existing, estimate, dev_capped }` |
+| 3 | POST | `/locations/:locationId/rank-runs` | user, owner | `locationId` | – | – | **202** `{ run_id, status, existing, estimate, dev_capped }`; **402** `insufficient_tokens` (13a) |
 | 4 | GET | `/locations/:locationId/rank-runs` | user, owner | `locationId` | `page` (default 1), `limit` (default 15, max 100) | – | Run history: `{ runs, page, limit, total }` |
 | 5 | GET | `/locations/:locationId/rank-runs/:runId` | user, owner | `locationId`, `runId` | – | – | Run status, timings, `api_calls`, estimate (12.5: + `samples`, `mapPoints`), `config` (`samples`, `sample_spacing_sec`, `map_points`), `expected_duration_ms`, `errors_count`, `failure_reason` |
 
@@ -508,8 +508,8 @@ Every location refreshes **automatically once a month** (rankings, then the GBP 
 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
-| 25 | POST | `/locations/:locationId/refresh` | user, owner | body `{ types?: ["rankings","gbp"] }` (default: rankings, plus gbp when connected) | **202** `{ rankings: { run_id, status, existing, estimate, next_allowed_at } \| { skipped: 'rate_limited', next_allowed_at }, gbp: { sync_id, status, existing, estimated_calls, next_allowed_at } \| { skipped: 'gbp_not_connected' \| 'rate_limited', next_allowed_at } }` |
-| 26 | GET | `/locations/:locationId/refresh` | user, owner | – | Button state: `{ frequency, gbp_connected, next_refresh_at, last_auto_refresh_at, rankings: { next_allowed_at, active_run }, gbp: { next_allowed_at, active_sync, last_synced_at } \| null, report: { pending, scheduled_for, last_generated_at } }` |
+| 25 | POST | `/locations/:locationId/refresh` | user, owner | body `{ types?: ["rankings","gbp"] }` (default: rankings, plus gbp when connected) | **202** `{ rankings: { run_id, status, existing, estimate, next_allowed_at } \| { skipped: 'rate_limited', next_allowed_at }, gbp: { sync_id, status, existing, estimated_calls, next_allowed_at } \| { skipped: 'gbp_not_connected' \| 'rate_limited', next_allowed_at } }`; **402** `{ reason: insufficient_tokens, balance, cost, costs_by_type }` (13a) |
+| 26 | GET | `/locations/:locationId/refresh` | user, owner | – | Button state: `{ frequency, gbp_connected, next_refresh_at, last_auto_refresh_at, rankings: { next_allowed_at, active_run }, gbp: { next_allowed_at, active_sync, last_synced_at } \| null, report: { pending, scheduled_for, last_generated_at }, tokens: { cost: { rankings, gbp }, balance } }` |
 | 27 | GET | `/locations/:locationId/gbp/sync` | user, owner | query `syncId?` (24-hex) | `{ gbp_connected, sync: { sync_id, status, trigger, backfill, run_at, started_at, finished_at, duration_ms, types, api_calls, failure_reason } \| null, last_synced_at }` |
 
 **Notes:**
