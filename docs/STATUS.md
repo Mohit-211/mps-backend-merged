@@ -210,6 +210,8 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
     - No live PayPal call has been made yet.
 14. **Seller details on invoices:** set `BILLING_SELLER_NAME`, `BILLING_SELLER_ADDRESS` (lines separated by `|`), `BILLING_SELLER_EMAIL` and optionally `BILLING_SELLER_TAX_ID` before the first real invoice.
 12. **Citation directory authority values:** the 50 seeded directories (`seed:citation-directories`) carry **placeholder** authority numbers; the admin team replaces them before launch.
+15. **Checkout quantity (found by the flow tests, 2026-09-29):** checkout subscribes for the number of active locations (at least 1). A trial user who wants a second location right away subscribes for 1 and then pays a prorated slot (two PayPal approvals). Option: let checkout take `quantity` (active locations up to 20) so they subscribe for both at once. Decide; no change made.
+16. **Google Cloud + `.env` after 13b:** the GBP redirect-fallback URI moved to `…/api/v1/gbp/connect/callback`: update `GOOGLE_GBP_REDIRECT_URI` in `.env` and the authorised redirect URI in Google Cloud (the popup flow is unaffected). New settings: `ADMIN_FRONTEND_URL`, `SUPPORT_EMAIL`, `EMAIL_TRANSPORT` (OPERATIONS.md).
 
 ## Blocked on Google
 
