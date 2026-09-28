@@ -1,0 +1,5 @@
+{ "id": "5O190127TN364715T", "status": "COMPLETED",
+  "payer": { "email_address": "buyer@example.test", "payer_id": "PAYERID123" },
+  "purchase_units": [ { "reference_id": "default", "custom_id": "REPLACED_IN_TEST",
+    "payments": { "captures": [ { "id": "3C679366HH908993F", "status": "COMPLETED", "amount": { "currency_code": "USD", "value": "40.00" }, "final_capture": true, "create_time": "2026-09-28T10:05:00Z" } ] } } ],
+  "links": [ { "href": "https://api-m.sandbox.paypal.com/v2/checkout/orders/5O190127TN364715T", "rel": "self", "method": "GET" } ] }

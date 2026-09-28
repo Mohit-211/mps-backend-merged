@@ -73,6 +73,21 @@ const envVarsSchema = Joi.object({
 	REPORT_RENDER_CONCURRENCY: Joi.number().integer().min(1).max(2).default(1).description('report-generate jobs at once per process'),
 	REPORT_EMAIL_MAX_ATTACHMENT_MB: Joi.number().min(1).max(25).default(10).description('Larger report PDFs are emailed as a 30-day share link instead of an attachment'),
 	SHARE_BASE_URL: Joi.string().uri().allow('').default('').description('Public base URL of this API for report share links (/r/<token>); empty = API_BASE_URL'),
+	// Phase 13a billing: PayPal credentials (were read ad hoc via process.env), the two monthly plans, and settings.
+	PAYPAL_MODE: Joi.string().valid('sandbox', 'live').default('sandbox'),
+	PAYPAL_CLIENT_ID: Joi.string().allow('').default(''),
+	PAYPAL_CLIENT_SECRET: Joi.string().allow('').default(''),
+	PAYPAL_PRODUCT_ID: Joi.string().allow('').default(''),
+	PAYPAL_PLAN_ID_USD: Joi.string().allow('').default(''),
+	PAYPAL_PLAN_ID_CAD: Joi.string().allow('').default(''),
+	TRIAL_DAYS: Joi.number().integer().min(0).max(90).default(7).description('Default trial length for new organizations (the plan setting overrides it)'),
+	BILLING_GRACE_DAYS: Joi.number().integer().min(0).max(60).default(7),
+	MANUAL_INVOICE_DUE_DAYS: Joi.number().integer().min(1).max(90).default(14),
+	BILLING_RENEWAL_LEAD_DAYS: Joi.number().integer().min(11).max(28).default(11).description('PayPal ignores price changes within 10 days of a charge'),
+	BILLING_SELLER_NAME: Joi.string().allow('').default('MyPageSEO'),
+	BILLING_SELLER_ADDRESS: Joi.string().allow('').default(''),
+	BILLING_SELLER_EMAIL: Joi.string().allow('').default(''),
+	BILLING_SELLER_TAX_ID: Joi.string().allow('').default(''),
 	PAYPAL_WEBHOOK_ID: Joi.string()
 		.allow('')
 		.when('NODE_ENV', { is: 'production', then: Joi.required().invalid('') })
@@ -242,6 +257,19 @@ interface Config {
 	paypal: {
 		/** Phase 10: webhook signature verification; empty = every webhook is refused. */
 		webhookId: string;
+		mode: 'sandbox' | 'live';
+		clientId: string;
+		clientSecret: string;
+		productId: string;
+		planIds: { USD: string; CAD: string };
+	};
+
+	billing: {
+		trialDays: number;
+		graceDays: number;
+		manualInvoiceDueDays: number;
+		renewalLeadDays: number;
+		seller: { name: string; address: string; email: string; taxId: string };
 	};
 
 	reports: {
@@ -390,6 +418,19 @@ const config: Config = {
 
 	paypal: {
 		webhookId: envVars.PAYPAL_WEBHOOK_ID ?? '',
+		mode: envVars.PAYPAL_MODE,
+		clientId: envVars.PAYPAL_CLIENT_ID,
+		clientSecret: envVars.PAYPAL_CLIENT_SECRET,
+		productId: envVars.PAYPAL_PRODUCT_ID,
+		planIds: { USD: envVars.PAYPAL_PLAN_ID_USD, CAD: envVars.PAYPAL_PLAN_ID_CAD },
+	},
+
+	billing: {
+		trialDays: envVars.TRIAL_DAYS,
+		graceDays: envVars.BILLING_GRACE_DAYS,
+		manualInvoiceDueDays: envVars.MANUAL_INVOICE_DUE_DAYS,
+		renewalLeadDays: envVars.BILLING_RENEWAL_LEAD_DAYS,
+		seller: { name: envVars.BILLING_SELLER_NAME, address: envVars.BILLING_SELLER_ADDRESS, email: envVars.BILLING_SELLER_EMAIL, taxId: envVars.BILLING_SELLER_TAX_ID },
 	},
 
 	reports: {

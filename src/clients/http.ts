@@ -10,7 +10,7 @@ const MAX_ERROR_MESSAGE_LENGTH = 300;
 const MAX_RETRY_AFTER_MS = 5000;
 
 export interface HttpRequest {
-	method: 'GET' | 'POST' | 'DELETE';
+	method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
 	url: string;
 	headers: Record<string, string>;
 	data?: unknown;
@@ -100,6 +100,19 @@ export const httpErrorFromResponse = (status: number, rawBody: unknown, retryAft
 			status,
 			reason: body.error,
 			message: truncate(`${body.error}${body.error_description ? `: ${body.error_description}` : ''}`),
+			retryAfterMs: parseRetryAfter(retryAfter),
+		});
+	}
+	// PayPal: { name, message, debug_id, details: [{ issue, description }] } (Phase 13a).
+	const paypal = rawBody as { name?: unknown; message?: unknown; debug_id?: unknown; details?: { issue?: unknown }[] } | null;
+	if (paypal && typeof paypal === 'object' && typeof paypal.name === 'string' && typeof paypal.debug_id === 'string') {
+		const issue = Array.isArray(paypal.details) ? paypal.details.find((d) => typeof d?.issue === 'string')?.issue : undefined;
+		return new HttpRequestError({
+			code: 'HTTP_ERROR',
+			status,
+			apiStatus: paypal.name,
+			reason: typeof issue === 'string' ? issue : undefined,
+			message: truncate(`${typeof paypal.message === 'string' ? paypal.message : paypal.name} (debug_id ${paypal.debug_id})`),
 			retryAfterMs: parseRetryAfter(retryAfter),
 		});
 	}
