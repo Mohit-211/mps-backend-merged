@@ -183,6 +183,8 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 8. **DataForSEO password change by the account owner (old credential in git history)** (AUDIT S13). The vendor was removed from the code, config and docs on 2026-09-27.
 9. **Phase 10 deploy:** replace the 12-character `JWT_SECRET` (≥ 32 characters; every user signs in again once), add `ADMIN_JWT_SECRET` and `PAYPAL_WEBHOOK_ID`, list every frontend origin in `ACCESSDOMAINS`, delete the old `ANALYTICS` token rows (OPERATIONS.md deploy checklist).
 10. **Frontend team notes** (Phase 10): token refresh (1-day access, 30-day refresh), admin panel sign-in and permissions, CORS origins: FRONTEND_BACKEND_MAP.md "Notes for the frontend team".
+11. **Prices, before launch (Mohit, 2026-09-28):** the price per location, the token packs (tokens + price), and the token cost per manual refresh type (rankings, gbp) are set by Mohit in the billing admin (Phase 13a).
+12. **Citation directory authority values:** the 50 seeded directories (`seed:citation-directories`) carry **placeholder** authority numbers; the admin team replaces them before launch.
 
 ## Blocked on Google
 
