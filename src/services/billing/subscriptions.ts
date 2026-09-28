@@ -148,8 +148,11 @@ export const createSubscriptionService = (deps: BillingDeps = {}) => {
 		if (await Invoice.exists({ provider_ref: sale.id })) return null;
 		const at = now();
 		const first = !sub.last_payment_at;
-		let periodStart = sub.current_period_start ?? sale.time;
-		let periodEnd = sub.current_period_end;
+		// A first payment starts its period at the sale unless the known period already covers it
+		// (a legacy-linked subscription may only know its original start date).
+		const covered = Boolean(sub.current_period_end && sub.current_period_end > sale.time);
+		let periodStart = covered ? (sub.current_period_start ?? sale.time) : sale.time;
+		let periodEnd = covered ? sub.current_period_end : null;
 		let quantity = sub.paid_quantity;
 		let price = sub.price;
 		let billed = sub.paid_quantity;

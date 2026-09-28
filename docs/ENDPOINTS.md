@@ -22,7 +22,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
-- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -68,15 +68,15 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13a)
 
-**220 endpoints:** 205 live, 14 deprecated, 1 dev-only.
-- **By origin:** 113 rebuilt or new, 107 legacy.
-- **By auth:** 110 user, 65 platform admin (each with a permission), 43 none, 2 refresh token.
+**250 endpoints:** 235 live, 14 deprecated, 1 dev-only.
+- **By origin:** 143 rebuilt or new, 107 legacy.
+- **By auth:** 110 user, 95 platform admin (each with a permission), 43 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
 **Phase 16 (citations):** the 13 legacy `/citation/*` routes were retired. It added 23 `/admin/citations/*` routes (#82–#104) and 2 customer routes (#105–#106), and the report type `citation` (#61).
 
-**Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121); the PayPal webhook kept its path with new handlers.
+**Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121), and 30 `/admin/billing/*` routes (#122–#151); the PayPal webhook kept its path with new handlers.
 
 **Coming:** Phase 9b removes the 14 deprecated routes once the frontend has moved.
 
@@ -338,6 +338,43 @@ Read: owner and member (`client_user` → 403 `read_only`); payments and changes
 | GET | `/api/v1/billing/invoices/:invoiceId/pdf` | user + org | Invoice PDF | 13a | live |
 | GET | `/api/v1/pricing` | none | Public pricing for the marketing site (`?country=US\|CA`): first / additional location price, 20-location cap, trial, token packs | 13a | live |
 | POST | `/api/v1/subscription/paypal/webhook` | none (PayPal signature, verified with PayPal) | PayPal webhook: subscription, sale and order/capture events (idempotent per event id; 500 on a handler error so PayPal retries). Refused (400 `invalid_signature`) unless PayPal confirms it (`PAYPAL_WEBHOOK_ID`) | legacy, rebuilt 13a | live |
+
+### Billing admin (Phase 13a)
+
+Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every change is audit-logged. Details: #122–#151 below.
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/admin/billing/plans` | admin (`billing.read`) | The standard plan and the custom plans (`?kind=`, `?organization_id=`) | 13a | live |
+| GET | `/api/v1/admin/billing/plans/:planId` | admin (`billing.read`) | One plan with its dated prices | 13a | live |
+| PATCH | `/api/v1/admin/billing/plans/:planId` | admin (`billing.manage`) | Plan settings: entitlements, users per location, location cap, trial, token costs, monthly grant, pack prices / discount | 13a | live |
+| POST | `/api/v1/admin/billing/plans/:planId/prices` | admin (`billing.manage`) | A dated price per currency (first / additional location); applies from each organization's next renewal on or after the date | 13a | live |
+| GET | `/api/v1/admin/billing/organizations/:organizationId` | admin (`billing.read`) | An organization's billing: the billing page view, subscriptions, invoices, audit | 13a | live |
+| POST | `/api/v1/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | Give the organization a custom (enterprise) plan, optionally with billing method `manual` | 13a | live |
+| DELETE | `/api/v1/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | Back to the standard plan | 13a | live |
+| PATCH | `/api/v1/admin/billing/organizations/:organizationId/billing-method` | admin (`billing.manage`) | `paypal` or `manual` (409 while another method's subscription is open) | 13a | live |
+| POST | `/api/v1/admin/billing/organizations/:organizationId/manual-subscription` | admin (`billing.manage`) | Start a manual-billing subscription (invoices; optionally comped until a date) | 13a | live |
+| PATCH | `/api/v1/admin/billing/organizations/:organizationId/trial` | admin (`billing.manage`) | Set / extend the trial end | 13a | live |
+| POST | `/api/v1/admin/billing/organizations/:organizationId/tokens` | admin (`billing.manage`) | Grant or adjust tokens (with a note) | 13a | live |
+| GET | `/api/v1/admin/billing/organizations/:organizationId/tokens/ledger` | admin (`billing.read`) | The organization's token ledger | 13a | live |
+| GET | `/api/v1/admin/billing/subscriptions` | admin (`billing.read`) | Subscriptions (filter status, billing method, organization) | 13a | live |
+| GET | `/api/v1/admin/billing/subscriptions/:subscriptionId` | admin (`billing.read`) | A subscription with events, renewal snapshot and invoices | 13a | live |
+| PATCH | `/api/v1/admin/billing/subscriptions/:subscriptionId` | admin (`billing.manage`) | Comp until a date, note, paid quantity (manual only) | 13a | live |
+| POST | `/api/v1/admin/billing/subscriptions/:subscriptionId/sync` | admin (`billing.manage`) | Re-read the subscription at PayPal | 13a | live |
+| POST | `/api/v1/admin/billing/subscriptions/:subscriptionId/cancel` | admin (`billing.manage`) | Cancel (PayPal too); access to the period end | 13a | live |
+| GET | `/api/v1/admin/billing/invoices` | admin (`billing.read`) | Invoices (filter status, kind, organization, number prefix `q`) | 13a | live |
+| GET | `/api/v1/admin/billing/invoices/:invoiceId/pdf` | admin (`billing.read`) | Invoice PDF | 13a | live |
+| POST | `/api/v1/admin/billing/invoices/:invoiceId/payments` | admin (`billing.manage`) | Record the payment of an open (manual) invoice | 13a | live |
+| POST | `/api/v1/admin/billing/invoices/:invoiceId/void` | admin (`billing.manage`) | Void an open invoice | 13a | live |
+| GET | `/api/v1/admin/billing/token-packs` | admin (`billing.read`) | Token packs | 13a | live |
+| POST | `/api/v1/admin/billing/token-packs` | admin (`billing.manage`) | Create a token pack (prices per currency) | 13a | live |
+| PATCH | `/api/v1/admin/billing/token-packs/:packId` | admin (`billing.manage`) | Edit a token pack (`is_active: false` retires it) | 13a | live |
+| GET | `/api/v1/admin/billing/coupons` | admin (`billing.read`) | Coupons (token packs only) | 13a | live |
+| POST | `/api/v1/admin/billing/coupons` | admin (`billing.manage`) | Create a coupon | 13a | live |
+| PATCH | `/api/v1/admin/billing/coupons/:couponId` | admin (`billing.manage`) | Edit a coupon | 13a | live |
+| GET | `/api/v1/admin/billing/legacy-payments` | admin (`billing.read`) | Paid legacy guest-checkout subscriptions, linked or not, with a suggested organization (`?unlinked=true`) | 13a | live |
+| POST | `/api/v1/admin/billing/legacy-payments/:paymentId/link` | admin (`billing.manage`) | Link a legacy PayPal subscription to an organization | 13a | live |
+| GET | `/api/v1/admin/billing/audit` | admin (`billing.read`) | Billing audit log (who, when, before → after) | 13a | live |
 
 ### Reference data
 
@@ -685,6 +722,41 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | 119 | GET | `/billing/invoices` | user + org | `page, limit` | `{ invoices: [{ id, number, kind, status, currency, lines, tax_lines, total, charged_amount, period_start, period_end, issued_at, due_at, paid_at, has_pdf }], page, limit, total }` |
 | 120 | GET | `/billing/invoices/:invoiceId/pdf` | user + org | – | `application/pdf` (`INV-YYYY-NNNNNN.pdf`); **404** `not_found` |
 | 121 | GET | `/pricing` | none | `country (US\|CA, default US)` | `{ currency, prices: { current, upcoming }, max_locations, users_per_location, trial: { days, locations, users }, tokens_per_refresh, token_packs: [{ id, name, tokens, price, currency }] }` |
+
+### Billing admin (Phase 13a)
+
+| # | Method | Path | Auth | Params / body | Returns |
+|---|---|---|---|---|---|
+| 122 | GET | `/admin/billing/plans` | admin (`billing.read`) | `kind, organization_id` | `[plan]`: `{ id, name, kind, organization_id, entitlements, users_per_location, max_locations, trial, tokens_per_refresh, monthly_token_grant, token_pack_discount_percent, token_pack_prices, prices: [{ currency, first_location_price, additional_location_price, effective_from, set_by, set_at }], is_active }` |
+| 123 | GET | `/admin/billing/plans/:planId` | admin (`billing.read`) | – | plan; **404** `not_found` |
+| 124 | PATCH | `/admin/billing/plans/:planId` | admin (`billing.manage`) | any of `{ name, entitlements: { <feature>: bool }, users_per_location, max_locations (null = no cap, custom only), trial: { days, locations, users, tokens }, tokens_per_refresh: { rankings, gbp }, monthly_token_grant, token_pack_discount_percent, token_pack_prices: [{ pack_id, currency, price }], is_active }` | plan; **400** `invalid_plan` (standard: no cap removal, no deactivation) |
+| 125 | POST | `/admin/billing/plans/:planId/prices` | admin (`billing.manage`) | `{ currency (USD\|CAD), first_location_price, additional_location_price, effective_from }` | **201** plan (same currency + date replaces); **400** `effective_from_in_past` |
+| 126 | GET | `/admin/billing/organizations/:organizationId` | admin (`billing.read`) | – | `{ organization: { id, name, type, country, plan_id, billing_method, trial_ends_at, suspended_at }, billing: <GET /billing>, subscriptions, invoices, audit }` |
+| 127 | POST | `/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | plan fields of #124 + `billing_method?` | **201** plan (copied from the standard plan, prices empty: add them with #125); **409** `custom_plan_exists` |
+| 128 | DELETE | `/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | – | `{ plan_id: null }`; **409** `no_custom_plan` |
+| 129 | PATCH | `/admin/billing/organizations/:organizationId/billing-method` | admin (`billing.manage`) | `{ billing_method }` | `{ billing_method }`; **409** `subscription_open` |
+| 130 | POST | `/admin/billing/organizations/:organizationId/manual-subscription` | admin (`billing.manage`) | `{ quantity, starts_at?, comp_until?, currency?, note? }` | **201** subscription (the first period is invoiced unless comped); **409** `already_subscribed`; **403** `enterprise_required` |
+| 131 | PATCH | `/admin/billing/organizations/:organizationId/trial` | admin (`billing.manage`) | `{ trial_ends_at }` | `{ trial_ends_at }` (trial reminders reset) |
+| 132 | POST | `/admin/billing/organizations/:organizationId/tokens` | admin (`billing.manage`) | `{ amount (± integer, not 0), type: grant\|adjustment, note }` | `{ balance }`; **409** `insufficient_tokens` (a negative adjustment below zero); **400** `invalid_amount` |
+| 133 | GET | `/admin/billing/organizations/:organizationId/tokens/ledger` | admin (`billing.read`) | `page, limit` | as #117 |
+| 134 | GET | `/admin/billing/subscriptions` | admin (`billing.read`) | `status, billing_method, organization_id, page, limit` | `{ subscriptions: [subscription + organization_name], page, limit, total }` |
+| 135 | GET | `/admin/billing/subscriptions/:subscriptionId` | admin (`billing.read`) | – | subscription + `events`, `invoices` |
+| 136 | PATCH | `/admin/billing/subscriptions/:subscriptionId` | admin (`billing.manage`) | any of `{ comp_until, paid_quantity (manual only), note }` | subscription; **409** `not_manual` |
+| 137 | POST | `/admin/billing/subscriptions/:subscriptionId/sync` | admin (`billing.manage`) | – | subscription; **409** `not_paypal`; **503** `billing_not_configured` |
+| 138 | POST | `/admin/billing/subscriptions/:subscriptionId/cancel` | admin (`billing.manage`) | `{ reason? }` | subscription; **409** `not_open` |
+| 139 | GET | `/admin/billing/invoices` | admin (`billing.read`) | `status, kind, organization_id, q (number prefix), page, limit` | `{ invoices: [invoice + organization_id, customer, mismatch, payment_note], page, limit, total }` |
+| 140 | GET | `/admin/billing/invoices/:invoiceId/pdf` | admin (`billing.read`) | – | `application/pdf` |
+| 141 | POST | `/admin/billing/invoices/:invoiceId/payments` | admin (`billing.manage`) | `{ note }` | invoice (`paid`); **409** `invoice_not_open` |
+| 142 | POST | `/admin/billing/invoices/:invoiceId/void` | admin (`billing.manage`) | `{ note }` | invoice (`void`); **409** `invoice_not_open` |
+| 143 | GET | `/admin/billing/token-packs` | admin (`billing.read`) | – | `[{ id, name, tokens, prices: [{ currency, price }], expires_after_days, is_active, sort_order }]` |
+| 144 | POST | `/admin/billing/token-packs` | admin (`billing.manage`) | `{ name, tokens, prices, expires_after_days?, is_active?, sort_order? }` | **201** pack |
+| 145 | PATCH | `/admin/billing/token-packs/:packId` | admin (`billing.manage`) | any field of #143 | pack |
+| 146 | GET | `/admin/billing/coupons` | admin (`billing.read`) | – | `[{ id, code, discount_type, value, pack_ids, max_redemptions, redemptions, expires_at, is_active, note }]` |
+| 147 | POST | `/admin/billing/coupons` | admin (`billing.manage`) | `{ code, discount_type: percent\|fixed, value, pack_ids?, max_redemptions?, expires_at?, is_active?, note? }` | **201** coupon; **409** `code_taken` |
+| 148 | PATCH | `/admin/billing/coupons/:couponId` | admin (`billing.manage`) | any field of #146 except `code` | coupon |
+| 149 | GET | `/admin/billing/legacy-payments` | admin (`billing.read`) | `unlinked` | `[{ id, paypal_subscription_id, customer_email, customer_name, monthly_amount, status, subscription_status, created_at, linked, suggested_organization }]` |
+| 150 | POST | `/admin/billing/legacy-payments/:paymentId/link` | admin (`billing.manage`) | `{ organization_id }` | **201** subscription; **409** `already_linked`, `already_subscribed` |
+| 151 | GET | `/admin/billing/audit` | admin (`billing.read`) | `organization_id, action, page, limit` | `{ entries: [{ id, action, organization_id, target, before, after, note, by: { admin_id, name }, at }], page, limit, total }` |
 
 ## Removed endpoints
 

@@ -2466,3 +2466,34 @@ Ledger types: `purchase | spend | refund | grant | monthly_grant | adjustment | 
 ```
 
 `prices.current` is `null` until prices are set. (The amounts above are examples only; real prices are set by an admin.)
+
+## Billing admin (Phase 13a)
+
+`/api/v1/admin/billing/*`, platform admins with `billing.read` (GET) / `billing.manage` (changes): super admin and admin. Every change is written to the audit log (`GET /admin/billing/audit`: who, when, before → after). Catalogue: ENDPOINTS.md #122–#151.
+
+**Prices.** `POST /admin/billing/plans/:planId/prices`:
+
+```json
+{ "currency": "USD", "first_location_price": 39, "additional_location_price": 15, "effective_from": "2026-11-01T00:00:00Z" }
+```
+
+- A price applies from each organization's first renewal on or after `effective_from`: the renewal snapshot (11 days before a renewal) uses the price in effect at the renewal date.
+- History is kept. Posting the same currency and date replaces that entry; a date before today is refused (`effective_from_in_past`).
+- Until the standard plan has a price for a currency, checkout in that currency answers 409 `price_not_set`.
+
+**Enterprise (custom plans).**
+1. `POST /admin/billing/organizations/:organizationId/custom-plan` with any plan settings, e.g. `{ "max_locations": null, "users_per_location": 5, "monthly_token_grant": 20, "token_pack_discount_percent": 15, "billing_method": "manual" }`. It is copied from the standard plan and starts without prices.
+2. Add its prices with `POST /admin/billing/plans/<custom plan id>/prices`.
+3. For invoice billing: `POST /admin/billing/organizations/:organizationId/manual-subscription { "quantity": 30, "comp_until"?: "…" }`.
+   - The first period is invoiced at once (open, due in `MANUAL_INVOICE_DUE_DAYS`); `billing-renewals` invoices each later period.
+   - Record payments with `POST /admin/billing/invoices/:invoiceId/payments { "note": "wire 4411" }`.
+   - An invoice unpaid 7 days after its due date makes the organization read-only until it is paid (or voided).
+4. PayPal custom prices need nothing more: the organization checks out as usual and its subscription carries the custom amount.
+5. `DELETE …/custom-plan` puts the organization back on the standard plan (its next renewal uses the standard prices).
+
+**Comp / trial / tokens.**
+- A manual subscription with `comp_until` is free until that date (no invoices).
+- `PATCH …/organizations/:organizationId/trial { "trial_ends_at": "…" }`.
+- `POST …/organizations/:organizationId/tokens { "amount": 5, "type": "grant", "note": "goodwill" }` (negative `adjustment`s can't take the balance below zero).
+
+**Legacy guest-checkout subscriptions.** `GET /admin/billing/legacy-payments?unlinked=true` lists the paid pre-13a PayPal subscriptions, with a suggested organization (the organization owned by the verified user with the same email). `POST …/legacy-payments/:paymentId/link { "organization_id": "…" }` creates the organization's subscription. The legacy price is kept for the current period; the next renewal snapshot re-prices it with first + (n − 1) × additional. `npm run migrate:billing` does the matching ones in bulk.

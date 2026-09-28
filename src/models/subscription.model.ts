@@ -37,6 +37,8 @@ export interface ISubscription extends Document {
 	/** Manual billing / admin comp: free until this date (no invoices). */
 	comp_until: Date | null;
 	note: string | null;
+	/** Linked from a legacy guest-checkout payment (migrate:billing / admin link). */
+	legacy_payment_id: Types.ObjectId | null;
 	events: { at: Date; type: string; detail: string | null }[];
 	created_by: Types.ObjectId | null;
 	created_at: Date;
@@ -74,6 +76,7 @@ const SubscriptionSchema = new Schema<ISubscription>(
 		last_payment_at: { type: Date, default: null },
 		comp_until: { type: Date, default: null },
 		note: { type: String, default: null },
+		legacy_payment_id: { type: Schema.Types.ObjectId, default: null },
 		events: { type: [{ at: Date, type: { type: String }, detail: { type: String, default: null }, _id: false }], default: [] },
 		created_by: { type: Schema.Types.ObjectId, default: null },
 	},
