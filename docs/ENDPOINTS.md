@@ -66,15 +66,17 @@ Reads, billing, support and GBP connect / bind stay open.
 - `POST /reports`
 - the white-label branding writes
 
-## Summary (2026-09-27, Phase 16 built)
+## Summary (2026-09-28, Phase 13a)
 
 **220 endpoints:** 205 live, 14 deprecated, 1 dev-only.
-- **By origin:** 97 rebuilt or new, 123 legacy.
-- **By auth:** 97 user, 74 platform admin (each with a permission), 47 none, 2 refresh token.
+- **By origin:** 113 rebuilt or new, 107 legacy.
+- **By auth:** 110 user, 65 platform admin (each with a permission), 43 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
 **Phase 16 (citations):** the 13 legacy `/citation/*` routes were retired. It added 23 `/admin/citations/*` routes (#82–#104) and 2 customer routes (#105–#106), and the report type `citation` (#61).
+
+**Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121); the PayPal webhook kept its path with new handlers.
 
 **Coming:** Phase 9b removes the 14 deprecated routes once the frontend has moved.
 
@@ -314,26 +316,28 @@ Manual, admin-managed citation tracking (no external citation APIs). Admin route
 | GET | `/api/v1/locations/:locationId/citations` | user + owner (read-only) | Citation dashboard + table for a location: Citation Health, counts, NAP issues, recent changes (`?status=`) | 16 | live |
 | GET | `/api/v1/locations/:locationId/citations/changes` | user + owner (read-only) | A location's citation change history (paginated; shown as "MyPageSEO team") | 16 | live |
 
-### Payments & subscriptions
+### Billing (Phase 13a)
+
+Read: owner and member (`client_user` → 403 `read_only`); payments and changes: owner only (403 `owner_only`). Billing stays open when the organization is read-only. Details: #107–#121 below; shapes in [API.md](API.md#billing-phase-13a).
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/subscription` | admin (`platform.write`) | Create Plan | legacy, changed 10 | live |
-| GET | `/api/v1/subscription` | admin (`platform.read`) | Get All Plans | legacy, changed 10 | live |
-| GET | `/api/v1/subscription/plans/country/:country` | none | Get Plans By Country | legacy | live |
-| PUT | `/api/v1/subscription/:plan_id` | admin (`platform.write`) | Update Plan | legacy, changed 10 | live |
-| DELETE | `/api/v1/subscription/:plan_id` | admin (`platform.write`) | Delete Plan | legacy, changed 10 | live |
-| POST | `/api/v1/subscription/create-subscription` | none (guest checkout, rate-limited) | Create Subscription | legacy | live |
-| POST | `/api/v1/subscription/paypal/webhook` | none (PayPal signature, verified with PayPal) | Paypal Webhook. Phase 10: refused (400 `invalid_signature`) unless PayPal confirms it (`PAYPAL_WEBHOOK_ID`) | legacy, changed 10 | live |
-| GET | `/api/v1/subscription/payment-status` | none (guest checkout, rate-limited) | Get Payment Status | legacy | live |
-| POST | `/api/v1/subscription/coupon/generate` | admin (`platform.write`) | Generate Coupon | legacy, changed 10 | live |
-| POST | `/api/v1/subscription/coupon/validate` | none | Validate Coupon | legacy | live |
-| GET | `/api/v1/subscription/coupons` | admin (`platform.read`) | Get All Coupons | legacy, changed 10 | live |
-| GET | `/api/v1/subscription/payments/all` | admin (`platform.read`) | Get All Payment History | legacy, changed 10 | live |
-| POST | `/api/v1/subscription/send-subscription-welcome-mail` | admin (`platform.write`) | Send Subscription Welcome Mail Controller | legacy, changed 10 | live |
-| POST | `/api/v1/payments/process-payment` | user | Make Square Payment | legacy | live |
-| GET | `/api/v1/payments/plans/list` | none | Get Plans | legacy | live |
-| GET | `/api/v1/payments/getAllPayments` | admin (`platform.read`) | Get All Payments | legacy, changed 10 | live |
+| GET | `/api/v1/billing` | user + org | The billing page: state, plan, prices (current + upcoming), subscription, next renewal, locations / users / tokens, billing details | 13a | live |
+| POST | `/api/v1/billing/checkout` | user + org (owner) | Start the PayPal subscription for the active locations → `approve_url` | 13a | live |
+| POST | `/api/v1/billing/sync` | user + org (owner) | Re-read the subscription at PayPal (after the return page) | 13a | live |
+| POST | `/api/v1/billing/cancel` | user + org (owner) | Cancel; access continues to the end of the paid period | 13a | live |
+| GET | `/api/v1/billing/location-slots/quote` | user + org | Prorated price of extra location slots (`?quantity=`) | 13a | live |
+| POST | `/api/v1/billing/location-slots` | user + org (owner) | Pay for extra slots (PayPal order → `approve_url`; manual billing: added at once, billed on the next invoice) | 13a | live |
+| GET | `/api/v1/billing/token-packs` | user + org | Token packs with this organization's prices | 13a | live |
+| POST | `/api/v1/billing/tokens/checkout` | user + org (owner) | Buy a token pack (coupon optional) → `approve_url` | 13a | live |
+| POST | `/api/v1/billing/coupon/validate` | user + org (owner) | Price of a pack with a coupon | 13a | live |
+| POST | `/api/v1/billing/orders/:orderId/capture` | user + org (owner) | Capture a PayPal order after the return page (idempotent; the webhook does the same) | 13a | live |
+| GET | `/api/v1/billing/tokens/ledger` | user + org | Token balance and ledger (paginated) | 13a | live |
+| PATCH | `/api/v1/billing/details` | user + org (owner) | Invoice name, email and address | 13a | live |
+| GET | `/api/v1/billing/invoices` | user + org | Invoices (paginated) | 13a | live |
+| GET | `/api/v1/billing/invoices/:invoiceId/pdf` | user + org | Invoice PDF | 13a | live |
+| GET | `/api/v1/pricing` | none | Public pricing for the marketing site (`?country=US\|CA`): first / additional location price, 20-location cap, trial, token packs | 13a | live |
+| POST | `/api/v1/subscription/paypal/webhook` | none (PayPal signature, verified with PayPal) | PayPal webhook: subscription, sale and order/capture events (idempotent per event id; 500 on a handler error so PayPal retries). Refused (400 `invalid_signature`) unless PayPal confirms it (`PAYPAL_WEBHOOK_ID`) | legacy, rebuilt 13a | live |
 
 ### Reference data
 
@@ -660,9 +664,33 @@ Admin auth: a platform-admin token with the permission shown. Errors carry `data
 | 105 | GET | `/locations/:locationId/citations` | user + owner | `status` | `{ available: true, health: { score, grade, coverage, total }, counts, last_checked_at, recent_changes: [change], citations: [{ directory: { name, url, type }, status, nap_issues: [{ field, found, expected }], listing_url, last_checked_at }] }` (problems first); `{ available: false, reason: "no_citations_yet" }` |
 | 106 | GET | `/locations/:locationId/citations/changes` | user + owner | `page, limit` | `{ changes: [{ at, directory: { name, type }, action, from, to, changed_fields, by: "MyPageSEO team" }], page, limit, total }` |
 
+### Billing (Phase 13a)
+
+Money is in the organization's currency (US → USD, CA → CAD). Errors carry `data.reason`. Shapes and examples: [API.md](API.md#billing-phase-13a).
+
+| # | Method | Path | Auth | Params / body | Returns |
+|---|---|---|---|---|---|
+| 107 | GET | `/billing` | user + org | – | `{ state, read_only, trial_ends_at, grace_ends_at, currency, plan: { id, name, kind, max_locations, users_per_location }, prices: { current: { first_location, additional_location } \| null, upcoming }, subscription \| null, next_renewal: { date, quantity, amount, fixed } \| null, locations: { active, allowed, max }, users: { used, limit }, tokens: { balance, cost_per_refresh }, billing_details, online_payments }` |
+| 108 | POST | `/billing/checkout` | user + org (owner) | – | **201** `{ subscription_id, approve_url, quantity, currency, monthly_amount, starts_at }`; **409** `price_not_set`, `already_subscribed`, `manual_billing`; **403** `enterprise_required`; **503** `billing_not_configured` |
+| 109 | POST | `/billing/sync` | user + org (owner) | – | #107 |
+| 110 | POST | `/billing/cancel` | user + org (owner) | `{ reason? }` | #107; **409** `no_subscription`, `manual_billing` |
+| 111 | GET | `/billing/location-slots/quote` | user + org | `quantity (1–100, default 1)` | `{ quantity, remaining_days, period_days, lines, amount, currency, period_end, billing_method, paid_quantity, new_paid_quantity }`; **402** `subscription_required`; **403** `enterprise_required` |
+| 112 | POST | `/billing/location-slots` | user + org (owner) | `{ quantity }` | **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false, quote }`; manual billing **200** `{ fulfilled: true, quote }`; 402 / 403 as #111 |
+| 113 | GET | `/billing/token-packs` | user + org | – | `{ currency, packs: [{ id, name, tokens, currency, list_price, price, expires_after_days }] }` |
+| 114 | POST | `/billing/tokens/checkout` | user + org (owner) | `{ pack_id, coupon_code? }` | **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false }` (a 100% coupon: **200** `fulfilled: true`); **404** `pack_not_found`; **400** `invalid_coupon`, `coupon_expired`, `coupon_exhausted`, `coupon_not_applicable` |
+| 115 | POST | `/billing/coupon/validate` | user + org (owner) | `{ pack_id, coupon_code }` | `{ pack_id, currency, price, discount, total }`; errors as #114 |
+| 116 | POST | `/billing/orders/:orderId/capture` | user + org (owner) | `:orderId` = PayPal order id (the `token` of the return URL) | `{ status: captured \| pending, order_id, purpose, billing: #107 }`; **404** `order_not_found`; **409** `order_not_approved`, `order_closed`; **402** `payment_declined` |
+| 117 | GET | `/billing/tokens/ledger` | user + org | `page, limit (≤ 100)` | `{ balance, entries: [{ id, type, amount, balance_after, ref, location_id, note, by, at }], page, limit, total }` |
+| 118 | PATCH | `/billing/details` | user + org (owner) | any of `{ name, email, address_line1, address_line2, city, region, postal_code, country }` | the saved details |
+| 119 | GET | `/billing/invoices` | user + org | `page, limit` | `{ invoices: [{ id, number, kind, status, currency, lines, tax_lines, total, charged_amount, period_start, period_end, issued_at, due_at, paid_at, has_pdf }], page, limit, total }` |
+| 120 | GET | `/billing/invoices/:invoiceId/pdf` | user + org | – | `application/pdf` (`INV-YYYY-NNNNNN.pdf`); **404** `not_found` |
+| 121 | GET | `/pricing` | none | `country (US\|CA, default US)` | `{ currency, prices: { current, upcoming }, max_locations, users_per_location, trial: { days, locations, users }, tokens_per_refresh, token_packs: [{ id, name, tokens, price, currency }] }` |
+
 ## Removed endpoints
 
 Removed in Phase 8: `GET /locations/google-locations/:name` and `GET /locations/google-locations/details/:placeId` (unauthenticated proxies to the old paid Places API; use `GET /places/search`), and `PUT /locations` (now `PATCH /locations/:locationId`).
+
+Removed in Phase 13a: the legacy plan CRUD (`POST/GET /subscription`, `PUT/DELETE /subscription/:plan_id`), `GET /subscription/plans/country/:country` (→ `GET /pricing`), the guest checkout (`POST /subscription/create-subscription`, `GET /subscription/payment-status`), the prefix coupons (`POST /subscription/coupon/generate`, `POST /subscription/coupon/validate`, `GET /subscription/coupons`), `GET /subscription/payments/all`, `POST /subscription/send-subscription-welcome-mail`, and the Square citation-credit routes (`POST /payments/process-payment`, `GET /payments/plans/list`, `GET /payments/getAllPayments`). Replaced by `/billing`, `/pricing` and the billing admin (Phase 13a D5).
 
 Removed in Phase 16: the 13 legacy `/api/v1/citation/*` routes (manual pricings, aggregators, remove prices, `lists/:location_id`, campaign add / business info / details / all, `locations/campaigns/list/all`, tracker GET / POST, builder, `getAllCitatioList`). They were a paid citation-campaign ordering flow with a SerpAPI "tracker" returning sample data and a stub builder; replaced by the Phase 16 citation endpoints. See [plans/phase-16-citations.md](plans/phase-16-citations.md) §1.
 

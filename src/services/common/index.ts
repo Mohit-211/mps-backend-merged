@@ -6,13 +6,11 @@ import * as languageService from './language.service';
 import * as timezoneService from './timezone.service';
 import * as faqService from './faq.service';
 import * as supportService from './support.service';
-import * as subscriptionService from './subscription.service';
 import * as contactUsService from './contactUs.service';
 
 import * as businessCategoryService from './businessCategory.service';
 import * as whitelabelProfileService from './whitelabelProfile.service';
 import * as gbpPSService from './gbpPostSchedular.service';
-import * as paymentService from './payment.service';
 import * as blogCategoryService from './blogCategory.service';
 import * as blogService from './blog.service';
 
@@ -25,12 +23,10 @@ export {
     timezoneService,
     faqService,
     supportService,
-    subscriptionService,
     contactUsService,
     businessCategoryService,
     whitelabelProfileService,
     gbpPSService,
-    paymentService,
     blogCategoryService,
     blogService
 };

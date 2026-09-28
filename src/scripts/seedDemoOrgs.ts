@@ -57,7 +57,10 @@ import {
 	ReportSchedule,
 	ReportShare,
 	ReportSnapshot,
-	SubscriptionPlan,
+	Subscription,
+	Invoice,
+	TokenLedger,
+	PaymentOrder,
 	User,
 	UserAuth,
 	UserGBP,
@@ -76,13 +79,13 @@ import { seedCitationDirectories } from '../services/citations/seed';
 import { writeDemoCitations } from '../services/citations/demo';
 import { reportStorage } from '../services/reports/storage';
 import { createShareService } from '../services/reports/share.service';
+import { standardPlan } from '../services/billing/plans';
 
 const BUSINESS_EMAIL = 'business-demo@mypageseo.test';
 const AGENCY_EMAIL = 'agency-demo@mypageseo.test';
 const CLIENT_USER_EMAIL = 'agency-client@mypageseo.test';
 /** Earlier demo accounts (seed:gbp-demo before Phase 8) are cleaned up too. */
 const OLD_EMAILS = ['gbp-demo@mypageseo.test'];
-const DEMO_PLAN = 'Demo Agency (seed)';
 const REQUIRED_DB = 'mps_rebuild';
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -135,7 +138,10 @@ const removePreviousDemo = async (): Promise<void> => {
 		Profile.deleteMany({ user_id: { $in: userIds } }),
 		UserToken.deleteMany({ user_id: { $in: userIds } }),
 		UserAuth.deleteMany({ user_id: { $in: userIds } }),
-		SubscriptionPlan.deleteMany({ name: DEMO_PLAN }),
+		Subscription.deleteMany({ organization_id: { $in: orgIds } }),
+		Invoice.deleteMany({ organization_id: { $in: orgIds } }),
+		TokenLedger.deleteMany({ organization_id: { $in: orgIds } }),
+		PaymentOrder.deleteMany({ organization_id: { $in: orgIds } }),
 	]);
 	await User.deleteMany({ _id: { $in: userIds } });
 };
@@ -326,10 +332,23 @@ const main = async (): Promise<void> => {
 
 	// ---- Agency organization: 2 clients, 3 locations, a client user, a demo plan ----
 	const agency = await createDemoUser(AGENCY_EMAIL, 'Northern Local SEO', userTypes.agency, password);
-	const plan = await SubscriptionPlan.create({ name: DEMO_PLAN, country: 'CANADA', currency: 'CAD', monthly_price: 0, location_limit: 5, keyword_limit: 60 });
-	await User.updateOne({ _id: agency._id }, { $set: { subscription_status: 'ACTIVE', current_plan_id: plan._id } });
 	const agencyOrg = await createOrganizationForOwner(agency._id, { name: 'Northern Local SEO', type: 'agency', country: 'CA' });
 	const orgId = agencyOrg._id as Types.ObjectId;
+	// Phase 13a: a comp (manual, free) subscription for 5 locations, so the demo agency isn't limited by the trial.
+	const standard = await standardPlan();
+	await Subscription.create({
+		organization_id: orgId,
+		plan_id: standard._id,
+		billing_method: 'manual',
+		currency: 'CAD',
+		status: 'active',
+		started_at: new Date(now - 40 * DAY),
+		current_period_start: new Date(now - 10 * DAY),
+		current_period_end: new Date(now + 20 * DAY),
+		paid_quantity: 5,
+		comp_until: new Date(now + 365 * DAY),
+		note: 'seed:demo-orgs',
+	});
 	const clientA = await Client.create({ company_name: 'Maple Leaf Group', company_URL: 'https://mapleleafgroup.example', contact_email: 'owner@mapleleafgroup.example', organization_id: orgId, created_by: agency._id });
 	const clientB = await Client.create({ company_name: 'Danforth Services', company_URL: 'https://danforth.example', organization_id: orgId, created_by: agency._id });
 

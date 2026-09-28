@@ -31,8 +31,6 @@ const envVarsSchema = Joi.object({
 		'the from field in the emails sent by the app',
 	),
 
-	SQUARE_ACCESS_TOKEN: Joi.string(),
-	SQUARE_LOCATION_ID: Joi.string(),
 
 	GOOGLE_PLACE_API_KEY: Joi.string().allow('').description('Places API key; optional until live testing'),
 
@@ -174,11 +172,6 @@ interface Config {
 			};
 		};
 		from?: string;
-	};
-
-	square: {
-		squareAccessToken?: string;
-		squareLocationId?: string;
 	};
 
 	googleApis: {
@@ -342,11 +335,6 @@ const config: Config = {
 			},
 		},
 		from: envVars.EMAIL_FROM,
-	},
-
-	square: {
-		squareAccessToken: envVars.SQUARE_ACCESS_TOKEN,
-		squareLocationId: envVars.SQUARE_LOCATION_ID,
 	},
 
 	googleApis: {

@@ -25,7 +25,10 @@ export interface ISubscription extends Document {
 	current_period_end: Date | null;
 	paid_quantity: number;
 	price: SubscriptionPrice;
-	next_renewal: { period_end: Date; quantity: number; price: SubscriptionPrice; amount: number; fixed_at: Date } | null;
+	/** The renewal snapshot. prepaid_quantity: slots bought after it, already paid for the next period too. */
+	next_renewal: { period_end: Date; quantity: number; price: SubscriptionPrice; amount: number; fixed_at: Date; prepaid_quantity: number } | null;
+	/** Manual billing: prorated lines (location slots) added to the next invoice. */
+	pending_lines: { label: string; quantity: number; unit_price: number; amount: number }[];
 	cancel_at_period_end: boolean;
 	cancelled_at: Date | null;
 	past_due_since: Date | null;
@@ -58,11 +61,12 @@ const SubscriptionSchema = new Schema<ISubscription>(
 		price: { type: PriceSchema, default: () => ({}) },
 		next_renewal: {
 			type: new Schema(
-				{ period_end: Date, quantity: Number, price: PriceSchema, amount: Number, fixed_at: Date },
+				{ period_end: Date, quantity: Number, price: PriceSchema, amount: Number, fixed_at: Date, prepaid_quantity: { type: Number, default: 0 } },
 				{ _id: false },
 			),
 			default: null,
 		},
+		pending_lines: { type: [{ label: String, quantity: Number, unit_price: Number, amount: Number, _id: false }], default: [] },
 		cancel_at_period_end: { type: Boolean, default: false },
 		cancelled_at: { type: Date, default: null },
 		past_due_since: { type: Date, default: null },

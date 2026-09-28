@@ -6,7 +6,8 @@ import {
   mongoOperationsTypes,
   notificationTypesArr,
 } from "../../configs/constantTypes";
-import { Client, Location, Profile, User } from "../../models";
+import { Client, Location, Membership, Profile, User } from "../../models";
+import { loadEntitlement } from "../billing/entitlement.service";
 import { clientSelect } from "../../constants";
 
 
@@ -24,12 +25,13 @@ export const getProfile = async (
       );
     }
 
+    // Phase 13a: from the default organization's billing entitlement (the legacy user plan fields are retired).
+    const membership = await Membership.findOne({ user_id: user._id, status: "active" }).sort({ created_at: 1, _id: 1 }).lean();
+    const entitlement = membership ? await loadEntitlement(String(membership.organization_id)).then((l) => l.entitlement).catch(() => null) : null;
     return {
       ...user,
 
-      has_active_subscription:
-        user.subscription_status === 'ACTIVE' &&
-        !!user.current_plan_id,
+      has_active_subscription: Boolean(entitlement && entitlement.subscribed && !entitlement.read_only),
     };
   } catch (error) {
     throw new ApiError(

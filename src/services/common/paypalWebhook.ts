@@ -1,8 +1,7 @@
-import axios from 'axios';
 import { IncomingHttpHeaders } from 'http';
 import config from '../../configs/config';
 import logger from '../../configs/logger';
-import { BASE_URL } from '../../configs/paypal';
+import { paypalClient } from '../../clients/paypalClient';
 
 // Phase 10 (AUDIT S4): a PayPal webhook is processed only after PayPal confirms it
 // (POST /v1/notifications/verify-webhook-signature with the transmission headers and PAYPAL_WEBHOOK_ID).
@@ -14,23 +13,7 @@ export interface PaypalVerifyDeps {
 	verify?: (body: Record<string, unknown>) => Promise<string>;
 }
 
-const accessToken = async (): Promise<string> => {
-	const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID ?? ''}:${process.env.PAYPAL_CLIENT_SECRET ?? ''}`).toString('base64');
-	const { data } = await axios.post(`${BASE_URL}/v1/oauth2/token`, 'grant_type=client_credentials', {
-		headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-		timeout: 15000,
-	});
-	return (data as { access_token: string }).access_token;
-};
-
-const defaultVerify = async (body: Record<string, unknown>): Promise<string> => {
-	const token = await accessToken();
-	const { data } = await axios.post(`${BASE_URL}/v1/notifications/verify-webhook-signature`, body, {
-		headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-		timeout: 15000,
-	});
-	return String((data as { verification_status?: string }).verification_status ?? '');
-};
+const defaultVerify = (body: Record<string, unknown>): Promise<string> => paypalClient().verifyWebhookSignature(body);
 
 const header = (headers: IncomingHttpHeaders, name: string): string | null => {
 	const v = headers[name];

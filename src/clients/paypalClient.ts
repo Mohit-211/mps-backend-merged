@@ -184,13 +184,14 @@ export const createPaypalClient = (deps: PaypalClientDeps = {}) => {
 			}),
 
 		/** A subscription at `monthly` (its own price override), approved by the buyer at approve_url. */
-		createSubscription: async (input: { plan_id: string; custom_id: string; monthly: number; currency: Currency; return_url: string; cancel_url: string; brand_name: string; request_id?: string }) => {
+		createSubscription: async (input: { plan_id: string; custom_id: string; monthly: number; currency: Currency; return_url: string; cancel_url: string; brand_name: string; request_id?: string; start_time?: Date | null }) => {
 			const r = await call<RawSubscription>(
 				'POST',
 				'/v1/billing/subscriptions',
 				{
 					plan_id: input.plan_id,
 					custom_id: input.custom_id,
+					...(input.start_time ? { start_time: input.start_time.toISOString() } : {}),
 					plan: { billing_cycles: [{ sequence: 1, total_cycles: 0, pricing_scheme: { fixed_price: amount(input.monthly, input.currency) } }] },
 					// Subscriptions still take the return URLs in application_context (their payment_source only covers cards).
 					application_context: { brand_name: input.brand_name, shipping_preference: 'NO_SHIPPING', user_action: 'SUBSCRIBE_NOW', return_url: input.return_url, cancel_url: input.cancel_url },
@@ -234,6 +235,10 @@ export const createPaypalClient = (deps: PaypalClientDeps = {}) => {
 
 		captureOrder: async (id: string, requestId: string): Promise<PaypalOrder> =>
 			mapOrder(await call<RawOrder>('POST', `/v2/checkout/orders/${encodeURIComponent(id)}/capture`, {}, { 'PayPal-Request-Id': requestId })),
+
+		/** PayPal's verification_status (SUCCESS | FAILURE) for a webhook's headers + event. */
+		verifyWebhookSignature: async (body: Record<string, unknown>): Promise<string> =>
+			String((await call<{ verification_status?: string }>('POST', '/v1/notifications/verify-webhook-signature', body)).verification_status ?? ''),
 	};
 };
 

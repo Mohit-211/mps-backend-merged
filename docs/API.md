@@ -2332,3 +2332,129 @@ It never removes anything and never re-adds a directory an admin took off the li
   "changes": [ { "at": "…", "directory": "Data Axle", "action": "status_changed", "from": "not_checked", "to": "nap_wrong" } ] }
 ```
 
+
+## Billing (Phase 13a)
+
+One billing page. Money is in the organization's currency (US → USD, CA → CAD); monthly = first-location price + (n − 1) × additional-location price, n = paid locations (standard plan: up to 20). Read: owner and member; payments and changes: owner. Billing stays open when the organization is read-only. Catalogue: ENDPOINTS.md #107–#121.
+
+**PayPal flow for the frontend:**
+1. `POST /billing/checkout` (subscription), `POST /billing/location-slots` or `POST /billing/tokens/checkout` (one-time orders) → `approve_url`. Send the browser there.
+2. PayPal returns to `FRONTEND_URL/settings/billing?…`:
+   - subscription: `?checkout=success&subscription_id=…` (or `checkout=cancelled`) → call `POST /billing/sync`
+   - order: `?order=return&purpose=token_pack|location_slots&token=<PayPal order id>` (or `order=cancelled`) → call `POST /billing/orders/<token>/capture`
+3. The webhooks do the same work, so a closed tab still ends up paid; both paths are idempotent.
+
+### `GET /api/v1/billing`
+
+```json
+{
+  "state": "active",
+  "read_only": false,
+  "trial_ends_at": "2026-10-05T10:00:00.000Z",
+  "grace_ends_at": null,
+  "currency": "CAD",
+  "plan": { "id": "…", "name": "Standard", "kind": "standard", "max_locations": 20, "users_per_location": 3 },
+  "prices": {
+    "current": { "first_location": 49, "additional_location": 19 },
+    "upcoming": { "first_location": 55, "additional_location": 19, "effective_from": "2027-01-01T00:00:00.000Z" }
+  },
+  "subscription": {
+    "id": "…", "status": "active", "billing_method": "paypal", "paid_quantity": 3,
+    "price": { "first_location": 49, "additional_location": 19 },
+    "current_period_start": "2026-09-28T…", "current_period_end": "2026-10-28T…",
+    "cancel_at_period_end": false, "comp_until": null
+  },
+  "next_renewal": { "date": "2026-10-28T…", "quantity": 3, "amount": 87, "fixed": false },
+  "locations": { "active": 3, "allowed": 3, "max": 20 },
+  "users": { "used": 4, "limit": 9 },
+  "tokens": { "balance": 12, "cost_per_refresh": { "rankings": 1, "gbp": 1 } },
+  "billing_details": { "name": "Maple Leaf Inc.", "email": null, "address_line1": null, "address_line2": null, "city": "Toronto", "region": "ON", "postal_code": null, "country": "Canada" },
+  "online_payments": true
+}
+```
+
+- `state`: `trialing | active | past_due | inactive | suspended_by_admin`. `past_due` keeps full access until `grace_ends_at` (7 days); `inactive` and `suspended_by_admin` are read-only.
+- `next_renewal.fixed`: the amount was fixed by the renewal snapshot (11 days before the renewal); before that it is an estimate from the active locations and the price in effect at the renewal date. `null` when cancelled, comped or without a subscription.
+- A cancelled subscription keeps `state: "active"` until `current_period_end`.
+- `online_payments: false` → PayPal isn't configured (checkout answers 503 `billing_not_configured`).
+
+### `POST /api/v1/billing/checkout`
+
+No body. Quantity = the active locations (at least 1), at the current prices. → **201**
+
+```json
+{ "subscription_id": "…", "approve_url": "https://www.paypal.com/webapps/billing/subscriptions?ba_token=…", "quantity": 2, "currency": "CAD", "monthly_amount": 68, "starts_at": null }
+```
+
+`starts_at` is set when a cancelled subscription is still paid: the new one starts when that period ends. Errors: **409** `price_not_set` (prices not set yet), `already_subscribed`, `manual_billing` (billed by invoice); **403** `enterprise_required` (more active locations than the plan allows); **503** `billing_not_configured`.
+
+### `POST /api/v1/billing/sync`, `POST /api/v1/billing/cancel`
+
+`sync` re-reads the subscription at PayPal and returns the `GET /billing` body. `cancel { reason? }` cancels at PayPal and returns the `GET /billing` body (access continues to the end of the paid period); **409** `no_subscription`, `manual_billing`.
+
+### Location slots
+
+When `POST /locations` or `POST /onboarding/select-profile` answers **402** `location_payment_required` (with a `quote`), the organization is at its paid quantity:
+
+`GET /api/v1/billing/location-slots/quote?quantity=1` →
+
+```json
+{
+  "quantity": 1, "remaining_days": 12.5, "period_days": 30,
+  "lines": [{ "label": "Additional location, prorated to 2026-10-28", "quantity": 1, "unit_price": 7.92, "amount": 7.92 }],
+  "amount": 7.92, "currency": "CAD", "period_end": "2026-10-28T…",
+  "billing_method": "paypal", "paid_quantity": 3, "new_paid_quantity": 4
+}
+```
+
+Extra slots are always charged at the additional-location price, prorated to the period end. Within 11 days of the renewal the renewal amount is already fixed, so a second line adds the full next period for the slots. `POST /api/v1/billing/location-slots { "quantity": 1 }` → **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false, quote }`. After the capture, retry the location add. Manual billing: **200** `{ fulfilled: true, quote }` (the slot is available now; the prorated line goes on the next invoice). **402** `subscription_required` without an active subscription; **403** `enterprise_required` `{ max }` beyond the plan cap.
+
+Removing a location refunds nothing; the slot stays paid and reusable until the period ends, and the renewal counts the active locations.
+
+### Tokens
+
+Manual refreshes cost tokens (`tokens.cost_per_refresh`); the monthly automatic refresh is free.
+- `GET /api/v1/billing/token-packs` → `{ currency, packs: [{ id, name, tokens, currency, list_price, price, expires_after_days }] }` (`price` includes a custom plan's pack price or discount).
+- `POST /api/v1/billing/coupon/validate { pack_id, coupon_code }` → `{ pack_id, currency, price, discount, total }`.
+- `POST /api/v1/billing/tokens/checkout { pack_id, coupon_code? }` → **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false }`. A 100% coupon fulfils at once (**200**, `fulfilled: true`).
+- Coupon errors (**400**): `invalid_coupon`, `coupon_expired`, `coupon_exhausted`, `coupon_not_applicable`. **404** `pack_not_found`.
+- `GET /api/v1/billing/tokens/ledger?page=&limit=` →
+
+```json
+{
+  "balance": 9,
+  "entries": [
+    { "id": "…", "type": "spend", "amount": -1, "balance_after": 9, "ref": "rank_run:…", "location_id": "…", "note": "Manual rankings refresh", "by": "user", "at": "…" },
+    { "id": "…", "type": "purchase", "amount": 10, "balance_after": 10, "ref": "order:…", "location_id": null, "note": "10 tokens", "by": "system", "at": "…" }
+  ],
+  "page": 1, "limit": 20, "total": 2
+}
+```
+
+Ledger types: `purchase | spend | refund | grant | monthly_grant | adjustment | expiry`; `by` is `user`, `system` or `MyPageSEO team`.
+
+### `POST /api/v1/billing/orders/:orderId/capture`
+
+`:orderId` is PayPal's order id (the `token` query parameter of the return URL). → `{ status: "captured" | "pending", order_id, purpose, billing: <GET /billing> }`. Idempotent. **409** `order_not_approved` (the buyer hasn't approved yet), `order_closed`; **402** `payment_declined`; **404** `order_not_found`.
+
+### Invoices and billing details
+
+- `GET /api/v1/billing/invoices?page=&limit=` → `{ invoices: [{ id, number: "INV-2026-000042", kind: subscription|location_slots|token_pack|manual, status: open|paid|refunded|void, currency, lines: [{ label, quantity, unit_price, amount }], tax_lines: [], total, charged_amount, period_start, period_end, issued_at, due_at, paid_at, has_pdf }], page, limit, total }`
+- `GET /api/v1/billing/invoices/:invoiceId/pdf` → `application/pdf`
+- `PATCH /api/v1/billing/details` with any of `{ name, email, address_line1, address_line2, city, region, postal_code, country }` → the saved details. They print on the next invoices; issued invoices keep the details of their issue date.
+
+### `GET /api/v1/pricing?country=US|CA` (public)
+
+```json
+{
+  "currency": "USD",
+  "prices": { "current": { "first_location": 39, "additional_location": 15 }, "upcoming": null },
+  "max_locations": 20,
+  "users_per_location": 3,
+  "trial": { "days": 7, "locations": 1, "users": 3 },
+  "tokens_per_refresh": { "rankings": 1, "gbp": 1 },
+  "token_packs": [{ "id": "…", "name": "Starter", "tokens": 10, "price": 20, "currency": "USD" }]
+}
+```
+
+`prices.current` is `null` until prices are set. (The amounts above are examples only; real prices are set by an admin.)
