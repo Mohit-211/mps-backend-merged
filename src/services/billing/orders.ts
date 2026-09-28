@@ -1,6 +1,5 @@
 import httpStatus from 'http-status';
 import { Types } from 'mongoose';
-import { PaypalOrder, paypalClient } from '../../clients/paypalClient';
 import config from '../../configs/config';
 import logger from '../../configs/logger';
 import { Currency, currencyFor } from '../../billing/constants';
@@ -11,10 +10,11 @@ import { findCouponForPack, redeemCoupon } from './coupons';
 import { loadEntitlement } from './entitlement.service';
 import { invoiceService } from './invoices';
 import { quoteSlots } from './slots';
+import { OrderNotApprovedError, ProviderOrder, paymentProvider } from './providers';
 import { BillingDeps, notConfigured } from './subscriptions';
 import { credit } from './tokens';
 
-// One-time PayPal orders (Phase 13a): token packs and prorated location slots. create → buyer approves
+// One-time provider orders (Phase 13a; PayPal today): token packs and prorated location slots. create → buyer approves
 // → capture (return page or webhook, whichever is first) → exactly one fulfilment (compare-and-set).
 
 type Id = Types.ObjectId | string;
@@ -35,7 +35,7 @@ export const packsFor = (packs: ITokenPack[], plan: Pick<IBillingPlan, 'token_pa
 export const activePacks = () => TokenPack.find({ is_active: true }).sort({ sort_order: 1, tokens: 1 }).lean<ITokenPack[]>();
 
 export const createOrderService = (deps: BillingDeps = {}) => {
-	const pp = deps.paypal ?? paypalClient;
+	const pp = deps.provider ?? paymentProvider;
 	const now = deps.now ?? (() => new Date());
 
 	const packQuote = async (organizationId: Id, packId: string, couponCode: string | null) => {
@@ -50,20 +50,17 @@ export const createOrderService = (deps: BillingDeps = {}) => {
 	};
 
 	const startOrder = async (order: IPaymentOrder, description: string) => {
-		const client = pp();
 		try {
-			const r = await client.createOrder({
+			const r = await pp().createOrder({
+				orderId: String(order._id),
 				amount: order.amount,
 				currency: order.currency,
-				custom_id: String(order._id),
 				description,
-				return_url: returnUrl(`order=return&purpose=${order.purpose}`),
-				cancel_url: returnUrl(`order=cancelled&purpose=${order.purpose}`),
-				brand_name: 'MyPageSEO',
-				request_id: `order-${String(order._id)}`,
+				returnUrl: returnUrl(`order=return&purpose=${order.purpose}`),
+				cancelUrl: returnUrl(`order=cancelled&purpose=${order.purpose}`),
 			});
-			await PaymentOrder.updateOne({ _id: order._id }, { $set: { provider_order_id: r.id } });
-			return { order_id: String(order._id), provider_order_id: r.id, approve_url: r.approve_url, amount: order.amount, currency: order.currency };
+			await PaymentOrder.updateOne({ _id: order._id }, { $set: { provider_order_id: r.providerId } });
+			return { order_id: String(order._id), provider_order_id: r.providerId, approve_url: r.approveUrl, amount: order.amount, currency: order.currency };
 		} catch (err) {
 			await PaymentOrder.updateOne({ _id: order._id }, { $set: { status: 'failed', failure_reason: (err as Error).message.slice(0, 200) } });
 			throw err;
@@ -92,7 +89,7 @@ export const createOrderService = (deps: BillingDeps = {}) => {
 		return { ...(await startOrder(order, `${q.pack.tokens} tokens (${q.pack.name})`)), fulfilled: false };
 	};
 
-	/** Extra location slots. PayPal: a prorated order; manual billing: granted now, billed on the next invoice. */
+	/** Extra location slots. Online billing: a prorated order; manual billing: granted now, billed on the next invoice. */
 	const buySlots = async (organizationId: Id, userId: Id, quantity: number) => {
 		const at = now();
 		const loaded = await loadEntitlement(String(organizationId), at);
@@ -175,7 +172,6 @@ export const createOrderService = (deps: BillingDeps = {}) => {
 		return true;
 	};
 
-	const completedCapture = (o: PaypalOrder) => (o.capture && o.capture.status === 'COMPLETED' ? o.capture : null);
 
 	/** Captures an approved order (idempotent). Returns the order's state. */
 	const capture = async (organizationId: Id | null, providerOrderId: string) => {
@@ -183,32 +179,29 @@ export const createOrderService = (deps: BillingDeps = {}) => {
 		if (!order) throw apiErrorWithData(httpStatus.NOT_FOUND, 'Order not found.', { reason: 'order_not_found' });
 		if (order.status === 'captured') return { status: 'captured' as const, order_id: String(order._id), purpose: order.purpose };
 		if (order.status === 'failed' || order.status === 'expired') throw apiErrorWithData(httpStatus.CONFLICT, 'This order can no longer be paid.', { reason: 'order_closed' });
-		const client = pp();
-		if (!client.configured()) throw notConfigured();
-		let result: PaypalOrder;
+		const provider = pp();
+		if (!provider.configured()) throw notConfigured();
+		let result: ProviderOrder;
 		try {
-			result = await client.captureOrder(providerOrderId, `capture-${String(order._id)}`);
+			result = await provider.captureOrder(providerOrderId, String(order._id));
 		} catch (err) {
-			// Already captured by the other path (return page vs webhook): read it back.
-			const reason = (err as { reason?: string }).reason;
-			if (reason === 'ORDER_ALREADY_CAPTURED') result = await client.getOrder(providerOrderId);
-			else if (reason === 'ORDER_NOT_APPROVED') throw apiErrorWithData(httpStatus.CONFLICT, 'The payment has not been approved yet.', { reason: 'order_not_approved' });
-			else throw err;
+			if (err instanceof OrderNotApprovedError) throw apiErrorWithData(httpStatus.CONFLICT, 'The payment has not been approved yet.', { reason: 'order_not_approved' });
+			throw err;
 		}
-		const c = completedCapture(result);
-		if (c) {
+		const c = result.capture;
+		if (c && c.state === 'completed') {
 			await fulfil(order, c.id, c.amount);
 			return { status: 'captured' as const, order_id: String(order._id), purpose: order.purpose };
 		}
-		if (result.capture?.status === 'DECLINED' || result.capture?.status === 'FAILED') {
-			await PaymentOrder.updateOne({ _id: order._id, status: { $ne: 'captured' } }, { $set: { status: 'failed', failure_reason: `capture ${result.capture.status}` } });
+		if (c && c.state === 'declined') {
+			await PaymentOrder.updateOne({ _id: order._id, status: { $ne: 'captured' } }, { $set: { status: 'failed', failure_reason: 'capture declined' } });
 			throw apiErrorWithData(httpStatus.PAYMENT_REQUIRED, 'The payment was declined.', { reason: 'payment_declined' });
 		}
 		await PaymentOrder.updateOne({ _id: order._id, status: 'created' }, { $set: { status: 'approved' } });
 		return { status: 'pending' as const, order_id: String(order._id), purpose: order.purpose };
 	};
 
-	/** Webhook PAYMENT.CAPTURE.COMPLETED: the capture already happened at PayPal. */
+	/** Webhook: the capture already happened at the provider. */
 	const captureCompleted = async (providerOrderId: string, captureId: string, amount: number) => {
 		const order = await PaymentOrder.findOne({ provider_order_id: providerOrderId }).lean<IPaymentOrder>();
 		if (!order) return false;

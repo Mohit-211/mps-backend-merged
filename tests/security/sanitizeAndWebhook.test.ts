@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { findUnsafeKey } from '../../src/middlewares/common/sanitizeRequest';
-import { verifyPaypalWebhook } from '../../src/services/common/paypalWebhook';
+import { createPaypalProvider } from '../../src/services/billing/providers/paypal';
 
 // Phase 10 (AUDIT S6, S4): operator keys are refused; PayPal webhooks must be verified by PayPal.
 
@@ -37,6 +37,10 @@ describe('PayPal webhook (S4)', () => {
 		'paypal-transmission-time': '2026-09-27T10:00:00Z',
 	};
 	const event = { id: 'WH-EVT-1', event_type: 'BILLING.SUBSCRIPTION.ACTIVATED', resource: { id: 'I-ABC' } };
+
+	// Phase 13b: verification lives in the PayPal provider (verifyWebhook).
+	const verifyPaypalWebhook = (h: Record<string, string | undefined>, body: unknown, deps: { webhookId: string; verify: (b: Record<string, unknown>) => Promise<string> }) =>
+		createPaypalProvider({ webhookId: deps.webhookId, client: () => ({ verifyWebhookSignature: deps.verify }) as never }).verifyWebhook(h, body);
 
 	it('is verified with PayPal: SUCCESS only; missing headers, no webhook id, a FAILURE or an error all refuse', async () => {
 		const verify = jest.fn(async () => 'SUCCESS');

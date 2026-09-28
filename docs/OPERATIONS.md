@@ -247,7 +247,7 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 
 **Jobs** (one agenda document each, Mongo-locked):
 - `billing-renewals`, every 6 hours:
-  - PayPal renewal snapshots: 11 days before each renewal (`BILLING_RENEWAL_LEAD_DAYS`) it fixes quantity = the active locations (at least 1) and the prices in effect at the renewal date, then PATCHes the subscription's price. PayPal ignores price changes within 10 days of a charge for PayPal-funded subscriptions, so the job runs every 6 hours: a failed PATCH is retried while there is still time. `patch_errors` in the log line means a PATCH failed.
+  - PayPal renewal snapshots: 11 days before each renewal (`PAYPAL_PRICE_CHANGE_LEAD_DAYS`, a PayPal provider setting) it fixes quantity = the active locations (at least 1) and the prices in effect at the renewal date, then PATCHes the subscription's price. PayPal ignores price changes within 10 days of a charge for PayPal-funded subscriptions, so the job runs every 6 hours: a failed PATCH is retried while there is still time. `patch_errors` in the log line means a PATCH failed.
   - Manual billing: at each period end the next period starts and an **open** invoice is issued, due in `MANUAL_INVOICE_DUE_DAYS` (14). It includes the prorated slot lines added since the last invoice. Comped subscriptions (`comp_until`) advance without an invoice.
   - Monthly token grants (custom plans): credited once per payment (PayPal) or per period (manual).
   - Token expiry (only packs with `expires_after_days`; off by default): what is left of an expired pack is removed. Oldest tokens are spent first.
@@ -274,7 +274,7 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 | `TRIAL_DAYS` | 7 | Default trial length (the plan setting wins once it exists) |
 | `BILLING_GRACE_DAYS` | 7 | Failed payment / overdue manual invoice → read-only after this |
 | `MANUAL_INVOICE_DUE_DAYS` | 14 | Manual invoices are due this many days after issue |
-| `BILLING_RENEWAL_LEAD_DAYS` | 11 | Renewal snapshot + price PATCH this many days before a renewal (PayPal ignores changes within 10) |
+| `PAYPAL_PRICE_CHANGE_LEAD_DAYS` | 11 | Renewal snapshot + price PATCH this many days before a renewal (PayPal ignores changes within 10) |
 | `BILLING_SELLER_NAME`, `BILLING_SELLER_ADDRESS` (address lines separated by a vertical bar), `BILLING_SELLER_EMAIL`, `BILLING_SELLER_TAX_ID` | name `MyPageSEO`, others empty | The seller block on invoices |
 | `FRONTEND_URL` | – | PayPal returns to `FRONTEND_URL/settings/billing?…` |
 

@@ -1,6 +1,5 @@
 import httpStatus from 'http-status';
 import { Types } from 'mongoose';
-import { paypalClient } from '../../clients/paypalClient';
 import config from '../../configs/config';
 import { BillingMethod, currencyFor, Currency } from '../../billing/constants';
 import { monthlyLines, priceAt } from '../../billing/pricing';
@@ -26,6 +25,7 @@ import { audit, AuditActor } from './audit';
 import { couponView } from './coupons';
 import { invoiceService, invoiceView } from './invoices';
 import { planForOrganization, standardPlan } from './plans';
+import { paymentProvider } from './providers';
 import { createSubscriptionService } from './subscriptions';
 import { credit } from './tokens';
 
@@ -304,10 +304,10 @@ export const getSubscription = async (id: string) => {
 
 export const syncSubscription = async (actor: AuditActor, id: string) => {
 	const sub = await loadSubscription(id);
-	if (!sub.provider_subscription_id) throw conflict('not_paypal', 'This subscription is not billed through PayPal.');
-	const client = paypalClient();
-	if (!client.configured()) throw apiErrorWithData(httpStatus.SERVICE_UNAVAILABLE, 'PayPal is not configured.', { reason: 'billing_not_configured' });
-	const updated = await createSubscriptionService().applyPaypal(sub, await client.getSubscription(sub.provider_subscription_id));
+	if (!sub.provider_subscription_id) throw conflict('not_paypal', 'This subscription is not billed through the payment provider.');
+	const provider = paymentProvider();
+	if (!provider.configured()) throw apiErrorWithData(httpStatus.SERVICE_UNAVAILABLE, 'Online payments are not configured.', { reason: 'billing_not_configured' });
+	const updated = await createSubscriptionService().applyProviderState(sub, await provider.getSubscription(sub.provider_subscription_id));
 	await audit(actor, { action: 'billing.subscription.sync', organization_id: sub.organization_id, target: `subscription:${id}`, before: sub.status, after: updated.status });
 	return subscriptionView(updated);
 };
@@ -315,10 +315,10 @@ export const syncSubscription = async (actor: AuditActor, id: string) => {
 export const cancelSubscription = async (actor: AuditActor, id: string, reason: string) => {
 	const sub = await loadSubscription(id);
 	if (!sub.open) throw conflict('not_open', 'This subscription is not open.');
-	if (sub.billing_method === 'paypal' && sub.provider_subscription_id && sub.status !== 'approval_pending') {
-		const client = paypalClient();
-		if (!client.configured()) throw apiErrorWithData(httpStatus.SERVICE_UNAVAILABLE, 'PayPal is not configured.', { reason: 'billing_not_configured' });
-		await client.cancelSubscription(sub.provider_subscription_id, reason || 'Cancelled by MyPageSEO');
+	if (sub.billing_method !== 'manual' && sub.provider_subscription_id && sub.status !== 'approval_pending') {
+		const provider = paymentProvider();
+		if (!provider.configured()) throw apiErrorWithData(httpStatus.SERVICE_UNAVAILABLE, 'Online payments are not configured.', { reason: 'billing_not_configured' });
+		await provider.cancelSubscription(sub.provider_subscription_id, reason || 'Cancelled by MyPageSEO');
 	}
 	const now = new Date();
 	const updated = (await Subscription.findByIdAndUpdate(

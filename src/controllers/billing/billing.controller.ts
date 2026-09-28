@@ -13,7 +13,10 @@ import { apiErrorWithData, catchAsync, responseWrapper } from '../../utils';
 
 const orgOf = (res: Response): OrgContext => res.locals.org as OrgContext;
 const orgId = (res: Response) => orgOf(res).organization._id;
-type Page = { page: number; limit: number };
+interface Page {
+	page: number;
+	limit: number;
+}
 
 export const overview = catchAsync(async (req, res) => responseWrapper(res, await billingOverview(orgId(res))));
 

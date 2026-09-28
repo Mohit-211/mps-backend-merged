@@ -1,7 +1,5 @@
 import httpStatus from 'http-status';
 import { Types } from 'mongoose';
-import { paypalClient } from '../../clients/paypalClient';
-import config from '../../configs/config';
 import { currencyFor, Currency } from '../../billing/constants';
 import { monthlyAmount, priceAt } from '../../billing/pricing';
 import { IBillingPlan, IInvoice, ITokenLedger, Invoice, Location, Organization, OrganizationBillingDetails, TokenLedger } from '../../models';
@@ -10,6 +8,7 @@ import { loadEntitlement } from './entitlement.service';
 import { invoiceView } from './invoices';
 import { activePacks, packsFor } from './orders';
 import { standardPlan } from './plans';
+import { paymentProvider } from './providers';
 import { ledgerView } from './tokens';
 
 // The billing page (Phase 13a): one GET with everything the page shows, the public pricing, billing
@@ -69,7 +68,7 @@ export const billingOverview = async (organizationId: Id, at: Date = new Date())
 		users: e.users,
 		tokens: { balance: e.tokens.balance, cost_per_refresh: e.tokens.cost_per_refresh },
 		billing_details: org.billing_details ?? null,
-		online_payments: paypalClient().configured() && Boolean(config.paypal.planIds[currency]),
+		online_payments: paymentProvider().canSubscribe(currency),
 	};
 };
 
