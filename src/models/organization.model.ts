@@ -26,6 +26,18 @@ export interface OrganizationBranding {
 	updated_at: Date | null;
 }
 
+/** Invoice details (Phase 13a), editable by the owner (PATCH /billing/details). */
+export interface OrganizationBillingDetails {
+	name: string | null;
+	email: string | null;
+	address_line1: string | null;
+	address_line2: string | null;
+	city: string | null;
+	region: string | null;
+	postal_code: string | null;
+	country: string | null;
+}
+
 export interface IOrganization extends Document {
 	name: string;
 	type: OrganizationType;
@@ -33,6 +45,15 @@ export interface IOrganization extends Document {
 	owner_user_id: Types.ObjectId;
 	onboarding: { completed_at: Date | null; skipped: SkippableStep[] };
 	branding?: OrganizationBranding | null;
+	/** Phase 13a billing: trial end (set at creation), the plan (standard or custom), how it pays. */
+	trial_ends_at?: Date | null;
+	plan_id?: Types.ObjectId | null;
+	billing_method?: 'paypal' | 'manual';
+	billing_details?: OrganizationBillingDetails | null;
+	token_balance?: number;
+	/** Phase 13b: an admin suspension makes the organization read-only. */
+	suspended_at?: Date | null;
+	suspended_reason?: string | null;
 	is_active: boolean;
 	created_at: Date;
 	updated_at: Date;
@@ -49,6 +70,13 @@ const OrganizationSchema = new Schema<IOrganization>(
 			skipped: { type: [String], enum: SKIPPABLE_STEPS, default: [] },
 		},
 		branding: { type: Schema.Types.Mixed, default: null },
+		trial_ends_at: { type: Date, default: null },
+		plan_id: { type: Schema.Types.ObjectId, ref: 'BillingPlan', default: null },
+		billing_method: { type: String, enum: ['paypal', 'manual'], default: 'paypal' },
+		billing_details: { type: Schema.Types.Mixed, default: null },
+		token_balance: { type: Number, default: 0 },
+		suspended_at: { type: Date, default: null },
+		suspended_reason: { type: String, default: null },
 		is_active: { type: Boolean, default: true },
 	},
 	{ collection: 'organizations', timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
