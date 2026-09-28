@@ -24,13 +24,13 @@ jest.mock('../../src/services/common/email.service', () => ({
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const adminAuthRoute = require('../../src/routes/v1/admin/adminAuth.route').default;
-const adminOpsRoute = require('../../src/routes/v1/admin/adminOperations.route').default;
+const adminBillingRoute = require('../../src/routes/v1/admin/billing.route').default;
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 
 const app = express();
 app.use(express.json());
 app.use('/api/v1/admin/auth', adminAuthRoute);
-app.use('/api/v1/admin/operations', adminOpsRoute);
+app.use('/api/v1/admin/billing', adminBillingRoute);
 app.use(apiErrorHandler);
 
 const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -108,9 +108,9 @@ describe('roles → permissions (S1)', () => {
 		const denied = await request(app).get('/api/v1/admin/auth/getAllAdmins').set(bearer(ad));
 		expect(denied.status).toBe(403);
 		expect(denied.body.data).toMatchObject({ reason: 'forbidden', permission: 'admins.manage' });
-		expect((await request(app).get('/api/v1/admin/operations/getAllAgencies').set(bearer(ad))).status).toBe(200);
-		expect((await request(app).get('/api/v1/admin/operations/getAllAgencies').set(bearer(ed))).status).toBe(403);
-		expect((await request(app).get('/api/v1/admin/operations/getAllAgencies')).status).toBe(401);
+		expect((await request(app).get('/api/v1/admin/billing/plans').set(bearer(ad))).status).toBe(200);
+		expect((await request(app).get('/api/v1/admin/billing/plans').set(bearer(ed))).status).toBe(403);
+		expect((await request(app).get('/api/v1/admin/billing/plans')).status).toBe(401);
 		expect((await request(app).post('/api/v1/admin/auth/register').set(bearer(ad)).send({ email: 'n@test.dev', name: 'N', role_id: config.roles.superAdmin })).status).toBe(403);
 		const created = await request(app).post('/api/v1/admin/auth/register').set(bearer(sa)).send({ email: 'N@Test.dev', name: 'N', role_id: config.roles.editor });
 		expect(created.status).toBe(201);

@@ -68,9 +68,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**232 endpoints:** 227 live, 4 deprecated, 1 dev-only.
-- **By origin:** 152 rebuilt or new, 80 legacy.
-- **By auth:** 95 user, 95 platform admin (each with a permission), 40 none, 2 refresh token.
+**226 endpoints:** 221 live, 4 deprecated, 1 dev-only.
+- **By origin:** 152 rebuilt or new, 74 legacy.
+- **By auth:** 95 user, 89 platform admin (each with a permission), 40 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -99,12 +99,6 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/admin/auth/getProfile` | admin | Get Profile | legacy | live |
 | PUT | `/api/v1/admin/auth/updateAdmin` | admin (`admins.manage`) | Update Admin (not your own role; a role or email change revokes that admin's tokens) | legacy, changed 10 | live |
 | DELETE | `/api/v1/admin/auth/deleteAdmin` | admin (`admins.manage`) | Delete Admin (not yourself, not the last super admin) | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getAllAgencies` | admin (`platform.read`) | Get All Agencies | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getAgencyById/:id` | admin (`platform.read`) | Get Agency By Id | legacy, changed 10 | live |
-| PUT | `/api/v1/admin/operations/updateAgencyStatus` | admin (`platform.write`) | Update Agency Status | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getAllBusinesses` | admin (`platform.read`) | Get All Businesses | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getBusinessesById/:id` | admin (`platform.read`) | Get Businesses By Id | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getAllClients` | admin (`platform.read`) | Get All Clients | legacy, changed 10 | live |
 
 ### Auth (rebuilt app)
 

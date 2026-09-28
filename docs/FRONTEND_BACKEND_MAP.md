@@ -25,8 +25,8 @@ Status as of 2026-09-28: everything through Phase 16 (citations) is merged and p
 | Permission | Roles | Routes |
 |---|---|---|
 | `admins.manage` | super admin | `/admin/auth/{register, getAllAdmins, getAdminById/:id, updateAdmin, deleteAdmin}`, `/roles` (all) |
-| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId` |
-| `platform.write` | super admin, admin | `PUT /admin/operations/updateAgencyStatus`, `PUT /supports/updateSupportTicketStatus`, `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
+| `platform.read` | super admin, admin | `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId` |
+| `platform.write` | super admin, admin | `PUT /supports/updateSupportTicketStatus`, `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
 | `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |
 | `system.read` | super admin | `/system/{info, process, time, usage}`, `GET/DELETE /logs` |
 | `citations.view` / `citations.manage` | super admin, admin, editor | Phase 16 citation admin (directories, per-location lists, work queue) |
