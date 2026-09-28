@@ -107,20 +107,6 @@ export const tokenTypesArr: string[] = [
 	'GBP'
 ];
 
-export const notificationTypesArr: string[] = [
-	'APPOINTMENT_BOOKED',
-	'APPOINTMENT_CANCELED',
-	'APPOINTMENT_RESCHEDULED',
-	'INCOMING_MESSAGE',
-	'TRIAL_BOOKED',
-	'TRIAL_CANCELED',
-	'SUBSCRIBED',
-	'UNSUBSCRIBED',
-	'PROMOTIONAL',
-	'NEWSLETTER',
-	'ALERT',
-];
-
 export const queryTypesArr = ['sortBy', 'limit', 'page'];
 export const queryTypes = {
 	sortBy: 'sortBy',

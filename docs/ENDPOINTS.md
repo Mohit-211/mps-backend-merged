@@ -68,9 +68,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-09-28, Phase 13b in progress)
 
-**247 endpoints:** 232 live, 14 deprecated, 1 dev-only.
-- **By origin:** 152 rebuilt or new, 95 legacy.
-- **By auth:** 110 user, 95 platform admin (each with a permission), 40 none, 2 refresh token.
+**241 endpoints:** 231 live, 9 deprecated, 1 dev-only.
+- **By origin:** 152 rebuilt or new, 89 legacy.
+- **By auth:** 104 user, 95 platform admin (each with a permission), 40 none, 2 refresh token.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -136,13 +136,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/user/auth/employee/all` | user | Get All Employee By Owner | legacy | live |
 | GET | `/api/v1/user/auth/employee/details/:employee_id` | user | Employee Details | legacy | live |
 | GET | `/api/v1/user/profile` | user | Get Profile | legacy | live |
-| POST | `/api/v1/user/notifications` | user | Notification Toogle | legacy | live |
 | PUT | `/api/v1/user/profile` | user | Update Profile | legacy | live |
-| POST | `/api/v1/user/clients` | user | Create Client. Replaced by `/clients` | legacy | deprecated |
-| GET | `/api/v1/user/clients` | user | Get All Client. Replaced by `/clients` | legacy | deprecated |
-| GET | `/api/v1/user/clients/:client_id` | user | Get Client Details. Replaced by `/clients/:clientId` | legacy | deprecated |
-| PUT | `/api/v1/user/clients` | user | Update Client. Replaced by `PATCH /clients/:clientId` | legacy | deprecated |
-| DELETE | `/api/v1/user/clients/:client_id` | user | Delete Client. Replaced by `DELETE /clients/:clientId` | legacy | deprecated |
 
 ### Locations
 

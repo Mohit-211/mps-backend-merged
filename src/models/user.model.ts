@@ -23,7 +23,6 @@ export interface IUser extends Document {
 	password: string;
 	status: string;
 	is_gbp_connected: boolean;
-	notification_status: boolean;
 
 	/** Phase 8: the organization used when no X-Organization-Id header is sent. */
 	default_organization_id?: mongoose.Types.ObjectId | null;
@@ -84,10 +83,6 @@ const userSchema = new Schema<IUser>(
 		is_gbp_connected: {
 			type: Boolean,
 			default: false,
-		},
-		notification_status: {
-			type: Boolean,
-			default: true,
 		},
 
 		default_organization_id: {

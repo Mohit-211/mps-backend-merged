@@ -71,12 +71,12 @@ These can be deleted from server `.env` files. Leaving them does no harm: the co
 ## Fields removed from the schemas (Phase 13b)
 
 Old documents may still carry these; nothing reads or writes them. Remove with `$unset` when convenient (after a backup):
-- `users`: `user_name`, `stripe_customer_id`, `socket_id`, `referral_code`, `is_proof_verify`, `is_analytics_connected`, `available_credit`, `square_customer_id`, `trial`, `subscription_status`, `current_plan_id`, `fcm_token`
+- `users`: `user_name`, `stripe_customer_id`, `socket_id`, `referral_code`, `is_proof_verify`, `is_analytics_connected`, `available_credit`, `square_customer_id`, `trial`, `subscription_status`, `current_plan_id`, `fcm_token`, `notification_status`
 - `admins`: `socket_id`
 - `user_tokens`: `fcm_token`
 
 ```js
-db.users.updateMany({}, { $unset: { user_name: 1, stripe_customer_id: 1, socket_id: 1, referral_code: 1, is_proof_verify: 1, is_analytics_connected: 1, available_credit: 1, square_customer_id: 1, trial: 1, subscription_status: 1, current_plan_id: 1, fcm_token: 1 } })
+db.users.updateMany({}, { $unset: { user_name: 1, stripe_customer_id: 1, socket_id: 1, referral_code: 1, is_proof_verify: 1, is_analytics_connected: 1, available_credit: 1, square_customer_id: 1, trial: 1, subscription_status: 1, current_plan_id: 1, fcm_token: 1, notification_status: 1 } })
 ```
 
 ## Billing (Phase 13a)

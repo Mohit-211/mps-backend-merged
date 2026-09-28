@@ -8,16 +8,13 @@ import {
   ApiError,
   catchAsync,
   validatePassword,
-  mongoFunctions,
 } from "../../utils";
 import {
-  mongoOperationsTypes,
   otpTypes,
   tokenTypes,
   userStatusTypes,
-  userTypesArr,
 } from "../../configs/constantTypes";
-import { City, Client, Country, OTP, State, User } from "../../models";
+import { City, Country, OTP, State, User } from "../../models";
 import { tokenService } from "../../services";
 import mongoose from "mongoose";
 
@@ -67,7 +64,6 @@ export const verifyAuthJWTToken = catchAsync(async (req, res, next) => {
           user_type: 1,
           role_id: 1,
           status: 1,
-          notification_status: 1,
           is_active: 1,
           owner_id: 1,
           is_gbp_connected: 1,
@@ -272,63 +268,6 @@ export const validateUpdateProfilerBody = catchAsync(async (req, res, next) => {
       req.body.city_name = cityDoc.name;
     }
 
-    next();
-  } catch (error) {
-    throw new ApiError(
-      error.statusCode ? error.statusCode : httpStatus.INTERNAL_SERVER_ERROR,
-      error.message
-    );
-  }
-});
-
-export const validateCreateClientBody = catchAsync(async (req, res, next) => {
-  try {
-    const { company_name, company_URL, unique_id } = req.body;
-
-    if (!company_name || !company_URL || !unique_id) {
-      return responseWrapper(
-        res,
-        "",
-        "Please Enter Required Fields : name, company_name, company_URL and unique_id in body",
-        httpStatus.BAD_REQUEST
-      );
-    }
-    const isCompanyUrlExists = await mongoFunctions({
-      schema: Client,
-      operationType: mongoOperationsTypes.FIND_ONE,
-      condition: { company_URL },
-    });
-    if (isCompanyUrlExists) {
-      return responseWrapper(
-        res,
-        "",
-        "company_URL is already registered",
-        httpStatus.BAD_REQUEST
-      );
-    }
-
-    const isUniqueIdExists = await mongoFunctions({
-      schema: Client,
-      operationType: mongoOperationsTypes.FIND_ONE,
-      condition: { unique_id },
-    });
-    if (isUniqueIdExists) {
-      return responseWrapper(
-        res,
-        "",
-        "unique_id is already registered",
-        httpStatus.BAD_REQUEST
-      );
-    }
-    const pattern = /^[A-Za-z]+-[A-Za-z]+-\d+$/;
-    if (!pattern.test(unique_id)) {
-      return responseWrapper(
-        res,
-        "",
-        "Invalid unique id format ex: letters-letters-digits like John-doe-123",
-        httpStatus.BAD_REQUEST
-      );
-    }
     next();
   } catch (error) {
     throw new ApiError(

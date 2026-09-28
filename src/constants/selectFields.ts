@@ -8,8 +8,6 @@ export const citySelect =
 export const languageSelect = "name slug is_active created_at";
 export const timezoneSelect = "time_zone is_active created_at";
 export const faqSelect = "question answer is_active created_at";
-export const clientSelect =
-  "company_name company_URL unique_id status no_of_locations is_active created_by created_at";
 export const supportSelect =
   "name email subject address message mobile is_active status created_at";
 export const businessCategorySelect = "name slug is_active created_at";
