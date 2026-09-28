@@ -88,7 +88,7 @@ Every email goes through one service (`src/services/common/email.service.ts`, `d
 
 - **Kinds:** `verification`, `password_reset`, `invitation`, `report`, `billing`, `admin`, `contact`, `support`. No per-feature exceptions: `EMAIL_TRANSPORT=smtp` in development sends every kind for real (use a test mailbox).
 - **Log mode prints links** (verify, reset, invitation, share): that is its purpose locally. In production the app warns at startup if `EMAIL_TRANSPORT=log`.
-- **Responses:** `email_sent` (invitations) and `sent` (report emails) are `false` when the email was only logged.
+- **Responses:** log mode counts as delivered. `email_sent` (invitations) and `email_verification: "sent"` (signup) are false / `"failed"` only when the SMTP server refused the email; a report or billing email that SMTP refuses is an error (recorded on the report / notice).
 - **`SUPPORT_EMAIL`:** the support inbox for contact-form notifications (and, from 13b step 6, support tickets); empty = not sent. (It was hardcoded before 13b.)
 
 ## Background jobs (agenda)

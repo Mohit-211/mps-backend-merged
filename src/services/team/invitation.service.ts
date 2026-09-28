@@ -99,7 +99,7 @@ export const createInvitationService = (deps: InvitationDeps = {}) => {
 			inv = (await Invitation.findOneAndUpdate({ organization_id: ctx.organization._id, email, status: 'pending' }, { $set: fields }, { new: true })) as IInvitation;
 		}
 		const link = invitationLink(token);
-		// 13b: sent or logged by the email service (EMAIL_TRANSPORT); false when only logged.
+		// 13b: sent or logged by the email service (EMAIL_TRANSPORT); false only when SMTP failed.
 		const emailSent = await mailer.sendInvitation(email, link, ctx.organization.name, input.role);
 		logger.info(`team: invitation ${String(inv._id)} (${input.role}) created in organization ${String(ctx.organization._id)} by user ${ctx.userId}`);
 		return { ...view(inv, at), email_sent: emailSent };

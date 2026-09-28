@@ -180,7 +180,7 @@ describe('invitation email and logs', () => {
 		const logged = info.mock.calls.map((c) => String(c[0])).join('\n');
 		expect(logged).not.toContain(tokenOf(link));
 		expect(logged).not.toContain('joe@example.com');
-		// Only logged (EMAIL_TRANSPORT=log): email_sent is false.
+		// An SMTP failure: email_sent is false.
 		const logOnly = await createInvitationService({ mailer: { sendInvitation: async () => false } }).invite(ctx, { email: 'ann@example.com', role: 'member' });
 		expect(logOnly.email_sent).toBe(false);
 		info.mockRestore();

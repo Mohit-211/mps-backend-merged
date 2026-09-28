@@ -51,8 +51,8 @@ export const createReportEmailService = (deps: ReportEmailDeps = {}) => {
 		const senderName = brand?.email_sender_name || (brand?.white_label ? `${doc.branding.name} via MyPageSEO` : 'MyPageSEO');
 		const delivery = asLink ? ('link' as const) : ('attachment' as const);
 
-		// 13b: sent or logged by the email service (EMAIL_TRANSPORT); sent is false when only logged.
-		const sent = await mailer({
+		// 13b: sent or logged by the email service (EMAIL_TRANSPORT); an SMTP failure throws.
+		await mailer({
 			to: recipients,
 			subject: `${doc.title}: ${doc.location.name}`,
 			text: renderEmailText(doc, note),
@@ -62,8 +62,8 @@ export const createReportEmailService = (deps: ReportEmailDeps = {}) => {
 			attachment: asLink ? null : { filename, content: data },
 			link,
 		});
-		logger.info(`report email for report ${String(report._id)}: ${recipients.length} recipient(s), ${delivery}, ${sent ? 'sent' : 'logged only'}`);
-		return { sent, recipients: recipients.length, delivery };
+		logger.info(`report email for report ${String(report._id)}: ${recipients.length} recipient(s), ${delivery}`);
+		return { sent: true, recipients: recipients.length, delivery };
 	};
 
 	return { send };

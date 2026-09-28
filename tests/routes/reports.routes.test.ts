@@ -227,7 +227,7 @@ describe('POST /reports/:id/email', () => {
 		expect(limited.status).toBe(429);
 	});
 
-	it('above the attachment limit a 30-day share link is emailed; sent is false when the email service only logged it', async () => {
+	it('above the attachment limit a 30-day share link is emailed', async () => {
 		const { token, id } = await setup();
 		const reportId = await createAndGenerate(token, { location_id: id, type: 'rank_tracker' });
 		const report = await Report.findById(reportId);
@@ -238,9 +238,6 @@ describe('POST /reports/:id/email', () => {
 		expect(call.attachment).toBeNull();
 		expect(call.text).toMatch(/\/r\/[A-Za-z0-9_-]{43}/);
 		expect(await ReportShare.findOne({ report_id: reportId }).lean()).toMatchObject({ purpose: 'email_link', expires_at: expect.any(Date) });
-		const logOnly = jest.fn(async () => false);
-		expect(await createReportEmailService({ mailer: logOnly }).send(report, ['a@x.test'], { sentBy: null, rateLimited: false })).toMatchObject({ sent: false });
-		expect(logOnly).toHaveBeenCalledTimes(1);
 	});
 });
 

@@ -65,12 +65,21 @@ describe('EMAIL_TRANSPORT', () => {
 		if (e.link) expect(logged).not.toContain(e.link);
 	});
 
-	it('smtp: attachments go with the message; deliver() reports sent', async () => {
+	it('smtp: attachments go with the message', async () => {
 		config.email.transport = 'smtp';
-		expect(await email.sendBillingEmail({ to: 'a@example.com', subject: 's', text: 't', html: 'h', attachment: pdf })).toBe(true);
+		await email.sendBillingEmail({ to: 'a@example.com', subject: 's', text: 't', html: 'h', attachment: pdf });
 		expect(sendMail.mock.calls[0]).toMatchObject([{ attachments: [{ filename: 'x.pdf', contentType: 'application/pdf' }] }]);
+	});
+
+	it('the link helpers report success when sent or logged, and false only when SMTP fails (signup must not say "failed" in log mode)', async () => {
 		config.email.transport = 'log';
-		expect(await email.sendBillingEmail({ to: 'a@example.com', subject: 's', text: 't', html: 'h', attachment: pdf })).toBe(false);
+		expect(await email.sendVerificationLinkEmail('a@example.com', LINK)).toBe(true);
+		config.email.transport = 'smtp';
+		expect(await email.sendVerificationLinkEmail('a@example.com', LINK)).toBe(true);
+		sendMail.mockRejectedValueOnce(new Error('smtp down'));
+		expect(await email.sendVerificationLinkEmail('a@example.com', LINK)).toBe(false);
+		sendMail.mockRejectedValueOnce(new Error('smtp down'));
+		await expect(email.sendBillingEmail({ to: 'a@example.com', subject: 's', text: 't', html: 'h', attachment: null })).rejects.toThrow('smtp down');
 	});
 
 	it('the support-inbox notification is skipped when SUPPORT_EMAIL is empty', async () => {

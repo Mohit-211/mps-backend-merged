@@ -49,15 +49,15 @@ if (config.email.transport === 'smtp' && config.essentials.env !== 'test') {
 }
 
 /**
- * Sends (smtp) or logs (log) one email. Returns true when it was handed to the SMTP server, false in log mode.
- * Throws on an SMTP failure; the send* helpers below decide whether a caller sees it.
+ * Sends (smtp) or logs (log) one email. Throws on an SMTP failure; the send* helpers below decide whether a
+ * caller sees it. Log mode counts as delivered: the email went through the configured transport.
  */
-export const deliver = async (mail: OutgoingEmail): Promise<boolean> => {
+export const deliver = async (mail: OutgoingEmail): Promise<void> => {
   const to = Array.isArray(mail.to) ? mail.to : [mail.to];
   if (config.email.transport === 'log') {
     const extra = mail.attachments?.length ? ` (+${mail.attachments.length} attachment)` : '';
     logger.info(`email [${mail.kind}] not sent (EMAIL_TRANSPORT=log): "${mail.subject}" to ${to.map(maskEmail).join(', ')}${extra}${mail.link ? `: ${mail.link}` : ''}`);
-    return false;
+    return;
   }
   await smtpTransport().sendMail({
     from: { name: (mail.fromName ?? config.essentials.appName ?? 'MyPageSEO').replace(/["<>]/g, ''), address: fromAddress() },
@@ -69,13 +69,13 @@ export const deliver = async (mail: OutgoingEmail): Promise<boolean> => {
     attachments: mail.attachments ?? [],
   });
   logger.info(`email [${mail.kind}] sent to ${to.length} recipient(s)`);
-  return true;
 };
 
-/** deliver(), but an SMTP failure is logged and reported as false instead of thrown. */
+/** deliver(), but an SMTP failure is logged and reported as false instead of thrown; true otherwise (sent or logged). */
 const deliverQuietly = async (mail: OutgoingEmail): Promise<boolean> => {
   try {
-    return await deliver(mail);
+    await deliver(mail);
+    return true;
   } catch (err) {
     logger.error(`email [${mail.kind}] could not be sent: ${(err as Error).message}`);
     return false;
@@ -126,7 +126,7 @@ export const sendInvitationEmail = async (to: string, link: string, organization
 
 /**
  * Phase 12: a report email. The display name and Reply-To come from the organization's branding.
- * Throws on an SMTP failure so the caller can record it; false in log mode.
+ * Throws on an SMTP failure so the caller can record it.
  */
 export const sendReportEmail = async (input: {
   to: string[];
@@ -137,7 +137,7 @@ export const sendReportEmail = async (input: {
   replyTo: string | null;
   attachment: { filename: string; content: Buffer } | null;
   link?: string | null;
-}): Promise<boolean> =>
+}): Promise<void> =>
   deliver({
     kind: 'report',
     to: input.to,
@@ -151,7 +151,7 @@ export const sendReportEmail = async (input: {
   });
 
 /** Phase 13a: billing emails (receipts, invoices, payment problems, trial reminders). Throws on an SMTP failure. */
-export const sendBillingEmail = async (input: { to: string; subject: string; text: string; html: string; attachment: { filename: string; content: Buffer } | null; link?: string | null }): Promise<boolean> =>
+export const sendBillingEmail = async (input: { to: string; subject: string; text: string; html: string; attachment: { filename: string; content: Buffer } | null; link?: string | null }): Promise<void> =>
   deliver({
     kind: 'billing',
     to: input.to,
