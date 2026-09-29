@@ -1,76 +1,25 @@
-# Data and configuration migration notes
+# Migration
 
-For whoever sets up or cleans a server database. Nothing here runs automatically. **No collection has been dropped by code.**
+**The launch uses a fresh database; no legacy data is migrated** (Mohit, 2026-09-28). The production database of the old system has no data worth keeping. A new server starts empty and is set up with `npm run setup:fresh -- --confirm` (OPERATIONS.md "Deploy checklist"). Every data-migration script was removed in Phase 13b (list in [LEGACY_FEATURES.md](LEGACY_FEATURES.md)).
 
-## Collections no longer used
+## Old collections that won't exist
 
-The legacy cleanup (branch `claude/phase-9a-legacy-cleanup`) removed the code that read and wrote these. Archive or drop them once you're sure nothing else reads them. On the planned fresh server database they won't exist at all.
+These belonged to the old system or to removed features. The fresh database never creates them; the old database is not carried over.
 
-| Collection | Was used by | Replaced by |
-|---|---|---|
-| `rank_tracker_reports` | old Rank Tracker | `rank_runs` (Phase 5) |
-| `local_search_grid_reports` | old Local Search Grid | `rank_runs` |
-| `local_map_ranking_reports` | old Local Map Ranking | `rank_runs` |
-| `gbp_audit_reports` | old GBP Audit | the GBP report (Phase 7c) |
-| `citationDirectorys` | old citation directory list (Phase 16 retired it) | `directories` + `directory_categories` (Phase 16) |
-| `citations` | old citation campaign line items | `location_citations` + `citation_status_logs` (Phase 16) |
-| `campaigns` | old citation campaigns | – (the paid campaign flow was retired in Phase 16) |
-| `aggregators`, `manualCitatonsCreditInfos`, `citationDuplicateRemoveCredits` | old citation pricing / credit tables | – (retired in Phase 16) |
-| `subscription_plans` | legacy plans (guest checkout, Phase 8 `location_limit`) | `billing_plans` (Phase 13a) |
-| `user_subscriptions` | legacy per-user subscriptions (unused) | `subscriptions` (Phase 13a) |
-| `paymentCreditPlans`, `location_credit_payments` | Square citation credits | – (retired in Phase 13a) |
-| `locationCitations` | legacy citation orders, read by the credit payments | – (retired in Phase 13a) |
-| `payments` | legacy guest-checkout PayPal payments | **still read** by `migrate:billing` and the admin legacy-link endpoint (`/admin/billing/legacy-payments`); archive only after every paid row is linked |
-
-**Archive example** (run against the right database, after a backup):
-
-```sh
-mongodump --uri "<server mongodb uri>" --collection rank_tracker_reports --out ./archive-$(date +%F)
-# then, only if wanted:
-mongosh "<server mongodb uri>" --eval 'db.rank_tracker_reports.drop()'
-```
-
-## Rows and fields no longer used
-
-- **`user_auths` rows with `token_type: 'ANALYTICS'`:** Search Console tokens. The connect flow was removed. They are plaintext; delete them with `db.user_auths.deleteMany({ token_type: 'ANALYTICS' })`.
-- **`users.is_analytics_connected`:** still in the schema and still returned by the auth middleware, user responses and location details, but nothing sets it any more. It can be removed together with the frontend.
-- **`whitelabel_profiles.reports`:** still lists report names, including `reputation_manager` and `gbp_audit`, which have no public route now (see [LEGACY_FEATURES.md](LEGACY_FEATURES.md)).
-
-## Token migration (Phase 6)
-
-Existing plaintext GBP tokens are re-encrypted on first use. To do them all at once:
-1. Back up `user_auths`.
-2. Set `TOKEN_ENCRYPTION_KEY`.
-3. Run `npm run gbp:encrypt-tokens`. It is idempotent.
-
-Since Phase 7a, GBP token rows are unique per `user_id + token_type + google_sub`. Rows from before 7a have `google_sub: null`; each keeps working, and is upgraded the next time that user connects.
-
-## Environment variables removed
-
-These can be deleted from server `.env` files. Leaving them does no harm: the config ignores unknown variables.
-
-| Group | Variables |
+| Collection | Was used by |
 |---|---|
-| Stripe | `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET_INTENT_CHARGE`, `STRIPE_WEBHOOK_SECRET_CUSTOMER_INVOICE_PRICE` |
-| Razorpay | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
-| SerpAPI / Moz / keyword search-volume vendor (removed 2026-09-27) | `SERP_API_KEY`, `SERP_API_TIMEOUT`, `SEO_MOZ_API_USERNAME`, `SEO_MOZ_API_PASSWORD`, `SEO_MOZ_API_KEY`, and the vendor's login / password vars |
-| Search Console | `GOOGLE_ANALYTICS_CLIENT_ID`, `GOOGLE_ANALYTICS_CLIENT_SECRET`, `GOOGLE_ANALYTICS_REDIRECT_URI` |
-| Places (legacy) | `GOOGLE_PLACE_API_URL` |
-| Square (removed in Phase 13a) | `SQUARE_APPLICATION_ID`, `SQUARE_ENV`, `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID` |
-| Plan limits (removed in Phase 13a) | `DEFAULT_LOCATION_LIMIT`, `DEFAULT_KEYWORD_LIMIT` |
-| Never read | `APPLY_ENCRYPTION`, `SECRET_KEY`, `COMPANY_SUPPORT_EMAIL`, `COMPANY_NAME`, `COMPANY_CITY`, `COMPANY_STATE`, `COMPANY_COUNTRY`, `COMAPNY_ADDRESS`, `JWT_RESET_PASSWORD_EXPIRATION_MINUTES`, `JWT_VERIFY_EMAIL_EXPIRATION_MINUTES`, `ADMIN_BASE_URL`, `ENG_ROLE_ID`, `FIN_ROLE_ID`, `MRK_ROLE_ID`, `HR_ROLE_ID`, `SALES_ROLE_ID` |
+| `rank_tracker_reports`, `local_search_grid_reports`, `local_map_ranking_reports` | old ranking pages (replaced by `rank_runs`, Phase 5) |
+| `gbp_audit_reports` | old GBP audit (replaced by the GBP report, Phase 7c) |
+| `citationDirectorys`, `citations`, `campaigns`, `aggregators`, `manualCitatonsCreditInfos`, `citationDuplicateRemoveCredits`, `locationCitations` | old citation module and orders (replaced in Phase 16) |
+| `subscription_plans`, `user_subscriptions`, `payments`, `paymentCreditPlans`, `location_credit_payments` | old plans, guest checkout, Square credits (replaced by billing, Phase 13a) |
+| `whitelabel_profiles` | old white-label profiles (replaced by organization branding, Phase 12) |
+| `supports` | old support tickets (replaced by 13b support tickets) |
+| `otps` | old OTP login / reset flows (replaced by `/auth`, Phases 8 and 8.1) |
+| `user_attachments` | never used |
 
-**Kept, because code still uses them:**
-- PayPal and billing: `PAYPAL_*`, `TRIAL_DAYS`, `BILLING_*`, `MANUAL_INVOICE_DUE_DAYS`, `FRONTEND_URL` (Phase 13a; OPERATIONS.md "PayPal setup")
-- SMTP / email
-- JWT (secret and day-based expirations)
-- the role IDs that are read: `SUP_ADM_ROLE_ID`, `ADM_ROLE_ID`, `EDTR_ROLE_ID`, `USR_ROLE_ID`
+## Environment variables no longer read
 
-**Decided (Phase 16):** the legacy citation module and the `serpapi` package are removed. **Phase 13a** removed the citation credits too (Square, `payment.service`, `LegacyLocationCitation`), so `locationCitations` is no longer read.
-
-## Billing (Phase 13a)
-
-- **Rows and fields no longer used:** `users.current_plan_id` and `users.subscription_status` (the profile's `has_active_subscription` now comes from the organization's billing), `users.available_credit`, `users.square_customer_id`.
-- **`coupons`:** same collection, new shape. `migrate:billing` converts the legacy per-plan coupons to `{ discount_type: 'fixed', value: <old discount_amount> }` and deactivates them (coupons now apply to token packs only).
-- **Legacy guest-checkout subscriptions** (`payments` with a `paypal_subscription_id`): `migrate:billing` links each paid one to the organization owned by the verified user with the same email. The rest are listed by `GET /api/v1/admin/billing/legacy-payments?unlinked=true` for an admin to link. A linked subscription keeps its legacy PayPal price until its first renewal snapshot re-prices it with the standard formula.
-- **Organizations:** every organization without `trial_ends_at` gets a trial from the migration date (the standard trial length).
+Leave them out of the new server's `.env`:
+- Stripe, Razorpay, Square (`SQUARE_*`), SerpAPI, Moz, the keyword search-volume vendor, Search Console (`GOOGLE_ANALYTICS_*`), `GOOGLE_PLACE_API_URL`
+- `DEFAULT_LOCATION_LIMIT`, `DEFAULT_KEYWORD_LIMIT` (limits come from billing)
+- Never read by any code: `APPLY_ENCRYPTION`, `SECRET_KEY`, `COMPANY_*`, `COMAPNY_ADDRESS`, `JWT_RESET_PASSWORD_EXPIRATION_MINUTES`, `JWT_VERIFY_EMAIL_EXPIRATION_MINUTES`, `ADMIN_BASE_URL`, `ENG_ROLE_ID`, `FIN_ROLE_ID`, `MRK_ROLE_ID`, `HR_ROLE_ID`, `SALES_ROLE_ID`

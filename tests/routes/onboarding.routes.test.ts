@@ -69,7 +69,7 @@ const { mapLocation } = require('../../src/clients/gbpClient');
 const onboardingRoute = require('../../src/routes/v1/common/onboarding.route').default;
 const placesRoute = require('../../src/routes/v1/common/places.route').default;
 const rankingRoute = require('../../src/routes/v1/common/ranking.route').default;
-const userAuthRoute = require('../../src/routes/v1/user/userAuth.route').default;
+const gbpRoute = require('../../src/routes/v1/common/gbpPostSchedular.route').default;
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 
 const app = express();
@@ -78,7 +78,7 @@ app.use(getQueryParams(queryTypesArr));
 app.use('/api/v1/onboarding', onboardingRoute);
 app.use('/api/v1/places', placesRoute);
 app.use('/api/v1/locations', rankingRoute);
-app.use('/api/v1/user/auth', userAuthRoute);
+app.use('/api/v1/gbp', gbpRoute);
 app.use(apiErrorHandler);
 
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -99,17 +99,17 @@ beforeEach(async () => {
 });
 
 const connectViaPopup = async (token: string) => {
-	const popup = await request(app).get('/api/v1/user/auth/google/gbp/popup').set(auth(token));
+	const popup = await request(app).get('/api/v1/gbp/connect/popup').set(auth(token));
 	expect(popup.status).toBe(200);
-	return request(app).post('/api/v1/user/auth/google/gbp/code').set(auth(token)).send({ code: '4/FAKE', state: popup.body.data.state });
+	return request(app).post('/api/v1/gbp/connect/code').set(auth(token)).send({ code: '4/FAKE', state: popup.body.data.state });
 };
 
 describe('auth on every 7a route', () => {
 	it('401 without a token', async () => {
 		const id = new Types.ObjectId().toHexString();
 		const calls = [
-			request(app).get('/api/v1/user/auth/google/gbp/popup'),
-			request(app).post('/api/v1/user/auth/google/gbp/code').send({}),
+			request(app).get('/api/v1/gbp/connect/popup'),
+			request(app).post('/api/v1/gbp/connect/code').send({}),
 			request(app).get('/api/v1/onboarding/state'),
 			request(app).get('/api/v1/onboarding/gbp-profiles'),
 			request(app).post('/api/v1/onboarding/select-profile').send({}),
@@ -139,9 +139,9 @@ describe('popup connect', () => {
 	it("rejects a bogus state and another user's state", async () => {
 		const { token } = await createUser('a@test.dev');
 		const { token: other } = await createUser('b@test.dev');
-		expect((await request(app).post('/api/v1/user/auth/google/gbp/code').set(auth(token)).send({ code: 'x', state: 'bogus' })).status).toBe(400);
-		const popup = await request(app).get('/api/v1/user/auth/google/gbp/popup').set(auth(token));
-		const stolen = await request(app).post('/api/v1/user/auth/google/gbp/code').set(auth(other)).send({ code: 'x', state: popup.body.data.state });
+		expect((await request(app).post('/api/v1/gbp/connect/code').set(auth(token)).send({ code: 'x', state: 'bogus' })).status).toBe(400);
+		const popup = await request(app).get('/api/v1/gbp/connect/popup').set(auth(token));
+		const stolen = await request(app).post('/api/v1/gbp/connect/code').set(auth(other)).send({ code: 'x', state: popup.body.data.state });
 		expect(stolen.status).toBe(400);
 	});
 });

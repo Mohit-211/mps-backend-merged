@@ -64,14 +64,12 @@ jest.mock('../../src/clients/gbpClient', () => {
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const { mapAccount, mapLocation } = require('../../src/clients/gbpClient');
 const gbpRoute = require('../../src/routes/v1/common/gbpPostSchedular.route').default;
-const userAuthRoute = require('../../src/routes/v1/user/userAuth.route').default;
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 
 const app = express();
 app.use(express.json());
 app.use(getQueryParams(queryTypesArr));
 app.use('/api/v1/gbp', gbpRoute);
-app.use('/api/v1/user/auth', userAuthRoute);
 app.use(apiErrorHandler);
 
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -93,9 +91,9 @@ beforeEach(async () => {
 
 /** Runs the real connect flow: auth URL → callback with its state. */
 const connect = async (token: string): Promise<void> => {
-	const urlRes = await request(app).get('/api/v1/user/auth/google/gbp').set(auth(token));
+	const urlRes = await request(app).get('/api/v1/gbp/connect/url').set(auth(token));
 	const state = new URL(urlRes.body.data).searchParams.get('state');
-	const cb = await request(app).get('/api/v1/user/auth/google/gbp/callback').query({ code: '4/FAKE', state });
+	const cb = await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state });
 	expect(cb.status).toBe(200);
 };
 
@@ -103,10 +101,10 @@ describe('GBP routes: auth', () => {
 	it('401 without a token on every protected GBP route', async () => {
 		const calls = [
 			request(app).get('/api/v1/gbp'),
-			request(app).post('/api/v1/gbp/bind-with-user').send({}),
+			request(app).post('/api/v1/gbp/bind').send({}),
 			request(app).post('/api/v1/gbp/unbind').send({}),
-			request(app).get('/api/v1/user/auth/google/gbp'),
-			request(app).post('/api/v1/user/auth/google/gbp/revoke'),
+			request(app).get('/api/v1/gbp/connect/url'),
+			request(app).post('/api/v1/gbp/disconnect'),
 		];
 		for (const res of await Promise.all(calls)) expect(res.status).toBe(401);
 	});
@@ -115,7 +113,7 @@ describe('GBP routes: auth', () => {
 describe('GBP routes: connect', () => {
 	it('returns a consent URL with openid, email and business.manage and a stored state', async () => {
 		const { token } = await createUser('a@test.dev');
-		const res = await request(app).get('/api/v1/user/auth/google/gbp').set(auth(token));
+		const res = await request(app).get('/api/v1/gbp/connect/url').set(auth(token));
 		expect(res.status).toBe(200);
 		const url = new URL(res.body.data);
 		expect(url.searchParams.get('scope')).toBe('openid email https://www.googleapis.com/auth/business.manage');
@@ -134,12 +132,12 @@ describe('GBP routes: connect', () => {
 	it('the callback rejects a forged or reused state', async () => {
 		const { user, token } = await createUser('c@test.dev');
 		const forged = JSON.stringify({ user_id: String(user._id) });
-		const res = await request(app).get('/api/v1/user/auth/google/gbp/callback').query({ code: '4/FAKE', state: forged });
+		const res = await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state: forged });
 		expect(res.status).toBe(400);
-		const urlRes = await request(app).get('/api/v1/user/auth/google/gbp').set(auth(token));
+		const urlRes = await request(app).get('/api/v1/gbp/connect/url').set(auth(token));
 		const state = new URL(urlRes.body.data).searchParams.get('state');
-		expect((await request(app).get('/api/v1/user/auth/google/gbp/callback').query({ code: '4/FAKE', state })).status).toBe(200);
-		expect((await request(app).get('/api/v1/user/auth/google/gbp/callback').query({ code: '4/FAKE', state })).status).toBe(400);
+		expect((await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state })).status).toBe(200);
+		expect((await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state })).status).toBe(400);
 	});
 });
 
@@ -173,7 +171,7 @@ describe('GBP routes: discovery, bind, unbind, disconnect', () => {
 		await connect(token);
 		const body = { location_id: String(location._id), gbpAccountId: 'accounts/100000000000000000001', gbpLocationId: 'locations/200000000000000000001' };
 
-		const bound = await request(app).post('/api/v1/gbp/bind-with-user').set(auth(token)).send(body);
+		const bound = await request(app).post('/api/v1/gbp/bind').set(auth(token)).send(body);
 		expect(bound.status).toBe(200);
 		expect(bound.body.data.place_id).toEqual({ location: 'ChIJfakeGbpPlace000000001', gbp: 'ChIJfakeGbpPlace000000001', status: 'set' });
 
@@ -188,17 +186,17 @@ describe('GBP routes: discovery, bind, unbind, disconnect', () => {
 		const { user, token } = await createUser('g@test.dev');
 		const location = await createLocation(user._id as Types.ObjectId);
 		const body = { location_id: String(location._id), gbpAccountId: 'accounts/1', gbpLocationId: 'locations/2' };
-		expect((await request(app).post('/api/v1/gbp/bind-with-user').set(auth(token)).send(body)).body.message).toBe('Please connect GBP first');
+		expect((await request(app).post('/api/v1/gbp/bind').set(auth(token)).send(body)).body.message).toBe('Please connect GBP first');
 		await connect(token);
-		expect((await request(app).post('/api/v1/gbp/bind-with-user').set(auth(token)).send({ ...body, gbpLocationId: 'x' })).status).toBe(400);
-		expect((await request(app).post('/api/v1/gbp/bind-with-user').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
+		expect((await request(app).post('/api/v1/gbp/bind').set(auth(token)).send({ ...body, gbpLocationId: 'x' })).status).toBe(400);
+		expect((await request(app).post('/api/v1/gbp/bind').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
 		expect((await request(app).post('/api/v1/gbp/unbind').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
 	});
 
 	it('disconnect revokes and removes the connection', async () => {
 		const { user, token } = await createUser('h@test.dev');
 		await connect(token);
-		const res = await request(app).post('/api/v1/user/auth/google/gbp/revoke').set(auth(token));
+		const res = await request(app).post('/api/v1/gbp/disconnect').set(auth(token));
 		expect(res.status).toBe(200);
 		expect(res.body.data).toEqual({ revoked: true, bindings_removed: 0, google_email: 'owner@example.test' });
 		expect(fake.revoked).toEqual(['1//FAKE-route']);

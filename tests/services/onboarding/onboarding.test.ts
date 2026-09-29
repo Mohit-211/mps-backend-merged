@@ -248,11 +248,11 @@ describe('onboarding service', () => {
 		const user = await connectedUser('g@test.dev');
 		const { service } = setup();
 		const { location } = await service.selectProfile(await ctxFor(user._id), select);
-		await Location.create({ ...locationFieldsFromProfile(PROFILE), place_id: 'ChIJother00000000000001', name: 'Done Co', created_by: user._id, organization_id: (await ensureOrg(user._id))._id, onboarding: { step: 'completed', started_at: new Date(), completed_at: new Date() } });
-		await createLocation(user._id as Types.ObjectId, { name: 'Legacy Co' }); // pre-onboarding location: listed after the unfinished ones
+		await Location.create({ ...locationFieldsFromProfile(PROFILE), source: 'gbp', place_id: 'ChIJother00000000000001', name: 'Done Co', created_by: user._id, organization_id: (await ensureOrg(user._id))._id, onboarding: { step: 'completed', started_at: new Date(), completed_at: new Date() } });
+		await createLocation(user._id as Types.ObjectId, { name: 'Other Co' }); // no onboarding state: listed after the unfinished ones
 		const state = await service.getState(await ctxFor(user._id));
 		expect(state.gbp).toEqual({ connected: true, connections: [{ google_sub: '1', google_email: 'owner@example.test', status: 'active' }] });
-		expect(state.locations.map((l) => l.name)).toEqual(['Example Plumbing Co', 'Done Co', 'Legacy Co']);
+		expect(state.locations.map((l) => l.name)).toEqual(['Example Plumbing Co', 'Done Co', 'Other Co']);
 		// 'Done Co' is set up, so the organization's onboarding is complete (the other locations resume on their own).
 		expect(state.organization).toMatchObject({ type: 'business', next_step: null, completed: true });
 		expect(state.organization.completed_at).toBeInstanceOf(Date);

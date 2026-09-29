@@ -3,9 +3,8 @@ const router = Router();
 
 import commonRoutes from './common';
 import adminRoutes from './admin';
-import userAuthRoutes from './user';
 
-const defaultRoutes = [...commonRoutes, ...adminRoutes, ...userAuthRoutes];
+const defaultRoutes = [...commonRoutes, ...adminRoutes];
 
 defaultRoutes.forEach((route) => {
   router.use(route.path, route.route);

@@ -16,7 +16,6 @@ import { clearDb, createUser, startTestDb } from '../helpers/mongoose';
 // guards can't drift apart.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 jest.mock('../../src/services/common/email.service', () => new Proxy({}, { get: () => jest.fn(async () => true) }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
@@ -55,7 +54,7 @@ afterAll(async () => db.stop());
 describe('admin guards from ENDPOINTS.md', () => {
 	it('covers every admin-only group (sanity)', () => {
 		expect(guarded.length).toBeGreaterThanOrEqual(45);
-		expect(new Set(guarded.map((g) => g.permission))).toEqual(new Set(['admins.manage', 'platform.read', 'platform.write', 'content.manage', 'system.read', 'citations.view', 'citations.manage', 'billing.read', 'billing.manage']));
+		expect(new Set(guarded.map((g) => g.permission))).toEqual(new Set(['admins.manage', 'platform.read', 'platform.write', 'content.manage', 'citations.view', 'citations.manage', 'billing.read', 'billing.manage', 'support.read', 'support.manage']));
 	});
 
 	it.each(guarded.map((g) => [`${g.method} ${g.path}`, g] as const))('%s', async (_name, g) => {
@@ -87,10 +86,3 @@ describe('public by design', () => {
 	});
 });
 
-describe('white-label profile detail (S17)', () => {
-	it('is no longer public, and another user gets nothing', async () => {
-		expect((await send('GET', `/api/v1/white-label-profiles/${DUMMY_ID}`)).status).toBe(401);
-		const res = await send('GET', `/api/v1/white-label-profiles/${DUMMY_ID}`, userToken);
-		expect(res.status).toBe(404);
-	});
-});

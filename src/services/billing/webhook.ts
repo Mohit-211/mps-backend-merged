@@ -1,28 +1,19 @@
-import { mapSubscription } from '../../clients/paypalClient';
 import logger from '../../configs/logger';
 import { BillingEvent, Invoice, IInvoice, Organization, PaymentOrder } from '../../models';
 import { OrderService, orderService } from './orders';
+import { BillingWebhookEvent, ParsedWebhook } from './providers';
 import { SubscriptionService, subscriptionService } from './subscriptions';
 import { credit } from './tokens';
 
-// PayPal webhook handlers (Phase 13a). The route verifies the signature first (Phase 10); each event id
-// is processed once (BillingEvent). If a handler throws, the event row is removed so PayPal's retry runs.
-
-/* eslint-disable @typescript-eslint/no-explicit-any -- raw PayPal webhook payloads, mapped immediately */
-type Raw = Record<string, any>;
+// Payment webhooks (Phase 13a; provider-neutral since 13b). The route verifies the signature with the
+// provider and the provider parses the body; here each event id is processed once (BillingEvent). If a
+// handler throws, the event row is removed so the provider's retry runs.
 
 export interface WebhookResult {
 	handled: boolean;
 	duplicate?: boolean;
 	note?: string;
 }
-
-const num = (v: unknown): number => Number(v ?? 0) || 0;
-const upId = (links: Raw[] | undefined, kind: string): string | null => {
-	const href = links?.find((l) => l.rel === 'up')?.href as string | undefined;
-	const m = href?.match(new RegExp(`/${kind}/([^/?]+)`));
-	return m ? m[1] : null;
-};
 
 export const createWebhookHandler = (deps: { subscriptions?: SubscriptionService; orders?: OrderService; now?: () => Date } = {}) => {
 	const subs = deps.subscriptions ?? subscriptionService;
@@ -44,87 +35,62 @@ export const createWebhookHandler = (deps: { subscriptions?: SubscriptionService
 		return `invoice ${inv.number} refunded`;
 	};
 
-	const dispatch = async (type: string, r: Raw): Promise<WebhookResult> => {
-		switch (type) {
-			case 'BILLING.SUBSCRIPTION.CREATED':
-			case 'BILLING.SUBSCRIPTION.ACTIVATED':
-			case 'BILLING.SUBSCRIPTION.UPDATED':
-			case 'BILLING.SUBSCRIPTION.EXPIRED':
-			case 'BILLING.SUBSCRIPTION.CANCELLED':
-			case 'BILLING.SUBSCRIPTION.SUSPENDED': {
-				const ps = mapSubscription(r as never);
-				const sub = await subs.findByProvider(ps.id, ps.custom_id);
+	const dispatch = async (e: BillingWebhookEvent): Promise<WebhookResult> => {
+		switch (e.kind) {
+			case 'subscription_updated': {
+				const sub = await subs.findByProvider(e.subscription.id, e.subscription.customId);
 				if (!sub) return { handled: false, note: 'unknown subscription' };
-				await subs.applyPaypal(sub, ps);
+				await subs.applyProviderState(sub, e.subscription);
 				return { handled: true };
 			}
-			case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED': {
-				const sub = await subs.findByProvider(r.id ?? null, r.custom_id ?? null);
+			case 'subscription_payment_failed': {
+				const sub = await subs.findByProvider(e.providerSubscriptionId, e.customId);
 				if (!sub) return { handled: false, note: 'unknown subscription' };
 				await subs.paymentFailed(sub);
 				return { handled: true };
 			}
-			case 'PAYMENT.SALE.COMPLETED': {
-				const sub = await subs.findByProvider(r.billing_agreement_id ?? null, r.custom ?? null);
-				if (!sub) return { handled: false, note: 'sale without a known subscription' };
-				await subs.recordPayment(sub, { id: String(r.id), amount: num(r.amount?.total), currency: String(r.amount?.currency ?? sub.currency), time: r.create_time ? new Date(r.create_time) : now() });
+			case 'subscription_payment': {
+				const sub = await subs.findByProvider(e.providerSubscriptionId, e.customId);
+				if (!sub) return { handled: false, note: 'payment without a known subscription' };
+				await subs.recordPayment(sub, { id: e.paymentId, amount: e.amount, currency: e.currency ?? sub.currency, time: e.paidAt ?? now() });
 				return { handled: true };
 			}
-			case 'PAYMENT.SALE.DENIED': {
-				const sub = await subs.findByProvider(r.billing_agreement_id ?? null, r.custom ?? null);
-				if (!sub) return { handled: false, note: 'sale without a known subscription' };
-				await subs.paymentFailed(sub);
-				return { handled: true };
-			}
-			case 'PAYMENT.SALE.REFUNDED':
-			case 'PAYMENT.SALE.REVERSED':
-				return { handled: true, note: await refundInvoice(r.sale_id ?? r.id ?? null, type === 'PAYMENT.SALE.REVERSED' ? 'reversed' : 'refunded') };
-			case 'CHECKOUT.ORDER.APPROVED': {
-				if (!r.id) return { handled: false, note: 'no order id' };
-				const known = await PaymentOrder.exists({ provider_order_id: r.id });
-				if (!known) return { handled: false, note: 'unknown order' };
-				const res = await orders.capture(null, String(r.id));
+			case 'payment_refunded':
+				return { handled: true, note: await refundInvoice(e.paymentRef, e.note) };
+			case 'order_approved': {
+				if (!(await PaymentOrder.exists({ provider_order_id: e.providerOrderId }))) return { handled: false, note: 'unknown order' };
+				const res = await orders.capture(null, e.providerOrderId);
 				return { handled: true, note: res.status };
 			}
-			case 'PAYMENT.CAPTURE.COMPLETED': {
-				const orderId = r.supplementary_data?.related_ids?.order_id ?? upId(r.links, 'orders');
-				if (!orderId) return { handled: false, note: 'no order id' };
-				const done = await orders.captureCompleted(String(orderId), String(r.id), num(r.amount?.value));
+			case 'order_captured': {
+				const done = await orders.captureCompleted(e.providerOrderId, e.captureId, e.amount);
 				return { handled: true, note: done ? 'fulfilled' : 'already fulfilled or unknown' };
 			}
-			case 'PAYMENT.CAPTURE.DENIED': {
-				const orderId = r.supplementary_data?.related_ids?.order_id ?? upId(r.links, 'orders');
-				if (orderId) await orders.captureDenied(String(orderId));
+			case 'order_capture_denied':
+				await orders.captureDenied(e.providerOrderId);
 				return { handled: true };
-			}
-			case 'PAYMENT.CAPTURE.PENDING':
-				return { handled: true, note: 'pending: waiting for COMPLETED' };
-			case 'PAYMENT.CAPTURE.REFUNDED':
-				return { handled: true, note: await refundInvoice(upId(r.links, 'captures'), 'refunded') };
+			case 'order_capture_pending':
+				return { handled: true, note: 'pending: waiting for completion' };
 			default:
 				return { handled: false, note: 'ignored event type' };
 		}
 	};
 
-	/** Processes a verified event once. */
-	const handle = async (event: Raw): Promise<WebhookResult> => {
-		const id = String(event?.id ?? '');
-		const type = String(event?.event_type ?? '');
-		if (!id || !type) return { handled: false, note: 'malformed event' };
-		const resource = (event.resource ?? {}) as Raw;
+	/** Processes a verified, parsed event once. */
+	const handle = async (parsed: ParsedWebhook): Promise<WebhookResult> => {
 		try {
-			await BillingEvent.create({ event_id: id, event_type: type, resource_id: resource.id ? String(resource.id) : null, received_at: now() });
+			await BillingEvent.create({ event_id: parsed.eventId, event_type: parsed.type, resource_id: parsed.resourceId, received_at: now() });
 		} catch (err) {
 			if ((err as { code?: number }).code === 11000) return { handled: true, duplicate: true };
 			throw err;
 		}
 		try {
-			const result = await dispatch(type, resource);
-			logger.info(`billing: webhook ${type} ${id}: ${result.handled ? 'handled' : 'skipped'}${result.note ? ` (${result.note})` : ''}`);
+			const result = await dispatch(parsed.event);
+			logger.info(`billing: webhook ${parsed.type} ${parsed.eventId}: ${result.handled ? 'handled' : 'skipped'}${result.note ? ` (${result.note})` : ''}`);
 			return result;
 		} catch (err) {
-			await BillingEvent.deleteOne({ event_id: id });
-			logger.error(`billing: webhook ${type} ${id} failed: ${(err as Error).message}`);
+			await BillingEvent.deleteOne({ event_id: parsed.eventId });
+			logger.error(`billing: webhook ${parsed.type} ${parsed.eventId} failed: ${(err as Error).message}`);
 			throw err;
 		}
 	};

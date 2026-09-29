@@ -6,7 +6,7 @@ import config from './config';
 // and citations.manage (write); they are separate so a read-only role can be added later. Phase 13a's
 // billing admin uses billing.read and billing.manage (super admin, admin).
 
-export const ADMIN_PERMISSIONS = ['admins.manage', 'platform.read', 'platform.write', 'content.manage', 'system.read', 'citations.view', 'citations.manage', 'billing.read', 'billing.manage'] as const;
+export const ADMIN_PERMISSIONS = ['admins.manage', 'platform.read', 'platform.write', 'content.manage', 'citations.view', 'citations.manage', 'billing.read', 'billing.manage', 'support.read', 'support.manage'] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
 type RoleKey = 'superAdmin' | 'admin' | 'editor';
@@ -17,11 +17,12 @@ export const PERMISSION_ROLES: Record<AdminPermission, RoleKey[]> = {
 	'platform.read': ['superAdmin', 'admin'],
 	'platform.write': ['superAdmin', 'admin'],
 	'content.manage': ['superAdmin', 'admin', 'editor'],
-	'system.read': ['superAdmin'],
 	'citations.view': ['superAdmin', 'admin', 'editor'],
 	'citations.manage': ['superAdmin', 'admin', 'editor'],
 	'billing.read': ['superAdmin', 'admin'],
 	'billing.manage': ['superAdmin', 'admin'],
+	'support.read': ['superAdmin', 'admin', 'editor'],
+	'support.manage': ['superAdmin', 'admin', 'editor'],
 };
 
 export const permissionsFor = (roleId: number | null | undefined): AdminPermission[] => {

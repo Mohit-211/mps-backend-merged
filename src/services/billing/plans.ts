@@ -25,7 +25,3 @@ export const planForOrganization = async (org: Pick<IOrganization, 'plan_id'> & 
 };
 
 /** Trial end for a new organization (the standard plan's trial length). */
-export const trialEndFor = async (createdAt: Date): Promise<Date> => {
-	const plan = await standardPlan();
-	return new Date(createdAt.getTime() + plan.trial.days * 86_400_000);
-};

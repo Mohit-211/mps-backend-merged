@@ -1062,11 +1062,11 @@ GBP errors use the same envelope:
 
 "Reconnect" is a 400, not a 401, because a 401 from this API means the MyPageSEO session expired.
 
-### `GET /api/v1/user/auth/google/gbp`
+### `GET /api/v1/gbp/connect/url`
 
 Starts the connection. `data` is Google's consent URL, with scope `business.manage` only, offline access, and a one-time `state` valid for 10 minutes.
 
-### `GET /api/v1/user/auth/google/gbp/callback?code=&state=` (called by Google)
+### `GET /api/v1/gbp/connect/callback?code=&state=` (called by Google)
 
 ```json
 { "success": true, "status": 200, "message": "Connected with GBP successfully.",
@@ -1128,7 +1128,7 @@ Every profile from **every connected Google account**, grouped by account. The d
 - A service-area business with no storefront has `address: null`. A missing website shows as `"NA"` (legacy value).
 - **400** "Please connect with Google Business Profile" when no Google account is connected.
 
-### `POST /api/v1/gbp/bind-with-user`
+### `POST /api/v1/gbp/bind`
 
 Body: `{ "location_id", "gbpAccountId": "accounts/…", "gbpLocationId": "locations/…", "google_sub"?: "…" }`. `google_sub` (from the `GET /gbp` group) is **required when several Google accounts are connected** (otherwise 400 "google_sub is required"), and the binding remembers which account it was made with. Other fields the old frontend sent (`title`, `metadata`, …) are accepted and ignored: the server reads the profile from Google, which also checks that the connected account can access it.
 
@@ -1174,7 +1174,7 @@ Body: `{ "location_id" }`.
 - Cancelled scheduled posts are marked `REJECTED` with `last_error: "GBP location unbound"`.
 - `tokens_deleted` is true only when this was the **last bound location of that Google account**. That account then has to be connected again to bind another of its profiles. Other connected accounts are untouched.
 
-### `POST /api/v1/user/auth/google/gbp/revoke` (disconnect one Google account)
+### `POST /api/v1/gbp/disconnect` (disconnect one Google account)
 
 Body: `{ "google_sub"?: "…" }`. It is required when several Google accounts are connected.
 
@@ -1196,7 +1196,7 @@ The first-run flow. The examples use test fixtures; no live calls have been made
 
 | # | Screen | Endpoint(s) |
 |---|---|---|
-| 1 | Connect Google (popup; any account, and more accounts later) | `GET /user/auth/google/gbp/popup` → GIS popup → `POST /user/auth/google/gbp/code` |
+| 1 | Connect Google (popup; any account, and more accounts later) | `GET /gbp/connect/popup` → GIS popup → `POST /gbp/connect/code` |
 | 2 | Pick your business | `GET /onboarding/gbp-profiles` (grouped per Google account) → `POST /onboarding/select-profile` |
 | 2b | Business center (only when `center_needed`: service-area businesses) | `PUT /locations/:id/center { query: "city or ZIP" }` |
 | 3 | Keywords | `PUT /locations/:id/tracking { keywords }` |
@@ -1204,7 +1204,7 @@ The first-run flow. The examples use test fixtures; no live calls have been made
 | 5 | Done | `POST /onboarding/complete` |
 | – | Resume | `GET /onboarding/state` |
 
-### `GET /api/v1/user/auth/google/gbp/popup`
+### `GET /api/v1/gbp/connect/popup`
 
 Config for `google.accounts.oauth2.initCodeClient`. The `state` is valid for 10 minutes and works once. `select_account: true` shows the account chooser. The GIS code client has no `prompt` or `access_type` options: the code flow returns a refresh token on first consent, and a reconnect of the same account without one reuses the stored refresh token.
 
@@ -1213,7 +1213,7 @@ Config for `google.accounts.oauth2.initCodeClient`. The `state` is valid for 10 
   "state": "b6ZQ…43 chars", "ux_mode": "popup", "select_account": true }
 ```
 
-### `POST /api/v1/user/auth/google/gbp/code`
+### `POST /api/v1/gbp/connect/code`
 
 Body: `{ "code", "state" }` from the popup callback.
 
@@ -1435,7 +1435,7 @@ The latest (or the given) GBP sync:
 
 **Generated in a job, never on a page view.** The `gbp-report` job runs about 2 minutes (`REPORT_DEBOUNCE_SECONDS`) after a rank run or a GBP sync finishes, after a change of tracked competitors, and after an unbind. A rank run and a sync finishing together give one report; while either is still running the report waits for it. The stored report is overwritten each time (no history of competitor data); only the client's own scores are kept in `score_history` (last 24).
 
-Examples below come from `npm run seed:gbp-demo` (offline demo data), trimmed.
+Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
 ### `GET /api/v1/locations/:locationId/gbp/report[?range=28d|90d|12m]`
 
@@ -1624,40 +1624,42 @@ Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 |---|---|---|
 | `POST /auth/resend-verification` | `{ email }` | **200** `{ "email_verification": "sent_if_pending" }`, the same for unknown, already-verified or expired accounts. A new link makes every older link `link_invalid`. |
 | `POST /auth/login` | `{ email, password }` | The session (as above, without `verified` / `already_verified`). Unverified (after a correct password) → **403** `{ "reason": "email_not_verified", "resend": "/api/v1/auth/resend-verification" }`, no tokens: show "Verify your email" + **Send a new link**. Wrong email or password → **401** (one message for both). Disabled → **403** `account_disabled`. |
-| `POST /auth/forgot-password` | `{ email }` | **200** `{ "reset": "sent_if_account_exists" }` |
-| `POST /auth/reset-password` | `{ email, code, password }` | **200** `{ "reset": true }`; every refresh token is revoked (log in again). The code proves the mailbox, so a still-unverified email becomes verified. |
+| `POST /auth/forgot-password` | `{ email }` | **200** `{ "reset": "sent_if_account_exists" }`, the same for unknown accounts. Emails `FRONTEND_URL/reset-password?token=<token>` (13b): random, stored only as a hash, single use, valid 60 minutes (`PASSWORD_RESET_TTL_MINUTES`); a newer link makes older ones `link_invalid`. 3 per email and 20 per IP an hour. |
+| `POST /auth/reset-password` | `{ token, password, confirm_password }` (the `/reset-password` page reads `token` from the link) | **200** `{ "reset": true }`; every session ends (log in again). The link proves the mailbox, so a still-unverified email becomes verified. **400** `{ "reason": "link_invalid" }` (unknown, replaced or already used), `link_expired` (offer "send a new link"), `passwords_do_not_match`; a password that breaks the rules → **400** with the rule. |
 
-Accepting a team invitation also verifies the email (a new account is created verified; an existing unverified one is marked verified). **Legacy (8.1):** `POST /user/auth/register` is removed (404); `/user/auth/otp` and `/verify-otp` take only `FORGOT_PASSWORD` (`EMAIL_VERIFICATION` → **400** `{ "reason": "verification_by_link" }`); `/user/auth/login` refuses unverified accounts with the same 403.
+Accepting a team invitation also verifies the email (a new account is created verified; an existing unverified one is marked verified).
 
-#### Session tokens and refresh (Phase 10)
+#### Sessions and the account (Phase 10; moved to `/auth` in 13b)
 
 | Token | Lifetime | Config | Where |
 |---|---|---|---|
 | Access | **1 day** | `JWT_ACCESS_EXPIRATION_DAYS` (default 1) | `Authorization: Bearer <access>` on every user endpoint |
 | Refresh | **30 days** | `JWT_REFRESH_EXPIRATION_DAYS` (default 30) | only in the refresh and logout bodies; stored server-side (revocable) |
 
-The refresh token isn't rotated: a refresh returns a new access token only, and the same refresh token keeps working until it expires 30 days after login. After that the user must log in again.
+**Refresh (rotating):** on a **401** from any user endpoint, call once:
 
-**Flow:**
-1. Any user endpoint answers **401** when the access token is missing, bad, expired or revoked (password change or reset, account deletion).
-2. On a 401, call once:
-   ```http
-   POST /api/v1/user/auth/refresh-auth
-   { "refresh_token": "eyJ…" }
-   → 200 { "tokens": { "access": { "token": "eyJ…", "expires": "2026-09-28T10:00:00.000Z" } } }
-   ```
-3. Retry the original request with the new access token. Refresh ahead of time if you like: `tokens.access.expires` is included.
-4. If the refresh call fails, clear the stored tokens and send the user to the login page:
+```http
+POST /api/v1/auth/refresh
+{ "refresh_token": "eyJ…" }
+→ 200 { "tokens": { "access": { "token": "eyJ…", "expires": "…" }, "refresh": { "token": "eyJ…", "expires": "…" } } }
+```
 
-| Refresh response | Meaning |
-|---|---|
-| **401** "Invalid or expired token. Please log in again." | refresh token expired (30 days), bad signature or not a refresh token |
-| **401** "Token not found. Please log in again." | revoked: logout, password change or reset, account deletion |
-| **404** "User Not Found" | the account is disabled |
+Store **both** new tokens: the refresh token just used stops working (each refresh gives a new one, valid 30 days). Retry the original request with the new access token. If the refresh answers **401** ("Your session has ended"), clear the tokens and go to login. Never retry a failed refresh in a loop; run one refresh at a time and let concurrent 401s wait for it.
 
-Never retry a failed refresh in a loop. Run one refresh at a time and let concurrent 401s wait for it.
+**Logout:** `POST /api/v1/auth/logout { "refresh_token" }` ends that session (drop the access token on the client; it expires within a day).
 
-**Logout:** `POST /api/v1/user/auth/logout` `{ "refresh_token" }` with a `time_zone` header (e.g. `America/Toronto`) deletes that refresh token. The access token stays valid until it expires (at most 1 day), so drop it on the client.
+**The signed-in user:** `GET /api/v1/auth/me` →
+
+```json
+{ "id": "…", "email": "pat@example.com", "name": "Pat", "mobile": null, "user_type": "BUSINESS", "email_verified_at": "…", "created_at": "…",
+  "last_login_at": "…", "organizations": [{ "organization_id": "…", "name": "Pat Co", "type": "business", "role": "owner" }], "current_organization_id": "…" }
+```
+
+`PATCH /api/v1/auth/me { "name"?, "mobile"? }` returns the same shape. Business details (name, country, address) belong to the organization (`PATCH /organization`, billing details).
+
+**Change password** (signed in): `POST /api/v1/auth/change-password { "current_password", "new_password" }` → `{ "tokens": … }`. Every other session ends (other devices get 401); continue with the returned tokens. **400** `wrong_password`, `same_password`. The new password follows the signup rules (8+ characters, a letter and a digit).
+
+**Delete the account:** `POST /api/v1/auth/deactivate { "password" }` → `{ "deleted": true }`. Every connected Google account is disconnected (revoked at Google, its profiles unbound), memberships end, every session is revoked, and the account is deleted. **400** `wrong_password`.
 
 ### Organization (`/api/v1/organization`)
 
@@ -1788,7 +1790,7 @@ A business organization gets **403** `{ "reason": "agency_only" }`. A `client_us
 - **Business steps:** `organization_info` → `google` → `first_location` → `location_setup`. **Agency:** `agency_info` → `google` → `first_client` → `first_location` → `location_setup` → `reporting_brand` (Phase 12: `done` once any branding is saved with `PUT /organization/branding`; skippable). Status: `done | pending | skipped | not_available`.
 - `POST /onboarding/skip { "step": "google" | "reporting_brand" }` (owner/member): skip Google to add locations from a Places search.
 - **Location steps:** `profile_selected` (GBP) or `place_selected` (Places search) → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`.
-- `POST /onboarding/select-profile` accepts `client_id` (agency) and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind-with-user`).
+- `POST /onboarding/select-profile` accepts `client_id` (agency) and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind`).
 - `POST /onboarding/complete` no longer needs a GBP binding: it queues the first rank run, the first GBP sync only when bound, and sets the monthly refresh.
 
 ## Dashboard and team (Phase 11)
@@ -1985,7 +1987,7 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
 { "recipients": ["owner@mapleleafgroup.example"], "message": "Here is this month's report." }
 ```
 
-→ `{ "sent": true, "recipients": 1, "delivery": "attachment" }` (`"link"` above `REPORT_EMAIL_MAX_ATTACHMENT_MB`, with a 30-day share link in the email). Sender: `"<email_sender_name>"` or `"<agency name> via MyPageSEO"` from the `EMAIL_FROM` address; `Reply-To` from branding. In development nothing is sent: `sent: false` and the delivery is logged with masked recipients. **429** `rate_limited` above 20 per hour per organization.
+→ `{ "sent": true, "recipients": 1, "delivery": "attachment" }` (`"link"` above `REPORT_EMAIL_MAX_ATTACHMENT_MB`, with a 30-day share link in the email). Sender: `"<email_sender_name>"` or `"<agency name> via MyPageSEO"` from the `EMAIL_FROM` address; `Reply-To` from branding. With `EMAIL_TRANSPORT=log` (the default outside production) the email is logged instead of sent and the answer is the same. **429** `rate_limited` above 20 per hour per organization.
 
 ### Share links
 
@@ -2106,13 +2108,17 @@ Admin endpoints (`/admin/*`, and the admin-only routes listed with `admin (permi
 ```http
 POST /api/v1/admin/auth/login
 { "email": "admin@example.com", "password": "…" }
-→ { "id": "…", "name": "…", "email": "admin@example.com", "role_id": 1, "token": "eyJ…" }
+→ { "admin": { "id": "…", "name": "…", "email": "admin@example.com", "role_id": 1, "role_name": "Super Admin", "permissions": ["admins.manage", "…"], "is_active": true, "password_set": true, "last_login_at": "…", "created_at": "…" }, "token": "eyJ…" }
 Authorization: Bearer eyJ…
 ```
 
 - **Token:** HS256, signed with `ADMIN_JWT_SECRET`, audience `mps-admin`, valid 12 hours. User tokens never work on admin routes, and the reverse.
-- **Revocation:** a password change (`/admin/auth/resetPassword` returns a fresh token), a forgot-password reset, a role or email change, or deactivation ends all earlier admin sessions.
-- **Forgot password:** `sendOTP { email }` (same answer whether or not the email is an admin) → `verifyOTP { email, otp, otp_type: "FORGOT_PASSWORD" }` (10-minute code, 5 attempts) → `{ token }` (15 minutes, single use) → `forgotPassword { email, password, confirm_password, token }`.
+- **Passwords by link (13b, no OTP):** the admin panel has one page, `ADMIN_FRONTEND_URL/reset-password?token=…`, which posts `POST /admin/auth/reset-password { token, password, confirm_password }` (errors as for users: `link_invalid`, `link_expired`, `passwords_do_not_match`). Two links lead there:
+  - **Forgot password:** `POST /admin/auth/forgot-password { email }` → `{ reset: "sent_if_account_exists" }` (same answer for any email); the link is valid 60 minutes.
+  - **New admin:** `POST /admin/admins { name, email, role_id }` creates the account **without a password** and emails a set-password link (72 h, `ADMIN_SET_PASSWORD_TTL_HOURS`); `POST /admin/admins/:adminId/password-link` sends a new one. Until the password is set the admin can't sign in (`password_set: false`).
+- **Change password:** `POST /admin/auth/change-password { current_password, new_password, confirm_password }` → `{ changed: true, token }` (continue with the new token). **400** `wrong_password`, `passwords_do_not_match`.
+- **Revocation:** a password change or reset, a role or email change, or deactivation (`PATCH /admin/admins/:adminId { is_active: false }`) ends all earlier sessions of that admin. Admins are never deleted.
+- **Admin accounts** (`admins.manage`): `GET /admin/admins?active=`, `GET/PATCH /admin/admins/:adminId`. `PATCH` takes any of `name, email, role_id, is_active`; **403** `own_role`, `own_account`, `last_super_admin`; **409** `email_taken`; **400** `invalid_role`. Every change is in the audit log (`admin.create`, `admin.update`, `admin.password_link`).
 - **Permissions:**
 
 | Permission | Roles |
@@ -2121,7 +2127,6 @@ Authorization: Bearer eyJ…
 | `platform.read` | super admin, admin |
 | `platform.write` | super admin, admin |
 | `content.manage` | super admin, admin, editor |
-| `system.read` | super admin |
 | `citations.view` (Phase 16) | super admin, admin, editor |
 | `citations.manage` (Phase 16) | super admin, admin, editor |
 
@@ -2131,8 +2136,22 @@ Authorization: Bearer eyJ…
 - A bad, expired or revoked **user** token is **401** (it used to be 500 for a bad signature, 404 for a deleted user). Access tokens last 1 day; refresh as in "Session tokens and refresh" above (refresh tokens last 30 days, then sign in again).
 - Password changes and resets end every session of that user.
 - Any request key starting with `$` or containing `.` → **400** `{ "reason": "invalid_input", "field": "body.email.$ne" }`.
-- Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, legacy white-label create/update, GBP post add); elsewhere a file → **400**.
+- Request bodies are limited to 1 MB (**413**). Multipart requests: files only on the upload routes (blog create/update, GBP post add); elsewhere a file → **400**.
 - 500 responses say "Something went wrong." (details only in development).
+
+### `GET /api/v1/admin/roles` (Phase 13b, `admins.manage`)
+
+The fixed admin roles and what each may do (for the role picker when creating an admin):
+
+```json
+[
+  { "role_id": 1, "key": "superAdmin", "name": "Super Admin", "active": true, "permissions": ["admins.manage", "platform.read", "platform.write", "content.manage", "citations.view", "citations.manage", "billing.read", "billing.manage"] },
+  { "role_id": 2, "key": "admin", "name": "Admin", "active": true, "permissions": ["platform.read", "platform.write", "content.manage", "citations.view", "citations.manage", "billing.read", "billing.manage"] },
+  { "role_id": 4, "key": "editor", "name": "Editor", "active": true, "permissions": ["content.manage", "citations.view", "citations.manage"] }
+]
+```
+
+Roles can't be created, edited or deleted (the legacy `/roles` CRUD was removed in 13b: a new role never had any permission).
 
 ## Citations (Phase 16)
 
@@ -2493,7 +2512,59 @@ Ledger types: `purchase | spend | refund | grant | monthly_grant | adjustment | 
 
 **Comp / trial / tokens.**
 - A manual subscription with `comp_until` is free until that date (no invoices).
-- `PATCH …/organizations/:organizationId/trial { "trial_ends_at": "…" }`.
+- Trial extension: `PATCH /api/v1/admin/organizations/:organizationId/trial { "trial_ends_at": "…" }` (admin panel, 13b).
 - `POST …/organizations/:organizationId/tokens { "amount": 5, "type": "grant", "note": "goodwill" }` (negative `adjustment`s can't take the balance below zero).
 
-**Legacy guest-checkout subscriptions.** `GET /admin/billing/legacy-payments?unlinked=true` lists the paid pre-13a PayPal subscriptions, with a suggested organization (the organization owned by the verified user with the same email). `POST …/legacy-payments/:paymentId/link { "organization_id": "…" }` creates the organization's subscription. The legacy price is kept for the current period; the next renewal snapshot re-prices it with first + (n − 1) × additional. `npm run migrate:billing` does the matching ones in bulk.
+
+## Admin panel (Phase 13b)
+
+`/api/v1/admin/*`, platform admins. Catalogue: ENDPOINTS.md "Admin panel (Phase 13b)". Every change is written to the audit log (actions `admin.user.*`, `admin.organization.*`).
+
+**`GET /admin/overview`**
+
+```json
+{
+  "organizations": { "total": 42, "by_type": { "business": 30, "agency": 12 }, "by_state": { "trialing": 9, "active": 28, "past_due": 2, "inactive": 3 } },
+  "subscriptions": { "paying": 30, "past_due": 2, "mrr": { "USD": 2140, "CAD": 890 } },
+  "trials_ending_7d": 4,
+  "token_sales_30d": { "USD": { "count": 6, "total": 120 } },
+  "signups_30d": { "users": 18, "organizations": 11 },
+  "open_tickets": 5,
+  "generated_at": "…"
+}
+```
+
+MRR = what each open paid subscription charges per month (first + (paid − 1) × additional); comped subscriptions are excluded.
+
+**Users.**
+- `GET /admin/users?q=&status=active|disabled|unverified&page=&limit=` → `{ users: [{ id, email, name, user_type, status, disabled, email_verified_at, created_at, last_login_at, organizations }], page, limit, total }`
+- `GET /admin/users/:userId` adds `mobile`, `memberships: [{ organization_id, organization, type, role, status }]`, `recent_logins: [{ at, logged_out_at, ip }]` (last 10) and `google_connections: [{ google_email, status }]`.
+- `POST …/disable { reason }` blocks sign-in and ends every session; `POST …/enable`; `POST …/logout` ends every session; `POST …/resend-verification`, `POST …/verify` (**409** `already_verified`).
+
+**Organizations.**
+- `GET /admin/organizations?q=&type=&state=&plan=standard|custom&trial_ending_days=` → `{ organizations: [{ id, name, type, country, owner_email, plan, state, trial_ends_at, locations: { used, allowed, max }, users: { used, limit }, token_balance, suspended_at, created_at }], page, limit, total }`.
+- `GET /admin/organizations/:organizationId` → `{ organization: { …, owner, suspended_at, suspended_reason, limit_overrides }, members, locations, clients, billing: <GET /billing>, invoices, citations: { <status>: count } }`.
+- `POST …/suspend { reason }`: the organization becomes read-only. Money-costing actions answer **402** `organization_suspended`; reads keep working. **409** `already_suspended`. `POST …/unsuspend { note? }` (**409** `not_suspended`).
+- `PATCH …/trial { trial_ends_at }`.
+- `PATCH …/limits { max_locations?: number | null, extra_users?: number }`: overrides on top of the plan. `max_locations: null` = no cap; `extra_users` is added to the pooled user limit. An empty body `{}` clears the overrides.
+
+## Support tickets (Phase 13b)
+
+**Customer side** (`/api/v1/support/tickets`, any organization role; a client_user sees only its own tickets):
+- `POST /support/tickets { subject, category?: billing|technical|account|data|other, message, location_id? }` → **201** `{ id, number: "TCK-000001", subject, category, status: "open", priority, location_id, messages, last_message_at, last_message_by, created_at, closed_at, thread: [{ id, author: { kind, name }, body, created_at }] }`
+- `GET /support/tickets?status=&page=&limit=`, `GET /support/tickets/:ticketId` (with `thread`)
+- `POST /support/tickets/:ticketId/messages { message }`: status back to `open` (also reopens a resolved ticket); **409** `ticket_closed` on a closed one.
+- `POST /support/tickets/:ticketId/close`
+
+Team replies appear as `{ "kind": "team", "name": "MyPageSEO team" }`; internal notes are never shown.
+
+**Statuses:** `open` (waiting for the team) → `in_progress` → `waiting_on_customer` (after a team reply) → `resolved` → `closed`.
+
+**Team side** (`/api/v1/admin/support/tickets`, `support.read` / `support.manage`):
+- `GET …?status=&organization_id=&assigned_to=&unassigned=true&q=` (q: a number prefix such as `TCK-00` or words of the subject); each ticket adds `organization`, `created_by: { id, email }` and `assigned_to`.
+- `GET …/counts` → `{ open, in_progress, waiting_on_customer, resolved, closed, unassigned_open }`.
+- `GET …/:ticketId`: the full thread, internal notes included (`internal: true`).
+- `POST …/:ticketId/messages { message, internal?: false }`: a reply sets `waiting_on_customer` and emails the customer; an internal note changes nothing for the customer. The first team message assigns the ticket to its author.
+- `PATCH …/:ticketId { status?, priority?: low|normal|high, assigned_to?: <admin id> | null }`.
+
+**Emails:** a new ticket and customer replies go to `SUPPORT_EMAIL`; team replies go to the customer with a link to `FRONTEND_URL/support/<id>`. Sent or logged per `EMAIL_TRANSPORT` (OPERATIONS.md "Email").

@@ -1,6 +1,5 @@
 import httpStatus from 'http-status';
 import { Types } from 'mongoose';
-import { paypalClient } from '../../clients/paypalClient';
 import config from '../../configs/config';
 import { BillingMethod, currencyFor, Currency } from '../../billing/constants';
 import { monthlyLines, priceAt } from '../../billing/pricing';
@@ -17,7 +16,6 @@ import {
 	ITokenPack,
 	Invoice,
 	Organization,
-	Payment,
 	Subscription,
 	TokenPack,
 } from '../../models';
@@ -26,8 +24,8 @@ import { billingOverview, listLedger } from './account.service';
 import { audit, AuditActor } from './audit';
 import { couponView } from './coupons';
 import { invoiceService, invoiceView } from './invoices';
-import { legacyPaidFilter, LegacyPaymentRow, linkLegacyPayment, listLegacyPayments, organizationForEmail } from './legacy';
 import { planForOrganization, standardPlan } from './plans';
+import { paymentProvider } from './providers';
 import { createSubscriptionService } from './subscriptions';
 import { credit } from './tokens';
 
@@ -237,13 +235,6 @@ export const startManualSubscription = async (actor: AuditActor, organizationId:
 	return subscriptionView(sub);
 };
 
-export const extendTrial = async (actor: AuditActor, organizationId: string, until: Date) => {
-	const org = await loadOrg(organizationId);
-	await Organization.updateOne({ _id: org._id }, { $set: { trial_ends_at: until, billing_reminders: null } });
-	await audit(actor, { action: 'billing.trial', organization_id: org._id, before: org.trial_ends_at ?? null, after: until });
-	return { trial_ends_at: until };
-};
-
 export const adjustTokens = async (actor: AuditActor, organizationId: string, input: { amount: number; type: 'grant' | 'adjustment'; note: string }) => {
 	const org = await loadOrg(organizationId);
 	if (input.type === 'grant' && input.amount <= 0) throw apiErrorWithData(httpStatus.BAD_REQUEST, 'A grant must be positive.', { reason: 'invalid_amount' });
@@ -278,7 +269,6 @@ export const subscriptionView = (s: ISubscription) => ({
 	last_payment_at: s.last_payment_at,
 	comp_until: s.comp_until,
 	note: s.note,
-	legacy_payment_id: s.legacy_payment_id ? String(s.legacy_payment_id) : null,
 	created_at: s.created_at,
 });
 
@@ -307,10 +297,10 @@ export const getSubscription = async (id: string) => {
 
 export const syncSubscription = async (actor: AuditActor, id: string) => {
 	const sub = await loadSubscription(id);
-	if (!sub.provider_subscription_id) throw conflict('not_paypal', 'This subscription is not billed through PayPal.');
-	const client = paypalClient();
-	if (!client.configured()) throw apiErrorWithData(httpStatus.SERVICE_UNAVAILABLE, 'PayPal is not configured.', { reason: 'billing_not_configured' });
-	const updated = await createSubscriptionService().applyPaypal(sub, await client.getSubscription(sub.provider_subscription_id));
+	if (!sub.provider_subscription_id) throw conflict('not_paypal', 'This subscription is not billed through the payment provider.');
+	const provider = paymentProvider();
+	if (!provider.configured()) throw apiErrorWithData(httpStatus.SERVICE_UNAVAILABLE, 'Online payments are not configured.', { reason: 'billing_not_configured' });
+	const updated = await createSubscriptionService().applyProviderState(sub, await provider.getSubscription(sub.provider_subscription_id));
 	await audit(actor, { action: 'billing.subscription.sync', organization_id: sub.organization_id, target: `subscription:${id}`, before: sub.status, after: updated.status });
 	return subscriptionView(updated);
 };
@@ -318,10 +308,10 @@ export const syncSubscription = async (actor: AuditActor, id: string) => {
 export const cancelSubscription = async (actor: AuditActor, id: string, reason: string) => {
 	const sub = await loadSubscription(id);
 	if (!sub.open) throw conflict('not_open', 'This subscription is not open.');
-	if (sub.billing_method === 'paypal' && sub.provider_subscription_id && sub.status !== 'approval_pending') {
-		const client = paypalClient();
-		if (!client.configured()) throw apiErrorWithData(httpStatus.SERVICE_UNAVAILABLE, 'PayPal is not configured.', { reason: 'billing_not_configured' });
-		await client.cancelSubscription(sub.provider_subscription_id, reason || 'Cancelled by MyPageSEO');
+	if (sub.billing_method !== 'manual' && sub.provider_subscription_id && sub.status !== 'approval_pending') {
+		const provider = paymentProvider();
+		if (!provider.configured()) throw apiErrorWithData(httpStatus.SERVICE_UNAVAILABLE, 'Online payments are not configured.', { reason: 'billing_not_configured' });
+		await provider.cancelSubscription(sub.provider_subscription_id, reason || 'Cancelled by MyPageSEO');
 	}
 	const now = new Date();
 	const updated = (await Subscription.findByIdAndUpdate(
@@ -418,43 +408,6 @@ export const updateCoupon = async (actor: AuditActor, id: string, input: Partial
 	await audit(actor, { action: 'billing.coupon.update', target: `coupon:${before.code}`, before: couponView(before), after: couponView(after) });
 	return couponView(after);
 };
-
-// ---- legacy payments ----
-
-export const legacyPayments = async (onlyUnlinked: boolean) => {
-	const rows = await listLegacyPayments();
-	const linked = new Set((await Subscription.find({ provider_subscription_id: { $in: rows.map((r) => r.paypal_subscription_id).filter(Boolean) } }).select({ provider_subscription_id: 1 }).lean()).map((s) => s.provider_subscription_id));
-	const out = [];
-	for (const r of rows) {
-		const isLinked = linked.has(r.paypal_subscription_id ?? '');
-		if (onlyUnlinked && isLinked) continue;
-		const suggested = isLinked ? null : await organizationForEmail(r.customer_email);
-		out.push({
-			id: String(r._id),
-			paypal_subscription_id: r.paypal_subscription_id,
-			customer_email: r.customer_email ?? null,
-			customer_name: r.customer_name ?? null,
-			monthly_amount: r.monthly_amount ?? null,
-			status: r.status ?? null,
-			subscription_status: r.subscription_status ?? null,
-			created_at: r.created_at ?? null,
-			linked: isLinked,
-			suggested_organization: suggested ? { id: String(suggested._id), name: suggested.name } : null,
-		});
-	}
-	return out;
-};
-
-export const linkLegacy = async (actor: AuditActor, paymentId: string, organizationId: string) => {
-	const id = oid(paymentId);
-	const payment = id ? ((await Payment.collection.findOne({ _id: id, ...legacyPaidFilter() })) as unknown as LegacyPaymentRow | null) : null;
-	if (!payment) throw notFound('Legacy payment');
-	const sub = await linkLegacyPayment(payment, organizationId);
-	await audit(actor, { action: 'billing.legacy.link', organization_id: sub.organization_id, target: `payment:${paymentId}`, after: subscriptionView(sub) });
-	return subscriptionView(sub);
-};
-
-// ---- audit ----
 
 export const auditView = (a: IAuditLog) => ({
 	id: String(a._id),

@@ -15,8 +15,6 @@ export const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[
 
 export const oid = (id: string | Types.ObjectId): Types.ObjectId => (typeof id === 'string' ? new Types.ObjectId(id) : id);
 
-export const isObjectId = (id: unknown): id is string => typeof id === 'string' && /^[0-9a-f]{24}$/i.test(id);
-
 /** "https://www.Yelp.com/biz/x" → "yelp.com"; null when not an http(s) URL. */
 export const domainOf = (url: string): string | null => {
 	try {

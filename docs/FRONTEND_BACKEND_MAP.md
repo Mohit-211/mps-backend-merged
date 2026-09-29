@@ -6,13 +6,13 @@ For the frontend team (Lovable). Every screen in the roadmap's **§16 Master Scr
 
 Every current endpoint (legacy included) is in [ENDPOINTS.md](ENDPOINTS.md); request and response shapes are in [API.md](API.md).
 
-Status as of 2026-09-28: everything through Phase 16 (citations) is merged and pushed. Billing (Phase 13a) is built (awaiting merge): the billing screen is **available**. The admin panel backend and support tickets (13b) are next. Summary: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md).
+Status as of 2026-09-29: everything through Phase 13a (billing) is merged and pushed; Phase 13b (built, awaiting merge) adds the `/auth` session and account endpoints, password reset by link, the admin panel backend and support tickets. The call sequences of the core flows are in [FLOWS.md](FLOWS.md). Summary: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md).
 
 ## Notes for the frontend team (Phase 10, 2026-09-27)
 
 **1. Sessions: refresh the access token.**
 - Access tokens last **1 day** (they were 7). Refresh tokens last **30 days** (`JWT_REFRESH_EXPIRATION_DAYS`).
-- On a **401** from any endpoint, call `POST /user/auth/refresh-auth { refresh_token }` once and retry with the new access token.
+- On a **401** from any endpoint, call `POST /auth/refresh { refresh_token }` once, **store both returned tokens** (the refresh token rotates), and retry with the new access token.
 - If the refresh itself fails (401 expired or revoked, 404 disabled account), clear the tokens and go to login. After 30 days the user always logs in again.
 - A password change or reset, or an account deletion, ends every session (the next refresh is 401).
 - Exact flow, responses and error messages: [API.md](API.md) "Session tokens and refresh".
@@ -20,19 +20,20 @@ Status as of 2026-09-28: everything through Phase 16 (citations) is merged and p
 **2. Admin panel: admin sign-in only.**
 - The admin panel signs in with `POST /admin/auth/login` and sends that **admin** token (12 h) on every admin call. User tokens never work on admin routes, and admin tokens never work on user routes.
 - Every admin route is guarded. No token → **401**. A role without the permission → **403** `{ "reason": "forbidden", "permission": "…" }`; hide the menu entries the role can't use.
-- Forgot password: `sendOTP` → `verifyOTP` → `forgotPassword` (see API.md "Platform admin authentication").
+- Passwords by link (13b; no codes anywhere): one admin page **`/reset-password?token=…`** (on `ADMIN_FRONTEND_URL`) posts `POST /admin/auth/reset-password`. It is reached from forgot password (`POST /admin/auth/forgot-password`) and from the welcome email of a new admin (set the first password). See API.md "Platform admin authentication".
+- Admin accounts: `/admin/admins` (list, create, edit, deactivate, resend the password link); your own account: `GET /admin/auth/me`, `POST /admin/auth/change-password`.
 
 | Permission | Roles | Routes |
 |---|---|---|
-| `admins.manage` | super admin | `/admin/auth/{register, getAllAdmins, getAdminById/:id, updateAdmin, deleteAdmin}`, `/roles` (all) |
-| `platform.read` | super admin, admin | `/admin/operations/{getAllAgencies, getAgencyById/:id, getAllBusinesses, getBusinessesById/:id, getAllClients}`, `/supports/{getAllSupportByAdmin, getSupportTicketStatusCounts}`, `GET /contact-us/get`, `GET /contact-us/:contactId` |
-| `platform.write` | super admin, admin | `PUT /admin/operations/updateAgencyStatus`, `PUT /supports/updateSupportTicketStatus`, `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
+| `admins.manage` | super admin | `/admin/admins` (list, create, detail, edit / deactivate, password link), `GET /admin/roles` (read-only role list for the role picker) |
+| `platform.read` | super admin, admin | `GET /admin/overview`, `GET /admin/users[/:userId]`, `GET /admin/organizations[/:organizationId]` (13b); `GET /contact-us/get`, `GET /contact-us/:contactId` |
+| `platform.write` | super admin, admin | users: disable / enable / sign out everywhere / resend verification / mark verified; organizations: suspend / unsuspend, trial, limit overrides (13b); `PUT /contact-us/:contactId/status`, `DELETE /contact-us/:contactId` |
+| `support.read` / `support.manage` | super admin, admin, editor | `/admin/support/tickets*` (13b): the ticket queue, counts, threads, replies and internal notes, status / priority / assignee |
 | `content.manage` | super admin, admin, editor | blog, blog categories and FAQs create / update / delete; `POST/PUT /business-categories` |
-| `system.read` | super admin | `/system/{info, process, time, usage}`, `GET/DELETE /logs` |
 | `citations.view` / `citations.manage` | super admin, admin, editor | Phase 16 citation admin (directories, per-location lists, work queue) |
-| `billing.read` / `billing.manage` | super admin, admin | Phase 13a billing admin `/admin/billing/*`: prices, custom plans, subscriptions, invoices, tokens, packs, coupons, legacy links, audit log |
+| `billing.read` / `billing.manage` | super admin, admin | Phase 13a billing admin `/admin/billing/*`: prices, custom plans, subscriptions, invoices, tokens, packs, coupons, audit log |
 
-The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (permission)`). The public admin routes are `login`, `sendOTP`, `verifyOTP` and `forgotPassword` (rate-limited).
+The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (permission)`). The public admin routes are `/admin/auth/{login, forgot-password, reset-password}` (rate-limited).
 
 **3. CORS: register every frontend origin.** The wildcard CORS header is gone. The API answers cross-origin requests only from the origins listed in **`ACCESSDOMAINS`** (comma-separated, exact scheme + host + port, e.g. `https://app.mypageseo.com,https://admin.mypageseo.com`). A new frontend URL (staging, preview, admin panel) must be added there, and the API restarted, before it can call the API. Otherwise the browser blocks the request with a CORS error.
 
@@ -46,10 +47,10 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Login | `POST /auth/login` (returns organizations + onboarding), `POST /user/auth/refresh-auth`, `POST /user/auth/logout` | **available (8)**. The legacy `/user/auth/login` is deprecated. |
+| Login | `POST /auth/login` (returns organizations + onboarding), `POST /auth/refresh`, `POST /auth/logout` | **available (8)**. |
 | Signup | `POST /auth/signup` (Business or Agency, user details, organization name, country, terms) | **available (8, 8.1)**: creates the user, the organization and the owner membership, and emails a **verification link**. Then show "Check your email" with a resend button (`POST /auth/resend-verification`). Unverified accounts are deleted after 24 h. |
-| Forgot password | `POST /auth/forgot-password` | **available (8)**: a 6-digit code by email (not a link); same answer whether or not the account exists |
-| Reset password | `POST /auth/reset-password` `{ email, code, password }` | **available (8)**; signs out every session. (Changing the password while logged in: legacy `POST /user/auth/reset-password`.) |
+| Forgot password | `POST /auth/forgot-password { email }` | **available (8; link since 13b)**: emails a link to `/reset-password?token=…` (60 minutes, single use; a newer link replaces older ones); same answer whether or not the account exists |
+| Reset password (`/reset-password?token=…`) | `POST /auth/reset-password { token, password, confirm_password }` | **available (13b)**: the page the email link opens. Show the password rules; on **400** `link_expired` or `link_invalid` offer "send a new link" (back to forgot password); `passwords_do_not_match` under the confirm field. Success signs out every session and marks the email verified → go to login. Changing the password while logged in: `POST /auth/change-password`. |
 | Verify email (`/verify-email?token=…`) | `POST /auth/verify-email { token }`, `POST /auth/resend-verification { email }` | **available (8.1)**: the page the email link opens. Call verify once on load. The first time it logs the user in (continue to onboarding); `already_verified` → "already verified" + Log in (no error page); `link_expired` / `link_invalid` → "Send a new link". Login before verifying is **403** `email_not_verified` (offer resend). Full table: API.md "The `/verify-email` page". |
 | Social login ("optional") | – | not supported (not planned) |
 
@@ -59,7 +60,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 |---|---|---|
 | Business onboarding | `GET /onboarding/state` (organization steps + empty states), `POST /onboarding/skip`, `POST /onboarding/select-profile` or `GET /places/search` + `POST /locations`, `PUT /locations/:id/center`, `PUT /locations/:id/tracking`, `GET /locations/:id/competitor-suggestions`, `POST /onboarding/complete` | **available (8)**: resumable at any step; Google can be skipped (Places-search path) |
 | Agency onboarding | as above + `POST /clients` (first client) and `client_id` on add-location | **available (8)**. The "reporting brand" step (Phase 12) is `done` once branding is saved (`PUT /organization/branding`), or skipped. |
-| Google/GBP connection | `GET /user/auth/google/gbp/popup` + `POST /user/auth/google/gbp/code` (popup), `GET /user/auth/google/gbp` (redirect), `POST /user/auth/google/gbp/revoke` | available (several Google accounts per user) |
+| Google/GBP connection | `GET /gbp/connect/popup` + `POST /gbp/connect/code` (popup), `GET /gbp/connect/url` (redirect), `POST /gbp/disconnect` | available (several Google accounts per user) |
 | Setup completion | `POST /onboarding/complete` | available (queues the first rank run and the first GBP sync; sets the monthly refresh) |
 
 ## Dashboard
@@ -153,19 +154,30 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Screen | Backend | Status |
 |---|---|---|
 | Organization | `GET/PATCH /organization`, `GET /organization/usage` (plan, locations and keywords used/limit, clients) | **available (8)** |
-| Profile | legacy `GET/PUT /user/profile` | available (legacy) |
+| Profile | `GET/PATCH /auth/me` (name, phone, organizations), `POST /auth/deactivate` (delete account) | **available (13b)** |
 | Team / permissions | roles `owner`, `member`, `client_user`; invitations, role change, removal (owner only) | **available (11)**. The legacy `/user/auth/employee/*` routes still work (they add a member directly). |
 | Integrations | GBP connections (above) | **partial**: GBP only. **Google Analytics / Search Console: not supported** (removed; organic scope). |
-| Notifications | legacy `POST /user/notifications` (toggle) | legacy toggle only; event notifications not planned yet |
+| Notifications | – | **not planned yet** (Phase 15: notifications & automations). The legacy toggle was removed in 13b. |
 | Billing (one page) | `GET /billing` (state, plan, prices, subscription, next renewal, locations / users / tokens, billing details), `POST /billing/{checkout, sync, cancel}`, `GET /billing/location-slots/quote` + `POST /billing/location-slots`, `GET /billing/token-packs`, `POST /billing/coupon/validate`, `POST /billing/tokens/checkout`, `POST /billing/orders/:orderId/capture`, `GET /billing/tokens/ledger`, `PATCH /billing/details`, `GET /billing/invoices[/:id/pdf]`; `GET /organization/usage` (limits + `api_usage`) | **available (13a)**: owner pays and edits, member reads, client_user no access. PayPal flow and return URLs: API.md "Billing (Phase 13a)". Pricing page on the marketing site: public `GET /pricing?country=US\|CA`. |
-| White label | `GET/PUT /organization/branding`, `GET/PUT/DELETE /organization/branding/logo` | **available (12), agency only**: agency name, logo (PNG/JPEG ≤ 512 KB), colours, footer/contact text, hide MyPageSEO, email sender name and reply-to. Business organizations use the default branding. The legacy `/white-label-profiles` routes are deprecated (`npm run migrate:branding` copies them). |
+| White label | `GET/PUT /organization/branding`, `GET/PUT/DELETE /organization/branding/logo` | **available (12), agency only**: agency name, logo (PNG/JPEG ≤ 512 KB), colours, footer/contact text, hide MyPageSEO, email sender name and reply-to. Business organizations use the default branding. |
 | Security | – | not planned yet |
 
 ## Support
 
 | Screen | Backend | Status |
 |---|---|---|
-| Help / support entry | legacy support routes | legacy (out of scope) |
+| Help / support tickets | `POST/GET /support/tickets`, `GET /support/tickets/:id`, `POST …/messages`, `POST …/close` | **available (13b)**: tickets with threads for every organization role (a client_user sees its own). Team replies show as "MyPageSEO team". Statuses `open → in_progress → waiting_on_customer → resolved → closed`; replying reopens a resolved ticket; a closed one is **409** `ticket_closed`. Shapes: API.md "Support tickets". |
+
+## Admin panel (platform admins)
+
+| Screen | Backend | Status |
+|---|---|---|
+| Overview | `GET /admin/overview` | **available (13b)**: organizations by type and state, paying subscriptions and MRR per currency, trials ending, token sales, signups, open tickets |
+| Users | `/admin/users*` | **available (13b)**: search, detail (memberships, logins, Google connections), disable / enable, sign out everywhere, resend verification, mark verified |
+| Organizations | `/admin/organizations*`, `/admin/billing/*` | **available (13b)**: list with billing state, detail (members, locations, clients, billing, invoices, citations), suspend, trial, limit overrides; billing actions in the billing admin |
+| Support queue | `/admin/support/tickets*` | **available (13b)** |
+| Admin accounts | `/admin/admins*`, `GET /admin/roles`, `GET /admin/auth/me`, `POST /admin/auth/change-password` | **available (13b)** |
+| Citations, billing | `/admin/citations/*`, `/admin/billing/*` | **available (16, 13a)** |
 
 ## Not supported (don't build these)
 

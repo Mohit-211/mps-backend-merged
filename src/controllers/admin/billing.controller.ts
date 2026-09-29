@@ -26,7 +26,6 @@ export const createCustomPlan = catchAsync(async (req, res) => responseWrapper(r
 export const removeCustomPlan = catchAsync(async (req, res) => responseWrapper(res, await admin.removeCustomPlan(actor(res), p(req, 'organizationId')), 'Back on the standard plan.'));
 export const setBillingMethod = catchAsync(async (req, res) => responseWrapper(res, await admin.setBillingMethod(actor(res), p(req, 'organizationId'), input(res).billing_method), 'Billing method saved.'));
 export const startManual = catchAsync(async (req, res) => responseWrapper(res, await admin.startManualSubscription(actor(res), p(req, 'organizationId'), input(res)), 'Manual subscription started.', httpStatus.CREATED));
-export const extendTrial = catchAsync(async (req, res) => responseWrapper(res, await admin.extendTrial(actor(res), p(req, 'organizationId'), new Date(input(res).trial_ends_at)), 'Trial updated.'));
 export const adjustTokens = catchAsync(async (req, res) => responseWrapper(res, await admin.adjustTokens(actor(res), p(req, 'organizationId'), input(res)), 'Tokens updated.'));
 export const organizationLedger = catchAsync(async (req, res) => responseWrapper(res, await admin.organizationLedger(p(req, 'organizationId'), input(res).page, input(res).limit)));
 
@@ -57,8 +56,5 @@ export const updatePack = catchAsync(async (req, res) => responseWrapper(res, aw
 export const listCoupons = catchAsync(async (req, res) => responseWrapper(res, await admin.listCoupons()));
 export const createCoupon = catchAsync(async (req, res) => responseWrapper(res, await admin.createCoupon(actor(res), input(res)), 'Coupon created.', httpStatus.CREATED));
 export const updateCoupon = catchAsync(async (req, res) => responseWrapper(res, await admin.updateCoupon(actor(res), p(req, 'couponId'), input(res)), 'Coupon saved.'));
-
-export const legacyPayments = catchAsync(async (req, res) => responseWrapper(res, await admin.legacyPayments(Boolean(input(res).unlinked))));
-export const linkLegacy = catchAsync(async (req, res) => responseWrapper(res, await admin.linkLegacy(actor(res), p(req, 'paymentId'), input(res).organization_id), 'Legacy payment linked.', httpStatus.CREATED));
 
 export const auditLog = catchAsync(async (req, res) => responseWrapper(res, await admin.listAudit(input(res))));

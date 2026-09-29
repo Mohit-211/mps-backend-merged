@@ -10,6 +10,7 @@ import { UNBOUND_REASON, createBindingService } from '../../../src/services/gbp/
 import { createTokenStore } from '../../../src/services/gbp/tokenStore';
 import { createTokenCrypto } from '../../../src/utils/tokenCrypto';
 import { loadGbpFixture } from '../../helpers/fakeTransport';
+import { testMongoUriFor } from '../../helpers/memoryMongo';
 import { clearDb, createLocation, createUser, startTestDb } from '../../helpers/mongoose';
 
 // Importing the models barrel pulls services that import mongoConnection (would connect to .env).
@@ -27,8 +28,7 @@ let agenda: Agenda;
 beforeAll(async () => {
 	db = await startTestDb();
 	await Promise.all([UserAuth.syncIndexes(), UserGBP.syncIndexes()]);
-	const { host, port } = mongoose.connection;
-	agenda = createAgenda({ address: `mongodb://${host}:${port}/mps_test` });
+	agenda = createAgenda({ address: testMongoUriFor(mongoose.connection.name) });
 	await new Promise<void>((resolve) => agenda.once('ready', () => resolve()));
 }, 60000);
 afterAll(async () => {

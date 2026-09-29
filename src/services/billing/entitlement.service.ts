@@ -43,7 +43,7 @@ export const loadEntitlement = async (org: Id | IOrganization, now: Date = new D
 	const entitlement = entitlementFor({
 		now,
 		grace_days: config.billing.graceDays,
-		org: { trial_ends_at: organization.trial_ends_at ?? null, suspended_at: organization.suspended_at ?? null, token_balance: organization.token_balance ?? 0 },
+		org: { trial_ends_at: organization.trial_ends_at ?? null, suspended_at: organization.suspended_at ?? null, token_balance: organization.token_balance ?? 0, limit_overrides: organization.limit_overrides ?? null },
 		plan,
 		subscription: subscription
 			? {

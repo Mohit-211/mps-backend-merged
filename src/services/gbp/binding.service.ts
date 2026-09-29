@@ -220,15 +220,8 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		return { gbp_sync: gbpSync, scheduled_posts: posts.length };
 	};
 
-	/**
-	 * Bindings made through a connection. Pre-7a bindings (google_sub null) belong to the user's only
-	 * connection, so they are included when there is just one.
-	 */
-	const bindingsOf = async (userId: UserId, googleSub: string | null) => {
-		const connections = await tokens.listConnections(userId, tokenTypes.GBP);
-		const subs: (string | null)[] = connections.length <= 1 ? [googleSub, null] : [googleSub];
-		return UserGBP.find({ user_id: userId, is_active: true, google_sub: { $in: [...new Set(subs)] } });
-	};
+	/** Bindings made through a connection (the Google account it was bound with). */
+	const bindingsOf = async (userId: UserId, googleSub: string | null) => UserGBP.find({ user_id: userId, is_active: true, google_sub: googleSub });
 
 	/** Deletes a connection's tokens once none of its profiles is bound any more. */
 	const deleteTokensIfUnbound = async (userId: UserId, googleSub: string | null): Promise<boolean> => {
@@ -243,12 +236,7 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		if (!binding) throw new ApiError(httpStatus.NOT_FOUND, 'This location is not bound to a Google Business Profile');
 		const bindingUser = binding.user_id as unknown as Types.ObjectId;
 
-		let googleSub = binding.google_sub ?? null;
-		if (googleSub === null) {
-			// Pre-7a binding: it belongs to the only connection, if there is exactly one.
-			const connections = await tokens.listConnections(bindingUser, tokenTypes.GBP);
-			if (connections.length === 1) googleSub = connections[0].googleSub;
-		}
+		const googleSub = binding.google_sub ?? null;
 		const jobs = await cancelLocationJobs(bindingUser, location._id as Types.ObjectId, binding.gbpLocationId);
 		await UserGBP.deleteOne({ _id: binding._id });
 		await Location.updateOne({ _id: location._id }, { $set: { gbp_connected: false } });

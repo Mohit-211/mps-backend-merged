@@ -2,9 +2,9 @@ import crypto from 'crypto';
 import express from 'express';
 import request from 'supertest';
 import logger from '../../src/configs/logger';
-import { AuthCode, Client, Invitation, Membership, Organization, Profile, User, UserToken } from '../../src/models';
-import { createAuthService } from '../../src/services/auth/auth.service';
-import { cleanupUnverifiedAccounts, hashLinkToken, migrateExistingUsersVerified } from '../../src/services/auth/emailVerification';
+import { AuthLink, Client, Invitation, Membership, Organization, Profile, User, UserToken } from '../../src/models';
+import { cleanupUnverifiedAccounts } from '../../src/services/auth/emailVerification';
+import { hashLinkToken } from '../../src/services/auth/links';
 import { hashToken as hashInvitationToken } from '../../src/services/team/invitation.service';
 import { clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 
@@ -12,7 +12,6 @@ import { clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose
 // the migration and the legacy /user/auth rules, on the real app (offline).
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 const links: { to: string; link: string }[] = [];
 jest.mock('../../src/services/common/email.service', () =>
 	new Proxy(
@@ -47,7 +46,7 @@ const age = async (email: string, hours: number) => {
 	const user = await User.findOne({ email }).lean();
 	const past = new Date(Date.now() - hours * HOUR);
 	await User.collection.updateOne({ _id: user?._id }, { $set: { verification_deadline: new Date(past.getTime() + 24 * HOUR), created_at: past } });
-	await AuthCode.updateMany({ user_id: user?._id, consumed_at: null }, { $set: { expires_at: new Date(past.getTime() + 24 * HOUR) } });
+	await AuthLink.updateMany({ subject_id: user?._id, consumed_at: null }, { $set: { expires_at: new Date(past.getTime() + 24 * HOUR) } });
 	return user;
 };
 
@@ -69,8 +68,8 @@ describe('signup → verify by link → login', () => {
 		expect(links).toHaveLength(1);
 		expect(links[0].link).toMatch(/^http:\/\/localhost:3000\/verify-email\?token=[A-Za-z0-9_-]{43}$/);
 		const token = lastToken();
-		const row = await AuthCode.findOne({ purpose: 'verify_email' }).lean();
-		expect(row?.code_hash).toBe(hashLinkToken(token));
+		const row = await AuthLink.findOne({ purpose: 'verify_email' }).lean();
+		expect(row?.token_hash).toBe(hashLinkToken(token));
 		expect(JSON.stringify(row)).not.toContain(token);
 
 		const refused = await login();
@@ -100,7 +99,7 @@ describe('signup → verify by link → login', () => {
 		const token = lastToken();
 		expect((await verify(crypto.randomBytes(32).toString('base64url'))).body.data).toEqual({ reason: 'link_invalid' });
 		expect((await verify('not a token!')).status).toBe(400);
-		await AuthCode.updateMany({}, { $set: { expires_at: new Date(Date.now() - 1000) } });
+		await AuthLink.updateMany({}, { $set: { expires_at: new Date(Date.now() - 1000) } });
 		const expired = await verify(token);
 		expect(expired.status).toBe(400);
 		expect(expired.body.data).toEqual({ reason: 'link_expired' });
@@ -133,20 +132,6 @@ describe('signup → verify by link → login', () => {
 		const limited = await resend('limit@signup.test');
 		expect(limited.status).toBe(429);
 	});
-
-	it('development sends nothing and logs the link with the email masked', async () => {
-		const mailer = { sendVerification: jest.fn(async () => true), sendReset: jest.fn(async () => true) };
-		const info = jest.spyOn(logger, 'info');
-		await createAuthService({ mailer, env: 'development' }).signup(
-			{ account_type: 'agency', name: 'Dev', email: 'dev.person@signup.test', password: PASSWORD, organization_name: 'Dev Co', country: 'CA' },
-			{ ip: '127.0.0.1' },
-		);
-		expect(mailer.sendVerification).not.toHaveBeenCalled();
-		const logged = info.mock.calls.map((c) => String(c[0])).join('\n');
-		expect(logged).toMatch(/email verification for d\*\*\*@signup\.test: http:\/\/localhost:3000\/verify-email\?token=/);
-		expect(logged).not.toContain('dev.person@');
-		info.mockRestore();
-	});
 });
 
 describe('unverified-cleanup', () => {
@@ -178,9 +163,10 @@ describe('unverified-cleanup', () => {
 
 		expect(await User.exists({ email: 'old@signup.test' })).toBeNull();
 		expect(await Organization.exists({ _id: oldOrg?._id })).toBeNull();
-		for (const Model of [Membership, Profile, AuthCode] as const) {
+		for (const Model of [Membership, Profile] as const) {
 			expect(await (Model as typeof Membership).countDocuments({ user_id: old?._id })).toBe(0);
 		}
+		expect(await AuthLink.countDocuments({ subject_id: old?._id })).toBe(0);
 		expect(await Client.countDocuments({ organization_id: oldOrg?._id })).toBe(0);
 		expect(await User.exists({ email: 'shared@signup.test' })).toBeNull();
 		expect(await Organization.exists({ _id: sharedOrg?._id })).not.toBeNull();
@@ -237,36 +223,4 @@ describe('invitations and password reset verify the email', () => {
 	});
 });
 
-describe('migrate:email-verified', () => {
-	it('marks every existing user verified (PENDING → ACCEPTED), leaves 8.1 signups alone, and is idempotent', async () => {
-		const created = new Date('2025-01-02T03:04:05Z');
-		await User.collection.insertMany([
-			{ email: 'a@legacy.test', status: 'PENDING', created_at: created, deleted_at: null },
-			{ email: 'b@legacy.test', status: 'ACCEPTED', created_at: created, deleted_at: null },
-			{ email: 'c@legacy.test', status: 'REVIEWING', deleted_at: null },
-			{ email: 'd@legacy.test', status: 'ACCEPTED', email_verified_at: created, deleted_at: null },
-		]);
-		await signup();
-		expect(await migrateExistingUsersVerified()).toEqual({ marked_verified: 3, status_accepted: 2 });
-		const a = await User.collection.findOne({ email: 'a@legacy.test' });
-		expect(a).toMatchObject({ status: 'ACCEPTED', email_verified_at: created });
-		expect((await User.collection.findOne({ email: 'c@legacy.test' }))?.email_verified_at).toBeInstanceOf(Date);
-		expect((await User.findOne({ email: EMAIL }).lean())?.email_verified_at).toBeNull();
-		expect(await migrateExistingUsersVerified()).toEqual({ marked_verified: 0, status_accepted: 0 });
-	});
-});
 
-describe('legacy /user/auth', () => {
-	it('register is gone, OTP routes only reset passwords, and login refuses unverified accounts', async () => {
-		expect((await request(app).post('/api/v1/user/auth/register').send({ email: 'x@legacy.test' })).status).toBe(404);
-		await signup();
-		const otp = await request(app).post('/api/v1/user/auth/otp').send({ email: EMAIL, type: 'EMAIL_VERIFICATION' });
-		expect(otp.status).toBe(400);
-		expect(otp.body.data).toEqual({ reason: 'verification_by_link' });
-		const verifyOtp = await request(app).post('/api/v1/user/auth/verify-otp').send({ email: EMAIL, otp: '123456', type: 'EMAIL_VERIFICATION' });
-		expect(verifyOtp.body.data).toEqual({ reason: 'verification_by_link' });
-		const legacyLogin = await request(app).post('/api/v1/user/auth/login').set('time_zone', 'UTC').send({ email: EMAIL, password: PASSWORD });
-		expect(legacyLogin.status).toBe(403);
-		expect(legacyLogin.body.data).toMatchObject({ reason: 'email_not_verified' });
-	});
-});

@@ -4,7 +4,7 @@
 
 **Rule (Mohit, 2026-09-26):**
 - Every commit that adds, changes or removes an endpoint updates this file in the **same commit**, and [API.md](API.md) too when a request or response shape changes.
-- `npm run check:endpoints` loads the Express app, lists every registered route and compares it with the catalogue below. It fails on a route missing here, on an entry here with no route, on a bad status, and on a detail-table row (`#`) that isn't in the catalogue. It runs as part of `npm test`.
+- `npm run check:endpoints` loads the Express app, lists every registered route and compares it with the catalogue below. It fails on a route missing here, on an entry here with no route, on a bad status (there is no `deprecated` status: unused endpoints are deleted, Phase 13b), and on a detail-table row (`#`) that isn't in the catalogue. It runs as part of `npm test`.
 
 **Status values:**
 
@@ -12,7 +12,6 @@
 |---|---|
 | live | Registered in every environment |
 | behind flag | Registered, but answers only when a config flag enables it (the flag is named in the purpose) |
-| deprecated | Still registered; will be removed (the replacement is named in the purpose) |
 | dev only | Registered only when `NODE_ENV=development`; never in test or production |
 
 **Phase:** `legacy` = from the old codebase and not rebuilt; `legacy, rebuilt N` = old path, rebuilt in phase N; otherwise the phase that added it.
@@ -22,7 +21,7 @@
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
 **Auth:**
-- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `system.read` (super admin), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin), `support.read` and `support.manage` (Phase 13b; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -66,19 +65,25 @@ Reads, billing, support and GBP connect / bind stay open.
 - `POST /reports`
 - the white-label branding writes
 
-## Summary (2026-09-28, Phase 13a)
+## Summary (2026-09-29, Phase 13b built)
 
-**250 endpoints:** 235 live, 14 deprecated, 1 dev-only.
-- **By origin:** 143 rebuilt or new, 107 legacy.
-- **By auth:** 110 user, 95 platform admin (each with a permission), 43 none, 2 refresh token.
+**225 endpoints:** 224 live, 1 dev-only.
+- **By origin:** 190 rebuilt or new, 35 legacy.
+- **By auth:** 97 user, 92 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
 **Phase 16 (citations):** the 13 legacy `/citation/*` routes were retired. It added 23 `/admin/citations/*` routes (#82–#104) and 2 customer routes (#105–#106), and the report type `citation` (#61).
 
-**Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121), and 30 `/admin/billing/*` routes (#122–#151); the PayPal webhook kept its path with new handlers.
+**Phase 13a (billing):** the 15 legacy plan / guest-checkout / coupon / payment-list / Square routes were retired. It added 14 `/billing` routes and the public `/pricing` (#107–#121), and 30 `/admin/billing/*` routes (#122–#151; the 2 legacy-payment links #149–#150 were removed in 13b); the PayPal webhook kept its path with new handlers.
 
-**Coming:** Phase 9b removes the 14 deprecated routes once the frontend has moved.
+**Phase 13b step 1 (legacy removal):** 40 legacy routes deleted (no deprecated routes remain; the status no longer exists), the read-only `GET /admin/roles` added. Details in [LEGACY_FEATURES.md](LEGACY_FEATURES.md) "Removed in Phase 13b".
+
+**Phase 13b step 2:** sessions and the account moved to `/auth/*` (6 routes: refresh, logout, change-password, me GET/PATCH, deactivate); the legacy `/user/auth` session routes and `/user/profile` were deleted. The Google connect routes then moved to `/gbp/connect/*` + `POST /gbp/disconnect`, and `POST /gbp/bind-with-user` became `POST /gbp/bind`, so no `/user/*` route remains.
+
+**Phase 13b legacy sweep:** `/system/*` (4) and `GET/DELETE /logs` removed (the `system.read` permission with them).
+
+**Phase 13b password links:** no OTP or code remains. User reset is by link (`/auth/forgot-password`, `/auth/reset-password`); the admin OTP routes (`sendOTP`, `verifyOTP`, `forgotPassword`) and the legacy-shaped admin routes (`register`, `getAllAdmins`, `getAdminById/:id`, `getProfile`, `resetPassword`, `updateAdmin`, `deleteAdmin`) were replaced by `/admin/auth/{login, forgot-password, reset-password, change-password, me}` and `/admin/admins`.
 
 ## Catalogue: all current endpoints
 
@@ -88,23 +93,17 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/admin/auth/register` | admin (`admins.manage`) | Create Admin User (crypto temporary password, emailed) | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/login` | none (rate-limited) | Login Admin User: an admin session token (12 h, `ADMIN_JWT_SECRET`) | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/sendOTP` | none (rate-limited) | Send OTP (10 min, 5 attempts; same answer for unknown emails) | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/verifyOTP` | none (rate-limited) | Verify OTP; with `otp_type=FORGOT_PASSWORD` returns a single-use 15-min reset token | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/resetPassword` | admin | Change the signed-in admin's password (other sessions revoked; returns a new token) | legacy, changed 10 | live |
-| POST | `/api/v1/admin/auth/forgotPassword` | none (reset token) | Set a new password with the reset token (sessions revoked) | legacy, changed 10 | live |
-| GET | `/api/v1/admin/auth/getAllAdmins` | admin (`admins.manage`) | Get All Admins (no password/OTP/token fields) | legacy, changed 10 | live |
-| GET | `/api/v1/admin/auth/getAdminById/:id` | admin (`admins.manage`) | Find Admin By Id | legacy, changed 10 | live |
-| GET | `/api/v1/admin/auth/getProfile` | admin | Get Profile | legacy | live |
-| PUT | `/api/v1/admin/auth/updateAdmin` | admin (`admins.manage`) | Update Admin (not your own role; a role or email change revokes that admin's tokens) | legacy, changed 10 | live |
-| DELETE | `/api/v1/admin/auth/deleteAdmin` | admin (`admins.manage`) | Delete Admin (not yourself, not the last super admin) | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getAllAgencies` | admin (`platform.read`) | Get All Agencies | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getAgencyById/:id` | admin (`platform.read`) | Get Agency By Id | legacy, changed 10 | live |
-| PUT | `/api/v1/admin/operations/updateAgencyStatus` | admin (`platform.write`) | Update Agency Status | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getAllBusinesses` | admin (`platform.read`) | Get All Businesses | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getBusinessesById/:id` | admin (`platform.read`) | Get Businesses By Id | legacy, changed 10 | live |
-| GET | `/api/v1/admin/operations/getAllClients` | admin (`platform.read`) | Get All Clients | legacy, changed 10 | live |
+| POST | `/api/v1/admin/auth/login` | none (rate-limited) | Sign in: `{ admin, token }` (a 12 h admin session, `ADMIN_JWT_SECRET`) | 10, rebuilt 13b | live |
+| POST | `/api/v1/admin/auth/forgot-password` | none (rate-limited) | Email a reset link `ADMIN_FRONTEND_URL/reset-password?token=…` (60 min, single use); same answer for unknown emails | 13b | live |
+| POST | `/api/v1/admin/auth/reset-password` | none (link token, rate-limited) | Set the password with a reset link or a new admin's set-password link; every session of that admin ends | 13b | live |
+| POST | `/api/v1/admin/auth/change-password` | admin | Change your own password (current, new, confirm); other sessions end; returns a new token | 13b | live |
+| GET | `/api/v1/admin/auth/me` | admin | The signed-in admin: role name and permissions | 13b | live |
+| GET | `/api/v1/admin/admins` | admin (`admins.manage`) | Admin accounts (`?active=true\|false`) | 13b | live |
+| POST | `/api/v1/admin/admins` | admin (`admins.manage`) | Create an admin (`name, email, role_id`); no password: a set-password link is emailed (72 h) | 13b | live |
+| GET | `/api/v1/admin/admins/:adminId` | admin (`admins.manage`) | One admin | 13b | live |
+| PATCH | `/api/v1/admin/admins/:adminId` | admin (`admins.manage`) | Name, email, role, `is_active` (deactivate; admins are never deleted). Not your own role or activity; the last super admin stays | 13b | live |
+| POST | `/api/v1/admin/admins/:adminId/password-link` | admin (`admins.manage`) | Email a new set-password link (no password yet) or reset link; older links stop working | 13b | live |
+| GET | `/api/v1/admin/roles` | admin (`admins.manage`) | The admin roles (super admin, admin, editor) with the permissions each grants; read-only (roles are fixed in `adminPermissions.ts`) | 13b | live |
 
 ### Auth (rebuilt app)
 
@@ -114,35 +113,16 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/auth/verify-email` | none (rate-limited) | Verify the email with the link token; the first time returns the session, then `already_verified` (400 `link_expired` / `link_invalid`) | 8, changed 8.1 | live |
 | POST | `/api/v1/auth/resend-verification` | none (rate-limited) | New verification link; older links stop working (same answer whether or not the account exists). Replaces `/auth/verify-email/resend` | 8.1 | live |
 | POST | `/api/v1/auth/login` | none | Login; returns tokens, organizations and onboarding (403 `email_not_verified`: no tokens until the email is verified) | 8 | live |
-| POST | `/api/v1/auth/forgot-password` | none | Password reset code by email (same answer whether or not the account exists) | 8 | live |
-| POST | `/api/v1/auth/reset-password` | none | New password with the reset code; signs out every session | 8 | live |
+| POST | `/api/v1/auth/forgot-password` | none (rate-limited) | Email a reset link `FRONTEND_URL/reset-password?token=…` (60 min, single use, a newer link replaces older ones; same answer whether or not the account exists) | 8, changed 13b | live |
+| POST | `/api/v1/auth/reset-password` | none (link token, rate-limited) | New password with the reset link (`token, password, confirm_password`); marks the email verified; signs out every session | 8, changed 13b | live |
+| POST | `/api/v1/auth/refresh` | none (refresh token in the body) | New access + refresh token; the used refresh token stops working (rotation) | 13b | live |
+| POST | `/api/v1/auth/logout` | none (refresh token in the body) | Ends that session (its refresh token) | 13b | live |
+| POST | `/api/v1/auth/change-password` | user | Change the password (current one required); ends every other session and returns new tokens | 13b | live |
+| GET | `/api/v1/auth/me` | user | The signed-in user: email, name, phone, organizations, current organization, last login | 13b | live |
+| PATCH | `/api/v1/auth/me` | user | Update name / phone | 13b | live |
+| POST | `/api/v1/auth/deactivate` | user | Delete the account (password required): Google accounts disconnected, memberships ended, sessions revoked | 13b | live |
 | POST | `/api/v1/auth/invitations/inspect` | none | What a team invitation is for (`{ token }` in the body): organization, email, role, account exists | 11 | live |
 | POST | `/api/v1/auth/invitations/accept` | none | Accept a team invitation: a new account is created and logged in; an existing account gets the membership (`login_required`) | 11 | live |
-
-### User auth & account
-
-| Method | Path | Auth | Purpose | Phase | Status |
-|---|---|---|---|---|---|
-| POST | `/api/v1/user/auth/otp` | none | Send a password-reset OTP (`FORGOT_PASSWORD` only since 8.1; `EMAIL_VERIFICATION` → 400 `verification_by_link`). Replaced by `/auth/forgot-password` | legacy | deprecated |
-| POST | `/api/v1/user/auth/verify-otp` | none | Verify a password-reset OTP (`FORGOT_PASSWORD` only since 8.1). Replaced by `/auth/reset-password` | legacy | deprecated |
-| POST | `/api/v1/user/auth/login` | none | Login (403 `email_not_verified` since 8.1). Replaced by `/auth/login` | legacy | deprecated |
-| POST | `/api/v1/user/auth/reset-password` | user | Reset Password | legacy | live |
-| POST | `/api/v1/user/auth/forgot-password` | none | Forgot Password. Replaced by `/auth/forgot-password` + `/auth/reset-password` | legacy | deprecated |
-| POST | `/api/v1/user/auth/refresh-auth` | refresh token | Refresh Auth | legacy | live |
-| POST | `/api/v1/user/auth/logout` | refresh token | Logout | legacy | live |
-| GET | `/api/v1/user/auth/deactivate` | user | Deactivate Account | legacy | live |
-| POST | `/api/v1/user/auth/employee/add` | user | Add Employee (Phase 8: also a `member` of the owner's organizations) | legacy | live |
-| DELETE | `/api/v1/user/auth/employee/remove` | user | Delete Employee (Phase 8: memberships removed) | legacy | live |
-| GET | `/api/v1/user/auth/employee/all` | user | Get All Employee By Owner | legacy | live |
-| GET | `/api/v1/user/auth/employee/details/:employee_id` | user | Employee Details | legacy | live |
-| GET | `/api/v1/user/profile` | user | Get Profile | legacy | live |
-| POST | `/api/v1/user/notifications` | user | Notification Toogle | legacy | live |
-| PUT | `/api/v1/user/profile` | user | Update Profile | legacy | live |
-| POST | `/api/v1/user/clients` | user | Create Client. Replaced by `/clients` | legacy | deprecated |
-| GET | `/api/v1/user/clients` | user | Get All Client. Replaced by `/clients` | legacy | deprecated |
-| GET | `/api/v1/user/clients/:client_id` | user | Get Client Details. Replaced by `/clients/:clientId` | legacy | deprecated |
-| PUT | `/api/v1/user/clients` | user | Update Client. Replaced by `PATCH /clients/:clientId` | legacy | deprecated |
-| DELETE | `/api/v1/user/clients/:client_id` | user | Delete Client. Replaced by `DELETE /clients/:clientId` | legacy | deprecated |
 
 ### Locations
 
@@ -230,13 +210,13 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/user/auth/google/gbp` | user | Google consent URL (redirect fallback flow) | legacy, rebuilt 6 | live |
-| GET | `/api/v1/user/auth/google/gbp/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens | legacy, rebuilt 6 | live |
-| POST | `/api/v1/user/auth/google/gbp/revoke` | user | Disconnect one Google account (`google_sub`): revoke it, remove its bindings, jobs and tokens | legacy, rebuilt 6 | live |
-| GET | `/api/v1/user/auth/google/gbp/popup` | user | GIS popup config with a one-time state | 7a | live |
-| POST | `/api/v1/user/auth/google/gbp/code` | user | Exchange the popup code (`postmessage`), verify id_token | 7a | live |
+| GET | `/api/v1/gbp/connect/url` | user | Google consent URL (redirect fallback flow) | 6, moved 13b | live |
+| GET | `/api/v1/gbp/connect/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens | 6, moved 13b | live |
+| POST | `/api/v1/gbp/disconnect` | user | Disconnect one Google account (`google_sub`): revoke it, remove its bindings, jobs and tokens | 6, moved 13b | live |
+| GET | `/api/v1/gbp/connect/popup` | user | GIS popup config with a one-time state | 7a, moved 13b | live |
+| POST | `/api/v1/gbp/connect/code` | user | Exchange the popup code (`postmessage`), verify id_token | 7a, moved 13b | live |
 | GET | `/api/v1/gbp` | user | Every GBP profile from every connected Google account, grouped (`{ connections: [...] }`; no Places calls) | legacy, rebuilt 6 | live |
-| POST | `/api/v1/gbp/bind-with-user` | user | Bind a GBP location to a Location (read from Google, `place_id` rules; `google_sub` with several accounts) | legacy, rebuilt 6 | live |
+| POST | `/api/v1/gbp/bind` | user | Bind a GBP location to a Location (read from Google, `place_id` rules; `google_sub` with several accounts) | 6, moved 13b | live |
 | POST | `/api/v1/gbp/unbind` | user | Unbind a Location | 6 | live |
 
 ### Onboarding
@@ -273,16 +253,6 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/gbp/post/add` | user | Add Post To GBP | legacy | live |
 | GET | `/api/v1/gbp/post/all/:location_id/:type` | user | Get All Post By Location Id | legacy | live |
 | DELETE | `/api/v1/gbp/post/remove` | user | Delete Post | legacy | live |
-
-### White label
-
-| Method | Path | Auth | Purpose | Phase | Status |
-|---|---|---|---|---|---|
-| POST | `/api/v1/white-label-profiles` | user | Create New Profile. Replaced by organization branding (#76, #78); data carried over by `npm run migrate:branding` | legacy | deprecated |
-| PATCH | `/api/v1/white-label-profiles` | user | Update White Label Profile. Replaced by #76 | legacy | deprecated |
-| GET | `/api/v1/white-label-profiles` | user | Get White Label Profile. Replaced by #75 | legacy | deprecated |
-| GET | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user (owner) | Get White Label Profile Detail. Replaced by #75 | legacy, changed 10 | deprecated |
-| DELETE | `/api/v1/white-label-profiles/:whiteLevelProfileId` | user | Delete White Level Profile. Replaced by #76 / #79 | legacy | deprecated |
 
 ### Citations (Phase 16)
 
@@ -354,7 +324,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | DELETE | `/api/v1/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | Back to the standard plan | 13a | live |
 | PATCH | `/api/v1/admin/billing/organizations/:organizationId/billing-method` | admin (`billing.manage`) | `paypal` or `manual` (409 while another method's subscription is open) | 13a | live |
 | POST | `/api/v1/admin/billing/organizations/:organizationId/manual-subscription` | admin (`billing.manage`) | Start a manual-billing subscription (invoices; optionally comped until a date) | 13a | live |
-| PATCH | `/api/v1/admin/billing/organizations/:organizationId/trial` | admin (`billing.manage`) | Set / extend the trial end | 13a | live |
 | POST | `/api/v1/admin/billing/organizations/:organizationId/tokens` | admin (`billing.manage`) | Grant or adjust tokens (with a note) | 13a | live |
 | GET | `/api/v1/admin/billing/organizations/:organizationId/tokens/ledger` | admin (`billing.read`) | The organization's token ledger | 13a | live |
 | GET | `/api/v1/admin/billing/subscriptions` | admin (`billing.read`) | Subscriptions (filter status, billing method, organization) | 13a | live |
@@ -372,9 +341,45 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | GET | `/api/v1/admin/billing/coupons` | admin (`billing.read`) | Coupons (token packs only) | 13a | live |
 | POST | `/api/v1/admin/billing/coupons` | admin (`billing.manage`) | Create a coupon | 13a | live |
 | PATCH | `/api/v1/admin/billing/coupons/:couponId` | admin (`billing.manage`) | Edit a coupon | 13a | live |
-| GET | `/api/v1/admin/billing/legacy-payments` | admin (`billing.read`) | Paid legacy guest-checkout subscriptions, linked or not, with a suggested organization (`?unlinked=true`) | 13a | live |
-| POST | `/api/v1/admin/billing/legacy-payments/:paymentId/link` | admin (`billing.manage`) | Link a legacy PayPal subscription to an organization | 13a | live |
 | GET | `/api/v1/admin/billing/audit` | admin (`billing.read`) | Billing audit log (who, when, before → after) | 13a | live |
+
+### Admin panel (Phase 13b)
+
+Platform admins: overview, users and organizations need `platform.read` / `platform.write` (super admin, admin); support tickets need `support.read` / `support.manage` (super admin, admin, editor). Every change is audit-logged. Shapes: [API.md](API.md#admin-panel-phase-13b).
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/admin/overview` | admin (`platform.read`) | Platform overview: organizations by type and billing state, paying subscriptions and MRR per currency, trials ending in 7 days, token sales and signups (30 days), open tickets | 13b | live |
+| GET | `/api/v1/admin/users` | admin (`platform.read`) | Users: search by email or name, filter active / disabled / unverified | 13b | live |
+| GET | `/api/v1/admin/users/:userId` | admin (`platform.read`) | A user: memberships, verification, last logins, Google connections | 13b | live |
+| POST | `/api/v1/admin/users/:userId/disable` | admin (`platform.write`) | Disable sign-in (reason required); ends every session | 13b | live |
+| POST | `/api/v1/admin/users/:userId/enable` | admin (`platform.write`) | Enable a disabled user | 13b | live |
+| POST | `/api/v1/admin/users/:userId/logout` | admin (`platform.write`) | End every session of the user | 13b | live |
+| POST | `/api/v1/admin/users/:userId/resend-verification` | admin (`platform.write`) | Send a new email-verification link | 13b | live |
+| POST | `/api/v1/admin/users/:userId/verify` | admin (`platform.write`) | Mark the email verified | 13b | live |
+| GET | `/api/v1/admin/organizations` | admin (`platform.read`) | Organizations: search (name, owner email), type, billing state, plan, trial ending within N days | 13b | live |
+| GET | `/api/v1/admin/organizations/:organizationId` | admin (`platform.read`) | An organization: owner, members, locations, clients, billing, invoices, citations | 13b | live |
+| POST | `/api/v1/admin/organizations/:organizationId/suspend` | admin (`platform.write`) | Suspend (reason required): read-only, money-costing actions answer 402 `organization_suspended` | 13b | live |
+| POST | `/api/v1/admin/organizations/:organizationId/unsuspend` | admin (`platform.write`) | Lift a suspension | 13b | live |
+| PATCH | `/api/v1/admin/organizations/:organizationId/trial` | admin (`platform.write`) | Set / extend the trial end (moved here from the billing admin) | 13b | live |
+| PATCH | `/api/v1/admin/organizations/:organizationId/limits` | admin (`platform.write`) | Limit overrides on top of the plan: `max_locations` (null = no cap), `extra_users`; an empty body clears them | 13b | live |
+| GET | `/api/v1/admin/support/tickets` | admin (`support.read`) | Support tickets: filter status, organization, assignee, unassigned, number / subject search | 13b | live |
+| GET | `/api/v1/admin/support/tickets/counts` | admin (`support.read`) | Ticket counts by status, unassigned open | 13b | live |
+| GET | `/api/v1/admin/support/tickets/:ticketId` | admin (`support.read`) | A ticket with its full thread (internal notes included) | 13b | live |
+| POST | `/api/v1/admin/support/tickets/:ticketId/messages` | admin (`support.manage`) | Reply to the customer, or an internal note (`internal: true`); the first reply assigns the ticket | 13b | live |
+| PATCH | `/api/v1/admin/support/tickets/:ticketId` | admin (`support.manage`) | Status, priority, assignee | 13b | live |
+
+### Support tickets (Phase 13b)
+
+Every organization role may open and follow tickets; a client_user sees only its own. Shapes: [API.md](API.md#support-tickets-phase-13b).
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| POST | `/api/v1/support/tickets` | user + org | Open a ticket `{ subject, category?, message, location_id? }` | 13b | live |
+| GET | `/api/v1/support/tickets` | user + org | The organization's tickets (a client_user: its own), `?status=` | 13b | live |
+| GET | `/api/v1/support/tickets/:ticketId` | user + org | A ticket with its thread (team replies shown as "MyPageSEO team"; internal notes never shown) | 13b | live |
+| POST | `/api/v1/support/tickets/:ticketId/messages` | user + org | Reply (reopens a resolved ticket; a closed one: 409 `ticket_closed`) | 13b | live |
+| POST | `/api/v1/support/tickets/:ticketId/close` | user + org | Close the ticket | 13b | live |
 
 ### Reference data
 
@@ -383,11 +388,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | GET | `/api/v1/countries` | none | Get All Country | legacy | live |
 | GET | `/api/v1/countries/states/:countryId` | none | Get All State By Country Id | legacy | live |
 | GET | `/api/v1/countries/cities/:stateId` | none | Get All City By State Id | legacy | live |
-| POST | `/api/v1/roles` | admin (`admins.manage`) | Create Role | legacy, changed 10 | live |
-| GET | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Find Role By Id | legacy, changed 10 | live |
-| GET | `/api/v1/roles` | admin (`admins.manage`) | Get All Roles | legacy, changed 10 | live |
-| PUT | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Update Role | legacy, changed 10 | live |
-| DELETE | `/api/v1/roles/:roleId` | admin (`admins.manage`) | Delete Role | legacy, changed 10 | live |
 | GET | `/api/v1/languages` | none | Get All Language | legacy | live |
 | GET | `/api/v1/timezones` | none | Get All Timezone | legacy | live |
 | POST | `/api/v1/business-categories` | admin (`content.manage`) | Create Business Category | legacy, changed 10 | live |
@@ -402,12 +402,6 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 | POST | `/api/v1/faqs` | admin (`content.manage`) | Create Faq | legacy, changed 10 | live |
 | PUT | `/api/v1/faqs/:faqId` | admin (`content.manage`) | Update Faq | legacy, changed 10 | live |
 | DELETE | `/api/v1/faqs/:faqId` | admin (`content.manage`) | Delete Faq | legacy, changed 10 | live |
-| POST | `/api/v1/supports` | user | Create Support | legacy | live |
-| GET | `/api/v1/supports` | user | Get All Support | legacy | live |
-| DELETE | `/api/v1/supports/:supportId` | user | Delete Support | legacy | live |
-| GET | `/api/v1/supports/getAllSupportByAdmin` | admin (`platform.read`) | Get All Support Tickets By Admin | legacy, changed 10 | live |
-| PUT | `/api/v1/supports/updateSupportTicketStatus` | admin (`platform.write`) | Update Support Ticket Status | legacy, changed 10 | live |
-| GET | `/api/v1/supports/getSupportTicketStatusCounts` | admin (`platform.read`) | Get Support Ticket Status Counts | legacy, changed 10 | live |
 | POST | `/api/v1/contact-us` | none | Create Contact Us | legacy | live |
 | GET | `/api/v1/contact-us/get` | admin (`platform.read`) | Get All Contact Us | legacy, changed 10 | live |
 | GET | `/api/v1/contact-us/:contactId` | admin (`platform.read`) | Get Contact Us By Id | legacy, changed 10 | live |
@@ -429,20 +423,10 @@ Platform admins: `billing.read` / `billing.manage` (super admin, admin). Every c
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/system/info` | admin (`system.read`) | Get System Info | legacy, changed 10 | live |
-| GET | `/api/v1/system/time` | admin (`system.read`) | Get Server Time | legacy, changed 10 | live |
-| GET | `/api/v1/system/usage` | admin (`system.read`) | Get Resource Usage | legacy, changed 10 | live |
-| GET | `/api/v1/system/process` | admin (`system.read`) | Get Process Info | legacy, changed 10 | live |
-| GET | `/api/v1/logs` | admin (`system.read`) | Read today's log file | legacy, changed 10 | live |
-| DELETE | `/api/v1/logs` | admin (`system.read`) | Delete all log files | legacy, changed 10 | live |
 | GET | `/images/:filename` | none | Serve an uploaded file (`public/uploads/images`) | legacy | live |
 | GET | `/videos/:filename` | none | Serve an uploaded file (`public/uploads/videos`) | legacy | live |
-| GET | `/gifs/:filename` | none | Serve an uploaded file (`public/uploads/gifs`) | legacy | live |
-| GET | `/docs/:filename` | none | Serve an uploaded file (`public/uploads/docs`) | legacy | live |
-| GET | `/songs/:filename` | none | Serve an uploaded file (`public/uploads/songs`) | legacy | live |
 | GET | `/api/healthcheck` | none | Health check | legacy | live |
 | GET | `/ping` | none | Ping | legacy | live |
-| GET | `/docs` | none | Swagger UI | legacy | live |
 ### Development only
 
 | Method | Path | Auth | Purpose | Phase | Status |
@@ -494,13 +478,13 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 
 | # | Method | Path | Auth | Query params | Body | Returns |
 |---|---|---|---|---|---|---|
-| 9 | GET | `/user/auth/google/gbp` | user | – | – | Google consent URL (**redirect flow**, the fallback). One-time `state`, valid 10 minutes. |
-| 10 | GET | `/user/auth/google/gbp/callback` | none (Google calls it) | `code`, `state`, `error` (from Google) | – | `{ connected: true, google_email, google_sub }` |
-| 11 | GET | `/user/auth/google/gbp/popup` | user | – | – | **Popup flow** config for Google Identity Services: `{ client_id, scope, state, ux_mode: "popup", select_account: true }` |
-| 12 | POST | `/user/auth/google/gbp/code` | user | – | `{ code, state }` (from the popup callback) | `{ connected: true, google_email, google_sub }` |
-| 13 | POST | `/user/auth/google/gbp/revoke` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, google_email }` |
+| 9 | GET | `/gbp/connect/url` | user | – | – | Google consent URL (**redirect flow**, the fallback). One-time `state`, valid 10 minutes. |
+| 10 | GET | `/gbp/connect/callback` | none (Google calls it) | `code`, `state`, `error` (from Google) | – | `{ connected: true, google_email, google_sub }` |
+| 11 | GET | `/gbp/connect/popup` | user | – | – | **Popup flow** config for Google Identity Services: `{ client_id, scope, state, ux_mode: "popup", select_account: true }` |
+| 12 | POST | `/gbp/connect/code` | user | – | `{ code, state }` (from the popup callback) | `{ connected: true, google_email, google_sub }` |
+| 13 | POST | `/gbp/disconnect` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, google_email }` |
 | 14 | GET | `/gbp` | user | – | – | Every GBP profile from every connected Google account, grouped: `{ connections: [{ google_sub, google_email, label, status, error, accounts, locations, errors }] }` |
-| 15 | POST | `/gbp/bind-with-user` | user | – | `{ location_id, gbpAccountId: "accounts/…", gbpLocationId: "locations/…", google_sub? }` | `{ binding, place_id: { location, gbp, status }, coordinates }` |
+| 15 | POST | `/gbp/bind` | user | – | `{ location_id, gbpAccountId: "accounts/…", gbpLocationId: "locations/…", google_sub? }` | `{ binding, place_id: { location, gbp, status }, coordinates }` |
 | 16 | POST | `/gbp/unbind` | user | – | `{ location_id }` | `{ unbound, jobs_cancelled: { gbp_sync, scheduled_posts }, tokens_deleted }` |
 
 **Notes:**
@@ -577,7 +561,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 31 | POST | `/auth/resend-verification` | none | `{ email }` | `{ email_verification: 'sent_if_pending' }` |
 | 32 | POST | `/auth/login` | none | `{ email, password }` | Session; **403** `email_not_verified` |
 | 33 | POST | `/auth/forgot-password` | none | `{ email }` | `{ reset: 'sent_if_account_exists' }` |
-| 34 | POST | `/auth/reset-password` | none | `{ email, code, password }` | `{ reset: true }` (sessions revoked) |
+| 34 | POST | `/auth/reset-password` | none | `{ token, password, confirm_password }` (password rules as signup) | `{ reset: true }` (sessions revoked, email verified); **400** `link_invalid` (unknown, replaced or used), `link_expired`, `passwords_do_not_match` |
 | 35 | GET | `/organization` | user + org | – | `{ organization, role, memberships }` |
 | 36 | PATCH | `/organization` | user + org (owner) | `{ name?, country? }` | As #35 |
 | 37 | GET | `/organization/usage` | user + org | – | `{ plan: { id, name, kind }, billing: { state, read_only, trial_ends_at, current_period_end }, locations: { used, limit, max }, users: { used, limit }, tokens: { balance }, keywords: { used, limit: null }, clients, api_usage: { … } }` (13a; `api_usage` 12.5) |
@@ -736,7 +720,6 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | 128 | DELETE | `/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | – | `{ plan_id: null }`; **409** `no_custom_plan` |
 | 129 | PATCH | `/admin/billing/organizations/:organizationId/billing-method` | admin (`billing.manage`) | `{ billing_method }` | `{ billing_method }`; **409** `subscription_open` |
 | 130 | POST | `/admin/billing/organizations/:organizationId/manual-subscription` | admin (`billing.manage`) | `{ quantity, starts_at?, comp_until?, currency?, note? }` | **201** subscription (the first period is invoiced unless comped); **409** `already_subscribed`; **403** `enterprise_required` |
-| 131 | PATCH | `/admin/billing/organizations/:organizationId/trial` | admin (`billing.manage`) | `{ trial_ends_at }` | `{ trial_ends_at }` (trial reminders reset) |
 | 132 | POST | `/admin/billing/organizations/:organizationId/tokens` | admin (`billing.manage`) | `{ amount (± integer, not 0), type: grant\|adjustment, note }` | `{ balance }`; **409** `insufficient_tokens` (a negative adjustment below zero); **400** `invalid_amount` |
 | 133 | GET | `/admin/billing/organizations/:organizationId/tokens/ledger` | admin (`billing.read`) | `page, limit` | as #117 |
 | 134 | GET | `/admin/billing/subscriptions` | admin (`billing.read`) | `status, billing_method, organization_id, page, limit` | `{ subscriptions: [subscription + organization_name], page, limit, total }` |
@@ -754,8 +737,6 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | 146 | GET | `/admin/billing/coupons` | admin (`billing.read`) | – | `[{ id, code, discount_type, value, pack_ids, max_redemptions, redemptions, expires_at, is_active, note }]` |
 | 147 | POST | `/admin/billing/coupons` | admin (`billing.manage`) | `{ code, discount_type: percent\|fixed, value, pack_ids?, max_redemptions?, expires_at?, is_active?, note? }` | **201** coupon; **409** `code_taken` |
 | 148 | PATCH | `/admin/billing/coupons/:couponId` | admin (`billing.manage`) | any field of #146 except `code` | coupon |
-| 149 | GET | `/admin/billing/legacy-payments` | admin (`billing.read`) | `unlinked` | `[{ id, paypal_subscription_id, customer_email, customer_name, monthly_amount, status, subscription_status, created_at, linked, suggested_organization }]` |
-| 150 | POST | `/admin/billing/legacy-payments/:paymentId/link` | admin (`billing.manage`) | `{ organization_id }` | **201** subscription; **409** `already_linked`, `already_subscribed` |
 | 151 | GET | `/admin/billing/audit` | admin (`billing.read`) | `organization_id, action, page, limit` | `{ entries: [{ id, action, organization_id, target, before, after, note, by: { admin_id, name }, at }], page, limit, total }` |
 
 ## Removed endpoints

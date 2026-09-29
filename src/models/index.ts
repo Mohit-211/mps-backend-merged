@@ -9,22 +9,17 @@ export * from "./city.model";
 
 export * from "./user.model";
 export * from "./profile.model";
-export * from "./userAttachment.model";
-export * from "./otp.model";
 export * from "./user_login_timings.model";
 export * from "./userToken.model";
 export * from "./userAuth.model";
 
-export * from "./support.model";
 export * from "./faq.model";
 
 export * from "./client.model";
 export * from "./location.model";
-export * from "./whitelabelProfile.model";
 
 // razorpay
 export * from "./coupon.model";
-export * from "./payment.model";
 export * from "./contactUs.model";
 
 // location service — GBP / rank tracking / reports
@@ -38,7 +33,7 @@ export * from "./gbpData.model";
 export * from "./gbpReport.model";
 export * from "./organization.model";
 export * from "./membership.model";
-export * from "./authCode.model";
+export * from "./authLink.model";
 export * from "./rateLimit.model";
 export * from "./invitation.model";
 export * from "./report.model";
@@ -66,8 +61,6 @@ export * from "./directory.model";
 export * from "./locationCitation.model";
 export * from "./citationStatusLog.model";
 
-// location service — credit-based payments (kept fully separate from subscription Payment above)
-
 // admin
 export * from "./admin.model";
 
@@ -75,3 +68,5 @@ export * from "./admin.model";
 export * from "./blog.model";
 export * from "./blogCategory.model";
 export * from "./blogCategoryMapping.model";
+// support tickets (Phase 13b)
+export * from "./supportTicket.model";

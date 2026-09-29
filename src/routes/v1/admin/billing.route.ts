@@ -19,7 +19,6 @@ router.post('/organizations/:organizationId/custom-plan', [...manage, v.validate
 router.delete('/organizations/:organizationId/custom-plan', manage, billing.removeCustomPlan);
 router.patch('/organizations/:organizationId/billing-method', [...manage, v.validateBillingMethod], billing.setBillingMethod);
 router.post('/organizations/:organizationId/manual-subscription', [...manage, v.validateManualSubscription], billing.startManual);
-router.patch('/organizations/:organizationId/trial', [...manage, v.validateTrial], billing.extendTrial);
 router.post('/organizations/:organizationId/tokens', [...manage, v.validateTokens], billing.adjustTokens);
 router.get('/organizations/:organizationId/tokens/ledger', [...read, v.validatePage], billing.organizationLedger);
 
@@ -40,9 +39,6 @@ router.patch('/token-packs/:packId', [...manage, v.validatePackUpdate], billing.
 router.get('/coupons', read, billing.listCoupons);
 router.post('/coupons', [...manage, v.validateCouponCreate], billing.createCoupon);
 router.patch('/coupons/:couponId', [...manage, v.validateCouponUpdate], billing.updateCoupon);
-
-router.get('/legacy-payments', [...read, v.validateLegacyList], billing.legacyPayments);
-router.post('/legacy-payments/:paymentId/link', [...manage, v.validateLegacyLink], billing.linkLegacy);
 
 router.get('/audit', [...read, v.validateAuditList], billing.auditLog);
 

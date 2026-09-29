@@ -30,6 +30,11 @@ const envVarsSchema = Joi.object({
 	EMAIL_FROM: Joi.string().description(
 		'the from field in the emails sent by the app',
 	),
+	EMAIL_TRANSPORT: Joi.string()
+		.valid('smtp', 'log')
+		.default((parent: { NODE_ENV?: string }) => (parent.NODE_ENV === 'production' ? 'smtp' : 'log'))
+		.description('13b: smtp sends every email; log only logs it (recipient masked, link shown). Default: smtp in production, log elsewhere'),
+	SUPPORT_EMAIL: Joi.string().email().allow('').default('').description('13b: the support inbox (contact-form and support-ticket notifications); empty = not sent'),
 
 
 	GOOGLE_PLACE_API_KEY: Joi.string().allow('').description('Places API key; optional until live testing'),
@@ -60,7 +65,9 @@ const envVarsSchema = Joi.object({
 	GBP_KEYWORD_ROLLING_MONTHS: Joi.number().integer().min(1).max(6).default(2),
 	INVITATION_TTL_DAYS: Joi.number().integer().min(1).max(30).default(7).description('Lifetime of team invitation links'),
 	FRONTEND_URL: Joi.string().uri().allow('').default('').description('Base URL of the web app (invitation links, PayPal return URLs)'),
-	AUTH_CODE_TTL_MINUTES: Joi.number().integer().min(1).max(60).default(15).description('Lifetime of password-reset codes'),
+	PASSWORD_RESET_TTL_MINUTES: Joi.number().integer().min(5).max(1440).default(60).description('13b: lifetime of password-reset links (users and admins)'),
+	ADMIN_FRONTEND_URL: Joi.string().uri().allow('').default('').description('13b: base URL of the admin panel (admin password links: /reset-password?token=…)'),
+	ADMIN_SET_PASSWORD_TTL_HOURS: Joi.number().integer().min(1).max(336).default(72).description('13b: lifetime of the set-password link emailed to a new admin'),
 	EMAIL_VERIFICATION_TTL_HOURS: Joi.number().integer().min(1).max(168).default(24).description('Phase 8.1: verification link lifetime; unverified signups are deleted after it'),
 	REPORT_DEBOUNCE_SECONDS: Joi.number().integer().min(0).max(3600).default(120).description('GBP report: wait before generating, so a rank run and a sync finishing together give one report'),
 	REPORTS_STORAGE_DIR: Joi.string().default('./storage/reports').description('Reports center (Phase 12): private directory for report PDFs and branding logos (never served statically)'),
@@ -76,10 +83,9 @@ const envVarsSchema = Joi.object({
 	PAYPAL_PRODUCT_ID: Joi.string().allow('').default(''),
 	PAYPAL_PLAN_ID_USD: Joi.string().allow('').default(''),
 	PAYPAL_PLAN_ID_CAD: Joi.string().allow('').default(''),
-	TRIAL_DAYS: Joi.number().integer().min(0).max(90).default(7).description('Default trial length for new organizations (the plan setting overrides it)'),
 	BILLING_GRACE_DAYS: Joi.number().integer().min(0).max(60).default(7),
 	MANUAL_INVOICE_DUE_DAYS: Joi.number().integer().min(1).max(90).default(14),
-	BILLING_RENEWAL_LEAD_DAYS: Joi.number().integer().min(11).max(28).default(11).description('PayPal ignores price changes within 10 days of a charge'),
+	PAYPAL_PRICE_CHANGE_LEAD_DAYS: Joi.number().integer().min(11).max(28).default(11).description('PayPal ignores price changes within 10 days of a charge: the renewal amount is fixed this many days ahead'),
 	BILLING_SELLER_NAME: Joi.string().allow('').default('MyPageSEO'),
 	BILLING_SELLER_ADDRESS: Joi.string().allow('').default(''),
 	BILLING_SELLER_EMAIL: Joi.string().allow('').default(''),
@@ -172,6 +178,10 @@ interface Config {
 			};
 		};
 		from?: string;
+		/** 13b: 'smtp' sends every email; 'log' only logs it (recipient masked, link shown). */
+		transport: 'smtp' | 'log';
+		/** 13b: the support inbox for contact-form and support-ticket notifications ('' = none). */
+		supportInbox: string;
 	};
 
 	googleApis: {
@@ -219,7 +229,9 @@ interface Config {
 	};
 
 	auth: {
-		codeTtlMinutes: number;
+		passwordResetTtlMinutes: number;
+		adminFrontendUrl: string;
+		adminSetPasswordTtlHours: number;
 		/** Phase 8.1: verification link lifetime and the unverified-account deadline, in hours. */
 		emailVerificationTtlHours: number;
 		/** Team invitation lifetime in days (Phase 11). */
@@ -246,13 +258,13 @@ interface Config {
 		clientSecret: string;
 		productId: string;
 		planIds: { USD: string; CAD: string };
+		/** The renewal amount is fixed (and PATCHed) this many days before a renewal. */
+		renewalLeadDays: number;
 	};
 
 	billing: {
-		trialDays: number;
 		graceDays: number;
 		manualInvoiceDueDays: number;
-		renewalLeadDays: number;
 		seller: { name: string; address: string; email: string; taxId: string };
 	};
 
@@ -335,6 +347,8 @@ const config: Config = {
 			},
 		},
 		from: envVars.EMAIL_FROM,
+		transport: envVars.EMAIL_TRANSPORT,
+		supportInbox: envVars.SUPPORT_EMAIL,
 	},
 
 	googleApis: {
@@ -376,7 +390,9 @@ const config: Config = {
 	},
 
 	auth: {
-		codeTtlMinutes: envVars.AUTH_CODE_TTL_MINUTES,
+		passwordResetTtlMinutes: envVars.PASSWORD_RESET_TTL_MINUTES,
+		adminFrontendUrl: envVars.ADMIN_FRONTEND_URL ?? '',
+		adminSetPasswordTtlHours: envVars.ADMIN_SET_PASSWORD_TTL_HOURS,
 		emailVerificationTtlHours: envVars.EMAIL_VERIFICATION_TTL_HOURS,
 		invitationTtlDays: envVars.INVITATION_TTL_DAYS,
 		frontendUrl: envVars.FRONTEND_URL ?? '',
@@ -397,13 +413,12 @@ const config: Config = {
 		clientSecret: envVars.PAYPAL_CLIENT_SECRET,
 		productId: envVars.PAYPAL_PRODUCT_ID,
 		planIds: { USD: envVars.PAYPAL_PLAN_ID_USD, CAD: envVars.PAYPAL_PLAN_ID_CAD },
+		renewalLeadDays: envVars.PAYPAL_PRICE_CHANGE_LEAD_DAYS,
 	},
 
 	billing: {
-		trialDays: envVars.TRIAL_DAYS,
 		graceDays: envVars.BILLING_GRACE_DAYS,
 		manualInvoiceDueDays: envVars.MANUAL_INVOICE_DUE_DAYS,
-		renewalLeadDays: envVars.BILLING_RENEWAL_LEAD_DAYS,
 		seller: { name: envVars.BILLING_SELLER_NAME, address: envVars.BILLING_SELLER_ADDRESS, email: envVars.BILLING_SELLER_EMAIL, taxId: envVars.BILLING_SELLER_TAX_ID },
 	},
 

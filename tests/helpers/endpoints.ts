@@ -8,7 +8,8 @@ export interface RouteEntry {
 	path: string;
 }
 
-export const ENDPOINT_STATUSES = ['live', 'behind flag', 'deprecated', 'dev only'] as const;
+// 13b (Mohit, 2026-09-28): delete, don't deprecate, so `deprecated` is not a valid status.
+export const ENDPOINT_STATUSES = ['live', 'behind flag', 'dev only'] as const;
 export type EndpointStatus = (typeof ENDPOINT_STATUSES)[number];
 
 export interface DocEntry extends RouteEntry {
@@ -68,7 +69,7 @@ const walk = (stack: Layer[], prefix: string, out: Walk): void => {
 			out.routerMounts.add(at);
 			walk(layer.handle.stack, at, out);
 		} else if (!layer.regexp.fast_slash) {
-			// A middleware mounted on a path (app.use('/docs', swaggerUi…)) serves pages there.
+			// A middleware mounted on a path (app.use('/r', …)) serves pages there.
 			out.middlewareMounts.add(joinPath(prefix, mountPath(layer)));
 		}
 	}
@@ -76,7 +77,7 @@ const walk = (stack: Layer[], prefix: string, out: Walk): void => {
 
 /**
  * Every method + path registered on the app (routers expanded, duplicates removed, sorted). A
- * middleware mounted on its own path (e.g. swagger at /docs) counts as `GET <path>`; middleware
+ * middleware mounted on its own path (e.g. a static handler) counts as `GET <path>`; middleware
  * mounted in front of a router (multer on /api/v1) doesn't.
  */
 export const listRoutes = (app: Express | Router, prefix = ''): RouteEntry[] => {

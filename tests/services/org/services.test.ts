@@ -1,8 +1,8 @@
 import { Agenda } from 'agenda';
 import { Types } from 'mongoose';
 import { tokenTypes } from '../../../src/configs/constantTypes';
-import { AuthCode, GbpSync, Location, RankRun, RateLimit, UserAuth, UserGBP } from '../../../src/models';
-import { checkCode, issueCode } from '../../../src/services/auth/codes';
+import { AuthLink, GbpSync, Location, RankRun, RateLimit, UserAuth, UserGBP } from '../../../src/models';
+import { claimLink, findLink, issueLink } from '../../../src/services/auth/links';
 import { LIMITS, hit } from '../../../src/services/auth/rateLimit';
 import { removeLocation } from '../../../src/services/locations/remove.service';
 import { statusOf, statusesFor } from '../../../src/services/locations/status';
@@ -15,7 +15,7 @@ jest.mock('../../../src/configs/mongoConnection', () => ({ agenda: {} }));
 let db: { stop: () => Promise<void> };
 beforeAll(async () => {
 	db = await startTestDb();
-	await Promise.all([AuthCode.syncIndexes(), RateLimit.syncIndexes(), UserGBP.syncIndexes(), GbpSync.syncIndexes()]);
+	await Promise.all([AuthLink.syncIndexes(), RateLimit.syncIndexes(), UserGBP.syncIndexes(), GbpSync.syncIndexes()]);
 }, 60000);
 afterAll(async () => db.stop());
 beforeEach(async () => clearDb());
@@ -99,17 +99,25 @@ describe('soft delete', () => {
 	});
 });
 
-describe('auth codes', () => {
-	it('single use even with parallel checks; a new code replaces the old one', async () => {
+describe('one-time links (13b)', () => {
+	it('single use even with parallel claims; a new link replaces the old one; links are per subject and purpose', async () => {
 		const userId = new Types.ObjectId();
-		const code = await issueCode(userId, 'verify_email');
-		const results = await Promise.all([checkCode(userId, 'verify_email', code), checkCode(userId, 'verify_email', code), checkCode(userId, 'verify_email', code)]);
-		expect(results.filter((r) => r.ok)).toHaveLength(1);
-		const old = await issueCode(userId, 'reset_password');
-		const fresh = await issueCode(userId, 'reset_password');
-		if (old !== fresh) expect(await checkCode(userId, 'reset_password', old)).toMatchObject({ ok: false, reason: 'invalid_code' });
-		expect(await checkCode(userId, 'reset_password', fresh)).toEqual({ ok: true });
-		expect(await AuthCode.countDocuments({ user_id: userId })).toBe(2);
+		const expires = new Date(Date.now() + 60_000);
+		const token = await issueLink('user', userId, 'verify_email', expires);
+		const found = await findLink(['verify_email'], token);
+		if (!('link' in found) || !found.link) throw new Error('link not found');
+		const claims = await Promise.all([claimLink(found.link), claimLink(found.link), claimLink(found.link)]);
+		expect(claims.filter(Boolean)).toHaveLength(1);
+		expect(await findLink(['verify_email'], token)).toMatchObject({ ok: false, reason: 'link_used' });
+		const old = await issueLink('user', userId, 'reset_password', expires);
+		const fresh = await issueLink('user', userId, 'reset_password', expires);
+		expect(await findLink(['reset_password'], old)).toMatchObject({ ok: false, reason: 'link_invalid' });
+		expect(await findLink(['reset_password'], fresh)).toMatchObject({ ok: true });
+		expect(await findLink(['verify_email'], fresh)).toMatchObject({ ok: false, reason: 'link_invalid' });
+		await issueLink('admin', userId, 'reset_password', expires);
+		expect(await AuthLink.countDocuments({ subject_id: userId })).toBe(3);
+		await AuthLink.updateOne({ subject_kind: 'user', purpose: 'reset_password' }, { $set: { expires_at: new Date(Date.now() - 1) } });
+		expect(await findLink(['reset_password'], fresh)).toMatchObject({ ok: false, reason: 'link_expired' });
 	});
 });
 

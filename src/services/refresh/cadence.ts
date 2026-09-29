@@ -53,7 +53,3 @@ export const initialSchedule = (
 	const after = DateTime.fromJSDate(completedAt, { zone }).plus({ days: 1 }).toJSDate();
 	return { anchor_day: anchor, next_refresh_at: nextRefreshAt(anchor, zone, after, hour) };
 };
-
-/** Maps a stored frequency, including pre-7b values, to the current ones. */
-export const normaliseFrequency = (value: string | null | undefined): 'auto_monthly' | 'manual_only' =>
-	value === 'manual' || value === 'manual_only' ? 'manual_only' : 'auto_monthly';

@@ -75,15 +75,3 @@ export const normaliseOrgCountry = (country: string | null | undefined): IOrgani
 	return null;
 };
 
-/** Legacy employees (Phase 8 hook): a member of every organization the owner owns. */
-export const addMemberToOwnedOrganizations = async (ownerId: UserId, memberId: UserId): Promise<void> => {
-	const owned = await Membership.find({ user_id: ownerId, role: 'owner', status: 'active' }).select({ organization_id: 1 }).lean();
-	for (const m of owned) {
-		await Membership.updateOne(
-			{ organization_id: m.organization_id, user_id: memberId },
-			{ $set: { role: 'member', status: 'active' }, $setOnInsert: { client_ids: [], created_by: ownerId } },
-			{ upsert: true },
-		);
-	}
-	if (owned[0]) await User.updateOne({ _id: memberId }, { $set: { default_organization_id: owned[0].organization_id } });
-};

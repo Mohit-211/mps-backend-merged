@@ -13,17 +13,10 @@ export type BillingNotice =
 	| { kind: 'invoice_issued'; organization_id: string; invoice_id: string }
 	| { kind: 'invoice_overdue'; organization_id: string; invoice_id: string };
 
-type Sender = (n: BillingNotice) => Promise<void>;
-let sender: Sender = sendBillingNotice;
-
-export const setBillingNoticeSender = (s: Sender): void => {
-	sender = s;
-};
-
 /** Never throws: a failed email must not fail a payment. */
 export const notify = async (n: BillingNotice): Promise<void> => {
 	try {
-		await sender(n);
+		await sendBillingNotice(n);
 	} catch (err) {
 		logger.warn(`billing: notice ${n.kind} failed: ${(err as Error).message}`);
 	}

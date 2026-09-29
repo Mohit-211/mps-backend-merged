@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-28. **Phase 13a (billing) is built** on `claude/phase-13a-billing`, awaiting merge and push. Everything through Phase 16 is merged and pushed (Phase 16: `daff461`). Plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md); as built: CLAUDE.md §12h. **Next:** Phase 13b (admin panel backend + support), per the approved plan. **Coming back? Read [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) first:** what works, what doesn't, and what's left._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-29. Phase 13a (billing) is merged (`2c77a8a`) and pushed. **Phase 13b is built** on `claude/phase-13b-admin`, awaiting merge and push. Next: **Phase 14 (production readiness)** in plan mode._
 
 ## Product goal
 
@@ -35,12 +35,13 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
 | 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | done | `claude/phase-16-citations` | yes (`daff461`) | M5 (pushed 2026-09-28) |
-| **13** | **Billing & plans** (13a billing, then 13b admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | **13a built, awaiting merge**; 13b next | `claude/phase-13a-billing` | – | M5 |
+| **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | 13a done; **13b built, awaiting merge** | `claude/phase-13a-billing`, `claude/phase-13b-admin` | 13a yes (`2c77a8a`) | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
 | 15 | Notifications & automations | planned | – | – | – |
 | 17 | Ranking extras (keyword groups, larger grids) | planned | – | – | – |
+| – | AI GBP posts (needs GBP v4) · AI visibility · Review management (needs GBP v4) · White-label hosting: groundwork in [plans/upcoming-features.md](plans/upcoming-features.md) | planned, spec pending | – | – | – |
 | 9b | Cleanup | ongoing | – | – | – |
 
 **Live test with MyPageSEO:** paused. The connect passed; the rest is blocked on Google (GBP API access), see "Blocked on Google".
@@ -49,6 +50,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 
 ## Done so far
 
+- **Phase 13b (2026-09-28/29, awaiting merge):** everything legacy the rebuilt product doesn't use is deleted (endpoints 250 → 225: 65 removed, 40 added; no deprecated routes; no data migrations: the launch uses a fresh database with `npm run setup:fresh`); `/auth` sessions and account (refresh rotation, logout, change password, me, deactivate); the Google connect under `/gbp/connect/*`; password reset by link for users and admins (no OTP anywhere) and new admins set their password by link; one email switch (`EMAIL_TRANSPORT`); the payment-provider interface; flaky tests fixed (4/10 failing runs → green); end-to-end flow tests + [FLOWS.md](FLOWS.md); the admin panel backend (overview, users, organizations, admin accounts) and support tickets; the upcoming-features groundwork. Lint 82 → 40 (all in legacy GBP posting). Details: PROGRESS.md "Phase 13b".
 - **Audit and hygiene:** 29 security and 25 correctness findings with status (AUDIT.md), all routes listed (ROUTES.md), LF everywhere, 0 TypeScript errors, `.env` loaded from `ENV_FILE` or `./.env`.
 - **Local setup:** a separate local database, `mps_rebuild` (Homebrew MongoDB 7.0). Background jobs work (C25): agenda has its own connection, the registry is `src/jobs/index.ts`, and new jobs use `defineJob` (IDs-only data).
 - **Places API (New) client:** IDs-only search with a field-mask guard, `stopWhenFound`, `movedPlaceId`, a names search, Place Details, timeout and retry, and call counts.
@@ -87,7 +89,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - **GBP Score** (private): 5 pillars, 26 checks, rescaled when data is missing (`partial`); today (v4 off) it runs on completeness, visibility and engagement. **Public Score** for the client and competitors alike.
   - **Competitor comparison** (client + tracked + top 3 of the map list) with gap insights; Place Details at most once per monthly cycle per business.
   - `GET /locations/:id/gbp/report?range=28d|90d|12m`, generated by the `gbp-report` job after each sync and rank run (one report per monthly refresh). Locations without GBP get the public parts.
-  - `npm run seed:gbp-demo` gives the frontend a full report with no key.
+  - `npm run seed:demo-orgs` gives the frontend a full report with no key.
   - **Scoring calibration** against real MyPageSEO data is waiting for GBP access (PROGRESS.md, 7c).
 - **Organizations, auth and locations (Phase 8), offline:**
   - **Organizations** (Business / Agency) own locations and clients; roles `owner`, `member`, `client_user` (read-only, assigned clients only). Access moved from `created_by` to membership everywhere in the rebuilt code.
@@ -146,6 +148,10 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 
 | Date | Decision |
 |---|---|
+| 2026-09-28 | **Fresh database (Mohit):** the production database has no data worth keeping; the launch uses a fresh database and nothing is ever migrated from the old system. All migration scripts and "upgrade old rows" code are removed in 13b step 1; `npm run setup:fresh -- --confirm` sets up an empty database (indexes, reference data, standard billing plan, citation directories, first super admin). 13b step 6 starts with no support tickets. |
+| 2026-09-29 | **Password reset by link, no OTP anywhere (Mohit):** users and admins reset by a link (60 min, single use, newer replaces older; `link_expired` / `link_invalid` / `passwords_do_not_match`); a reset marks the email verified and ends every session. A new admin gets a set-password link (72 h) instead of a password by email. Admin accounts moved to `/admin/admins` (deactivate, never delete). New env: `PASSWORD_RESET_TTL_MINUTES`, `ADMIN_FRONTEND_URL`, `ADMIN_SET_PASSWORD_TTL_HOURS`. |
+| 2026-09-29 | **One email switch (Mohit):** every email (verification, password reset, invitations, reports, invoices/billing, admin, contact) goes through one service with `EMAIL_TRANSPORT=smtp\|log` (default log in development and test, smtp in production); no per-feature exceptions. Log mode logs the masked recipient and the link. `SUPPORT_EMAIL` replaces a hardcoded contact-form recipient. |
+| 2026-09-28 | **Delete, don't deprecate (Mohit):** the frontend is rebuilt from scratch against ENDPOINTS.md, so no backward compatibility is needed for any legacy endpoint or response shape; anything the rebuilt product doesn't use is deleted. 13a approved, merged (`2c77a8a`) and pushed. **13b order:** legacy removal → `/auth` session + account endpoints (legacy `/user/auth` and `/user/profile` deleted) → payment-provider interface → flaky tests → admin panel backend. |
 | 2026-09-28 | **Card payments (Mohit):** customers must be able to pay by card without a PayPal account. Sandbox check with US and CA buyers; "PayPal Account Optional" on; PayPal support asked about guest card checkout for subscriptions. Billing code goes behind one payment-provider interface in 13b's first commit (today it calls the PayPal client directly in 8 files). No second provider yet; "Decide before launch" after the sandbox result. |
 | 2026-09-28 | **Phase 13a billing model (Mohit):** per location, first location priced higher (first + (n − 1) × additional), standard plan capped at 20 locations (more = enterprise custom plan); dated prices per currency from each organization's next renewal; 3 users per paid location, pooled; 7-day trial then read-only; prorated one-time payments for extra slots; no refunds on removal; tokens (one-time packs) for manual refreshes, monthly refresh free, refund on a failed refresh; custom plans with manual (invoice) billing; no tax; coupons on token packs only; Square, credits and the guest checkout retired. **PayPal (verified):** no PayPal quantity (needs buyer consent) → per-subscription price override PATCHed 11 days before renewal; prorations and packs as Orders v2. **As built:** the renewal job runs every 6 h so a failed PATCH is retried inside the 10-day window; `billing.read` / `billing.manage` for super admin + admin; trial tokens granted at organization creation (default 0). |
 | 2026-09-25 | Functionality first; security deferred to Phase 10 (gated). Phase 6 still builds the signed OAuth state and encrypted tokens. |
@@ -192,7 +198,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 6. **Frontend:** follow [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). The onboarding screens are in API.md "Onboarding", plus the grouped `GET /gbp` and `google_sub` on bind and disconnect.
 7. **Maps ToS: accepted risk for now**, revisit before launch: see "Maps ToS: accepted risk" below.
 8. **DataForSEO password change by the account owner (old credential in git history)** (AUDIT S13). The vendor was removed from the code, config and docs on 2026-09-27.
-9. **Phase 10 deploy:** replace the 12-character `JWT_SECRET` (≥ 32 characters; every user signs in again once), add `ADMIN_JWT_SECRET` and `PAYPAL_WEBHOOK_ID`, list every frontend origin in `ACCESSDOMAINS`, delete the old `ANALYTICS` token rows (OPERATIONS.md deploy checklist).
+9. **First deploy:** a fresh database set up with `npm run setup:fresh -- --confirm` (OPERATIONS.md "Deploy checklist"); secrets `JWT_SECRET` / `ADMIN_JWT_SECRET` (≥ 32 characters), `TOKEN_ENCRYPTION_KEY`, `ACCESSDOMAINS`, `FRONTEND_URL`, `SHARE_BASE_URL`, `SUPER_ADMIN_EMAIL`, the PayPal variables.
 10. **Frontend team notes** (Phase 10): token refresh (1-day access, 30-day refresh), admin panel sign-in and permissions, CORS origins: FRONTEND_BACKEND_MAP.md "Notes for the frontend team".
 11. **Prices, before launch (Mohit, 2026-09-28):** set in the billing admin (Phase 13a):
     - the first-location and additional-location prices per currency (`POST /admin/billing/plans/:planId/prices`); until then checkout answers 409 `price_not_set`
@@ -206,12 +212,14 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
     - No live PayPal call has been made yet.
 14. **Seller details on invoices:** set `BILLING_SELLER_NAME`, `BILLING_SELLER_ADDRESS` (lines separated by `|`), `BILLING_SELLER_EMAIL` and optionally `BILLING_SELLER_TAX_ID` before the first real invoice.
 12. **Citation directory authority values:** the 50 seeded directories (`seed:citation-directories`) carry **placeholder** authority numbers; the admin team replaces them before launch.
+15. **Checkout quantity (found by the flow tests, 2026-09-29):** checkout subscribes for the number of active locations (at least 1). A trial user who wants a second location right away subscribes for 1 and then pays a prorated slot (two PayPal approvals). Option: let checkout take `quantity` (active locations up to 20) so they subscribe for both at once. Decide; no change made.
+16. **Google Cloud + `.env` after 13b:** the GBP redirect-fallback URI moved to `…/api/v1/gbp/connect/callback`: update `GOOGLE_GBP_REDIRECT_URI` in `.env` and the authorised redirect URI in Google Cloud (the popup flow is unaffected). New settings: `ADMIN_FRONTEND_URL`, `SUPPORT_EMAIL`, `EMAIL_TRANSPORT` (OPERATIONS.md).
 
 ## Blocked on Google
 
 | Item | State | What unblocks it | Then |
 |---|---|---|---|
-| **Business Profile API access** (Account Management, Business Information, Performance, Verifications) for Cloud project `1010247538246` | Not approved: quota 0 (live test attempt 1, 2026-09-26). Mohit is submitting the access request. | Mohit says **"GBP access approved"** (the Account Management "Requests per minute" quota is above 0). | Resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, then the 7c scoring calibration. The Google connection (`mohit@mypageseo.com`) is saved; no reconnect is needed. |
+| **Business Profile API access** (Account Management, Business Information, Performance, Verifications) for Cloud project `1010247538246` | Not approved: quota 0 (live test attempt 1, 2026-09-26). Mohit is submitting the access request. | Mohit says **"GBP access approved"** (the Account Management "Requests per minute" quota is above 0). | Resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, then the 7c scoring calibration. The Google connection (`mohit@mypageseo.com`) is saved; no reconnect is needed. |
 | **Google My Business API v4** (reviews, media, posts) | Pending | Access approved | Set `GBP_V4_ENABLED=true` (no code change); Phase 9 posting becomes possible. |
 | **OAuth app verification** (the "Google hasn't verified this app" screen, and the test-user limit while in testing mode) | Not started | Google verifies the OAuth consent screen (`business.manage` is a sensitive scope) | Needed before real customers connect. |
 
@@ -243,33 +251,17 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   | (b) token pack | not tested | not tested |
   | (b) extra location slots | not tested | not tested |
 
-## Legacy leftovers (audit 2026-09-28, decision pending)
+## What remains legacy (final audit, 13b, 2026-09-29)
 
-Checked after 13a: every file, model, export, route and dependency against what the rebuilt code uses.
+Every model, route, service, helper, constant, env var, package and script was checked against the rebuilt product (knip for unused files, exports and packages; a per-export reference scan; `.env.example` against the code). Everything unused was deleted (LEGACY_FEATURES.md "Removed in Phase 13b"). What is still legacy code, and why it stays:
 
-**Dead: safe to delete (no endpoint or behaviour changes):**
-- `UserAttachment` model (no references).
-- `randomatic` + `@types/randomatic` (never imported).
-- The heartbeat `node-cron` in `src/app.ts`: logs "still running" every minute in every pm2 process. `node-cron` then has no users either.
-- ~45 unused exports in `src/configs/constantTypes.ts`: payment, booking, appointment, call, refund, tax, currency, gateway and citation-order enums from the original template.
-- `role.middleware` `isSuperAdmin` / `isAdmin` / `isEditor` / `isUser` (replaced by admin permissions); `constants/selectFields.locationSelect`; `email.service.sendResetPasswordConfirmationMail`.
-- Upload fields `gifs`, `docs`, `audios` (accepted, never read) and the file routes `/gifs`, `/docs/:filename`, `/songs` (`/songs` serves a folder nothing writes; audio goes to `audios`). Images and videos stay (blog, legacy white-label, GBP posts).
-- Dead `User` fields: `stripe_customer_id`, `is_proof_verify`, `referral_code`, `available_credit`, `square_customer_id`, `trial`, `subscription_status`, `current_plan_id`, `is_analytics_connected`, `socket_id`, `user_name`. They are still selected by the auth middleware and returned by the legacy profile, so removing them changes those responses.
-- `fcm_token` (saved at legacy login, never used: no push notifications).
-- The `countriesnow.space` seeding script (`seed-country-city-state`); `dumps/` already holds the data.
+- **Legacy GBP posting** (`/gbp/post/*`, `gbpPostSchedular.*`, `jobs/postToGbp.ts`, `GBPPost`, and the `/images` and `/videos` file routes for uploads): rebuilt in Phase 9 (needs GBP v4). All 40 remaining lint errors are here.
+- **Reference data** (countries, states, cities, languages, time zones, business categories: models, read routes, admin edits of business categories): used by signup, onboarding and citations; kept by decision.
+- **Blog and blog categories, FAQ, contact form** (routes, models, services in the legacy style with `mongoFunctions`): kept by decision; they work and are guarded (Phase 10).
+- **`/api/healthcheck` and `/ping`:** infrastructure checks (Phase 14 decides which one the monitoring uses).
+- **The PayPal webhook path `/subscription/paypal/webhook`:** new handlers (13a) on the path registered at PayPal.
 
-**Features made useless by rebuilt ones (endpoints; need the frontend's OK):**
-- `/user/clients` (5, already deprecated) → `/clients`.
-- `/white-label-profiles` (5, deprecated) → organization branding.
-- `/user/auth/employee/*` (4, not marked deprecated) → team invitations (Phase 11).
-- `POST /user/notifications`: toggles `notification_status`, which nothing reads (notifications are Phase 15).
-- `/admin/operations/*` (6): lists "agencies" / "businesses" by `user_type`, not organizations → 13b.
-- `/supports` (6) → 13b support tickets.
-- Roles CRUD (5): admin permissions are fixed to role ids 1 / 2 / 4, so a created role grants nothing.
-- Swagger `/docs`: the initial-commit file with 7 paths (ENDPOINTS.md is the real catalogue) → 9b.
-- The legacy `/user/auth` login / OTP / forgot-password (already deprecated) → `/auth/*`.
-
-**Legacy but still needed:** `/user/auth/{refresh-auth, logout, reset-password (change password), deactivate}` and `/user/profile` (no `/auth` equivalent yet); reference data (countries / states / cities / languages / timezones / business categories); blog, FAQ, contact-us; GBP posting (Phase 9, already on organization access); `payments` (read by `migrate:billing` and the legacy link); `UserLoginTiming` (written only by the legacy login; 13b's "last logins" needs the new `/auth/login` to write it).
+Nothing else is legacy: every other route is rebuilt or new (ENDPOINTS.md "By origin").
 
 ## Pre-launch live validation (Mohit triggers it)
 
@@ -284,20 +276,20 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 
 - **TypeScript 7 readiness** (9b / 14): `moduleResolution: node` is removed in TS 7; the node16 move and the two dynamic imports are described in OPERATIONS.md "Lint and editor setup".
-- **Legacy lint debt:** 82 ESLint errors, all in legacy modules (169 when first measured on 2026-09-27; Phase 16 removed 32 with the old citation module, 13a another 55 with the legacy billing code). They shrink as Phases 9 and 13b replace those modules.
+- **Legacy lint debt:** 40 ESLint errors, all in legacy GBP posting (169 when first measured on 2026-09-27; Phase 16 removed 32, 13a 55, 13b 42). They go when Phase 9 rebuilds posting.
 - (The Dallas test, the formal `calibrate:score` and the variance test moved to "Pre-launch live validation" and Phase 12.5.)
+- **Test requests use `[::1]`** (13b flaky-test fix, `tests/setupAfterEnv.ts`): revisit if tests run somewhere without IPv6 (e.g. a CI container with IPv6 disabled).
 - **Overall-average UX:** when one keyword is 60+ everywhere it counts as 61 and dominates `overallAvgRank` (Round 1: 31.2 from 1.4 and 61). Decide how the page explains or presents it.
 
 ## Next up
 
-1. **Merge and push Phase 13a** (commands in the phase summary). **At deploy** (OPERATIONS.md deploy checklist): `npm run db:sync-indexes -- --confirm`, then `npm run migrate:billing` (dry run) and `-- --confirm`; the PayPal env vars; remove `SQUARE_*`.
-   - Still at the first deploy: Phase 16's `seed:citation-directories -- --confirm` and Phase 8.1's `migrate:email-verified -- --confirm` (before starting the new code) with `FRONTEND_URL`.
-2. **Then Phase 13b** (admin panel backend + support: users, organizations with suspend, support tickets with threads, overview), per the approved plan.
-3. **Then** 14 (production readiness) toward M5. Before launch: prices (open item 11) and the PayPal sandbox test (open item 13).
-4. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
-5. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind-with-user`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
+1. **Merge and push Phase 13b** (commands in PROGRESS.md "Phase 13b").
+2. **Phase 14 (production readiness)** in plan mode: fresh server (MongoDB, backups, nginx, pm2, log rotation, error monitoring, alerts), the deploy-checklist dry run with `setup:fresh`, Maps ToS decisions. Before launch: prices (open item 11), the PayPal sandbox test (open item 13), the redirect URI change (open item 16).
+3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
+4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
+5. **Upcoming features** (AI GBP posts, AI visibility, review management, white-label hosting): specs pending from Mohit; groundwork in [plans/upcoming-features.md](plans/upcoming-features.md).
 
-**Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md). Screens marked "not supported" must not be built.
+**Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md) and [FLOWS.md](FLOWS.md). Screens marked "not supported" must not be built.
 
 ## How to run
 

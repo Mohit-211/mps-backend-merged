@@ -57,7 +57,7 @@ const setup = (steps: FakeStep[], stored: Partial<StoredTokens> | null = {}) => 
 		tokens,
 		clientId: 'client-id.apps.googleusercontent.com',
 		clientSecret: 'FAKE-client-secret',
-		redirectUri: 'http://localhost:5055/api/v1/user/auth/google/gbp/callback',
+		redirectUri: 'http://localhost:5055/api/v1/gbp/connect/callback',
 		maxRps: 5,
 		now: clock.now,
 		sleep: async (ms) => {
@@ -195,7 +195,7 @@ describe('gbpClient tokens', () => {
 		expect(Object.fromEntries(form)).toMatchObject({
 			code: '4/FAKE-code',
 			grant_type: 'authorization_code',
-			redirect_uri: 'http://localhost:5055/api/v1/user/auth/google/gbp/callback',
+			redirect_uri: 'http://localhost:5055/api/v1/gbp/connect/callback',
 		});
 	});
 

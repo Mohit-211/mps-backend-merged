@@ -1,8 +1,7 @@
 import { Document, Model, Schema, Types, model } from 'mongoose';
 
 // Coupons (Phase 13a): token packs only (subscription discounts are custom plans). Percent or fixed,
-// optionally limited to some packs, a number of redemptions and an expiry. Legacy per-plan coupons in
-// the same collection are converted (or deactivated) by migrate:billing.
+// optionally limited to some packs, a number of redemptions and an expiry.
 
 export const COUPON_DISCOUNT_TYPES = ['percent', 'fixed'] as const;
 export type CouponDiscountType = (typeof COUPON_DISCOUNT_TYPES)[number];

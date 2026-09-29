@@ -19,8 +19,6 @@ export type BillingMethod = (typeof BILLING_METHODS)[number];
 export const SUBSCRIPTION_STATUSES = ['approval_pending', 'active', 'past_due', 'suspended', 'cancelled', 'expired'] as const;
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 /** Statuses after which a new subscription can be started. */
-export const FINAL_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = ['cancelled', 'expired'];
-
 export const REFRESH_TOKEN_TYPES = ['rankings', 'gbp'] as const;
 export type RefreshTokenType = (typeof REFRESH_TOKEN_TYPES)[number];
 

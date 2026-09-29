@@ -1,4 +1,3 @@
-import * as adminAuthController from './adminAuth.controller';   
-import * as adminOperationsController from './adminOperations.controller';
+import * as adminAuthController from './adminAuth.controller';
 
-export { adminAuthController, adminOperationsController };
+export { adminAuthController };

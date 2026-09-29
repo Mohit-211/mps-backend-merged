@@ -30,11 +30,8 @@ export const defineAllJobs = (agenda: Agenda): string[] => {
 
 /**
  * Creates (or updates) the repeating jobs. agenda.every() keeps a single job document per name.
- * 7b: the Phase 5 rank-scheduler is replaced by monthly-refresh; its old document is cancelled here.
  */
 export const scheduleRecurringJobs = async (agenda: Agenda): Promise<void> => {
-	const removed = await agenda.cancel({ name: JOB_NAMES.RANK_SCHEDULER });
-	if (removed) logger.info(`Cancelled ${removed} old ${JOB_NAMES.RANK_SCHEDULER} job document(s)`);
 	await agenda.every(MONTHLY_REFRESH_INTERVAL, JOB_NAMES.MONTHLY_REFRESH, {});
 	logger.info(`Recurring job scheduled: ${JOB_NAMES.MONTHLY_REFRESH} every ${MONTHLY_REFRESH_INTERVAL}`);
 	await agenda.every(REPORT_RETENTION_INTERVAL, JOB_NAMES.REPORT_RETENTION, {});

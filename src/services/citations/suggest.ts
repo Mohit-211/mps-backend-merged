@@ -59,7 +59,7 @@ export const suggestForLocation = async (locationId: Id, opts: { dryRun?: boolea
 	const actor = opts.actor ?? SYSTEM_ACTOR;
 	const location = await Location.findById(locationId).lean<ILocation>();
 	if (!location) throw apiErrorWithData(httpStatus.NOT_FOUND, 'Location not found.', { reason: 'not_found' });
-	if (!location.organization_id) throw apiErrorWithData(httpStatus.CONFLICT, 'The location has no organization (run migrate:organizations).', { reason: 'no_organization' });
+	if (!location.organization_id) throw apiErrorWithData(httpStatus.CONFLICT, 'The location has no organization.', { reason: 'no_organization' });
 	const country = citationCountry(location.country);
 	const names = await locationBusinessCategories(location);
 	const base = { business_categories: names, dry_run: Boolean(opts.dryRun), added: [], already_listed: 0 };

@@ -32,8 +32,7 @@ export const statusesFor = async (locations: StatusInput[]): Promise<Map<string,
 		: [];
 	const connectionState = (userId: unknown, sub: string | null | undefined): 'active' | 'revoked' | 'missing' => {
 		const rows = connections.filter((c) => String(c.user_id) === String(userId));
-		// Pre-7a bindings have no google_sub: they belong to the user's only connection.
-		const row = sub ? rows.find((c) => c.google_sub === sub) : rows.length === 1 ? rows[0] : undefined;
+		const row = sub ? rows.find((c) => c.google_sub === sub) : undefined;
 		return row ? (row.status === 'revoked' ? 'revoked' : 'active') : 'missing';
 	};
 	const byLocation = new Map(bindings.map((b) => [String(b.location_id), { revoked: connectionState(b.user_id, b.google_sub) !== 'active' }]));

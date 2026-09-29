@@ -1169,3 +1169,86 @@ Branch `claude/phase-13a-billing` (from `claude/rebuild` after `c8938de`). Plan:
   - seller details for invoices
 
 **API calls:** none (Google 0, PayPal 0).
+
+## Phase 13b: legacy removal, `/auth` sessions, provider interface, flaky tests, email, password links, flows, admin panel (built, awaiting merge)
+
+Branch `claude/phase-13b-admin` (from `claude/rebuild` at `c66a82b`, after the 13a merge `2c77a8a`). Scope and order: CLAUDE.md §12h ("13b as built"). 28 commits (`d560a2d` … `6df8ce0`).
+
+**Commits by step:**
+- **1. Legacy removal + fresh database** (`d560a2d`–`2c4fe7b`):
+  - every deprecated route group deleted with what only served it
+  - Swagger removed
+  - the final sweep
+  - every data migration removed, then `setup:fresh`
+- **2. `/auth` sessions and account:** `9709727`.
+- **4. Payment-provider interface:** `6c9c6b1`.
+- **5. Flaky tests:** `7ddba81`, plus `70283fb` (the open-file limit).
+- **Added by Mohit (2026-09-29):**
+  - A, the rest of the legacy sweep: `3089d3b` (Google connect under `/gbp`, `/system` and `/logs`, unused utils, packages and settings) and `4f51ff1` (lint)
+  - B, one email switch: `12c7ed9`, and `45c3dc7` (log mode counts as delivered)
+  - C, password reset by link and the admin auth rebuild: `babc279`
+  - D, end-to-end flows and FLOWS.md: `4151f3d`
+  - F, upcoming-features groundwork: `6df8ce0`
+- **6 (E). Admin panel + support:** `c26849b`.
+- **End-of-phase docs:** this commit.
+
+**Numbers (before → after 13b):**
+
+| | Before (end of 13a) | After |
+|---|---|---|
+| Endpoints (ENDPOINTS.md) | 250 (incl. 40+ legacy / deprecated) | **225** (0 deprecated): 65 legacy routes removed, 40 added (6 `/auth`, 10 admin auth + accounts + roles, 19 admin panel, 5 support); the Google connect routes and the trial route moved |
+| Lines | – | **−9,900 / +4,657** overall; `src` −8,453 / +2,590; tests −654 / +1,351 |
+| Models removed | – | `OTP`, `AuthCode` (→ `AuthLink`), `Payment`, `Support` (→ `SupportTicket`), `UserAttachment`, `WhitelabelProfile` |
+| Packages removed | – | `node-cron`, `randomatic`, `swagger-ui-express`, `express-rate-limit`, `husky`, `@types/{node-cron, randomatic, swagger-ui-express, eslint__js}` |
+| Lint (`npm run lint`) | 82 legacy errors | **40**, all in legacy GBP posting (rebuilt in Phase 9); 0 in rebuilt code |
+| Tests | 94 suites, 878 tests | **99 suites, 903 tests**, offline; 3 consecutive full runs green |
+| Build | 0 errors | 0 errors |
+
+**Remaining legacy (and why):** STATUS.md "What remains legacy".
+
+**Decisions and flags:**
+- **Suspension status code:** a suspended organization answers **402** `organization_suspended`, which is the 13a billing gate's code. The approved plan said 403. Kept 402 for one gate; say if you want 403.
+- **The admin set-password link lasts 72 h** (`ADMIN_SET_PASSWORD_TTL_HOURS`).
+- **Admins are deactivated, never deleted,** so audit entries keep their author.
+- **The first super admin** (`admin:create-super`) still gets a generated password printed once. Afterwards forgot-password works.
+- **Log-mode emails count as delivered:** `email_sent` and the signup's `email_verification` are false / `failed` only on an SMTP failure.
+- **Shared-file edits:** `email.service.ts` rewritten around `deliver()`, `app.ts` (the `/logs` routes removed), `models/index.ts`, the route indexes, `adminPermissions.ts` and `config.ts`.
+
+**Open for Mohit:**
+- STATUS open item 15: the checkout quantity.
+- STATUS open item 16:
+  - the Google Cloud redirect URI and `GOOGLE_GBP_REDIRECT_URI` → `…/api/v1/gbp/connect/callback`
+  - new settings `ADMIN_FRONTEND_URL`, `SUPPORT_EMAIL`, `EMAIL_TRANSPORT`
+- Specs for the four upcoming features.
+
+**API calls:** none (Google 0, PayPal 0).
+
+**Merge and push (run by Mohit):**
+```bash
+git checkout claude/rebuild && git merge --no-ff claude/phase-13b-admin -m "Merge Phase 13b: legacy removal, /auth, password links, email switch, flows, admin panel + support"
+git push origin claude/rebuild claude/phase-13b-admin
+```
+The push also carries `c66a82b` (already on `claude/rebuild`, not yet pushed).
+
+### Step 5: flaky tests (2026-09-28/29)
+
+**Measured:** 10 full `npx jest` runs in a row per state (95 suites, 860 tests, 4 parallel workers, same laptop).
+
+| State | Failing runs | Failures |
+|---|---|---|
+| Before | **4 / 10** | 11 tests in 5 suites, different each time (`billingAdmin`, `syncExecutor`, `adminGuards` + `org.routes`, `reports`); "Port … already in use", "Parse Error: Expected HTTP/", 404s |
+| After fixes 1–2 | 1 / 6 (stopped) | `onboarding/usage` concurrent reservations (a real bug, fix 3) |
+| After fixes 1–3 | 2 / 10 | `citationsAdmin` (empty body), `adminGuards` (404 instead of 403): requests reaching another listener (fix 4) |
+| After fixes 1–4 | 1 / 10 | `usage/usage` fixed 50 ms sleep (fix 5) |
+| **After fixes 1–5** | **2 / 10** | only 30 s `beforeAll` timeouts (`syncExecutor`, `onboarding/usage`) in runs that took 113 and 150 s instead of ~80 s: the laptop was busy. No wrong-server or data failure. Accepted by Mohit (2026-09-29); no more work on it. |
+
+**Causes and fixes:**
+1. **One mongod per test file.** Every file started its own `mongodb-memory-server` on a random port while other workers opened supertest servers on OS-assigned ports; a port was sometimes taken twice. Now **one server per run** (`tests/globalSetup.ts` / `globalTeardown.ts`, `MPS_TEST_MONGO_URI`); every file gets its own database on it (`uniqueDbName`, dropped at the end).
+2. **HTTP keep-alive (Node ≥ 19).** The global agent, shared by the files in one worker, reused a pooled connection to an earlier file's closed server when a later server got the same port number. Keep-alive is off in tests (`tests/setupAfterEnv.ts`).
+3. **Production bug, `src/services/onboarding/usage.ts` (daily Places cap):** concurrent first reservations of the day raced on the upsert; the losers got E11000 and were refused as "limit reached" (1 of 10 allowed instead of 10). Now a duplicate-key error retries once as a plain conditional update, so only a real over-limit is refused. It would have hit a user who fired several searches at once at the start of a UTC day.
+4. **IPv4 / IPv6 port overlap on macOS.** supertest binds the wildcard `[::]:<port>` and requests `127.0.0.1:<port>`; the kernel can give that wildcard a port another process already listens on at `127.0.0.1` (e.g. the shared mongod), and that listener gets the request. Test requests now go to `[::1]` (`http.Server.prototype.address` maps `::` to `::1` in `tests/setupAfterEnv.ts`). Backlog: revisit if tests run somewhere without IPv6 (STATUS.md).
+5. **A fixed 50 ms sleep** waiting for a fire-and-forget usage write (`tests/services/usage/usage.test.ts`) now polls for the row.
+
+The 13a suspects (`dashboard.routes`, `gbp/oauth`, report retention) were causes 1, 2 and 4: none of them failed after the fixes.
+
+**Addendum (2026-09-29, while adding the step-6 suites):** with 99 suites every full run failed in 8 random suites: `MongoServerError: 24: Too many open files` on the shared test mongod, followed by index builds "interrupted at shutdown" and closed connections. Cause 6: every test file creates and drops its own database, WiredTiger keeps a file open per collection and index, idle handles stay open for minutes and dropped files are only removed at the next checkpoint (60 s); the macOS limits are 10,240 files per process and 30,720 system-wide. Fix: the test mongod closes idle handles after 5 s and checkpoints every 5 s (`tests/helpers/memoryMongo.ts`). After it: 3 of 3 full runs green (903 tests, ~105 s). With `MONGOMS_DEBUG` or a stdout trace the failure never showed (the slower run kept the file count down), which is why it looked like a random shutdown at first.

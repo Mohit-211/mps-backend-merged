@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import crypto from 'crypto';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { DateTime } from 'luxon';
 import httpStatus from 'http-status';
@@ -37,6 +38,8 @@ export const generateToken = (
 			user_type,
 			// Phase 10: User.token_version at issue time (revocation).
 			tv: tokenVersion,
+			// Phase 13b: unique per token, so two tokens issued in the same second differ (refresh rotation).
+			jti: crypto.randomUUID(),
 		};
 		return jwt.sign(payload, secret, { algorithm: 'HS256' });
 	} catch (error: any) {
@@ -54,7 +57,6 @@ export const saveToken = async (
 	userId: any,
 	expires: string,
 	type: string,
-	fcm_token: string
 ): Promise<IUserToken> => {
 	try {
 		const tokenDoc = await mongoFunctions({
@@ -64,7 +66,6 @@ export const saveToken = async (
 				token_type: type,
 				token,
 				expired_at: new Date(expires),
-				fcm_token: fcm_token,
 			},
 			operationType: mongoOperationsTypes.CREATE,
 		});
@@ -220,7 +221,6 @@ export const generateAuthRefreshTokens = async (user: IUser): Promise<any> => {
 			user._id,
 			refreshTokenExpires.toUTC().toFormat('yyyy-MM-dd HH:mm:ss'),
 			tokenTypes.REFRESH,
-			user?.fcm_token,
 		);
 
 		if (!refreshTokenDoc) {

@@ -92,8 +92,6 @@ import { credit } from '../services/billing/tokens';
 const BUSINESS_EMAIL = 'business-demo@mypageseo.test';
 const AGENCY_EMAIL = 'agency-demo@mypageseo.test';
 const CLIENT_USER_EMAIL = 'agency-client@mypageseo.test';
-/** Earlier demo accounts (seed:gbp-demo before Phase 8) are cleaned up too. */
-const OLD_EMAILS = ['gbp-demo@mypageseo.test'];
 const REQUIRED_DB = 'mps_rebuild';
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -107,7 +105,7 @@ const fail = (message: string): never => {
 };
 
 const removePreviousDemo = async (): Promise<void> => {
-	const users = await User.find({ email: { $in: [BUSINESS_EMAIL, AGENCY_EMAIL, CLIENT_USER_EMAIL, ...OLD_EMAILS] } }).select({ _id: 1 }).lean();
+	const users = await User.find({ email: { $in: [BUSINESS_EMAIL, AGENCY_EMAIL, CLIENT_USER_EMAIL] } }).select({ _id: 1 }).lean();
 	const userIds = users.map((u) => u._id);
 	const orgIds = (await Organization.find({ owner_user_id: { $in: userIds } }).select({ _id: 1 }).lean()).map((o) => o._id);
 	const ids = (

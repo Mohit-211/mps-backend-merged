@@ -3,29 +3,17 @@ import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import httpStatus from 'http-status';
-import cron from 'node-cron';
 import NodeCache from 'node-cache';
 import path from 'path';
 import fs from 'fs';
-import { DateTime } from 'luxon';
 import requestIp from 'request-ip';
-import swaggerUi from 'swagger-ui-express';
 
-import swaggerDocument from '../swagger.json';
 import config from './configs/config';
 import corsConfigs from './configs/corsConfigs';
 import { successHandler, errorHandler } from './configs/morgan';
 import { multipartFieldsOnly } from './configs/multer';
-import logger from './configs/logger';
-import {
-	ApiError,
-	apiErrorHandler,
-	responseWrapper,
-	credentials,
-	getQueryParams,
-} from './utils';
+import { ApiError, apiErrorHandler, credentials, getQueryParams } from './utils';
 import routes from './routes/v1';
-import { adminOnly } from './middlewares/auth/adminAuth.middleware';
 import devConnectRoutes from './routes/dev/devConnect.route';
 import shareRoutes from './routes/share.route';
 import { usageScope } from './services/usage/scope';
@@ -38,26 +26,17 @@ const PUBLIC_DIR = path.resolve(
 	__dirname,
 	process.env.NODE_ENV === 'development' ? '../public' : '../../public',
 );
-const LOG_DIR = path.resolve(
-	__dirname,
-	process.env.NODE_ENV === 'development' ? '../logs' : '../../logs',
-);
 
 // Initialize MongoDB connection
 import('./configs/mongoConnection');
 
-// Initialize mysql connection
-// import('./configs/mySqlConnection');
 
-cron.schedule('* * * * *', () => {
-	logger.info('Hello, I am still running.......😊');
-});
 
 // Phase 10 (AUDIT S5): behind nginx; req.ip is the client (rate limits, logs).
 app.set('trust proxy', config.security.trustProxyHops);
 
 // Phase 10 (AUDIT S9): every helmet header, with a strict CSP (no polyfill.io, no unsafe-eval). The API
-// serves JSON; /docs (Swagger UI) needs inline styles only. Uploaded images are embedded by the web app
+// serves JSON only (13b: Swagger UI removed, so no inline styles are needed). Uploaded images are embedded by the web app
 // on another origin, so resources may be loaded cross-origin. Routes with their own CSP (/r, /dev) override it.
 app.use(
 	helmet({
@@ -66,7 +45,7 @@ app.use(
 			directives: {
 				'default-src': ["'self'"],
 				'script-src': ["'self'"],
-				'style-src': ["'self'", "'unsafe-inline'"],
+				'style-src': ["'self'"],
 				'img-src': ["'self'", 'data:'],
 				'frame-ancestors': ["'none'"],
 			},
@@ -131,57 +110,9 @@ if (config.essentials.env === 'development') {
 	app.use('/dev', devConnectRoutes);
 }
 
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
-// Phase 10 (AUDIT S3): reading and deleting logs is super admin only.
-app.get('/api/v1/logs', adminOnly('system.read'), (req, res) => {
-	const currentDate = DateTime.now().toFormat('yyyy-MM-dd');
-	const logFileName = `${currentDate}.log`;
-	const logFilePath = path.join(LOG_DIR, logFileName);
-	fs.readFile(logFilePath, 'utf8', (err, data) => {
-		if (err) {
-			return responseWrapper(res, [], 'success');
-		} else {
-			const logs = data.split('\n');
-			res.setHeader('Cache-Control', 'public, max-age=3600');
-			return responseWrapper(res, logs, 'success');
-		}
-	});
-});
-
-app.delete('/api/v1/logs', adminOnly('system.read'), async (req: Request, res: Response) => {
-	const logDirectory = LOG_DIR;
-	fs.readdir(logDirectory, async (err, files) => {
-		if (err) {
-			return responseWrapper(res, '', 'Error reading log directory', 400);
-		} else {
-			files.forEach((file) => {
-				if (file.endsWith('.log')) {
-					fs.unlink(path.join(logDirectory, file), (err) => {
-						if (err) {
-							return responseWrapper(
-								res,
-								'',
-								'Error deleting log file',
-								400,
-							);
-						}
-					});
-				}
-			});
-			return responseWrapper(
-				res,
-				'',
-				'All log files deleted successfully',
-			);
-		}
-	});
-});
-
-
 // All File Apis. Phase 10 (AUDIT S16): the name is reduced to its basename and must resolve inside its
 // folder (no ../ traversal); the cache is keyed by folder + name.
-const fileApis = ['images', 'videos', 'gifs', 'docs', 'songs'];
+const fileApis = ['images', 'videos'];
 fileApis.forEach((api) => {
 	const folder = path.join(PUBLIC_DIR, 'uploads', api);
 	app.get(`/${api}/:filename`, (req: Request, res: Response) => {

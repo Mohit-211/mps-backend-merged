@@ -1,10 +1,7 @@
-import  systemRoute from './system.route';
 import  countryRoute from './country.route';
-import  roleRoute from './role.route';
 import  languageRoute from './language.route';
 import  timezoneRoute from './timezone.route';
 import faqRoute from './faq.route';
-import supportRoute from './support.route';
 import subscriptionRoutes from './subscription.route';
 import contactUsRoutes from './contactUs.route';
 
@@ -14,10 +11,10 @@ import citationsRoute from './citations.route';
 import onboardingRoute from './onboarding.route';
 import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
-import whiteLabelRoute from './whitelabelProfile.route';
 import gbpPSRoute from './gbpPostSchedular.route';
 import billingRoute from './billing.route';
 import pricingRoute from './pricing.route';
+import supportRoute from './support.route';
 import blogRoute from './blog.routes';
 import blogCategoryRoutes from './blogCategory.routes';
 import authRoute from './auth.route';
@@ -31,16 +28,8 @@ import reportSchedulesRoute from './reportSchedules.route';
 
 const commonRoutes = [
 	{
-		path: '/system',
-		route: systemRoute,
-	},
-	{
 		path: '/countries',
 		route: countryRoute,
-	},
-	{
-		path: '/roles',
-		route: roleRoute,
 	},
 	{
 		path: '/languages',
@@ -53,10 +42,6 @@ const commonRoutes = [
 	{
 		path: '/faqs',
 		route: faqRoute,
-	},
-	{
-		path: '/supports',
-		route: supportRoute
 	},
 	{
 		path: '/subscription',
@@ -124,10 +109,6 @@ const commonRoutes = [
 		route: businessCategoryRoute,
 	},
 	{
-		path: '/white-label-profiles',
-		route: whiteLabelRoute,
-	},
-	{
 		path: '/gbp',
 		route: gbpPSRoute,
 	},
@@ -140,6 +121,11 @@ const commonRoutes = [
 		// Phase 13a: public pricing for the marketing site
 		path: '/pricing',
 		route: pricingRoute,
+	},
+	{
+		// Phase 13b: support tickets (organization users)
+		path: '/support',
+		route: supportRoute,
 	},
 	{
 		path: '/blog',

@@ -34,16 +34,9 @@ export interface Mailer {
 export interface InvitationDeps {
 	mailer?: Mailer;
 	now?: () => Date;
-	env?: string;
 }
 
 export const hashToken = (token: string): string => crypto.createHash('sha256').update(token).digest('hex');
-
-/** j***@example.com */
-export const maskEmail = (email: string): string => {
-	const [local, domain] = email.split('@');
-	return `${local.slice(0, 1)}***@${domain ?? ''}`;
-};
 
 export const invitationLink = (token: string): string => `${(config.auth.frontendUrl || 'http://localhost:3000').replace(/\/$/, '')}/invite?token=${token}`;
 
@@ -66,7 +59,6 @@ const view = (inv: IInvitation, now: Date) => ({
 export const createInvitationService = (deps: InvitationDeps = {}) => {
 	const mailer = deps.mailer ?? { sendInvitation: sendInvitationEmail };
 	const now = deps.now ?? (() => new Date());
-	const env = deps.env ?? config.essentials.env;
 
 	const invite = async (ctx: OrgContext, input: InviteInput) => {
 		const at = now();
@@ -107,13 +99,8 @@ export const createInvitationService = (deps: InvitationDeps = {}) => {
 			inv = (await Invitation.findOneAndUpdate({ organization_id: ctx.organization._id, email, status: 'pending' }, { $set: fields }, { new: true })) as IInvitation;
 		}
 		const link = invitationLink(token);
-		let emailSent = false;
-		if (env === 'development') {
-			// Nothing is sent in development: the link is logged for local testing, with the email masked.
-			logger.info(`invitation for ${maskEmail(email)}: ${link}`);
-		} else {
-			emailSent = await mailer.sendInvitation(email, link, ctx.organization.name, input.role);
-		}
+		// 13b: sent or logged by the email service (EMAIL_TRANSPORT); false only when SMTP failed.
+		const emailSent = await mailer.sendInvitation(email, link, ctx.organization.name, input.role);
 		logger.info(`team: invitation ${String(inv._id)} (${input.role}) created in organization ${String(ctx.organization._id)} by user ${ctx.userId}`);
 		return { ...view(inv, at), email_sent: emailSent };
 	};

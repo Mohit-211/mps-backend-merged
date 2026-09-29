@@ -6,7 +6,6 @@ import request from 'supertest';
 // Phase 10 (AUDIT S5, S7, S8, S9, S10, S16): the app's transport-level protections, on the real app.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const app: express.Express = require('../../src/app').default;
@@ -50,7 +49,7 @@ describe('uploads (S7)', () => {
 
 	it('an upload route refuses an unauthenticated upload before writing the file', async () => {
 		const before = countUploads();
-		const res = await request(app).post('/api/v1/white-label-profiles').attach('images', Buffer.from([0x89, 0x50, 0x4e, 0x47]), 'logo.png');
+		const res = await request(app).post('/api/v1/gbp/post/add').attach('images', Buffer.from([0x89, 0x50, 0x4e, 0x47]), 'logo.png');
 		expect(res.status).toBe(401);
 		expect(countUploads()).toBe(before);
 	});

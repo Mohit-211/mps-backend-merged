@@ -12,7 +12,6 @@ export const createBusinessCategory = async (body: BodyDefinition): Promise<any>
 		const {
 			name,
             slug,
-			user,
 		} = body;
 		const businessCategoryObj = {
 			name,
@@ -44,7 +43,7 @@ export const createBusinessCategory = async (body: BodyDefinition): Promise<any>
 export const getAllBusinessCategory = async (query: QueryDefinition): Promise<any> => {
 	try {
 		const { limit, offset, name } = query;
-		let condition = {is_active: true};
+		const condition: Record<string, unknown> = { is_active: true };
 		if(name){
 			condition['name'] = { $regex: name, $options: 'i' };
 		};

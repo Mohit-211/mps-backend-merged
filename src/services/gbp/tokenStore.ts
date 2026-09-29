@@ -1,21 +1,18 @@
 import { Types } from 'mongoose';
 import httpStatus from 'http-status';
-import logger from '../../configs/logger';
 import { tokenTypes } from '../../configs/constantTypes';
 import { IUserAuth, User, UserAuth } from '../../models';
 import { ApiError } from '../../utils';
-import { TokenCrypto, isEncrypted, tokenCrypto } from '../../utils/tokenCrypto';
+import { TokenCrypto, tokenCrypto } from '../../utils/tokenCrypto';
 
 // OAuth token storage (CLAUDE.md §10, AUDIT C17 + S12; multiple Google accounts in Phase 7a).
 // - One active row per (user_id, token_type, google_sub): a user may connect several Google accounts
 //   (a "connection" each, keyed by the id_token sub). Every query filters on token_type, so GBP never
 //   overwrites Search Console (unique partial index on the model).
-// - googleSub arguments: a string = that Google account; null = a row from before 7a (no identity);
-//   undefined = "the user's only connection" (AmbiguousConnectionError when there are several).
+// - googleSub arguments: a string = that Google account; undefined = "the user's only connection"
+//   (AmbiguousConnectionError when there are several).
 // - expiry_date is saved (the old code wrote a non-existent `expires` field).
-// - GBP tokens are encrypted at rest (AES-256-GCM). Search Console tokens stay plaintext until
-//   Phase 10: their only readers are legacy ranking code deleted in Phase 9.
-// - A legacy plaintext GBP value is accepted once and re-encrypted on read.
+// - GBP tokens are encrypted at rest (AES-256-GCM).
 
 export type TokenType = string;
 
@@ -62,8 +59,7 @@ const encryptsType = (type: TokenType): boolean => type === tokenTypes.GBP;
 
 export const createTokenStore = (crypto: TokenCrypto = tokenCrypto) => {
 	const seal = (type: TokenType, value: string): string => (encryptsType(type) ? crypto.encrypt(value) : value);
-	const open = (type: TokenType, value: string): string =>
-		encryptsType(type) && isEncrypted(value) ? crypto.decrypt(value) : value;
+	const open = (type: TokenType, value: string): string => (encryptsType(type) ? crypto.decrypt(value) : value);
 
 	/** The active row for one connection (see the googleSub rules above). */
 	const activeRow = async (userId: UserId, type: TokenType, googleSub?: string | null) => {
@@ -90,20 +86,6 @@ export const createTokenStore = (crypto: TokenCrypto = tokenCrypto) => {
 	const load = async (userId: UserId, type: TokenType, googleSub?: string | null): Promise<StoredTokens | null> => {
 		const row = await activeRow(userId, type, googleSub);
 		if (!row) return null;
-		if (encryptsType(type) && (!isEncrypted(row.access_token) || !isEncrypted(row.refresh_token))) {
-			// Connected before Phase 6: encrypt in place now (idempotent per field).
-			await UserAuth.updateOne(
-				{ _id: row._id },
-				{
-					$set: {
-						access_token: isEncrypted(row.access_token) ? row.access_token : crypto.encrypt(row.access_token),
-						refresh_token: isEncrypted(row.refresh_token) ? row.refresh_token : crypto.encrypt(row.refresh_token),
-						updated_at: new Date(),
-					},
-				},
-			);
-			logger.info(`tokenStore: re-encrypted legacy plaintext ${type} tokens for user ${String(userId)}`);
-		}
 		return {
 			accessToken: open(type, row.access_token),
 			refreshToken: open(type, row.refresh_token),
@@ -116,16 +98,11 @@ export const createTokenStore = (crypto: TokenCrypto = tokenCrypto) => {
 	};
 
 	/**
-	 * Creates or updates one connection (C17: filtered by token_type). With update.googleSub the row is
-	 * keyed by that Google account; a pre-7a row without identity (google_sub null) is adopted when it is
-	 * the user's only connection, so an old connection is upgraded rather than duplicated.
+	 * Creates or updates one connection (C17: filtered by token_type), keyed by update.googleSub (the
+	 * Google account of the verified id_token).
 	 */
 	const save = async (userId: UserId, type: TokenType, update: TokenUpdate): Promise<void> => {
-		let existing = await activeRow(userId, type, update.googleSub ?? undefined);
-		if (!existing && update.googleSub) {
-			const all = await UserAuth.find({ user_id: userId, token_type: type, is_active: true }).limit(2);
-			if (all.length === 1 && !all[0].google_sub) existing = all[0];
-		}
+		const existing = await activeRow(userId, type, update.googleSub ?? undefined);
 		if (!existing && !update.refreshToken) {
 			throw new ApiError(
 				httpStatus.BAD_REQUEST,
@@ -186,7 +163,7 @@ export const createTokenStore = (crypto: TokenCrypto = tokenCrypto) => {
 	};
 
 	/**
-	 * Deletes one connection (googleSub given, null for a pre-7a row) or, with undefined, every
+	 * Deletes one connection (googleSub given) or, with undefined, every
 	 * connection of this type. Returns true if a row was removed.
 	 */
 	const remove = async (userId: UserId, type: TokenType, googleSub?: string | null): Promise<boolean> => {
@@ -203,23 +180,3 @@ export const createTokenStore = (crypto: TokenCrypto = tokenCrypto) => {
 export type TokenStore = ReturnType<typeof createTokenStore>;
 
 export const tokenStore: TokenStore = createTokenStore();
-
-/**
- * Encrypts every plaintext GBP token in place (idempotent: already-encrypted values are skipped).
- * Used by `npm run gbp:encrypt-tokens`; never run automatically.
- */
-export const encryptPlaintextGbpTokens = async (
-	crypto: TokenCrypto = tokenCrypto,
-): Promise<{ scanned: number; encrypted: number; alreadyEncrypted: number }> => {
-	const rows = await UserAuth.find({ token_type: tokenTypes.GBP });
-	let encrypted = 0;
-	for (const row of rows) {
-		const set: Record<string, string> = {};
-		if (!isEncrypted(row.access_token)) set.access_token = crypto.encrypt(row.access_token);
-		if (!isEncrypted(row.refresh_token)) set.refresh_token = crypto.encrypt(row.refresh_token);
-		if (Object.keys(set).length === 0) continue;
-		await UserAuth.updateOne({ _id: row._id }, { $set: set });
-		encrypted += 1;
-	}
-	return { scanned: rows.length, encrypted, alreadyEncrypted: rows.length - encrypted };
-};

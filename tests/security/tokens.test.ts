@@ -1,9 +1,8 @@
-import crypto from 'crypto';
 import express from 'express';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
-import { GBPPost, Membership, OTP, User } from '../../src/models';
+import { GBPPost, User } from '../../src/models';
 import { revokeUserSessions } from '../../src/services/common/token.service';
 import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 
@@ -11,22 +10,7 @@ import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../
 // deletion and the remaining ownership checks, on the real app.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
-const sentOtps: string[] = [];
-jest.mock('../../src/services/common/email.service', () =>
-	new Proxy(
-		{},
-		{
-			get: (_t, name) =>
-				name === 'sendForgotPasswordOTP'
-					? jest.fn(async (_to: string, otp: string) => {
-							sentOtps.push(otp);
-							return true;
-						})
-					: jest.fn(async () => true),
-		},
-	),
-);
+jest.mock('../../src/services/common/email.service', () => new Proxy({}, { get: () => jest.fn(async () => true) }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const app: express.Express = require('../../src/app').default;
@@ -42,7 +26,6 @@ beforeAll(async () => {
 afterAll(async () => db.stop());
 beforeEach(async () => {
 	await clearDb();
-	sentOtps.length = 0;
 });
 
 describe('user tokens (S24)', () => {
@@ -69,51 +52,7 @@ describe('user tokens (S24)', () => {
 	});
 });
 
-describe('legacy OTP and forgot password (S22)', () => {
-	it('crypto codes, 5 attempts, a hashed reset token that expires and works once, and sessions revoked', async () => {
-		const { user, token } = await createUser('legacy@test.dev');
-		await ensureOrg(user._id);
-		expect((await request(app).post('/api/v1/user/auth/otp').send({ email: 'legacy@test.dev', type: 'FORGOT_PASSWORD' })).status).toBe(200);
-		const code = sentOtps[0];
-		expect(code).toMatch(/^\d{6}$/);
-		const verify = (otp: string) => request(app).post('/api/v1/user/auth/verify-otp').send({ email: 'legacy@test.dev', otp, type: 'FORGOT_PASSWORD' });
-		const wrong = code === '123456' ? '654321' : '123456';
-		for (let i = 0; i < 5; i++) expect((await verify(wrong)).status).toBe(400);
-		expect((await verify(code)).body.message).toContain('Too many attempts');
 
-		await request(app).post('/api/v1/user/auth/otp').send({ email: 'legacy@test.dev', type: 'FORGOT_PASSWORD' });
-		const ok = await verify(sentOtps[1]);
-		expect(ok.status).toBe(200);
-		const resetToken = ok.body.data as string;
-		expect(resetToken.length).toBeGreaterThanOrEqual(40);
-		const stored = await OTP.findOne({ email: 'legacy@test.dev', is_verified: true }).lean();
-		expect(stored?.code).toBe(crypto.createHash('sha256').update(resetToken).digest('hex'));
-		expect(stored?.otp_expiration_time.getTime()).toBeGreaterThan(Date.now() + 25 * 60 * 1000);
-
-		const set = () => request(app).post('/api/v1/user/auth/forgot-password').send({ email: 'legacy@test.dev', password: 'N3w-Password!', confirm_password: 'N3w-Password!', token: resetToken });
-		expect((await set()).status).toBe(200);
-		expect((await set()).status).toBe(400); // single use
-		expect((await me(token)).status).toBe(401); // sessions ended
-	});
-
-	it('an expired reset token is refused', async () => {
-		await createUser('late@test.dev');
-		const hashed = crypto.createHash('sha256').update('tok'.repeat(15)).digest('hex');
-		await OTP.create({ email: 'late@test.dev', type: 'FORGOT_PASSWORD', code: hashed, is_verified: true, otp_expiration_time: new Date(Date.now() - 1000) });
-		const res = await request(app).post('/api/v1/user/auth/forgot-password').send({ email: 'late@test.dev', password: 'x-Password-1', confirm_password: 'x-Password-1', token: 'tok'.repeat(15) });
-		expect(res.status).toBe(400);
-	});
-});
-
-describe('account deletion (S23)', () => {
-	it('ends memberships and sessions', async () => {
-		const { user, token } = await createUser('bye@test.dev');
-		await ensureOrg(user._id);
-		expect((await request(app).get('/api/v1/user/auth/deactivate').set(bearer(token))).status).toBe(200);
-		expect(await Membership.countDocuments({ user_id: user._id, status: 'active' })).toBe(0);
-		expect((await me(token)).status).toBe(401);
-	});
-});
 
 describe('ownership (S15, S25)', () => {
 	it("another organization's GBP post is not found", async () => {

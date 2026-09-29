@@ -3,7 +3,6 @@ import { normalisePlaceId } from '../../clients/placesClient';
 import { ILocationTracking, TrackingFrequency } from '../../models/location.model';
 import { normaliseKeyword } from '../../ranking/engine';
 import { ApiError } from '../../utils';
-import { normaliseFrequency } from '../refresh/cadence';
 
 // Pure rules for Location.tracking (CLAUDE.md §4 "Keywords"/"Competitors", §9.1, §9.4 validation).
 
@@ -44,8 +43,7 @@ export const withDefaults = (tracking?: Partial<ILocationTracking> | null): ILoc
 			size: tracking.grid?.size ?? base.grid.size,
 			spacing_km: tracking.grid?.spacing_km ?? base.grid.spacing_km,
 		},
-		// Pre-7b values (weekly / monthly / manual) are mapped to auto_monthly / manual_only.
-		frequency: tracking.frequency ? normaliseFrequency(tracking.frequency) : base.frequency,
+		frequency: tracking.frequency ?? base.frequency,
 		next_run_at: tracking.next_run_at ?? null,
 		last_run_at: tracking.last_run_at ?? null,
 		last_error: tracking.last_error ?? null,

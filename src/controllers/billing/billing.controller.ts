@@ -13,7 +13,10 @@ import { apiErrorWithData, catchAsync, responseWrapper } from '../../utils';
 
 const orgOf = (res: Response): OrgContext => res.locals.org as OrgContext;
 const orgId = (res: Response) => orgOf(res).organization._id;
-type Page = { page: number; limit: number };
+interface Page {
+	page: number;
+	limit: number;
+}
 
 export const overview = catchAsync(async (req, res) => responseWrapper(res, await billingOverview(orgId(res))));
 
@@ -33,7 +36,7 @@ export const cancel = catchAsync(async (req, res) => {
 export const slotsQuote = catchAsync(async (req, res) => {
 	const { quantity } = res.locals.slotsInput as { quantity: number };
 	const loaded = await loadEntitlement(String(orgId(res)));
-	const max = loaded.plan.max_locations;
+	const max = loaded.entitlement.locations.max;
 	if (max !== null && loaded.entitlement.locations.allowed + quantity > max) {
 		throw apiErrorWithData(httpStatus.FORBIDDEN, 'More locations need an enterprise plan.', { reason: 'enterprise_required', max });
 	}

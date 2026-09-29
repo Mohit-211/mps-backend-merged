@@ -26,7 +26,7 @@ export interface EntitlementSubscription {
 export interface EntitlementInput {
 	now: Date;
 	grace_days: number;
-	org: { trial_ends_at: Date | null; suspended_at: Date | null; token_balance: number };
+	org: { trial_ends_at: Date | null; suspended_at: Date | null; token_balance: number; limit_overrides?: { max_locations?: number | null; extra_users?: number } | null };
 	plan: EntitlementPlan;
 	subscription: EntitlementSubscription | null;
 	/** Manual billing: the oldest unpaid invoice's due date. */
@@ -59,13 +59,17 @@ export const entitlementFor = (i: EntitlementInput): Entitlement => {
 		trial_ends_at: i.org.trial_ends_at,
 		current_period_end: i.subscription?.current_period_end ?? null,
 	};
+	// Phase 13b: admin overrides on top of the plan (null max_locations = no cap).
+	const o = i.org.limit_overrides ?? null;
+	const maxLocations = o && o.max_locations !== undefined ? o.max_locations : i.plan.max_locations;
+	const extraUsers = o?.extra_users ?? 0;
 	const make = (state: EntitlementState, allowed: number, users: number, subscribed: boolean, graceEnds: Date | null = null): Entitlement => ({
 		...base,
 		state,
 		read_only: state === 'inactive' || state === 'suspended_by_admin',
 		subscribed,
-		locations: { used: i.usage.locations, allowed, max: i.plan.max_locations },
-		users: { used: i.usage.users, limit: users },
+		locations: { used: i.usage.locations, allowed, max: maxLocations },
+		users: { used: i.usage.users, limit: users + extraUsers },
 		grace_ends_at: graceEnds,
 	});
 	const s = i.subscription;

@@ -1,12 +1,11 @@
 import express from 'express';
 import request from 'supertest';
 import { findUnsafeKey } from '../../src/middlewares/common/sanitizeRequest';
-import { verifyPaypalWebhook } from '../../src/services/common/paypalWebhook';
+import { createPaypalProvider } from '../../src/services/billing/providers/paypal';
 
 // Phase 10 (AUDIT S6, S4): operator keys are refused; PayPal webhooks must be verified by PayPal.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const app: express.Express = require('../../src/app').default;
@@ -20,10 +19,10 @@ describe('request sanitiser (S6)', () => {
 	});
 
 	it('the app answers 400 invalid_input for operator objects in the body and the query', async () => {
-		const body = await request(app).post('/api/v1/user/auth/verify-otp').send({ email: { $ne: null }, otp: '123456' });
+		const body = await request(app).post('/api/v1/auth/login').send({ email: { $ne: null }, password: 'x' });
 		expect(body.status).toBe(400);
 		expect(body.body.data).toMatchObject({ reason: 'invalid_input', field: 'body.email.$ne' });
-		const query = await request(app).get('/api/v1/subscription/payment-status?subscription_id[$ne]=x');
+		const query = await request(app).get('/api/v1/pricing?country[$ne]=x');
 		expect(query.status).toBe(400);
 		expect(query.body.data).toMatchObject({ reason: 'invalid_input' });
 	});
@@ -38,6 +37,10 @@ describe('PayPal webhook (S4)', () => {
 		'paypal-transmission-time': '2026-09-27T10:00:00Z',
 	};
 	const event = { id: 'WH-EVT-1', event_type: 'BILLING.SUBSCRIPTION.ACTIVATED', resource: { id: 'I-ABC' } };
+
+	// Phase 13b: verification lives in the PayPal provider (verifyWebhook).
+	const verifyPaypalWebhook = (h: Record<string, string | undefined>, body: unknown, deps: { webhookId: string; verify: (b: Record<string, unknown>) => Promise<string> }) =>
+		createPaypalProvider({ webhookId: deps.webhookId, client: () => ({ verifyWebhookSignature: deps.verify }) as never }).verifyWebhook(h, body);
 
 	it('is verified with PayPal: SUCCESS only; missing headers, no webhook id, a FAILURE or an error all refuse', async () => {
 		const verify = jest.fn(async () => 'SUCCESS');

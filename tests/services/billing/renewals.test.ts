@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { BillingPlan, Invoice, Organization, Subscription, TokenLedger } from '../../../src/models';
 import { standardPlan } from '../../../src/services/billing/plans';
 import { sendBillingReminders } from '../../../src/services/billing/reminders';
+import { createPaypalProvider } from '../../../src/services/billing/providers/paypal';
 import { createRenewalService } from '../../../src/services/billing/renewals';
 import { credit, spend } from '../../../src/services/billing/tokens';
 import { activateBilling } from '../../helpers/billing';
@@ -19,7 +20,9 @@ beforeEach(clearDb);
 
 const fakePaypal = () => {
 	const setSubscriptionPrice = jest.fn(async () => undefined);
-	return { client: { configured: () => true, setSubscriptionPrice } as never, setSubscriptionPrice };
+	// Phase 13b: renewals talk to the provider interface; the PayPal provider wraps a fake client.
+	const provider = createPaypalProvider({ client: () => ({ configured: () => true, setSubscriptionPrice }) as never, renewalLeadDays: 11 });
+	return { client: provider, setSubscriptionPrice };
 };
 
 const org = async (email = 'o@test.dev') => {
@@ -49,7 +52,7 @@ describe('PayPal renewal snapshot', () => {
 		]);
 		const sub = await activateBilling(orgId, { billing_method: 'paypal', provider_subscription_id: 'I-R1', comp: false, quantity: 5, period_start: new Date('2026-09-10T00:00:00Z'), period_end: new Date('2026-10-10T00:00:00Z') });
 		const { client, setSubscriptionPrice } = fakePaypal();
-		const svc = createRenewalService({ paypal: () => client, now: () => now });
+		const svc = createRenewalService({ provider: () => client, now: () => now });
 
 		const r1 = await svc.run();
 		expect(r1.snapshots).toBe(1);
@@ -65,9 +68,9 @@ describe('PayPal renewal snapshot', () => {
 		await prices([{ first: 49, additional: 19, from: '2026-01-01' }]);
 		await activateBilling(orgId, { billing_method: 'paypal', provider_subscription_id: 'I-R2', comp: false, quantity: 1, period_start: new Date('2026-09-10T00:00:00Z'), period_end: new Date('2026-10-10T00:00:00Z') });
 		const { client, setSubscriptionPrice } = fakePaypal();
-		expect((await createRenewalService({ paypal: () => client, now: () => new Date('2026-09-20T00:00:00Z') }).run()).snapshots).toBe(0);
+		expect((await createRenewalService({ provider: () => client, now: () => new Date('2026-09-20T00:00:00Z') }).run()).snapshots).toBe(0);
 		setSubscriptionPrice.mockRejectedValueOnce(new Error('503'));
-		const svc = createRenewalService({ paypal: () => client, now: () => new Date('2026-10-01T00:00:00Z') });
+		const svc = createRenewalService({ provider: () => client, now: () => new Date('2026-10-01T00:00:00Z') });
 		expect(await svc.run()).toMatchObject({ snapshots: 0, patch_errors: 1 });
 		expect(await svc.run()).toMatchObject({ snapshots: 1, patch_errors: 0 });
 	});

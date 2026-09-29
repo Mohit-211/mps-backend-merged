@@ -46,7 +46,6 @@ export const validateManualSubscription = validate(
 	'body',
 	['quantity', 'starts_at', 'comp_until', 'currency', 'note'],
 );
-export const validateTrial = validate(Joi.object({ trial_ends_at: Joi.date().iso().required() }), 'body', ['trial_ends_at']);
 export const validateTokens = validate(
 	Joi.object({ amount: Joi.number().integer().min(-100000).max(100000).invalid(0).required(), type: Joi.string().valid('grant', 'adjustment').default('adjustment'), note: note.required() }),
 	'body',
@@ -96,6 +95,4 @@ export const validateCouponCreate = validate(
 	Object.keys(couponFields),
 );
 export const validateCouponUpdate = validate(Joi.object({ ...couponFields, code: Joi.forbidden() }).min(1), 'body', Object.keys(couponFields));
-export const validateLegacyList = validate(Joi.object({ unlinked: Joi.boolean().default(false) }), 'query', ['unlinked']);
-export const validateLegacyLink = validate(Joi.object({ organization_id: objectId.required() }), 'body', ['organization_id']);
 export const validateAuditList = validate(Joi.object({ ...page, organization_id: objectId, action: Joi.string().trim().max(60) }), 'query', ['page', 'limit', 'organization_id', 'action']);

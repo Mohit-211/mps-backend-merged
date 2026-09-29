@@ -102,3 +102,40 @@ Also removed:
 - **Models:** the four legacy report models.
 - **Dependency:** the `googleapis` package.
 - **Legacy location create:** it now uses the Places (New) client with the `location` field only, instead of the legacy all-fields Place Details call (AUDIT C23).
+
+## Removed in Phase 13b (delete, don't deprecate)
+
+Mohit, 2026-09-28: the frontend is rebuilt from scratch against ENDPOINTS.md, so anything the rebuilt product doesn't use is deleted. The last commit with all of it is `c66a82b` (`claude/rebuild` before 13b).
+
+| Removed | Why |
+|---|---|
+| Heartbeat `node-cron` job in `app.ts` + the `node-cron` package | Logged "still running" every minute in every pm2 process; jobs run on agenda |
+| `randomatic` package | Never imported |
+| `UserAttachment` model (`user_attachments`) | No code used it |
+| 43 constants in `configs/constantTypes.ts` (payment, booking, appointment, call, refund, tax, currency, gateway, citation-order, opening-hours enums) | Leftovers of the original template; nothing used them |
+| Admin role checks `isSuperAdmin` / `isAdmin` / `isEditor` / `isUser` | Replaced by admin permissions (Phase 10) |
+| `locationSelect`, `sendResetPasswordConfirmationMail`, the internal `sendEmail` helper | Unused |
+| Country / state / city seeding script (`seed-country-city-state`, called countriesnow.space) + `topCountriesList` | The data is already in `dumps/` (loaded by `mongo-migrate`) |
+| Upload types `gifs`, `docs`, `audios` and the file routes `/gifs/:filename`, `/docs/:filename`, `/songs/:filename` | Accepted but never used by a feature (`/songs` served a folder nothing wrote); uploads are images (blog, GBP posts) and videos (GBP posts) |
+| 12 `User` fields (`user_name`, `stripe_customer_id`, `socket_id`, `referral_code`, `is_proof_verify`, `is_analytics_connected`, `available_credit`, `square_customer_id`, `trial`, `subscription_status`, `current_plan_id`, `fcm_token`), `Admin.socket_id`, `UserToken.fcm_token`, the post-save hooks that filled `socket_id` / `referral_code` (they saved every new user and admin twice) | Nothing read them; no sockets, push notifications, referrals, Stripe, Square or credits in the product. Gone from every response |
+| `/user/clients` (5 routes), the `isAgency` role check (`role.middleware`), `clientSelect` | Replaced by `/clients` (Phase 8, organization-scoped) |
+| `POST /user/notifications`, `User.notification_status` | The toggle switched a flag nothing read; notifications are Phase 15 |
+| `/white-label-profiles` (5 routes), the `WhitelabelProfile` model, service, controller, middleware and `whitelabelProfileSelect` | Replaced by organization branding (Phase 12). (`migrate:branding` was removed later in 13b: fresh database) |
+| `/user/auth/employee/*` (4 routes: add / remove / list / details) | Replaced by team invitations and member management (Phase 11); they created accounts with a password chosen by the owner |
+| `/admin/operations/*` (6 routes: agencies, businesses, clients by the old `user_type`) | Organizations replaced user types (Phase 8); the 13b admin panel (`/admin/users`, `/admin/organizations`) replaces them |
+| `/supports` (6 routes), the `Support` model, service, controller and middleware | Replaced by the 13b support tickets with threads (`/support/tickets`, `/admin/support/tickets`); they start empty (fresh database) |
+| `/roles` CRUD (5 routes), `role.controller` / `role.service` | Admin permissions are fixed per role id (Phase 10), so a created or edited role granted nothing. Replaced by the read-only `GET /admin/roles` |
+| Legacy `/user/auth/{otp, verify-otp, login, forgot-password}` (4), their validators, the `OTP` model (`otps`), the legacy login-timing writer, the legacy OTP rate limits | Replaced by `/auth/login`, `/auth/forgot-password` and `/auth/reset-password` (Phases 8, 8.1) |
+| Swagger UI (`/docs`), `swagger.json`, `swagger-ui-express` | The initial-commit spec (7 paths) was never kept up to date; ENDPOINTS.md + API.md are the reference. Removing it also let the CSP drop `'unsafe-inline'` styles |
+| Data migrations `migrate:organizations`, `migrate:email-verified`, `migrate:refresh`, `migrate:branding`, `gbp:encrypt-tokens`, `summaries:rebuild`, and the "upgrade old rows" code: plaintext-token re-encryption, pre-7a connections/bindings without `google_sub`, pre-7b refresh frequencies, the `rank-scheduler` cancellation, `Location.source: legacy`, `User.owner_id` | The launch uses a fresh database (Mohit, 2026-09-28): there is no old data to carry over |
+| Billing legacy linking: `GET /admin/billing/legacy-payments`, `POST /admin/billing/legacy-payments/:paymentId/link`, `services/billing/legacy.ts`, the `Payment` model, `Subscription.legacy_payment_id`, `migrate:billing` (its plan creation is now `npm run billing:setup-plan`) | Fresh database: there are no pre-13a guest-checkout subscriptions to link |
+| `npm run mongo-migrate` (`configs/mongoMigrate.ts`) | Not idempotent (a re-run duplicated everything), ~66k queries for the cities, and its "super admin" was a `User`, not an `Admin` (no working admin login). Replaced by `npm run setup:fresh` / `seed:reference-data` / `admin:create-super` |
+| `/user/auth/{reset-password, refresh-auth, logout, deactivate}`, `GET/PUT /user/profile` (the user-operations module, `verifyRefreshAuthJWTToken`, the profile lookup in the auth middleware) | Replaced by `/auth/{refresh, logout, change-password, me, deactivate}` (Phase 13b; refresh tokens now rotate). Only the Google connect routes remain under `/user/auth/google/*` |
+| `utils/{randomStringGenrate, validateEmail, validatePassword, rateLimiter, isValid12HrFormat, compareObjectIds}` + the `express-rate-limit` package | Never imported (rate limits are Mongo counters in the services, cluster-wide) |
+| Dev packages `husky`, `@types/eslint__js`; npm scripts `prepush` (no hook ran it; it failed on the legacy lint baseline) and `seed:gbp-demo` (an alias of `seed:demo-orgs`) | Unused |
+| `TRIAL_DAYS` env var | Never read: the trial length is the billing plan's `trial.days` (admin setting) |
+| `/system/{info, time, usage, process}`, `GET/DELETE /api/v1/logs`, the `system.read` permission, `system.controller`, `types/SystemStatus` | One server's OS / process details and its log files over the API. Production monitoring, log rotation and alerts are Phase 14 (server-side); the 13b admin overview covers the business numbers |
+| `PATCH /admin/billing/organizations/:organizationId/trial` | Moved to `PATCH /admin/organizations/:organizationId/trial` (admin panel, 13b step 6) |
+| Every OTP / 6-digit code path: the user reset code (`services/auth/codes.ts`, the `AuthCode` model / `auth_codes`, `AUTH_CODE_TTL_MINUTES`), the admin `sendOTP` / `verifyOTP` / `forgotPassword` routes, the admin reset JWT (`password_reset` purpose, `remember_token`), the `Admin` OTP fields, `otpTypes`, `sendForgotPasswordOTP` and its template | Replaced by one-time links (Mohit, 2026-09-29): `auth_links`, `POST /auth/{forgot,reset}-password` and `/admin/auth/{forgot,reset}-password` |
+| `/admin/auth/{register, getAllAdmins, getAdminById/:id, getProfile, resetPassword, updateAdmin, deleteAdmin}`, `sendAdminCredential` + its template (a temporary password by email), `validateSignInReqBody`, `Admin.department_id`, the Admin statics | Replaced by `/admin/admins` (REST; a new admin gets a set-password link, no password by email; deactivation instead of deletion) and `/admin/auth/{login, change-password, me}` |
+| `/user/auth/google/gbp/*` (5 routes) and `/user/auth` router, `userAuth.controller`, `userAuth.service` | Moved, not removed: `GET /gbp/connect/popup`, `POST /gbp/connect/code`, `GET /gbp/connect/url`, `GET /gbp/connect/callback`, `POST /gbp/disconnect`; `POST /gbp/bind-with-user` → `POST /gbp/bind` (`controllers/gbp/connect.controller.ts`). **Google Cloud + `.env`:** the redirect URI becomes `…/api/v1/gbp/connect/callback` |

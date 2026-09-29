@@ -5,7 +5,6 @@ import { IReport, IReportSnapshot, Organization, ReportSnapshot } from '../../mo
 import { ApiError } from '../../utils';
 import { LIMITS, hit } from '../auth/rateLimit';
 import { sendReportEmail } from '../common/email.service';
-import { maskEmail } from '../team/invitation.service';
 import { effectiveBranding } from './branding.service';
 import { renderEmailHtml, renderEmailText } from './render/html';
 import { createReportService } from './report.service';
@@ -21,7 +20,6 @@ export type ReportMailer = typeof sendReportEmail;
 
 export interface ReportEmailDeps {
 	mailer?: ReportMailer;
-	env?: string;
 	maxAttachmentBytes?: number;
 	reports?: ReturnType<typeof createReportService>;
 	shares?: ReturnType<typeof createShareService>;
@@ -29,7 +27,6 @@ export interface ReportEmailDeps {
 
 export const createReportEmailService = (deps: ReportEmailDeps = {}) => {
 	const mailer = deps.mailer ?? sendReportEmail;
-	const env = () => deps.env ?? config.essentials.env;
 	const maxBytes = () => deps.maxAttachmentBytes ?? config.reports.maxAttachmentBytes;
 	const reports = deps.reports ?? createReportService();
 	const shares = deps.shares ?? createShareService();
@@ -54,22 +51,19 @@ export const createReportEmailService = (deps: ReportEmailDeps = {}) => {
 		const senderName = brand?.email_sender_name || (brand?.white_label ? `${doc.branding.name} via MyPageSEO` : 'MyPageSEO');
 		const delivery = asLink ? ('link' as const) : ('attachment' as const);
 
-		if (env() === 'development') {
-			logger.info(`report email (not sent in development) for report ${String(report._id)} to ${recipients.map(maskEmail).join(', ')}: ${delivery}, ${data.length} bytes`);
-		} else {
-			await mailer({
-				to: recipients,
-				subject: `${doc.title}: ${doc.location.name}`,
-				text: renderEmailText(doc, note),
-				html: renderEmailHtml(doc, note),
-				senderName,
-				replyTo: brand?.email_reply_to ?? null,
-				attachment: asLink ? null : { filename, content: data },
-			});
-			logger.info(`report email sent for report ${String(report._id)} to ${recipients.length} recipient(s) (${delivery})`);
-		}
-		// sent is false in development (logged only).
-		return { sent: env() !== 'development', recipients: recipients.length, delivery };
+		// 13b: sent or logged by the email service (EMAIL_TRANSPORT); an SMTP failure throws.
+		await mailer({
+			to: recipients,
+			subject: `${doc.title}: ${doc.location.name}`,
+			text: renderEmailText(doc, note),
+			html: renderEmailHtml(doc, note),
+			senderName,
+			replyTo: brand?.email_reply_to ?? null,
+			attachment: asLink ? null : { filename, content: data },
+			link,
+		});
+		logger.info(`report email for report ${String(report._id)}: ${recipients.length} recipient(s), ${delivery}`);
+		return { sent: true, recipients: recipients.length, delivery };
 	};
 
 	return { send };

@@ -1,23 +1,16 @@
 import express from 'express';
-import { adminAuthController } from '../../../controllers';
+import * as controller from '../../../controllers/admin/adminAuth.controller';
 import { adminAuthMiddleware } from '../../../middlewares';
+import * as v from '../../../middlewares/admin/adminAuth.validation';
 
-// Platform admin accounts. Phase 10 (AUDIT S1): sign-in, OTP and forgot-password stay public (rate
-// limited); everything else needs an admin session, and managing admins needs admins.manage (super admin).
+// 13b: admin sign-in and password links (/admin/auth). Sign-in, forgot and reset are public (rate-limited).
 const router = express.Router();
 const signedIn = [adminAuthMiddleware.validateAdminJWTToken];
-const superAdmin = adminAuthMiddleware.adminOnly('admins.manage');
 
-router.post("/register", superAdmin, adminAuthController.createAdminUser);
-router.post("/login", [adminAuthMiddleware.validateSignInReqBody], adminAuthController.loginAdminUser);
-router.post("/sendOTP", adminAuthController.sendOTP);
-router.post("/verifyOTP", adminAuthController.verifyOTP);
-router.post("/resetPassword", signedIn, adminAuthController.resetAdminPassword);
-router.post("/forgotPassword", adminAuthController.forgotAdminPassword);
-router.get("/getAllAdmins", superAdmin, adminAuthController.getAllAdmins);
-router.get("/getAdminById/:id", superAdmin, adminAuthController.findAdminById);
-router.get("/getProfile", signedIn, adminAuthController.getProfile);
-router.put("/updateAdmin", superAdmin, adminAuthController.updateAdmin);
-router.delete("/deleteAdmin", superAdmin, adminAuthController.deleteAdmin);
+router.post('/login', v.validateLogin, controller.login);
+router.post('/forgot-password', v.validateForgotPassword, controller.forgotPassword);
+router.post('/reset-password', v.validateResetPassword, controller.resetPassword);
+router.post('/change-password', signedIn, v.validateChangePassword, controller.changePassword);
+router.get('/me', signedIn, controller.me);
 
 export default router;

@@ -44,7 +44,7 @@ const setup = (opts: { exchange?: () => OAuthTokens; exchangeFails?: boolean } =
 		verifyIdToken: createIdTokenVerifier({ clientId: TEST_CLIENT_ID, getCerts: async () => TEST_CERTS }),
 		now: () => clock,
 		clientId: TEST_CLIENT_ID,
-		redirectUri: 'http://localhost:5055/api/v1/user/auth/google/gbp/callback',
+		redirectUri: 'http://localhost:5055/api/v1/gbp/connect/callback',
 	});
 	return { service, exchanged, advance: (ms: number) => (clock = new Date(clock.getTime() + ms)) };
 };

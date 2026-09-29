@@ -10,10 +10,8 @@ import { addMember, clearDb, createLocation, createUser, ensureOrg, startTestDb 
 // Phase 13a: the billing page on the real app, with a fake PayPal client and verified webhooks.
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
-jest.mock('node-cron', () => ({ schedule: jest.fn() }));
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: jest.fn(async () => ({})), cancel: jest.fn(async () => 0) }), stopAgenda: jest.fn() }));
 jest.mock('../../src/services/common/email.service', () => new Proxy({}, { get: () => jest.fn(async () => true) }));
-jest.mock('../../src/services/common/paypalWebhook', () => ({ verifyPaypalWebhook: async () => true }));
 
 const DAY = 86_400_000;
 const mockPaypal = {
@@ -30,7 +28,7 @@ const mockPaypal = {
 		const o = await PaymentOrder.findOne({ provider_order_id: id }).lean();
 		return { id, status: 'COMPLETED', custom_id: String(o?._id), approve_url: null, capture: { id: `CAP-${id}`, status: 'COMPLETED', amount: o?.amount ?? 0, currency: o?.currency ?? 'USD' } };
 	}),
-	verifyWebhookSignature: jest.fn(),
+	verifyWebhookSignature: jest.fn(async () => 'SUCCESS'),
 };
 jest.mock('../../src/clients/paypalClient', () => ({ ...jest.requireActual('../../src/clients/paypalClient'), paypalClient: () => mockPaypal }));
 
@@ -44,6 +42,7 @@ beforeAll(async () => {
 	db = await startTestDb();
 	config.paypal.planIds.USD = 'P-USD';
 	config.paypal.planIds.CAD = 'P-CAD';
+	config.paypal.webhookId = 'WH-TEST';
 }, 60000);
 afterAll(async () => db.stop());
 beforeEach(async () => {
@@ -67,8 +66,16 @@ const owner = async () => {
 };
 
 let eventSeq = 0;
+// Signed like PayPal does; the (mocked) verify-webhook-signature call answers SUCCESS.
+const SIGNED = {
+	'paypal-auth-algo': 'SHA256withRSA',
+	'paypal-cert-url': 'https://api.sandbox.paypal.com/cert.pem',
+	'paypal-transmission-id': 'tx-1',
+	'paypal-transmission-sig': 'sig',
+	'paypal-transmission-time': '2026-09-28T10:00:00Z',
+};
 const webhook = (event_type: string, resource: Record<string, unknown>, id = `WH-${++eventSeq}`) =>
-	request(app).post('/api/v1/subscription/paypal/webhook').send({ id, event_type, resource });
+	request(app).post('/api/v1/subscription/paypal/webhook').set(SIGNED).send({ id, event_type, resource });
 
 describe('checkout and the subscription lifecycle', () => {
 	it('trial → checkout → activated + first payment → invoice; replays are idempotent; renewal advances the period', async () => {

@@ -7,15 +7,14 @@ import config from '../../configs/config';
 //   development/test a key derived from JWT_SECRET with a fixed label, never the raw user key, so a user
 //   token can never pass as an admin token (and the old hex-decoded key is gone);
 // - HS256 only, audience 'mps-admin', issuer 'mypageseo';
-// - purpose 'session' (12 h) or 'password_reset' (15 min); each is rejected where the other is expected;
+// - purpose 'session' (12 h) only (13b: password resets use one-time links, services/auth/links.ts);
 // - `tv` = Admin.token_version: incrementing it revokes every token issued before.
 
 export const ADMIN_AUDIENCE = 'mps-admin';
 const ISSUER = 'mypageseo';
 export const ADMIN_SESSION_TTL = '12h';
-export const ADMIN_RESET_TTL = '15m';
 
-export type AdminTokenPurpose = 'session' | 'password_reset';
+export type AdminTokenPurpose = 'session';
 
 export interface AdminTokenClaims {
 	sub: string;
@@ -35,7 +34,7 @@ export const signAdminToken = (claims: Omit<AdminTokenClaims, 'purpose'>, purpos
 		audience: ADMIN_AUDIENCE,
 		issuer: ISSUER,
 		subject: claims.sub,
-		expiresIn: purpose === 'session' ? ADMIN_SESSION_TTL : ADMIN_RESET_TTL,
+		expiresIn: ADMIN_SESSION_TTL,
 	});
 
 /** Throws on a bad signature, algorithm, audience, issuer, expiry or purpose. */
@@ -46,6 +45,3 @@ export const verifyAdminToken = (token: string, purpose: AdminTokenPurpose): Adm
 	}
 	return { sub: decoded.sub, role_id: decoded.role_id, tv: typeof decoded.tv === 'number' ? decoded.tv : -1, purpose };
 };
-
-/** Reset tokens are stored hashed (single use). */
-export const hashAdminToken = (token: string): string => crypto.createHash('sha256').update(token).digest('hex');
