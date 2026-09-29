@@ -113,7 +113,7 @@ export const getOrganization = async (organizationId: string) => {
 	};
 };
 
-/** Suspended organizations are read-only (money-costing actions answer 402 organization_suspended). */
+/** Suspended organizations are read-only (money-costing actions answer 403 organization_suspended). */
 export const suspendOrganization = async (actor: AuditActor, organizationId: string, reason: string, now: Date = new Date()) => {
 	const org = await loadOrg(organizationId);
 	if (org.suspended_at) throw apiErrorWithData(httpStatus.CONFLICT, 'The organization is already suspended.', { reason: 'already_suspended' });

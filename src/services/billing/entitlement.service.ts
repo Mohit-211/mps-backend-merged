@@ -1,7 +1,9 @@
+import httpStatus from 'http-status';
 import { Types } from 'mongoose';
 import config from '../../configs/config';
 import { Entitlement, entitlementFor } from '../../billing/entitlement';
 import { IBillingPlan, IOrganization, ISubscription, Invitation, Invoice, Location, Membership, Organization, Subscription } from '../../models';
+import { apiErrorWithData } from '../../utils';
 import { planForOrganization } from './plans';
 
 // Loads what entitlementFor() needs for an organization (Phase 13a): its plan, its latest subscription
@@ -9,6 +11,10 @@ import { planForOrganization } from './plans';
 // users = active memberships of every role + pending invitations).
 
 type Id = Types.ObjectId | string;
+
+/** 13c (Mohit): an organization suspended by an admin: 403 (402 is reserved for payment situations). Reads keep working. */
+export const organizationSuspendedError = () =>
+	apiErrorWithData(httpStatus.FORBIDDEN, 'This organization is suspended. Contact support.', { reason: 'organization_suspended' });
 
 export interface LoadedEntitlement {
 	entitlement: Entitlement;

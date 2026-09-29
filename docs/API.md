@@ -2544,7 +2544,7 @@ MRR = what each open paid subscription charges per month (first + (paid − 1) �
 **Organizations.**
 - `GET /admin/organizations?q=&type=&state=&plan=standard|custom&trial_ending_days=` → `{ organizations: [{ id, name, type, country, owner_email, plan, state, trial_ends_at, locations: { used, allowed, max }, users: { used, limit }, token_balance, suspended_at, created_at }], page, limit, total }`.
 - `GET /admin/organizations/:organizationId` → `{ organization: { …, owner, suspended_at, suspended_reason, limit_overrides }, members, locations, clients, billing: <GET /billing>, invoices, citations: { <status>: count } }`.
-- `POST …/suspend { reason }`: the organization becomes read-only. Money-costing actions answer **402** `organization_suspended`; reads keep working. **409** `already_suspended`. `POST …/unsuspend { note? }` (**409** `not_suspended`).
+- `POST …/suspend { reason }`: the organization becomes read-only. Money-costing actions (and adding locations or inviting) answer **403** `organization_suspended` (13c; 402 is only for payment situations); reads keep working. **409** `already_suspended`. `POST …/unsuspend { note? }` (**409** `not_suspended`).
 - `PATCH …/trial { trial_ends_at }`.
 - `PATCH …/limits { max_locations?: number | null, extra_users?: number }`: overrides on top of the plan. `max_locations: null` = no cap; `extra_users` is added to the pooled user limit. An empty body `{}` clears the overrides.
 

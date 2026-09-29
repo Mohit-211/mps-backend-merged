@@ -1,3 +1,4 @@
+import { assertCanAddLocation } from '../../src/services/org/limits';
 import express from 'express';
 import request from 'supertest';
 import { Types } from 'mongoose';
@@ -65,11 +66,16 @@ describe('billing gates', () => {
 		expect((await request(app).put(`${base}/tracking`).set(bearer(token)).send({ keywords: ['drain'] })).status).toBe(402);
 	});
 
-	it('an admin suspension: 402 organization_suspended', async () => {
+	it('an admin suspension: 403 organization_suspended (13c: not 402, which is for payment situations); reads keep working', async () => {
 		const { token, org, base } = await owner();
 		await Organization.updateOne({ _id: org._id }, { $set: { suspended_at: new Date(), suspended_reason: 'chargeback' } });
-		const res = await request(app).put(`${base}/tracking`).set(bearer(token)).send({ keywords: ['drain'] });
-		expect([res.status, res.body.data.reason]).toEqual([402, 'organization_suspended']);
+		let res = await request(app).put(`${base}/tracking`).set(bearer(token)).send({ keywords: ['drain'] });
+		expect([res.status, res.body.data.reason]).toEqual([403, 'organization_suspended']);
+		res = await request(app).post('/api/v1/organization/invitations').set(bearer(token)).send({ email: 'x@example.test', role: 'member' });
+		expect([res.status, res.body.data.reason]).toEqual([403, 'organization_suspended']);
+		await expect(assertCanAddLocation(org)).rejects.toMatchObject({ statusCode: 403, data: { reason: 'organization_suspended' } });
+		expect((await request(app).get(`${base}/rank-tracker`).set(bearer(token))).status).not.toBe(403);
+		expect((await request(app).get('/api/v1/billing').set(bearer(token))).status).toBe(200);
 	});
 
 	it('a plan without a feature: 403 feature_not_included (all features are on in the standard plan)', async () => {
