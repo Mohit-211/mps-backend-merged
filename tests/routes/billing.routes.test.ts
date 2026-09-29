@@ -136,6 +136,44 @@ describe('checkout and the subscription lifecycle', () => {
 		expect(await Invoice.countDocuments({ organization_id: orgId })).toBe(2);
 	});
 
+	it('13c: checkout with a location quantity: 1 and 3 (one PayPal approval; the first invoice shows the quantity); over the cap 403; below the active locations 400', async () => {
+		const { token, orgId } = await owner();
+		await setPrices();
+		// Quantity 1 (the default for a trial with no locations).
+		let res = await request(app).post('/api/v1/billing/checkout').set(bearer(token)).send({ quantity: 1 });
+		expect(res.status).toBe(201);
+		expect(res.body.data).toMatchObject({ quantity: 1, currency: 'CAD', monthly_amount: 49 });
+		// Quantity 3 replaces the pending checkout: 49 + 2 × 19.
+		res = await request(app).post('/api/v1/billing/checkout').set(bearer(token)).send({ quantity: 3 });
+		expect(res.body.data).toMatchObject({ quantity: 3, monthly_amount: 87 });
+		expect(mockPaypal.createSubscription).toHaveBeenLastCalledWith(expect.objectContaining({ monthly: 87, currency: 'CAD' }));
+		expect(await Subscription.countDocuments({ organization_id: orgId, open: true })).toBe(1);
+		const sub = await Subscription.findOne({ organization_id: orgId, open: true }).lean();
+		expect(sub).toMatchObject({ paid_quantity: 3, status: 'approval_pending' });
+		const pid = sub?.provider_subscription_id as string;
+		await webhook('BILLING.SUBSCRIPTION.ACTIVATED', { id: pid, status: 'ACTIVE', custom_id: String(sub?._id), start_time: new Date().toISOString(), billing_info: { next_billing_time: new Date(Date.now() + 30 * DAY).toISOString() } });
+		await webhook('PAYMENT.SALE.COMPLETED', { id: 'SALE-Q3', amount: { total: '87.00', currency: 'CAD' }, billing_agreement_id: pid, create_time: new Date().toISOString() });
+		const invoice = await Invoice.findOne({ organization_id: orgId, kind: 'subscription' }).lean();
+		expect(invoice).toMatchObject({ total: 87, charged_amount: 87, mismatch: false });
+		expect(invoice?.lines.map((l) => [l.label, l.quantity, l.amount])).toEqual([
+			['First location', 1, 49],
+			['Additional locations', 2, 38],
+		]);
+		expect((await request(app).get('/api/v1/billing').set(bearer(token))).body.data).toMatchObject({ state: 'active', locations: { allowed: 3 } });
+
+		// Over the plan's cap (20) and below the active locations.
+		const other = await createUser('other@test.dev');
+		const otherOrg = await ensureOrg(other.user._id);
+		res = await request(app).post('/api/v1/billing/checkout').set(bearer(other.token)).send({ quantity: 21 });
+		expect([res.status, res.body.data]).toEqual([403, { reason: 'enterprise_required', max: 20 }]);
+		await createLocation(other.user._id as Types.ObjectId);
+		await createLocation(other.user._id as Types.ObjectId);
+		res = await request(app).post('/api/v1/billing/checkout').set(bearer(other.token)).send({ quantity: 1 });
+		expect([res.status, res.body.data]).toEqual([400, { reason: 'quantity_below_active', active: 2 }]);
+		expect((await request(app).post('/api/v1/billing/checkout').set(bearer(other.token)).send({ quantity: 0 })).status).toBe(400);
+		expect(await Subscription.countDocuments({ organization_id: otherOrg._id })).toBe(0);
+	});
+
 	it('a failed payment → past_due with grace; cancel keeps access until the period end', async () => {
 		const { token, orgId } = await owner();
 		const sub = await activateBilling(orgId, { billing_method: 'paypal', provider_subscription_id: 'I-PAYPAL1', comp: false, quantity: 1 });

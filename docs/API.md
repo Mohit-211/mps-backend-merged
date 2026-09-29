@@ -2407,13 +2407,13 @@ One billing page. Money is in the organization's currency (US → USD, CA → CA
 
 ### `POST /api/v1/billing/checkout`
 
-No body. Quantity = the active locations (at least 1), at the current prices. → **201**
+Body (13c): `{ "quantity": 3 }`, the number of locations to pay for, from 1 to the plan's location cap (20 on the standard plan) and at least the active locations. Without it: the active locations (at least 1). A trial user who wants several locations subscribes for all of them with one PayPal approval. The PayPal price is first + (quantity − 1) × additional, and the first invoice shows the quantity ("First location" 1, "Additional locations" quantity − 1). → **201**
 
 ```json
 { "subscription_id": "…", "approve_url": "https://www.paypal.com/webapps/billing/subscriptions?ba_token=…", "quantity": 2, "currency": "CAD", "monthly_amount": 68, "starts_at": null }
 ```
 
-`starts_at` is set when a cancelled subscription is still paid: the new one starts when that period ends. Errors: **409** `price_not_set` (prices not set yet), `already_subscribed`, `manual_billing` (billed by invoice); **403** `enterprise_required` (more active locations than the plan allows); **503** `billing_not_configured`.
+`starts_at` is set when a cancelled subscription is still paid: the new one starts when that period ends. Errors: **409** `price_not_set` (prices not set yet), `already_subscribed`, `manual_billing` (billed by invoice); **403** `enterprise_required` (a quantity above the plan's cap); **400** `{ "reason": "quantity_below_active", "active": 2 }`; **503** `billing_not_configured`.
 
 ### `POST /api/v1/billing/sync`, `POST /api/v1/billing/cancel`
 

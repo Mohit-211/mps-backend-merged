@@ -293,7 +293,7 @@ Read: owner and member (`client_user` → 403 `read_only`); payments and changes
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/billing` | user + org | The billing page: state, plan, prices (current + upcoming), subscription, next renewal, locations / users / tokens, billing details | 13a | live |
-| POST | `/api/v1/billing/checkout` | user + org (owner) | Start the PayPal subscription for the active locations → `approve_url` | 13a | live |
+| POST | `/api/v1/billing/checkout` | user + org (owner) | Start the PayPal subscription for `quantity` locations (13c; default the active locations) → `approve_url` | 13a, changed 13c | live |
 | POST | `/api/v1/billing/sync` | user + org (owner) | Re-read the subscription at PayPal (after the return page) | 13a | live |
 | POST | `/api/v1/billing/cancel` | user + org (owner) | Cancel; access continues to the end of the paid period | 13a | live |
 | GET | `/api/v1/billing/location-slots/quote` | user + org | Prorated price of extra location slots (`?quantity=`) | 13a | live |
@@ -692,7 +692,7 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
 | 107 | GET | `/billing` | user + org | – | `{ state, read_only, trial_ends_at, grace_ends_at, currency, plan: { id, name, kind, max_locations, users_per_location }, prices: { current: { first_location, additional_location } \| null, upcoming }, subscription \| null, next_renewal: { date, quantity, amount, fixed } \| null, locations: { active, allowed, max }, users: { used, limit }, tokens: { balance, cost_per_refresh }, billing_details, online_payments }` |
-| 108 | POST | `/billing/checkout` | user + org (owner) | – | **201** `{ subscription_id, approve_url, quantity, currency, monthly_amount, starts_at }`; **409** `price_not_set`, `already_subscribed`, `manual_billing`; **403** `enterprise_required`; **503** `billing_not_configured` |
+| 108 | POST | `/billing/checkout` | user + org (owner) | `{ quantity? }` (1 to the plan's cap, at least the active locations; 13c) | **201** `{ subscription_id, approve_url, quantity, currency, monthly_amount, starts_at }`; **409** `price_not_set`, `already_subscribed`, `manual_billing`; **403** `enterprise_required` (quantity above the cap); **400** `quantity_below_active`; **503** `billing_not_configured` |
 | 109 | POST | `/billing/sync` | user + org (owner) | – | #107 |
 | 110 | POST | `/billing/cancel` | user + org (owner) | `{ reason? }` | #107; **409** `no_subscription`, `manual_billing` |
 | 111 | GET | `/billing/location-slots/quote` | user + org | `quantity (1–100, default 1)` | `{ quantity, remaining_days, period_days, lines, amount, currency, period_end, billing_method, paid_quantity, new_paid_quantity }`; **402** `subscription_required`; **403** `enterprise_required` |
