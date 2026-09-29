@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-29. Phase 13a (billing) is merged (`2c77a8a`) and pushed. **Phase 13b is built** on `claude/phase-13b-admin`, awaiting merge and push. Next: **Phase 14 (production readiness)** in plan mode._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-29. Phases 13a (`2c77a8a`) and 13b (`411b7c2`) are merged and pushed. **The 13c follow-ups** (403 for suspended organizations, checkout quantity) are built on `claude/phase-13c-followups`, awaiting merge. Next: **Phase 14 (production readiness)** in plan mode._
 
 ## Product goal
 
@@ -35,7 +35,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
 | 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | done | `claude/phase-16-citations` | yes (`daff461`) | M5 (pushed 2026-09-28) |
-| **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | 13a done; **13b built, awaiting merge** | `claude/phase-13a-billing`, `claude/phase-13b-admin` | 13a yes (`2c77a8a`) | M5 |
+| **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | 13a, 13b done; **13c follow-ups built, awaiting merge** | `claude/phase-13a-billing`, `claude/phase-13b-admin`, `claude/phase-13c-followups` | 13a `2c77a8a`, 13b `411b7c2` | M5 |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
@@ -284,7 +284,7 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Merge and push Phase 13b** (commands in PROGRESS.md "Phase 13b").
+1. **Merge and push the 13c follow-ups** (commands in PROGRESS.md "Phase 13c").
 2. **Phase 14 (production readiness)** in plan mode: fresh server (MongoDB, backups, nginx, pm2, log rotation, error monitoring, alerts), the deploy-checklist dry run with `setup:fresh`, Maps ToS decisions. Before launch: prices (open item 11), the PayPal sandbox test (open item 13), the redirect URI change (open item 16).
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then bind (`POST /gbp/bind`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
