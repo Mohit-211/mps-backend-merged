@@ -3,7 +3,7 @@ import httpStatus from 'http-status';
 import { addLocationDecision, canInvite } from '../../billing/entitlement';
 import { Client, IOrganization, Location } from '../../models';
 import { apiErrorWithData } from '../../utils';
-import { loadEntitlement } from '../billing/entitlement.service';
+import { loadEntitlement, organizationSuspendedError } from '../billing/entitlement.service';
 import { quoteSlots } from '../billing/slots';
 
 // Limits (Phase 8, rebuilt for billing in Phase 13a). Everything comes from the organization's
@@ -45,7 +45,7 @@ export const usageFor = async (org: OrgLike & { type?: string }) => {
 
 /**
  * Throws when the organization can't add one more location now:
- * 402 subscription_required (trial allowance used / read-only), 402 location_payment_required with a
+ * 403 organization_suspended (13c), 402 subscription_required (trial allowance used / read-only), 402 location_payment_required with a
  * prorated quote (beyond the paid quantity), 403 enterprise_required (beyond the plan's cap).
  */
 export const assertCanAddLocation = async (org: OrgLike): Promise<void> => {
@@ -53,6 +53,7 @@ export const assertCanAddLocation = async (org: OrgLike): Promise<void> => {
 	const decision = addLocationDecision(loaded.entitlement);
 	if (!('reason' in decision)) return;
 	const e = loaded.entitlement;
+	if (decision.reason === 'organization_suspended') throw organizationSuspendedError();
 	if (decision.reason === 'enterprise_required' && 'max' in decision) {
 		throw apiErrorWithData(httpStatus.FORBIDDEN, `The standard plan covers up to ${decision.max} locations. Contact us for an enterprise plan.`, {
 			reason: 'enterprise_required',
@@ -80,6 +81,7 @@ export const assertCanAddLocation = async (org: OrgLike): Promise<void> => {
 export const assertCanInvite = async (org: OrgLike): Promise<void> => {
 	const loaded = await loadEntitlement(idOf(org) as string);
 	const e = loaded.entitlement;
+	if (e.state === 'suspended_by_admin') throw organizationSuspendedError();
 	if (e.read_only) {
 		throw apiErrorWithData(httpStatus.PAYMENT_REQUIRED, 'An active subscription is required.', { reason: 'subscription_required', billing: { state: e.state, trial_ends_at: e.trial_ends_at } });
 	}

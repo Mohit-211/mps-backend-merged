@@ -103,12 +103,15 @@ export const entitlementFor = (i: EntitlementInput): Entitlement => {
 
 export type AddLocationDecision =
 	| { ok: true }
+	| { ok: false; status: 403; reason: 'organization_suspended' }
 	| { ok: false; status: 402; reason: 'subscription_required' }
 	| { ok: false; status: 402; reason: 'location_payment_required'; slots_needed: number }
 	| { ok: false; status: 403; reason: 'enterprise_required'; max: number };
 
 /** May the organization add one more location now? */
 export const addLocationDecision = (e: Entitlement): AddLocationDecision => {
+	// 13c: an admin suspension is not a payment situation: 403 (402 stays for payment).
+	if (e.state === 'suspended_by_admin') return { ok: false, status: 403, reason: 'organization_suspended' };
 	if (e.read_only) return { ok: false, status: 402, reason: 'subscription_required' };
 	const next = e.locations.used + 1;
 	if (e.locations.max !== null && next > e.locations.max) return { ok: false, status: 403, reason: 'enterprise_required', max: e.locations.max };

@@ -11,7 +11,7 @@ const read = [userAuthMiddleware.verifyAuthJWTToken, loadOrgContext, requireWrit
 const owner = [...read, requireOwner];
 
 router.get('/', read, billing.overview);
-router.post('/checkout', owner, billing.checkout);
+router.post('/checkout', [...owner, v.validateCheckout], billing.checkout);
 router.post('/sync', owner, billing.sync);
 router.post('/cancel', [...owner, v.validateCancel], billing.cancel);
 router.get('/location-slots/quote', [...read, v.validateSlotsQuote], billing.slotsQuote);

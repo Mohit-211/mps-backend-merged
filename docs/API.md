@@ -2407,13 +2407,13 @@ One billing page. Money is in the organization's currency (US → USD, CA → CA
 
 ### `POST /api/v1/billing/checkout`
 
-No body. Quantity = the active locations (at least 1), at the current prices. → **201**
+Body (13c): `{ "quantity": 3 }`, the number of locations to pay for, from 1 to the plan's location cap (20 on the standard plan) and at least the active locations. Without it: the active locations (at least 1). A trial user who wants several locations subscribes for all of them with one PayPal approval. The PayPal price is first + (quantity − 1) × additional, and the first invoice shows the quantity ("First location" 1, "Additional locations" quantity − 1). → **201**
 
 ```json
 { "subscription_id": "…", "approve_url": "https://www.paypal.com/webapps/billing/subscriptions?ba_token=…", "quantity": 2, "currency": "CAD", "monthly_amount": 68, "starts_at": null }
 ```
 
-`starts_at` is set when a cancelled subscription is still paid: the new one starts when that period ends. Errors: **409** `price_not_set` (prices not set yet), `already_subscribed`, `manual_billing` (billed by invoice); **403** `enterprise_required` (more active locations than the plan allows); **503** `billing_not_configured`.
+`starts_at` is set when a cancelled subscription is still paid: the new one starts when that period ends. Errors: **409** `price_not_set` (prices not set yet), `already_subscribed`, `manual_billing` (billed by invoice); **403** `enterprise_required` (a quantity above the plan's cap); **400** `{ "reason": "quantity_below_active", "active": 2 }`; **503** `billing_not_configured`.
 
 ### `POST /api/v1/billing/sync`, `POST /api/v1/billing/cancel`
 
@@ -2544,7 +2544,7 @@ MRR = what each open paid subscription charges per month (first + (paid − 1) �
 **Organizations.**
 - `GET /admin/organizations?q=&type=&state=&plan=standard|custom&trial_ending_days=` → `{ organizations: [{ id, name, type, country, owner_email, plan, state, trial_ends_at, locations: { used, allowed, max }, users: { used, limit }, token_balance, suspended_at, created_at }], page, limit, total }`.
 - `GET /admin/organizations/:organizationId` → `{ organization: { …, owner, suspended_at, suspended_reason, limit_overrides }, members, locations, clients, billing: <GET /billing>, invoices, citations: { <status>: count } }`.
-- `POST …/suspend { reason }`: the organization becomes read-only. Money-costing actions answer **402** `organization_suspended`; reads keep working. **409** `already_suspended`. `POST …/unsuspend { note? }` (**409** `not_suspended`).
+- `POST …/suspend { reason }`: the organization becomes read-only. Money-costing actions (and adding locations or inviting) answer **403** `organization_suspended` (13c; 402 is only for payment situations); reads keep working. **409** `already_suspended`. `POST …/unsuspend { note? }` (**409** `not_suspended`).
 - `PATCH …/trial { trial_ends_at }`.
 - `PATCH …/limits { max_locations?: number | null, extra_users?: number }`: overrides on top of the plan. `max_locations: null` = no cap; `extra_users` is added to the pooled user limit. An empty body `{}` clears the overrides.
 

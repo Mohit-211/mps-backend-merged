@@ -36,8 +36,12 @@ export const createSubscriptionService = (deps: BillingDeps = {}) => {
 	const pp = deps.provider ?? paymentProvider;
 	const now = deps.now ?? (() => new Date());
 
-	/** Starts a provider subscription for the organization's active locations → approve_url. */
-	const checkout = async (organizationId: Id, userId: Id) => {
+	/**
+	 * Starts a provider subscription → approve_url. 13c: `quantity` = the locations to pay for (1 to the plan's
+	 * cap), so a trial user who wants several locations approves once; at least the active locations. Default:
+	 * the active locations (at least 1).
+	 */
+	const checkout = async (organizationId: Id, userId: Id, input: { quantity?: number } = {}) => {
 		const at = now();
 		const loaded = await loadEntitlement(String(organizationId), at);
 		const { organization: org, plan } = loaded;
@@ -55,7 +59,13 @@ export const createSubscriptionService = (deps: BillingDeps = {}) => {
 		if (max !== null && active > max) {
 			throw apiErrorWithData(httpStatus.FORBIDDEN, 'This number of locations needs an enterprise plan.', { reason: 'enterprise_required', max });
 		}
-		const quantity = Math.max(1, active);
+		const quantity = input.quantity ?? Math.max(1, active);
+		if (max !== null && quantity > max) {
+			throw apiErrorWithData(httpStatus.FORBIDDEN, 'This number of locations needs an enterprise plan.', { reason: 'enterprise_required', max });
+		}
+		if (quantity < active) {
+			throw apiErrorWithData(httpStatus.BAD_REQUEST, `The organization has ${active} active locations: subscribe for at least ${active}.`, { reason: 'quantity_below_active', active });
+		}
 		// A cancelled subscription still paid until its period end: the new one starts then.
 		const prev = loaded.subscription;
 		const startAt = prev && prev.current_period_end && prev.current_period_end > at && ['cancelled', 'expired'].includes(prev.status) ? prev.current_period_end : null;

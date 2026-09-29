@@ -73,7 +73,7 @@ A client user is **read-only** and sees only its clients: another client's locat
 |---|---|---|---|
 | 1 | `GET /billing` | | `{ state: "trialing", locations: { allowed: 1, … }, users, tokens, trial_ends_at, … }` |
 | 2 | `POST /locations` beyond the trial allowance | | **402** `{ reason: "subscription_required" }` → the billing page |
-| 3 | `POST /billing/checkout` | | **201** `{ approve_url, quantity, currency, monthly_amount }` → redirect to PayPal (quantity = the active locations, at least 1) |
+| 3 | `POST /billing/checkout` | `{ quantity }` (how many locations to pay for: 1 to 20, at least the active ones; default the active count) | **201** `{ approve_url, quantity, currency, monthly_amount }` → redirect to PayPal; one approval covers every location |
 | 4 | (return page) `POST /billing/sync` | | the subscription as PayPal reports it; PayPal's webhooks make it `active` |
 | 5 | `POST /locations` at the paid quantity | | **402** `{ reason: "location_payment_required", quote: { quantity, amount, currency, period_end, … } }`; above 20 locations **403** `enterprise_required` |
 | 6 | `POST /billing/location-slots` | `{ quantity: 1 }` | **201** `{ approve_url, provider_order_id, amount }` → PayPal |
@@ -85,4 +85,4 @@ A client user is **read-only** and sees only its clients: another client's locat
 
 **Manual refresh costs tokens:** `POST /locations/:id/refresh` → **402** `{ reason: "insufficient_tokens", balance, cost }`; token packs: `GET /billing/token-packs`, `POST /billing/tokens/checkout`.
 
-**Known awkward step (open, 2026-09-29):** a trial user who already wants two locations subscribes for one (checkout uses the active count) and then pays a prorated slot for the second. See STATUS.md "Open items".
+**Subscribe for the right number up front (13c):** a trial user who wants two or more locations sends that `quantity` at checkout, so steps 5–8 (a paid slot) are only for locations added later.

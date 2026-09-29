@@ -1252,3 +1252,39 @@ The push also carries `c66a82b` (already on `claude/rebuild`, not yet pushed).
 The 13a suspects (`dashboard.routes`, `gbp/oauth`, report retention) were causes 1, 2 and 4: none of them failed after the fixes.
 
 **Addendum (2026-09-29, while adding the step-6 suites):** with 99 suites every full run failed in 8 random suites: `MongoServerError: 24: Too many open files` on the shared test mongod, followed by index builds "interrupted at shutdown" and closed connections. Cause 6: every test file creates and drops its own database, WiredTiger keeps a file open per collection and index, idle handles stay open for minutes and dropped files are only removed at the next checkpoint (60 s); the macOS limits are 10,240 files per process and 30,720 system-wide. Fix: the test mongod closes idle handles after 5 s and checkpoints every 5 s (`tests/helpers/memoryMongo.ts`). After it: 3 of 3 full runs green (903 tests, ~105 s). With `MONGOMS_DEBUG` or a stdout trace the failure never showed (the slower run kept the file count down), which is why it looked like a random shutdown at first.
+
+## Phase 13c: follow-ups to 13b (2026-09-29)
+
+Branch `claude/phase-13c-followups` from `claude/rebuild` (after the 13b merge `411b7c2`). Mohit's decisions after 13b plus a TypeScript check.
+
+**TypeScript check (before any change):**
+- `npm run build`, `npx tsc --noEmit -p tsconfig.json`, `npx tsc --noEmit -p tests/tsconfig.json`: 0 errors each.
+- The same checks with the workspace compiler: `.vscode/settings.json` points at `node_modules/typescript/lib`, `node node_modules/typescript/lib/tsc.js --version` = 5.9.3 = `package.json` / `npx tsc`. Also `tests/tsconfig.jest.json`: 0 errors.
+- The only finding: `tsconfig.json` still included the deleted `src/configs/mongoMigrate.ts` (ignored silently by tsc). Removed in its own commit, `afd4018`.
+- `npm run lint`: 40 errors, all in the legacy GBP posting code:
+
+  | Errors | File |
+  |---|---|
+  | 26 | `src/middlewares/common/gbpPostSchedular.middleware.ts` |
+  | 10 | `src/services/common/gbpPostSchedular.service.ts` |
+  | 3 | `src/models/gbpPost.model.ts` |
+  | 1 | `src/controllers/common/gbpPostSchedular.controller.ts` |
+
+**Commits:**
+- `afd4018`: the stale tsconfig include.
+- `f9419e7`: **suspended organizations answer 403** `organization_suspended`. This applies to the route gate, adding a location and invitations (`organizationSuspendedError()` in `entitlement.service.ts`); 402 stays for payment situations.
+- `05d32fd`: **checkout quantity.** `POST /billing/checkout { quantity? }`:
+  - the range is 1 to the plan's cap, and at least the active locations (400 `quantity_below_active`; 403 `enterprise_required` above the cap)
+  - the subscription, the PayPal price and the first invoice use it
+  - tests cover quantities 1 and 3 (activation, the invoice lines, 3 allowed locations), over the cap, and below the active locations
+- (this commit): docs.
+
+**Checks:** build 0 errors; both tsc configs 0; lint 40 (as above); tests **99 suites, 904**.
+
+**API calls:** none.
+
+**Merge and push (run by Mohit):**
+```bash
+git checkout claude/rebuild && git merge --no-ff claude/phase-13c-followups -m "Merge Phase 13c: 403 for suspended organizations, checkout quantity, tsconfig include"
+git push origin claude/rebuild claude/phase-13c-followups
+```

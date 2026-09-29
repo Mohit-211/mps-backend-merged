@@ -18,6 +18,8 @@ const text = (max: number) => Joi.string().trim().max(max).allow('', null);
 
 export const validateSlotsQuote = validate(Joi.object({ quantity: Joi.number().integer().min(1).max(100).default(1) }), 'query', ['quantity'], 'slotsInput');
 export const validateSlotsBuy = validate(Joi.object({ quantity: Joi.number().integer().min(1).max(100).required() }), 'body', ['quantity'], 'slotsInput');
+// 13c: the number of locations to subscribe for (the cap is checked against the plan in the service).
+export const validateCheckout = validate(Joi.object({ quantity: Joi.number().integer().min(1).max(1000) }), 'body', ['quantity'], 'checkoutInput');
 export const validateTokenCheckout = validate(Joi.object({ pack_id: objectId.required(), coupon_code: coupon.allow('', null) }), 'body', ['pack_id', 'coupon_code'], 'tokenInput');
 export const validateCoupon = validate(Joi.object({ pack_id: objectId.required(), coupon_code: coupon.required() }), 'body', ['pack_id', 'coupon_code'], 'tokenInput');
 export const validateCancel = validate(Joi.object({ reason: text(127) }), 'body', ['reason'], 'cancelInput');

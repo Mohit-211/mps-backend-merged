@@ -40,8 +40,8 @@
 | 404 | Not found, or not yours |
 | 409 | Conflict |
 | 422 | Run over the call cap |
-| 402 | Phase 13a billing: `subscription_required` (trial over / no subscription / grace expired), `organization_suspended`, `location_payment_required` (with a prorated `quote`), `insufficient_tokens` |
-| 403 | Phase 8: no access with a `reason` (`read_only`, `agency_only`, `owner_only`, `email_not_verified`, …); Phase 13a: `enterprise_required` (beyond the plan's location cap), `user_limit_reached`, `feature_not_included` |
+| 402 | Payment situations only (Phase 13a): `subscription_required` (trial over / no subscription / grace expired), `location_payment_required` (with a prorated `quote`), `insufficient_tokens` |
+| 403 | Phase 8: no access with a `reason` (`read_only`, `agency_only`, `owner_only`, `email_not_verified`, …); Phase 13a: `enterprise_required` (beyond the plan's location cap), `user_limit_reached`, `feature_not_included`; 13c: `organization_suspended` (an admin suspended the organization; reads keep working) |
 | 429 | Daily search limit, or an auth rate limit (`rate_limited`, `retry_after_seconds`) |
 | 502 | Google failed |
 | 503 | Not configured / GBP access not approved |
@@ -50,7 +50,7 @@
 
 ## Billing gates (Phase 13a)
 
-**402 `subscription_required`** answers these when the organization is read-only (trial over without a subscription, a failed payment past its 7-day grace, an overdue manual invoice past grace). The body is `{ reason, billing: { state, trial_ends_at } }`; an admin suspension gives `organization_suspended` instead.
+**402 `subscription_required`** answers these when the organization is read-only (trial over without a subscription, a failed payment past its 7-day grace, an overdue manual invoice past grace). The body is `{ reason, billing: { state, trial_ends_at } }`; an admin suspension gives **403** `{ reason: "organization_suspended" }` instead (13c: 402 is only for payment situations).
 - `POST /locations`, `POST /onboarding/select-profile` (new location), `POST /onboarding/complete`, `PUT /locations/:id/center`
 - `GET /places/search`, `GET /locations/:id/competitor-suggestions`
 - `PUT /locations/:id/tracking`, `POST /locations/:id/rank-runs`, `POST /locations/:id/refresh`
@@ -293,7 +293,7 @@ Read: owner and member (`client_user` → 403 `read_only`); payments and changes
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/billing` | user + org | The billing page: state, plan, prices (current + upcoming), subscription, next renewal, locations / users / tokens, billing details | 13a | live |
-| POST | `/api/v1/billing/checkout` | user + org (owner) | Start the PayPal subscription for the active locations → `approve_url` | 13a | live |
+| POST | `/api/v1/billing/checkout` | user + org (owner) | Start the PayPal subscription for `quantity` locations (13c; default the active locations) → `approve_url` | 13a, changed 13c | live |
 | POST | `/api/v1/billing/sync` | user + org (owner) | Re-read the subscription at PayPal (after the return page) | 13a | live |
 | POST | `/api/v1/billing/cancel` | user + org (owner) | Cancel; access continues to the end of the paid period | 13a | live |
 | GET | `/api/v1/billing/location-slots/quote` | user + org | Prorated price of extra location slots (`?quantity=`) | 13a | live |
@@ -359,7 +359,7 @@ Platform admins: overview, users and organizations need `platform.read` / `platf
 | POST | `/api/v1/admin/users/:userId/verify` | admin (`platform.write`) | Mark the email verified | 13b | live |
 | GET | `/api/v1/admin/organizations` | admin (`platform.read`) | Organizations: search (name, owner email), type, billing state, plan, trial ending within N days | 13b | live |
 | GET | `/api/v1/admin/organizations/:organizationId` | admin (`platform.read`) | An organization: owner, members, locations, clients, billing, invoices, citations | 13b | live |
-| POST | `/api/v1/admin/organizations/:organizationId/suspend` | admin (`platform.write`) | Suspend (reason required): read-only, money-costing actions answer 402 `organization_suspended` | 13b | live |
+| POST | `/api/v1/admin/organizations/:organizationId/suspend` | admin (`platform.write`) | Suspend (reason required): read-only, money-costing actions answer 403 `organization_suspended` | 13b | live |
 | POST | `/api/v1/admin/organizations/:organizationId/unsuspend` | admin (`platform.write`) | Lift a suspension | 13b | live |
 | PATCH | `/api/v1/admin/organizations/:organizationId/trial` | admin (`platform.write`) | Set / extend the trial end (moved here from the billing admin) | 13b | live |
 | PATCH | `/api/v1/admin/organizations/:organizationId/limits` | admin (`platform.write`) | Limit overrides on top of the plan: `max_locations` (null = no cap), `extra_users`; an empty body clears them | 13b | live |
@@ -692,7 +692,7 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
 | 107 | GET | `/billing` | user + org | – | `{ state, read_only, trial_ends_at, grace_ends_at, currency, plan: { id, name, kind, max_locations, users_per_location }, prices: { current: { first_location, additional_location } \| null, upcoming }, subscription \| null, next_renewal: { date, quantity, amount, fixed } \| null, locations: { active, allowed, max }, users: { used, limit }, tokens: { balance, cost_per_refresh }, billing_details, online_payments }` |
-| 108 | POST | `/billing/checkout` | user + org (owner) | – | **201** `{ subscription_id, approve_url, quantity, currency, monthly_amount, starts_at }`; **409** `price_not_set`, `already_subscribed`, `manual_billing`; **403** `enterprise_required`; **503** `billing_not_configured` |
+| 108 | POST | `/billing/checkout` | user + org (owner) | `{ quantity? }` (1 to the plan's cap, at least the active locations; 13c) | **201** `{ subscription_id, approve_url, quantity, currency, monthly_amount, starts_at }`; **409** `price_not_set`, `already_subscribed`, `manual_billing`; **403** `enterprise_required` (quantity above the cap); **400** `quantity_below_active`; **503** `billing_not_configured` |
 | 109 | POST | `/billing/sync` | user + org (owner) | – | #107 |
 | 110 | POST | `/billing/cancel` | user + org (owner) | `{ reason? }` | #107; **409** `no_subscription`, `manual_billing` |
 | 111 | GET | `/billing/location-slots/quote` | user + org | `quantity (1–100, default 1)` | `{ quantity, remaining_days, period_days, lines, amount, currency, period_end, billing_method, paid_quantity, new_paid_quantity }`; **402** `subscription_required`; **403** `enterprise_required` |

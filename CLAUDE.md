@@ -31,7 +31,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
 | 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
 | 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | done | `claude/phase-16-citations` | M5 (pushed) |
-| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: legacy removal, `/auth` session + account endpoints, payment-provider interface, flaky tests, admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | 13a done (`2c77a8a`, pushed); **13b built, awaiting merge** | `claude/phase-13b-admin` | M5 |
+| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: legacy removal, `/auth` session + account endpoints, payment-provider interface, flaky tests, admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | 13a done (`2c77a8a`), 13b done (`411b7c2`), pushed; **13c follow-ups built, awaiting merge** | `claude/phase-13c-followups` | M5 |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
@@ -145,7 +145,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 → 16 done. 13a done; **13b built (awaiting merge); next: 14** Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 → 16 done. 13a and 13b done; **13c follow-ups built (awaiting merge); next: 14** Production readiness (M5 launch-ready), then 9 (needs v4), 15, 17; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 **Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
 
@@ -947,6 +947,8 @@ Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data 
 - **Flows:** `tests/flows/flows.test.ts` + `docs/FLOWS.md`; they found the log-mode email bug (fixed) and the checkout-quantity question (STATUS open item 15).
 - **Admin panel + support:** `/admin/overview`, `/admin/users*`, `/admin/organizations*` (suspend → read-only with 402 `organization_suspended`, as the 13a billing gate does; trial; limit overrides), `/admin/support/tickets*` (`support.read` / `support.manage`: super admin, admin, editor), `/support/tickets*`; all audit-logged.
 - **Lint** 82 → 40 (all in legacy GBP posting); **tests** 878 → 903 (99 suites).
+
+**13c follow-ups (Mohit, 2026-09-29), branch `claude/phase-13c-followups`:** suspended organizations answer **403** `organization_suspended` (402 only for payment situations); `POST /billing/checkout { quantity }` (1 to the plan's cap, at least the active locations) so a trial user approves PayPal once; the stale `mongoMigrate.ts` tsconfig include removed. TypeScript: 0 errors in src, tests and scripts with the workspace compiler (5.9.3).
 
 ## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)
 

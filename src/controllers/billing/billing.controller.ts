@@ -20,7 +20,7 @@ interface Page {
 
 export const overview = catchAsync(async (req, res) => responseWrapper(res, await billingOverview(orgId(res))));
 
-export const checkout = catchAsync(async (req, res) => responseWrapper(res, await subscriptionService.checkout(orgId(res), orgOf(res).userId), 'Continue to PayPal to approve the subscription.', httpStatus.CREATED));
+export const checkout = catchAsync(async (req, res) => responseWrapper(res, await subscriptionService.checkout(orgId(res), orgOf(res).userId, res.locals.checkoutInput ?? {}), 'Continue to PayPal to approve the subscription.', httpStatus.CREATED));
 
 export const sync = catchAsync(async (req, res) => {
 	await subscriptionService.sync(orgId(res));

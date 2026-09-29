@@ -83,7 +83,7 @@ describe('admin organizations', () => {
 		res = await request(app).post(`/api/v1/admin/organizations/${String(orgId)}/suspend`).set(bearer(admin)).send({ reason: 'chargeback' });
 		expect(res.body.data.organization.suspended_reason).toBe('chargeback');
 		const blocked = await request(app).post(`/api/v1/locations/${String(loc._id)}/refresh`).set(bearer(token)).send({});
-		expect([blocked.status, blocked.body.data.reason]).toEqual([402, 'organization_suspended']);
+		expect([blocked.status, blocked.body.data.reason]).toEqual([403, 'organization_suspended']);
 		expect((await request(app).get('/api/v1/dashboard').set(bearer(token))).status).toBe(200);
 		expect((await request(app).post(`/api/v1/admin/organizations/${String(orgId)}/suspend`).set(bearer(admin)).send({ reason: 'again' })).body.data.reason).toBe('already_suspended');
 		res = await request(app).post(`/api/v1/admin/organizations/${String(orgId)}/unsuspend`).set(bearer(admin)).send({ note: 'resolved' });

@@ -39,8 +39,10 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 **4. Billing (Phase 13a, 2026-09-28).**
 - **Read-only organizations:** after the trial (7 days) without a subscription, after a failed payment's 7-day grace, or with an overdue invoice past grace, money-costing actions answer **402** `{ reason: "subscription_required", billing: { state, trial_ends_at } }` (list in ENDPOINTS.md "Billing gates"). Show a banner linking to the billing page; reads keep working. Show `state` / `trial_ends_at` / `grace_ends_at` from `GET /billing`.
+- **Suspended organizations** (by a platform admin, 13c): money-costing actions, adding locations and invitations answer **403** `{ reason: "organization_suspended" }`; reads keep working. Show "This account is suspended, contact support" (no billing call to action: **402** is only for payment situations).
 - **Adding a location** beyond the paid quantity answers **402** `location_payment_required` with a `quote`: show it, call `POST /billing/location-slots`, send the user to `approve_url`, capture on return, then retry the add. **403** `enterprise_required` above the plan cap (20): show "contact us".
 - **Invitations** over the user limit (3 per paid location) answer **403** `user_limit_reached`.
+- **Checkout quantity (13c):** `POST /billing/checkout { quantity }` subscribes for that many locations at once (1 to 20, at least the active ones). Ask how many locations the user wants before sending them to PayPal: one approval covers them all.
 - **PayPal returns** to `FRONTEND_URL/settings/billing?...`: `checkout=success` → `POST /billing/sync`; `order=return&token=<id>` → `POST /billing/orders/<id>/capture`; `checkout=cancelled` / `order=cancelled` → show nothing.
 
 ## Auth
