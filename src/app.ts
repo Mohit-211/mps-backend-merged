@@ -32,7 +32,9 @@ import('./configs/mongoConnection');
 
 
 
-// Phase 10 (AUDIT S5): behind nginx; req.ip is the client (rate limits, logs).
+// Phase 10 (AUDIT S5): HTTPS is terminated by nginx, which proxies plain HTTP to this app on 127.0.0.1
+// (src/server.ts). Trusting TRUST_PROXY_HOPS proxies makes req.ip the client (rate limits, logs) and
+// req.protocol "https" from X-Forwarded-Proto. helmet's HSTS header reaches the browser through nginx.
 app.set('trust proxy', config.security.trustProxyHops);
 
 // Phase 10 (AUDIT S9): every helmet header, with a strict CSP (no polyfill.io, no unsafe-eval). The API

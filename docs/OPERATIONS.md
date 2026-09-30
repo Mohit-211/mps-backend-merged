@@ -427,6 +427,36 @@ Cluster-mode caveats, since every instance runs these:
 - `node-cache` (a per-process cache)
 - rate limits and the Places throttle are MongoDB counters, so they hold across processes
 
+### nginx and HTTPS
+
+The app speaks **plain HTTP on `127.0.0.1:PORT`** (`HOST`, default `127.0.0.1`); it has no TLS code. nginx terminates HTTPS and proxies to it, so the app is never reachable around nginx. Domains: the API at `api.mypageseo.com`, the web app at `app.mypageseo.com` (in `ACCESSDOMAINS`, `FRONTEND_URL`).
+
+```nginx
+# /etc/nginx/sites-available/api.mypageseo.com
+server {
+    server_name api.mypageseo.com;
+    client_max_body_size 100m;          # uploads: up to 10 files of 10 MB
+
+    location / {
+        proxy_pass http://127.0.0.1:5055;   # = PORT
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+}
+```
+
+```sh
+ln -s /etc/nginx/sites-available/api.mypageseo.com /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+certbot --nginx -d api.mypageseo.com     # certificate + HTTP→HTTPS redirect, auto-renewed
+```
+
+`TRUST_PROXY_HOPS=1` (one nginx) makes `req.ip` the client. The PayPal webhook path must be forwarded unchanged (the body is verified with PayPal).
+
 ## Deploy checklist (fresh database)
 
 **The launch uses a fresh, empty database (Mohit, 2026-09-28). Nothing is migrated from the old system**, so there are no migration steps. In this order:
@@ -435,7 +465,7 @@ Cluster-mode caveats, since every instance runs these:
 2. **`.env`** (see `.env.example`). The app refuses to start in production without the security settings:
    - `JWT_SECRET` and `ADMIN_JWT_SECRET`: each at least 32 characters (`openssl rand -hex 32`), different from each other.
    - `TOKEN_ENCRYPTION_KEY` (`openssl rand -hex 32`); losing or changing it forces every user to reconnect GBP.
-   - `TRUST_PROXY_HOPS=1` behind nginx; `ACCESSDOMAINS` lists every frontend origin; `FRONTEND_URL` (verification, reset and invitation links, PayPal return pages); `ADMIN_FRONTEND_URL` (admin password links); `SHARE_BASE_URL` (public API origin; nginx forwards `/r/` to the app).
+   - `PORT`, `HOST=127.0.0.1` (the default; nginx terminates HTTPS, section "nginx and HTTPS"), `TRUST_PROXY_HOPS=1` behind nginx; `ACCESSDOMAINS` lists every frontend origin; `FRONTEND_URL` (verification, reset and invitation links, PayPal return pages); `ADMIN_FRONTEND_URL` (admin password links); `SHARE_BASE_URL` (public API origin; nginx forwards `/r/` to the app).
    - Email (13b): `EMAIL_TRANSPORT=smtp` (the production default) with the `SMTP_*` settings and `EMAIL_FROM`; `SUPPORT_EMAIL` (support inbox).
    - Google OAuth (13b): the redirect-fallback URI moved to `<API>/api/v1/gbp/connect/callback`: set `GOOGLE_GBP_REDIRECT_URI` to it and add it to the OAuth client's authorised redirect URIs in Google Cloud.
    - Google: `GOOGLE_PLACE_API_KEY`, the GBP OAuth client, `GBP_V4_ENABLED` (false until v4 access).

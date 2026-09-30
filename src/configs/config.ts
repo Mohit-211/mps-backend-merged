@@ -8,12 +8,11 @@ dotenv.config({ path: process.env.ENV_FILE || path.resolve(process.cwd(), '.env'
 // Define the environment variables schema
 const envVarsSchema = Joi.object({
 	APP_NAME: Joi.string().required().description('Your Application Name'),
-	SSL_ENABLE: Joi.boolean().required().valid(true, false).default(false),
-	SSL_PATH: Joi.string().required().allow(''),
 	NODE_ENV: Joi.string()
 		.valid('production', 'development', 'test')
 		.required(),
 	PORT: Joi.number().default(5000),
+	HOST: Joi.string().default('127.0.0.1').description('Interface to listen on. HTTPS is terminated by nginx, so the app only listens locally; 0.0.0.0 only inside a container'),
 
 	MONGODB_URL: Joi.string().required().description('Mongo DB url'),
 	MONGODB_USER: Joi.string().required(),
@@ -149,10 +148,9 @@ if (error) {
 interface Config {
 	essentials: {
 		appName: string;
-		sslEnabe: boolean;
-		sslPath: string;
 		env: string;
 		port: number;
+		host: string;
 	};
 
 	databases: {
@@ -319,10 +317,9 @@ interface Config {
 const config: Config = {
 	essentials: {
 		appName: envVars.APP_NAME,
-		sslEnabe: envVars.SSL_ENABLE,
-		sslPath: envVars.SSL_PATH,
 		env: envVars.NODE_ENV,
 		port: envVars.PORT,
+		host: envVars.HOST,
 	},
 
 	databases: {
