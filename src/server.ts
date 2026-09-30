@@ -24,6 +24,10 @@ if(config.essentials.sslEnabe){
 
 // Get the current date and time
 const currentTime = DateTime.now();
+if (config.essentials.env === 'production' && !config.paypal.webhookId) {
+  logger.warn('PAYPAL_WEBHOOK_ID is not set: every PayPal webhook is refused until it is (docs/OPERATIONS.md, "PayPal setup")');
+}
+
 server.listen(config.essentials.port, '0.0.0.0',() => {
   logger.info(
     `Server is working fine 😊 & listening on PORT: ${config.essentials.port} | SSL status ${config.essentials.sslEnabe} | Default Timezone: ${process.env.TZ} | Current date and time: ${currentTime.toFormat('yyyy-MM-dd HH:mm:ss')}`

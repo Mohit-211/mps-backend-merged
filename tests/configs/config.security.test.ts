@@ -45,7 +45,8 @@ describe('JWT secrets in production', () => {
 });
 
 describe('PayPal webhook id in production', () => {
-	it('is required', () => {
-		expect(() => loadConfig({ ...prod, JWT_SECRET: STRONG, ADMIN_JWT_SECRET: ADMIN, PAYPAL_WEBHOOK_ID: '' })).toThrow(/PAYPAL_WEBHOOK_ID/);
+	// Optional at startup (the id exists only after the webhook is created); webhooks are refused while it is empty.
+	it('may be empty', () => {
+		expect(loadConfig({ ...prod, JWT_SECRET: STRONG, ADMIN_JWT_SECRET: ADMIN, PAYPAL_WEBHOOK_ID: '' }).paypal.webhookId).toBe('');
 	});
 });

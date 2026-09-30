@@ -92,8 +92,8 @@ const envVarsSchema = Joi.object({
 	BILLING_SELLER_TAX_ID: Joi.string().allow('').default(''),
 	PAYPAL_WEBHOOK_ID: Joi.string()
 		.allow('')
-		.when('NODE_ENV', { is: 'production', then: Joi.required().invalid('') })
-		.description('Phase 10: PayPal webhook id; every webhook is verified with PayPal (required in production)'),
+		.default('')
+		.description('Phase 10: PayPal webhook id; every webhook is verified with PayPal, and refused while this is empty (a startup warning in production: the id exists only after the webhook is created)'),
 	TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(5).default(1).description('Phase 10: reverse proxies in front of the app (nginx = 1), so req.ip is the client'),
 	TOKEN_ENCRYPTION_KEY: Joi.string()
 		.allow('')
@@ -132,8 +132,8 @@ const envVarsSchema = Joi.object({
 	EDTR_ROLE_ID: Joi.number().description('Editor Role ID'),
 	USR_ROLE_ID: Joi.number().description('User Role ID'),
 
-	SUPER_ADMIN_PASSWORD: Joi.string(),
-	SUPER_ADMIN_EMAIL: Joi.string(),
+	SUPER_ADMIN_PASSWORD: Joi.string().allow('').default(''),
+	SUPER_ADMIN_EMAIL: Joi.string().allow('').default(''),
 }).unknown();
 
 // Validate the environment variables

@@ -440,7 +440,7 @@ Cluster-mode caveats, since every instance runs these:
    - Google OAuth (13b): the redirect-fallback URI moved to `<API>/api/v1/gbp/connect/callback`: set `GOOGLE_GBP_REDIRECT_URI` to it and add it to the OAuth client's authorised redirect URIs in Google Cloud.
    - Google: `GOOGLE_PLACE_API_KEY`, the GBP OAuth client, `GBP_V4_ENABLED` (false until v4 access).
    - Ranking: `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`.
-   - PayPal and billing: section "PayPal setup" (`PAYPAL_WEBHOOK_ID` is set after step 5).
+   - PayPal and billing: section "PayPal setup". `PAYPAL_WEBHOOK_ID` may stay empty until the webhook exists (step 5): the app starts with a warning and refuses every PayPal webhook until it is set.
    - First super admin: `SUPER_ADMIN_EMAIL` (and optionally `SUPER_ADMIN_PASSWORD`, at least 12 characters; otherwise a password is generated and shown once).
 3. **Install and build:** `npm ci` (the setup scripts run with ts-node, a dev dependency, so don't use `--omit=dev`), then `npm run build`.
 4. **`npm run setup:fresh -- --confirm`**. On the empty database it runs, in order (each step idempotent, so re-running is safe):
