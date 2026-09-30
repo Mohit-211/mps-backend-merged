@@ -138,10 +138,11 @@ const envVarsSchema = Joi.object({
 // Validate the environment variables
 const { value: envVars, error } = envVarsSchema
 	.prefs({ errors: { label: 'key' } })
-	.validate(process.env);
+	.validate(process.env, { abortEarly: false });
 
+// Every problem at once (one per line), so a new server's .env can be fixed in one pass.
 if (error) {
-	throw new Error(`Config validation error: ${error.message}`);
+	throw new Error(`Config validation error (${error.details.length}):\n${error.details.map((d) => `  - ${d.message}`).join('\n')}`);
 }
 
 // Define the configuration object and its types

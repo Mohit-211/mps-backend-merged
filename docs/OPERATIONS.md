@@ -472,6 +472,7 @@ certbot --nginx -d api.mypageseo.com     # certificate + HTTP→HTTPS redirect, 
    - Ranking: `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`.
    - PayPal and billing: section "PayPal setup". `PAYPAL_WEBHOOK_ID` may stay empty until the webhook exists (step 5): the app starts with a warning and refuses every PayPal webhook until it is set.
    - First super admin: `SUPER_ADMIN_EMAIL` (and optionally `SUPER_ADMIN_PASSWORD`, at least 12 characters; otherwise a password is generated and shown once).
+   - Check it with `npm run config:check`: it lists every missing or invalid variable at once (the app refuses to start with the same list).
 3. **Install and build:** `npm ci` (the setup scripts run with ts-node, a dev dependency, so don't use `--omit=dev`), then `npm run build`.
 4. **`npm run setup:fresh -- --confirm`**. On the empty database it runs, in order (each step idempotent, so re-running is safe):
    1. `db:sync-indexes`: every model's indexes

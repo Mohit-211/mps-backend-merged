@@ -7,6 +7,7 @@
     "start": "pm2 start ecosystem.config.json --no-daemon",
     "dev": "cross-env NODE_ENV=development nodemon",
     "build": "tsc -p . && shx cp package.json ./build/package.json && shx cp package-lock.json ./build/package-lock.json",
+    "config:check": "ts-node --transpile-only -e \"require('./src/configs/config'); console.log('config OK')\"",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" index.ts",
     "lint-fix": "eslint --fix \"src/**/*.ts\" \"tests/**/*.ts\" index.ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
