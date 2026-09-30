@@ -20,8 +20,8 @@ Endpoint shapes are in [API.md](API.md#gbp-connection-phase-6) and [API.md](API.
    - Scopes: `openid`, `email` and `https://www.googleapis.com/auth/business.manage`.
    - Any Google account may connect.
 3. **Credentials** → Create credentials → OAuth client ID → **Web application**.
-   - Authorised redirect URI (the redirect fallback): **`http://localhost:5055/api/v1/gbp/connect/callback`**
-   - Authorised JavaScript origin (the popup): the frontend's origin, e.g. `http://localhost:3000`.
+   - Authorised redirect URI (the redirect fallback): the **API's** callback, **`http://localhost:5055/api/v1/gbp/connect/callback`** locally, `https://api.mypageseo.com/api/v1/gbp/connect/callback` in production. Never a frontend URL: the API finishes the connection, then redirects the browser to `FRONTEND_URL/gbp/connect/callback?status=success|denied|error&message=…`.
+   - Authorised JavaScript origins (the popup): every frontend origin, e.g. `https://app.mypageseo.com` and `http://localhost:3000`.
    - Copy the client ID and secret.
 4. **GBP API access:** Google only allows GBP API calls after the project is approved through its GBP API access request. Until then every call gets a quota of 0, and `gbp:preflight` reports exactly "GBP API access not approved (quota 0)".
 

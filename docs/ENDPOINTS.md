@@ -213,7 +213,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/gbp/connect/url` | user | Google consent URL (redirect fallback flow) | 6, moved 13b | live |
-| GET | `/api/v1/gbp/connect/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens | 6, moved 13b | live |
+| GET | `/api/v1/gbp/connect/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens, then redirects the browser to `FRONTEND_URL/gbp/connect/callback?status=success\|denied\|error&message=…` (JSON when `FRONTEND_URL` is empty) | 6, moved 13b, redirect 2026-09-30 | live |
 | POST | `/api/v1/gbp/disconnect` | user | Disconnect one Google account (`google_sub`): revoke it, remove its bindings, jobs and tokens | 6, moved 13b | live |
 | GET | `/api/v1/gbp/connect/popup` | user | GIS popup config with a one-time state | 7a, moved 13b | live |
 | POST | `/api/v1/gbp/connect/code` | user | Exchange the popup code (`postmessage`), verify id_token | 7a, moved 13b | live |
@@ -481,7 +481,7 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 | # | Method | Path | Auth | Query params | Body | Returns |
 |---|---|---|---|---|---|---|
 | 9 | GET | `/gbp/connect/url` | user | – | – | Google consent URL (**redirect flow**, the fallback). One-time `state`, valid 10 minutes. |
-| 10 | GET | `/gbp/connect/callback` | none (Google calls it) | `code`, `state`, `error` (from Google) | – | `{ connected: true, google_email, google_sub }` |
+| 10 | GET | `/gbp/connect/callback` | none (Google calls it) | `code`, `state`, `error` (from Google) | – | **302** to `FRONTEND_URL/gbp/connect/callback?status=success\|denied\|error&message=…`; without `FRONTEND_URL`: `{ connected: true, google_email, google_sub }` (400 on errors) |
 | 11 | GET | `/gbp/connect/popup` | user | – | – | **Popup flow** config for Google Identity Services: `{ client_id, scope, state, ux_mode: "popup", select_account: true }` |
 | 12 | POST | `/gbp/connect/code` | user | – | `{ code, state }` (from the popup callback) | `{ connected: true, google_email, google_sub }` |
 | 13 | POST | `/gbp/disconnect` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, google_email }` |

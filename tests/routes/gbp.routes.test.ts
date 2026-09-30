@@ -2,6 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { Types } from 'mongoose';
 import { GbpAccount, GbpLocation, RawAccountsPage, RawLocation, RawLocationsPage } from '../../src/clients/types/gbp';
+import config from '../../src/configs/config';
 import { queryTypesArr, tokenTypes } from '../../src/configs/constantTypes';
 import { OAuthState, User, UserAuth, UserGBP } from '../../src/models';
 import { isEncrypted } from '../../src/utils/tokenCrypto';
@@ -94,7 +95,15 @@ const connect = async (token: string): Promise<void> => {
 	const urlRes = await request(app).get('/api/v1/gbp/connect/url').set(auth(token));
 	const state = new URL(urlRes.body.data).searchParams.get('state');
 	const cb = await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state });
-	expect(cb.status).toBe(200);
+	expect(resultOf(cb).status).toBe('success');
+};
+
+/** The redirect flow sends the browser to FRONTEND_URL/gbp/connect/callback?status=&message=. */
+const resultOf = (res: request.Response): { status: string | null; message: string | null } => {
+	expect(res.status).toBe(302);
+	const to = new URL(res.headers.location);
+	expect(`${to.origin}${to.pathname}`).toBe(`${config.auth.frontendUrl.replace(/\/+$/, '')}/gbp/connect/callback`);
+	return { status: to.searchParams.get('status'), message: to.searchParams.get('message') };
 };
 
 describe('GBP routes: auth', () => {
@@ -133,11 +142,35 @@ describe('GBP routes: connect', () => {
 		const { user, token } = await createUser('c@test.dev');
 		const forged = JSON.stringify({ user_id: String(user._id) });
 		const res = await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state: forged });
-		expect(res.status).toBe(400);
+		expect(resultOf(res)).toEqual({ status: 'error', message: expect.stringMatching(/invalid or has expired/) });
 		const urlRes = await request(app).get('/api/v1/gbp/connect/url').set(auth(token));
 		const state = new URL(urlRes.body.data).searchParams.get('state');
-		expect((await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state })).status).toBe(200);
-		expect((await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state })).status).toBe(400);
+		const first = resultOf(await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state }));
+		expect(first.status).toBe('success');
+		expect(first.message).toMatch(/^Connected as /);
+		expect(resultOf(await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state })).status).toBe('error');
+		expect(await UserAuth.countDocuments({ user_id: user._id })).toBe(1);
+	});
+
+	it('the callback reports a declined consent as denied', async () => {
+		const res = await request(app).get('/api/v1/gbp/connect/callback').query({ error: 'access_denied' });
+		expect(resultOf(res)).toEqual({ status: 'denied', message: 'Google Business Profile access was not granted.' });
+	});
+
+	it('without FRONTEND_URL the callback answers JSON (200 / 400)', async () => {
+		const saved = config.auth.frontendUrl;
+		config.auth.frontendUrl = '';
+		try {
+			const { token } = await createUser('json@test.dev');
+			const urlRes = await request(app).get('/api/v1/gbp/connect/url').set(auth(token));
+			const state = new URL(urlRes.body.data).searchParams.get('state');
+			const ok = await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state });
+			expect(ok.status).toBe(200);
+			expect(ok.body.data.connected).toBe(true);
+			expect((await request(app).get('/api/v1/gbp/connect/callback').query({ code: '4/FAKE', state })).status).toBe(400);
+		} finally {
+			config.auth.frontendUrl = saved;
+		}
 	});
 });
 

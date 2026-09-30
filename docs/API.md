@@ -1068,6 +1068,16 @@ Starts the connection. `data` is Google's consent URL, with scope `business.mana
 
 ### `GET /api/v1/gbp/connect/callback?code=&state=` (called by Google)
 
+Google sends the **browser** here (the API domain). When it is done, the API redirects the browser back to the web app (2026-09-30):
+
+```
+302 → FRONTEND_URL/gbp/connect/callback?status=success&message=Connected%20as%20owner%40example.test
+302 → FRONTEND_URL/gbp/connect/callback?status=denied&message=Google%20Business%20Profile%20access%20was%20not%20granted.
+302 → FRONTEND_URL/gbp/connect/callback?status=error&message=This%20connection%20link%20is%20invalid%20or%20has%20expired.%20Start%20the%20connection%20again.
+```
+
+`message` is always a user-facing sentence (an unexpected failure gives "The Google connection could not be completed. Start it again."). The web app's `/gbp/connect/callback` page shows it. Only when `FRONTEND_URL` is empty (local tools) does the endpoint answer JSON instead:
+
 ```json
 { "success": true, "status": 200, "message": "Connected with GBP successfully.",
   "data": { "connected": true, "google_email": "owner@example.test", "google_sub": "100000000000000000001" } }
@@ -1075,7 +1085,7 @@ Starts the connection. `data` is Google's consent URL, with scope `business.mana
 
 Since Phase 7a, both connect flows request `openid email business.manage` and verify the id_token. The redirect flow also sends `prompt=select_account consent`. A user can connect **several Google accounts** (agencies): each is a *connection*, identified by `google_sub`. Connecting the same account again updates it; a new account is added. The popup flow is in the onboarding section below.
 
-**400** is returned for an unknown, expired or reused `state` ("This connection link is invalid or has expired. Start the connection again."), and for `error=access_denied` ("Google Business Profile access was not granted.").
+In JSON mode, **400** is returned for an unknown, expired or reused `state` ("This connection link is invalid or has expired. Start the connection again."), and for `error=access_denied` ("Google Business Profile access was not granted.").
 
 ### `GET /api/v1/gbp`
 
