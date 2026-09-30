@@ -20,6 +20,8 @@
 
 **Base URL:** `/api/v1`. Local: `http://localhost:5055/api/v1`.
 
+**Postman:** `docs/postman/MyPageSEO.postman_collection.json` + `MyPageSEO.local.postman_environment.json`, generated from this catalogue by `npm run postman:generate` (rerun after changing the catalogue).
+
 **Auth:**
 - `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin), `support.read` and `support.manage` (Phase 13b; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
