@@ -59,3 +59,5 @@ const unexpectedErrorHandler = (error: Error) => {
 process.on('uncaughtException', unexpectedErrorHandler);
 process.on('unhandledRejection', unexpectedErrorHandler as unknown as NodeJS.RejectionHandledListener);
 process.on('SIGTERM', exitHandler);
+// pm2 stops and restarts processes with SIGINT (then SIGKILL after kill_timeout).
+process.on('SIGINT', exitHandler);

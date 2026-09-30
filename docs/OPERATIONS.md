@@ -394,24 +394,38 @@ This runs `tsc -p .` into `build/` and copies `package.json` and `package-lock.j
 
 ## Production start (pm2)
 
-`ecosystem.config.json` runs `build/index.js` in cluster mode (`instances: "max"`). pm2 uses the directory `pm2 start` is run from as the working directory, so run it from the repo root:
+pm2 is installed globally on the server (`npm install -g pm2`); it is not a project dependency. `ecosystem.config.json` runs `build/index.js` as `mps-backend`:
+
+| Setting | Why |
+|---|---|
+| `exec_mode: cluster`, `instances: max` | One process per CPU core behind one port |
+| `node_args: --enable-source-maps` | Stack traces point at the `.ts` lines (`tsconfig` emits source maps) |
+| `max_memory_restart: 1G` | A process that leaks is restarted instead of taking the server down |
+| `exp_backoff_restart_delay: 200` | A crash loop (e.g. a bad `.env`) backs off instead of restarting instantly |
+| `kill_timeout: 10000` | On stop/restart pm2 sends SIGINT; `src/server.ts` stops agenda (releasing job locks) and closes the server, and gets 10 s before SIGKILL |
+| `merge_logs`, `time` | One log stream for all instances, with timestamps |
+| `NODE_ENV=production` | Production validation and defaults |
+
+pm2 uses the directory `pm2 start` is run from as the working directory, so run it from the repo root (where `.env` lives):
 
 ```sh
-cd /path/to/repo           # repo root, where .env lives
-npm ci
-npm run build
-npm start                  # = pm2 start ecosystem.config.json --no-daemon
+cd /path/to/repo
+npm ci && npm run build
+pm2 start ecosystem.config.json    # first time
+pm2 save && pm2 startup            # run the command pm2 startup prints: start on boot
+pm2 install pm2-logrotate          # rotate ~/.pm2/logs (10 MB, 30 files by default)
 ```
 
-To keep `.env` elsewhere, set `ENV_FILE` in the pm2 environment instead, e.g. `ENV_FILE=/etc/mps/backend.env npm start`.
+Later deploys: `git pull && npm ci && npm run build && pm2 reload mps-backend` (reload restarts the instances one by one, without downtime). `npm start` (`--no-daemon`) keeps pm2 in the foreground: only for containers, not on the server.
+
+To keep `.env` elsewhere, set `ENV_FILE` in the pm2 environment instead, e.g. `ENV_FILE=/etc/mps/backend.env pm2 start ecosystem.config.json`.
 
 Static files (`public/`) and request logs (`logs/`) are resolved relative to the compiled files (`build/src/...` → repo root), not the working directory. They are unaffected by where the app is started from.
 
 Cluster-mode caveats, since every instance runs these:
-- the node-cron heartbeat
-- the agenda poller (Mongo-locked, so safe)
-- the in-memory rate-limit store
-- `node-cache`
+- the agenda poller (Mongo-locked, so each job runs on one process)
+- `node-cache` (a per-process cache)
+- rate limits and the Places throttle are MongoDB counters, so they hold across processes
 
 ## Deploy checklist (fresh database)
 
@@ -438,7 +452,7 @@ Cluster-mode caveats, since every instance runs these:
 
    It refuses (exit 3) when the database already has organizations; `--force` overrides that. Each step also exists on its own (`npm run <step> -- --confirm`).
 5. **PayPal:** `npm run billing:paypal-setup -- --confirm` and the webhook (section "PayPal setup"); put the printed ids and `PAYPAL_WEBHOOK_ID` in `.env`.
-6. **Start:** `npm start` (pm2), from the repo root. Check the log for `Agenda jobs defined: …` (`post-to-gbp, rank-run, gbp-sync, gbp-report, monthly-refresh, report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders`) and the `Recurring job scheduled: …` lines.
+6. **Start:** `pm2 start ecosystem.config.json`, then `pm2 save && pm2 startup` (section "Production start (pm2)"), from the repo root. Check the log for `Agenda jobs defined: …` (`post-to-gbp, rank-run, gbp-sync, gbp-report, monthly-refresh, report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders`) and the `Recurring job scheduled: …` lines.
 7. **After start, in the admin panel:** sign in as the super admin; set the prices, token packs and token costs (billing admin); review the citation directory list; create the other admins.
 8. Do the Google Cloud checklist (section "Ranking quality") before the first monthly refresh.
 
