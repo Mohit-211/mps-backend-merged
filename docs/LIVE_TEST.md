@@ -179,3 +179,10 @@ mongosh "mongodb://mps_local:<local-db-password>@127.0.0.1:27017/mps_rebuild?aut
 
 - Record in PROGRESS.md: the real `api_calls` against the estimate, the run duration, and the calibration verdict. Commit the filled-in CSV.
 - Only then try larger runs outside development (`NODE_ENV=production` lifts the 2-keyword / 3×3 limits). The hard cap `RANK_MAX_CALLS_PER_RUN` (default 40,000 since Phase 17) still applies.
+
+## Setup-center picker live check (2026-10-01)
+
+Mohit asked for real calls ("I am testing it like a real user"). One check of the client against Google with the local key (no database, not through the app):
+- `autocomplete` "tam", US, `(regions)`, one session token → 5 suggestions: Tampa, FL, USA; Tamarac, FL; Tamaqua, PA; Tama, IA; Tamworth, NH (types `locality`, `political`, `geocode`).
+- `getPlaceDetails` (Tampa, `location` + `formattedAddress`, same session token) → "Tampa, FL, USA" at 27.95169, -82.45875.
+- **Calls:** 1 Autocomplete request + 1 Place Details Essentials (≈ $0.008 at list price, within the free monthly allowance).
