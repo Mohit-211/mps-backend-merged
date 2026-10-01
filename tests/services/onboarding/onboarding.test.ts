@@ -203,7 +203,7 @@ describe('onboarding service', () => {
 		const { location } = await service.selectProfile(await ctxFor(user._id), select);
 		const reload = async () => (await Location.findById(location.location_id)) as ILocation;
 
-		await expect(service.complete(user._id, location.location_id)).rejects.toMatchObject({ statusCode: 400, message: 'Add at least one keyword first.' });
+		await expect(service.complete(user._id, location.location_id)).rejects.toMatchObject({ statusCode: 400, message: 'Add at least one keyword first.', data: { reason: 'keywords_required' } });
 		const afterKeywords = await updateTracking(await reload(), { keywords: ['plumber', 'emergency plumber'] });
 		expect(afterKeywords.onboarding_step).toBe('keywords_set');
 		await updateTracking(await reload(), { competitors: [] });

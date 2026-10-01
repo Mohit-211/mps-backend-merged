@@ -577,7 +577,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 42 | GET | `/locations/:locationId/overview` | user, owner | – | Header + `rankings, gbp, performance, reviews, competitors, refresh, empty_states` |
 | 43 | PATCH | `/locations/:locationId` | user, owner (write) | `{ name?, timezone?, client_id? }` | Header |
 | 44 | DELETE | `/locations/:locationId` | user, owner (write) | – | `{ deleted, gbp_unbound, jobs_cancelled, usage }` |
-| 45 | GET | `/clients` | user + org (agency) | `search, status, page, limit` | `{ clients, page, limit, total }` |
+| 45 | GET | `/clients` | user + org (agency) | `search, status, page, limit` (limit 1–100) | `{ clients, page, limit, total }` |
 | 46 | POST | `/clients` | user + org (agency, owner/member) | `{ name, website?, contact_email? }` | **201** client |
 | 47 | GET | `/clients/:clientId` | user + org (agency) | – | `{ client, locations, summary }` |
 | 48 | PATCH | `/clients/:clientId` | user + org (agency, owner/member) | `{ name?, website?, contact_email?, status? }` | Client |

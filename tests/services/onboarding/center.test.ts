@@ -118,6 +118,7 @@ describe('service-area onboarding: profile → center → keywords → competito
 		await expect(onboarding.complete(user._id, selected.location.location_id)).rejects.toMatchObject({
 			statusCode: 400,
 			message: 'Set the business center first (city or ZIP).',
+			data: { reason: 'center_required' },
 		});
 
 		const center = await setupCenter().service.setCenter(await reload(), user._id, 'E3B 1A1');

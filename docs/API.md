@@ -1356,7 +1356,10 @@ Body: `{ "query": "Fredericton, NB" }`: a city or ZIP / postal code, 2–100 cha
 
 ### `POST /api/v1/onboarding/complete`
 
-Body: `{ "location_id" }`. It requires a bound profile, a center (lat/lng; 400 "Set the business center first (city or ZIP)." otherwise) and at least 1 keyword.
+Body: `{ "location_id" }`. It requires a center (lat/lng) and at least 1 keyword; **no GBP binding is needed** (since Phase 8: locations added from a Places search finish setup too).
+
+- **400** `{ "reason": "center_required" }`: set the center first (`PUT /locations/:id/center`).
+- **400** `{ "reason": "keywords_required" }`: add keywords first (`PUT /locations/:id/tracking`). `GET /locations/:id/competitor-suggestions` answers the same before keywords exist.
 
 ```json
 { "completed": true, "completed_at": "2026-09-26T10:05:00.000Z",
@@ -1364,7 +1367,7 @@ Body: `{ "location_id" }`. It requires a bound profile, a center (lat/lng; 400 "
   "gbp_sync": { "requested_at": "2026-09-26T10:05:00.000Z" } }
 ```
 
-- It queues the first rank run (dev limits apply) and records a GBP sync request. The sync job arrives in Phase 7b and picks up requested locations.
+- It queues the first rank run and, when the location is GBP-bound, the first GBP sync; it sets the monthly refresh schedule.
 - Calling it again returns the same state without queuing another run.
 - **422:** the run would exceed `RANK_MAX_CALLS_PER_RUN`.
 
