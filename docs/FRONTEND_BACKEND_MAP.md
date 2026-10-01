@@ -86,15 +86,17 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 ## Rankings
 
+**Wording to show on the ranking pages (Phase 17):** "Rankings are Google Maps results, measured with the Google Places API from each point around your business." There is no Google / Local Finder / organic switch: remove it.
+
 | Screen | Backend | Status |
 |---|---|---|
 | Overview | `GET /locations/:id/rank-tracker` (avgRank, foundRate, top3Rate, change, trend of the last 12 runs) | **partial**: average rank, movement (change labels), history and distribution (buckets per cell) are available. **"Local Pack coverage" = Maps top-3 rate** (not a Google SERP pack). |
-| Keywords | `GET /locations/:id/rank-tracker`, `PUT /locations/:id/tracking` | **partial**: keywords, current and previous rank, change. **Search volume: not supported.** "Result type Google / Local Finder": **not supported**; Maps only. |
-| Keyword groups | – | not supported yet (no groups in the model; could be added later if needed) |
+| Keywords | `GET /locations/:id/rank-tracker`, `PUT /locations/:id/tracking`, `GET /locations/:id/keyword-history?keyword=` (17: one keyword across runs, for its chart) | **partial**: keywords, current and previous rank, change (17: kept across keyword edits on the shared keywords; new keywords have none until their second run). **Search volume: not supported.** "Result type Google / Local Finder": **not supported**; Maps only. |
+| Keyword groups | `GET/POST /locations/:id/keyword-groups`, `PATCH/DELETE …/:groupId`; `?group=` on `rank-tracker` and `grid`; `groups` summaries on `rank-tracker` | **available (17)**: up to 20 groups, a keyword in many groups; Rank Tracker report section `keyword_groups`. |
 | Positions | `GET /locations/:id/rank-tracker` (5 tracker points), `GET /locations/:id/rank-runs` | available |
-| Map rankings | `GET /locations/:id/map-ranking?point=C\|N\|S\|E\|W\|all` (top 20 per keyword at the center and the 4 compass points, client highlighted) | available; **12.5:** point selector (default center) to show how the list changes across the area. Show `attribution` near the names. |
-| Local Search Grid | `GET /locations/:id/grid` (3×3 / 5×5 / 7×7, rank per point, summary; `?runId=` for history) | available. "Search type" selector: Maps only. **12.5:** each cell has `samples` and `spread` (how stable the rank was across repeated searches; 61 = not in the top 60). |
-| Competitor rankings | `GET /locations/:id/rank-tracker` / `grid` (`byTarget` per tracked competitor) | available |
+| Map rankings | `GET /locations/:id/map-ranking?point=C\|N\|S\|E\|W\|all` (top 20 per keyword at the center and the 4 compass points, client highlighted) | available; **12.5:** point selector (default center) to show how the list changes across the area. **17:** map pins (`address`, `lat`, `lng` per result; `null` on older runs). Show `attribution` near the names. |
+| Local Search Grid | `GET /locations/:id/grid` (3×3 to 13×13, rank per point, summary; `?runId=` for history; 17: `?group=`, `grid.radius_km`) | available. **17:** grid settings by radius (0.5–15 km, default 7×7 at 8 km) in `PUT /tracking`; `GET /tracking/estimate` shows run time and the cap before saving. "Search type" selector: Maps only. **12.5:** each cell has `samples` and `spread` (how stable the rank was across repeated searches; 61 = not in the top 60). |
+| Competitor rankings | `GET /locations/:id/rank-tracker` / `grid` (`byTarget` per tracked competitor), `targets[].name`, `GET /tracking` `competitors` (name, address, position), `GET /rank-runs` (`overall` + `targets` per run, for competitor history) | available; max 5 competitors per location (`too_many_competitors`). |
 
 ## GBP
 

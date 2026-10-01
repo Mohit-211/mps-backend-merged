@@ -613,7 +613,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 - **#17 (Phase 8):** `GET /onboarding/state` now returns `organization` (steps, `next_step`, `completed`) and `empty_states` before `gbp` and `locations`; every location of the organization is listed (unfinished first) with `source` and `client_id`.
 - **#21 (Phase 8):** without `locationId` it is the add-location search (`country` or the organization's).
 - **#22 (Phase 8):** no GBP binding needed; the GBP sync is queued only when bound.
-- **#29–#34:** codes are stored hashed, expire in 15 minutes, allow 5 attempts, single use; rate-limited per email (and IP) with **429** `rate_limited`.
+- **#29–#34:** verification and reset are one-time links (no codes): tokens stored hashed, single use (verification 24 h, reset 60 min); rate-limited per email (and IP) with **429** `rate_limited`.
 - **#40:** 1 Place Details call (US/CA only), after the limit and duplicate checks.
 - **#44:** soft delete; history is kept and the plan slot freed at once.
 
@@ -624,7 +624,7 @@ A report freezes stored data (rank runs, the GBP report, the profile snapshot) a
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
 | 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|citation (16)\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_citations_yet` (16), `no_data` |
-| 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), page, limit` | `{ reports: [view], page, limit, total }` |
+| 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), page, limit` | `{ reports: [view], page, limit, total }`; each view has `run_id` and `run_at` (17: the rank run's date) |
 | 63 | GET | `/reports/:reportId` | user + org | – | `{ report, snapshot: { location, data, sources } \| null, document: { title, period, generated_at, branding, blocks } \| null }` |
 | 64 | GET | `/reports/:reportId/pdf` | user + org | – | `application/pdf` attachment; **409** `not_ready` / `expired` |
 | 65 | DELETE | `/reports/:reportId` | user + org (owner/member) | – | `{ archived, report_id }` |

@@ -40,7 +40,8 @@ export interface IReport extends Document {
 	client_id: Types.ObjectId | null;
 	type: ReportType;
 	sections: string[];
-	params: { run_id: Types.ObjectId | null; range: ReportRangeParam };
+	/** run_at (Phase 17): when the report's rank run ran, for the library rows. */
+	params: { run_id: Types.ObjectId | null; run_at?: Date | null; range: ReportRangeParam };
 	status: ReportStatus;
 	/** True while queued/generating: one active report per (location, type). */
 	active: boolean;
@@ -65,6 +66,7 @@ const ReportSchema = new Schema<IReport>(
 		sections: { type: [String], default: [] },
 		params: {
 			run_id: { type: Schema.Types.ObjectId, ref: 'RankRun', default: null },
+			run_at: { type: Date, default: null },
 			range: { type: String, enum: REPORT_RANGES, default: '28d' },
 		},
 		status: { type: String, enum: REPORT_STATUSES, default: 'queued' },

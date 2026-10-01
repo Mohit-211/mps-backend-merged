@@ -1768,7 +1768,7 @@ Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
 ### Auth (`/api/v1/auth`)
 
-**Email verification is by link (Phase 8.1).** Signup emails `FRONTEND_URL/verify-email?token=<token>`. The token is random, stored only as a hash, single use, and valid 24 h (`EMAIL_VERIFICATION_TTL_HOURS`). An account not verified within 24 h of signup is deleted (hourly job), and the email can sign up again. Password-reset codes are still 6 digits, stored hashed, valid 15 minutes (`AUTH_CODE_TTL_MINUTES`), 5 attempts, single use.
+**Email verification is by link (Phase 8.1).** Signup emails `FRONTEND_URL/verify-email?token=<token>`. The token is random, stored only as a hash, single use, and valid 24 h (`EMAIL_VERIFICATION_TTL_HOURS`). An account not verified within 24 h of signup is deleted (hourly job), and the email can sign up again. Password reset is by link too (13b; no codes or OTP anywhere): see `POST /auth/forgot-password` below.
 
 **Rate limits** (per email, and per IP): above a limit → **429** `{ "reason": "rate_limited", "retry_after_seconds": 3599 }`.
 
@@ -2120,6 +2120,8 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
 { "location_id": "6ab8ad2e7c446457a3999f95", "type": "gbp_audit", "range": "90d" }
 ```
 
+**A report for an older run (Phase 17):** send `run_id` (any finished run of the location, e.g. from `GET /locations/:id/rank-runs`) with a `rank_tracker` or `full` report: `{ "location_id": "…", "type": "rank_tracker", "run_id": "6ab6dc8a10f657b7c9476cff" }`. Without it the latest finished run is used. Every report row has `run_id` and `run_at` (the run's date; `null` for types without rankings), so the library can show which month a report covers.
+
 **202**:
 
 ```json
@@ -2127,7 +2129,7 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
   "status": "queued", "trigger": "manual", "schedule_id": null,
   "location": { "location_id": "6ab8ad2e7c446457a3999f95", "name": "Maple Leaf Plumbing & Heating" },
   "client": { "client_id": "6ab8ad2e7c446457a3999f8f", "name": null },
-  "range": "90d", "run_id": null, "pdf": null, "failure_reason": null,
+  "range": "90d", "run_id": null, "run_at": null, "pdf": null, "failure_reason": null,
   "created_at": "2026-09-27T05:44:53.101Z", "generated_at": null, "expires_at": null, "archived_at": null, "existing": false }
 ```
 
@@ -2142,7 +2144,7 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
 ```json
 { "reports": [ { "report_id": "…", "type": "full", "status": "ready", "trigger": "manual",
                  "location": { "location_id": "…", "name": "Danforth Drain Pros" }, "client": { "client_id": "…", "name": "Danforth Services" },
-                 "range": "28d", "run_id": "…", "pdf": { "bytes": 36594, "pages": 5 }, "created_at": "…", "generated_at": "…", "expires_at": "2028-09-27T05:41:18.424Z", "archived_at": null } ],
+                 "range": "28d", "run_id": "…", "run_at": "2026-09-01T03:00:00.000Z", "pdf": { "bytes": 36594, "pages": 5 }, "created_at": "…", "generated_at": "…", "expires_at": "2028-09-27T05:41:18.424Z", "archived_at": null } ],
   "page": 1, "limit": 20, "total": 1 }
 ```
 

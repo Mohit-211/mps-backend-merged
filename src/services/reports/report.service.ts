@@ -161,6 +161,8 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 		client: r.client_id ? { client_id: String(r.client_id), name: names.client ?? null } : null,
 		range: r.params?.range ?? '28d',
 		run_id: r.params?.run_id ? String(r.params.run_id) : null,
+		// Phase 17: the date of the rank run the report shows (rank_tracker and full reports).
+		run_at: r.params?.run_at ?? null,
 		pdf: r.pdf ? { bytes: r.pdf.bytes, pages: r.pdf.pages } : null,
 		failure_reason: r.failure_reason,
 		created_at: r.created_at,
@@ -187,7 +189,7 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 				client_id: location.client_id ?? null,
 				type: input.type,
 				sections,
-				params: { run_id: run?._id ?? null, range: input.range ?? '28d' },
+				params: { run_id: run?._id ?? null, run_at: run?.run_at ?? null, range: input.range ?? '28d' },
 				trigger: meta.trigger,
 				schedule_id: meta.schedule_id ?? null,
 				created_by: meta.created_by,
