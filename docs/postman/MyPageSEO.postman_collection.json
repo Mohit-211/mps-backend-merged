@@ -3112,6 +3112,42 @@
 					}
 				},
 				{
+					"name": "GET /locations/:locationId/tracking/estimate",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/tracking/estimate",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"tracking",
+								"estimate"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "What a run would need for a grid / keyword count before saving it (calls, duration, cap, token cost); no Google calls\n\n**Auth:** user + owner · **Phase:** 17 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
 					"name": "PUT /locations/:locationId/tracking",
 					"request": {
 						"method": "PUT",
@@ -3151,12 +3187,190 @@
 						},
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"keywords\": [\n    \"plumber\",\n    \"emergency plumber\"\n  ],\n  \"competitors\": [],\n  \"grid\": {\n    \"size\": 5,\n    \"spacing_km\": 1\n  },\n  \"frequency\": \"auto_monthly\"\n}",
+							"raw": "{\n  \"keywords\": [\n    \"plumber\",\n    \"emergency plumber\"\n  ],\n  \"competitors\": [],\n  \"grid\": {\n    \"size\": 7,\n    \"radius_km\": 8\n  },\n  \"frequency\": \"auto_monthly\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
 								}
 							}
+						}
+					}
+				},
+				{
+					"name": "GET /locations/:locationId/keyword-groups",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/keyword-groups",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"keyword-groups"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "Keyword groups (filters and summaries on rank-tracker and grid)\n\n**Auth:** user + owner · **Phase:** 17 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST /locations/:locationId/keyword-groups",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/keyword-groups",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"keyword-groups"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "Create a keyword group (max 20; tracked keywords only)\n\n**Auth:** user + owner · **Phase:** 17 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Emergency\",\n  \"keywords\": [\n    \"emergency plumber\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "PATCH /locations/:locationId/keyword-groups/:groupId",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/keyword-groups/:groupId",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"keyword-groups",
+								":groupId"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								},
+								{
+									"key": "groupId",
+									"value": "{{groupId}}"
+								}
+							]
+						},
+						"description": "Rename a group or replace its keywords\n\n**Auth:** user + owner · **Phase:** 17 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Urgent\",\n  \"keywords\": [\n    \"plumber\",\n    \"emergency plumber\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "DELETE /locations/:locationId/keyword-groups/:groupId",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/keyword-groups/:groupId",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"keyword-groups",
+								":groupId"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								},
+								{
+									"key": "groupId",
+									"value": "{{groupId}}"
+								}
+							]
+						},
+						"description": "Delete a keyword group\n\n**Auth:** user + owner · **Phase:** 17 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
 						}
 					}
 				},
@@ -3311,7 +3525,42 @@
 								}
 							]
 						},
-						"description": "Rank Tracker page (?runId=)\n\n**Auth:** user + owner · **Phase:** 5 · **Status:** live",
+						"description": "Rank Tracker page (?runId=; 17: ?group=, groups summaries)\n\n**Auth:** user + owner · **Phase:** 5, changed 17 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET /locations/:locationId/keyword-history",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/keyword-history",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"keyword-history"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "One keyword across the finished runs, for its chart (?keyword=&limit=)\n\n**Auth:** user + owner · **Phase:** 17 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3358,7 +3607,7 @@
 								}
 							]
 						},
-						"description": "Local Search Grid page (?keyword=&runId=)\n\n**Auth:** user + owner · **Phase:** 5 · **Status:** live",
+						"description": "Local Search Grid page (?keyword=&runId=; 17: ?group=, grid.radius_km)\n\n**Auth:** user + owner · **Phase:** 5, changed 17 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3415,7 +3664,7 @@
 								}
 							]
 						},
-						"description": "Local Map Ranking page (?keyword=&runId=&resolveNames=&point=C|N|S|E|W|all; 12.5: lists at the 5 tracker points)\n\n**Auth:** user + owner · **Phase:** 5, changed 12.5 · **Status:** live",
+						"description": "Local Map Ranking page (?keyword=&runId=&resolveNames=&point=C|N|S|E|W|all; 12.5: lists at the 5 tracker points; 17: map pins address, lat, lng)\n\n**Auth:** user + owner · **Phase:** 5, changed 12.5, 17 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [

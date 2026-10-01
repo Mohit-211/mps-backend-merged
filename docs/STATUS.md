@@ -1,6 +1,6 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-09-29. Phases 13a (`2c77a8a`) and 13b (`411b7c2`) are merged and pushed. **The 13c follow-ups** (403 for suspended organizations, checkout quantity) are built on `claude/phase-13c-followups`, awaiting merge. Next: **Phase 14 (production readiness)** in plan mode._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-10-01. Phase 13 is done (13a `2c77a8a`, 13b `411b7c2`, 13c `093b127`), as are the GBP connect → pick → bind change (`d8eb400`) and the error reasons (`85ef65d`); all on `master`. **Phase 17 (ranking extras)**, pulled forward for the real ranking pages, is built on `claude/phase-17-ranking-extras`, awaiting merge. Next: **Phase 14 (production readiness)** in plan mode._
 
 ## Product goal
 
@@ -35,12 +35,12 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | 10 | Security hardening (all Deferred-P10 items incl. S19, S30, plus the admin auth and roles Phase 16 needs) | done | `claude/phase-10-security` | yes (`3c776fd`) | M5 (pushed 2026-09-27) |
 | 8.1 | Email verification by link (CLAUDE.md §12g) | done | `claude/phase-8.1-email-verify` | yes (`604f8d6`) | M5 (pushed 2026-09-27) |
 | 16 | Citations: manual, admin-managed tracking, Citation Health, Citation Report (CLAUDE.md §12f; plan: [plans/phase-16-citations.md](plans/phase-16-citations.md)) | done | `claude/phase-16-citations` | yes (`daff461`) | M5 (pushed 2026-09-28) |
-| **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | 13a, 13b done; **13c follow-ups built, awaiting merge** | `claude/phase-13a-billing`, `claude/phase-13b-admin`, `claude/phase-13c-followups` | 13a `2c77a8a`, 13b `411b7c2` | M5 |
+| **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | done (13a, 13b, 13c) | `claude/phase-13a-billing`, `claude/phase-13b-admin`, `claude/phase-13c-followups` | 13a `2c77a8a`, 13b `411b7c2`, 13c `093b127` | M5 (pushed) |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – | – |
 | 15 | Notifications & automations | planned | – | – | – |
-| 17 | Ranking extras (keyword groups, larger grids) | planned | – | – | – |
+| 17 | Ranking extras (pulled forward 2026-10-01): grids 3–13 by radius, map pins, change across keyword edits, keyword groups, keyword history, competitor names (max 5), report run dates. CLAUDE.md §12i; plan [plans/phase-17-ranking-extras.md](plans/phase-17-ranking-extras.md) | **built, awaiting merge** | `claude/phase-17-ranking-extras` | – | – |
 | – | AI GBP posts (needs GBP v4) · AI visibility · Review management (needs GBP v4) · White-label hosting: groundwork in [plans/upcoming-features.md](plans/upcoming-features.md) | planned, spec pending | – | – | – |
 | 9b | Cleanup | ongoing | – | – | – |
 
@@ -50,6 +50,7 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 
 ## Done so far
 
+- **Phase 17 (2026-10-01, awaiting merge):** grids 3×3 to 13×13 set by radius (0.5–15 km; default 7×7 at 8 km), Rank Tracker / Map Ranking points at radius ÷ 2, `RANK_MAX_CALLS_PER_RUN` 40,000 and `GET /tracking/estimate`; Map Ranking pins (`address`, `lat`, `lng`; same Pro price); changes kept across keyword edits on the shared keywords (`comparable_keywords`; CHANGELOG `change_across_keyword_edits`); keyword groups (CRUD, `?group=`, summaries, report section); `GET /keyword-history`; competitor names / addresses / positions (max 5) and names on run targets; `run_at` on report rows. Endpoints 226 → 232. Details: PROGRESS.md "Phase 17".
 - **Phase 13b (2026-09-28/29, awaiting merge):** everything legacy the rebuilt product doesn't use is deleted (endpoints 250 → 225: 65 removed, 40 added; no deprecated routes; no data migrations: the launch uses a fresh database with `npm run setup:fresh`); `/auth` sessions and account (refresh rotation, logout, change password, me, deactivate); the Google connect under `/gbp/connect/*`; password reset by link for users and admins (no OTP anywhere) and new admins set their password by link; one email switch (`EMAIL_TRANSPORT`); the payment-provider interface; flaky tests fixed (4/10 failing runs → green); end-to-end flow tests + [FLOWS.md](FLOWS.md); the admin panel backend (overview, users, organizations, admin accounts) and support tickets; the upcoming-features groundwork. Lint 82 → 40 (all in legacy GBP posting). Details: PROGRESS.md "Phase 13b".
 - **Audit and hygiene:** 29 security and 25 correctness findings with status (AUDIT.md), all routes listed (ROUTES.md), LF everywhere, 0 TypeScript errors, `.env` loaded from `ENV_FILE` or `./.env`.
 - **Local setup:** a separate local database, `mps_rebuild` (Homebrew MongoDB 7.0). Background jobs work (C25): agenda has its own connection, the registry is `src/jobs/index.ts`, and new jobs use `defineJob` (IDs-only data).
@@ -275,8 +276,7 @@ Required for M5; not part of Phase 12.5's build:
 
 ## Backlog (not now)
 
-The ranking items below belong to **Phase 17** (Ranking extras).
-
+- **Phase 17 leftovers:** larger grids make monthly runs longer (13×13 at 20 keywords ≈ 65 min at 8 queries/s, shared by the whole server): watch the monthly queue once real customers use big grids. Competitor details for a competitor saved without a key or over the daily limit stay empty until a later save or a Map Ranking hit.
 
 - **TypeScript 7 readiness** (9b / 14): `moduleResolution: node` is removed in TS 7; the node16 move and the two dynamic imports are described in OPERATIONS.md "Lint and editor setup".
 - **Legacy lint debt:** 40 ESLint errors, all in legacy GBP posting (169 when first measured on 2026-09-27; Phase 16 removed 32, 13a 55, 13b 42). They go when Phase 9 rebuilds posting.
@@ -286,7 +286,7 @@ The ranking items below belong to **Phase 17** (Ranking extras).
 
 ## Next up
 
-1. **Merge and push the 13c follow-ups** (commands in PROGRESS.md "Phase 13c").
+1. **Merge and push Phase 17** (commands in PROGRESS.md "Phase 17"); the first real large-grid run (e.g. 7×7 at 8 km) is Mohit's.
 2. **Phase 14 (production readiness)** in plan mode: fresh server (MongoDB, backups, nginx, pm2, log rotation, error monitoring, alerts), the deploy-checklist dry run with `setup:fresh`, Maps ToS decisions. Before launch: prices (open item 11), the PayPal sandbox test (open item 13), the redirect URI change (open item 16).
 3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
 4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then pick and bind (`PUT /gbp/connections/:googleSub/picks`, `POST /gbp/picks/:pickId/bind`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.

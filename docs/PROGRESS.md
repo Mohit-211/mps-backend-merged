@@ -1288,3 +1288,32 @@ Branch `claude/phase-13c-followups` from `claude/rebuild` (after the 13b merge `
 git checkout claude/rebuild && git merge --no-ff claude/phase-13c-followups -m "Merge Phase 13c: 403 for suspended organizations, checkout quantity, tsconfig include"
 git push origin claude/rebuild claude/phase-13c-followups
 ```
+
+## Phase 17: ranking extras (2026-10-01)
+
+Branch `claude/phase-17-ranking-extras` from `master` (`85ef65d`). Pulled forward for the real ranking pages (the frontend's list, Mohit's decisions in CLAUDE.md §12i; plan [plans/phase-17-ranking-extras.md](plans/phase-17-ranking-extras.md)).
+
+**Commits:**
+- `27e463e`: spec (CLAUDE §12i, roadmap) and the approved plan.
+- `1067d48`: **grids 3×3 to 13×13 set by radius** (0.5–15 km) or spacing (0.1–15 km), default 7×7 at 8 km; the Rank Tracker / Map Ranking offset is radius ÷ 2 (at least 0.5 km) per location, `RANK_TRACKER_OFFSET_KM` removed; `RANK_MAX_CALLS_PER_RUN` 16,000 → 40,000; `GET /locations/:id/tracking/estimate`; `GET/PUT /tracking` add `expected_duration_ms`, `cap`, `over_cap`.
+- `8fe42df`: **Map Ranking pins**: `places.formattedAddress` and `places.location` added to the Pro names mask (both Text Search Pro fields per Google's SKU list, so the same price); `address`, `lat`, `lng` on every result (stored under `STORE_PLACE_NAMES`).
+- `bc9d323`: **change across keyword edits**: the previous run is the latest finished run of any `keywords_version`; per-keyword change on shared keywords; the overall change over the shared keywords with `comparable_keywords` / `keywords_total`; competitors matched by `place_id` (a slot now holding another business isn't compared). CLAUDE §4 and CHANGELOG (`change_across_keyword_edits`, `grid_radius_default`).
+- `6aa5a34`: **keyword groups**: `tracking.keyword_groups` (max 20), CRUD `/locations/:id/keyword-groups`, `?group=` on rank-tracker and grid, `groups` summaries, Rank Tracker report section `keyword_groups`.
+- `d189657`: **`GET /locations/:id/keyword-history`**; `GET /rank-runs` adds `targets`.
+- `1189a8c`: **competitor details** (name, address, lat/lng), max 5: suggestion cache → latest map lists → one Place Details call (daily Places cap, usage ledger); `competitors` on `GET/PUT /tracking`; run `targets[].name`; reasons `too_many_competitors`, `own_place_id`, `invalid_place_id`.
+- `f3fb6df`: `run_at` on report rows; `POST /reports { run_id }` documented; the ranking wording; the stale "6-digit codes" text in API.md / ENDPOINTS.md fixed.
+- (this commit): Postman regenerated (232 requests), STATUS / PROGRESS / CLAUDE roadmap.
+
+**Endpoints:** 226 → 232 (+ `GET /tracking/estimate`, 4 keyword-group routes, `GET /keyword-history`).
+
+**Offline dry run** (temporary test, in-memory database, scripted Places client): 3 keywords, 9×9 at 8 km (spacing 2 km, offset 4 km so the tracker points fall on the grid, 81 points), production plan, 1 sample: estimate 729 IDs-only + 15 Pro = actual 729 + 15; `grid` / `rank-tracker` / `map-ranking` show `radius_km`, target names and map pins.
+
+**Checks:** build 0 errors; both tsc configs 0; lint 40 (all legacy GBP posting, 0 new); tests **100 suites, 937**; `check:endpoints` passes.
+
+**API calls:** none (one documentation fetch to confirm the Pro SKU fields).
+
+**Merge and push (run by Mohit):**
+```bash
+git checkout master && git merge --no-ff claude/phase-17-ranking-extras -m "Merge Phase 17: ranking extras (grids by radius, map pins, change across edits, keyword groups, history, competitor names)"
+git push origin master claude/phase-17-ranking-extras
+```

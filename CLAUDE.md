@@ -31,12 +31,12 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
 | 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
 | 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | done | `claude/phase-16-citations` | M5 (pushed) |
-| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: legacy removal, `/auth` session + account endpoints, payment-provider interface, flaky tests, admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | 13a done (`2c77a8a`), 13b done (`411b7c2`), pushed; **13c follow-ups built, awaiting merge** | `claude/phase-13c-followups` | M5 |
+| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: legacy removal, `/auth` session + account endpoints, payment-provider interface, flaky tests, admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | done: 13a (`2c77a8a`), 13b (`411b7c2`), 13c (`093b127`), pushed | `claude/phase-13c-followups` | M5 (pushed) |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
 | 15 | Notifications & automations | planned | – | – |
-| **17** | **Ranking extras** (pulled forward 2026-10-01 for the real ranking pages): grids 3–13 by radius (≤ 15 km), map pins for Map Ranking, keyword change across edits, keyword groups, keyword history, competitor names (max 5), report run dates. Spec §12i; plan `docs/plans/phase-17-ranking-extras.md` | **in progress** | `claude/phase-17-ranking-extras` | – |
+| **17** | **Ranking extras** (pulled forward 2026-10-01 for the real ranking pages): grids 3–13 by radius (≤ 15 km), map pins for Map Ranking, keyword change across edits, keyword groups, keyword history, competitor names (max 5), report run dates. Spec §12i; plan `docs/plans/phase-17-ranking-extras.md` | **built, awaiting merge** | `claude/phase-17-ranking-extras` | – |
 | – | **AI GBP posts**: AI text + images, publishing schedules, optional approval, calendar (needs GBP v4; extends 9). Groundwork: `docs/plans/upcoming-features.md` §A | planned, spec pending | – | – |
 | – | **AI visibility**: presence in AI assistants' answers (ChatGPT, Gemini, Perplexity, Claude) over time, score, competitor comparison. §B | planned, spec pending | – | – |
 | – | **Review management**: review sync, AI analysis, AI reply suggestions and auto-reply with rules / approval (needs GBP v4). §C | planned, spec pending | – | – |
@@ -961,6 +961,15 @@ Branch `claude/phase-17-ranking-extras` from `master`. Requested by the frontend
 - **Competitors:** at most 5 per location (unchanged); names, addresses and coordinates stored when added (cache / map list first, else 1 Place Details call); run targets carry the name.
 
 **Scope:** the estimate endpoint; map pins (`lat`, `lng`, `address` on Map Ranking results, Text Search Pro fields); keyword groups (CRUD, `?group=` on rank-tracker and grid, group summaries, a report section); keyword history; `run_at` on report rows; the Google Maps wording; docs.
+
+**As built (2026-10-01):**
+- **Grid:** `src/ranking/points.ts` (`GRID_SIZES` 3–13, `radiusFromSpacing`, `spacingFromRadius`, `trackerOffsetForRadius`); `resolveGrid` in `trackingSettings.ts` (400 `invalid_grid`); `tracking.grid.radius_km` and `run.config.radius_km`; `RANK_TRACKER_OFFSET_KM` removed; `GET /locations/:id/tracking/estimate` (`tracking.service.ts` `estimateTracking`), and `GET/PUT /tracking` add `expected_duration_ms`, `cap`, `over_cap`.
+- **Map pins:** `WITH_NAMES_FIELD_MASK` + `places.formattedAddress,places.location` (both Pro, checked 2026-10-01); `mapList[].results[]` `address`, `lat`, `lng`, stored under `STORE_PLACE_NAMES`.
+- **Change across edits:** `rankRunExecutor.ts` (previous run of any version, targets matched by `place_id`), `sharedOverallChange` in `metrics.ts`; `overall[target].comparable_keywords` / `keywords_total`.
+- **Keyword groups:** `tracking.keyword_groups`, `src/services/ranking/keywordGroups.ts`, `/locations/:id/keyword-groups` (CRUD), `?group=` + `groups` on rank-tracker, `?group=` on grid, report section `keyword_groups`.
+- **History:** `src/services/ranking/keywordHistory.ts`, `GET /locations/:id/keyword-history`; `GET /rank-runs` adds `targets`.
+- **Competitors:** `src/services/ranking/competitorInfo.ts`, `tracking.competitor_info`, `competitors` on `GET/PUT /tracking`, `targets[].name` on runs, reasons `too_many_competitors`, `own_place_id`, `invalid_place_id`.
+- **Reports:** `Report.params.run_at`, `run_at` on report views.
 
 **Gate.**
 

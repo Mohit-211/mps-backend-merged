@@ -87,7 +87,9 @@ const B = {
 	'PATCH /clients/:clientId': { name: 'Acme Dental Group', status: 'ACTIVE' },
 	'POST /clients/:clientId/locations': { location_id: ID('locationId') },
 	// Ranking, onboarding, refresh
-	'PUT /locations/:locationId/tracking': { keywords: ['plumber', 'emergency plumber'], competitors: [], grid: { size: 5, spacing_km: 1 }, frequency: 'auto_monthly' },
+	'PUT /locations/:locationId/tracking': { keywords: ['plumber', 'emergency plumber'], competitors: [], grid: { size: 7, radius_km: 8 }, frequency: 'auto_monthly' },
+	'POST /locations/:locationId/keyword-groups': { name: 'Emergency', keywords: ['emergency plumber'] },
+	'PATCH /locations/:locationId/keyword-groups/:groupId': { name: 'Urgent', keywords: ['plumber', 'emergency plumber'] },
 	'PUT /locations/:locationId/center': { query: 'Fredericton, NB' },
 	'POST /locations/:locationId/refresh': { types: ['rankings', 'gbp'] },
 	'POST /onboarding/complete': { location_id: ID('locationId') },
