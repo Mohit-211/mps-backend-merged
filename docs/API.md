@@ -151,7 +151,8 @@ Partial update: only the fields you send change.
 **Rules**
 - **`keywords`:** 1 to `RANK_MAX_KEYWORDS` (20) entries of 2–80 characters each. They are trimmed and de-duplicated case-insensitively, and the first spelling is kept.
 - **`keywords_version`:** goes up **only when the set of keywords changes**. Reordering or re-casing does not bump it. Changes are still compared on the keywords both runs share (Phase 17).
-- **`competitors`:** up to 5 Google place IDs, never the location's own `place_id`.
+- **`competitors`:** up to 5 Google place IDs, never the location's own `place_id`. Errors: **400** `too_many_competitors` (+ `limit: 5`), `own_place_id`, `invalid_place_id`.
+- **Competitor details (Phase 17):** the response (and `GET /tracking`) has a top-level `competitors: [{ place_id, name, address, lat, lng }]` in the order of `tracking.competitors` (which stays a list of place IDs, as sent). When competitors are saved, each new one gets its details from the competitor suggestions or the latest Map Ranking lists (free), otherwise from one Place Details call (counted in the daily Places limit). If that fails (no key, daily limit, Google error) the fields are `null` and the save still succeeds; they fill in on a later save or when the business shows in a Map Ranking list. Every run stores the names in `targets: [{ key, place_id, name }]`, so the ranking pages label `competitor_1`… without another call.
 - **`grid`** (Phase 17): `size` 3, 5, 7, 9, 11 or 13, plus **either** `radius_km` (center to edge, 0.5–15) **or** `spacing_km` (between neighbouring points, 0.1–15). The other is derived (spacing = radius ÷ ((size − 1) / 2)) and both must stay in range, so a 13×13 needs a radius of at least 0.6 km. The response carries all three. New locations start at `{ size: 7, radius_km: 8 }` (about 5 miles). The Rank Tracker and Map Ranking points sit halfway to the edge (radius ÷ 2, at least 0.5 km); the search bias around each point stays 5 km. Error: **400** `{ "reason": "invalid_grid" }`.
 - **Cost of a bigger grid:** grid searches use the free IDs-only SKU, so a bigger grid costs run time, not money: at 20 keywords and 3 samples, about 32 min for 9×9, 47 min for 11×11 and 65 min for 13×13. `over_cap: true` means a run with these settings would be refused (422); check it with `GET /tracking/estimate` before saving.
 - **`frequency`** (7b): `auto_monthly` (default: the location refreshes automatically once a month, on the day it completed setup, at about 03:00 local) or `manual_only` (only `POST /refresh` or "run now"). `next_run_at` is no longer accepted (400).
@@ -225,6 +226,10 @@ Partial update: only the fields you send change.
     "cap": 40000,
     "over_cap": false,
     "dev_capped": true,
+    "competitors": [
+      { "place_id": "ChIJdemoQueenWestPlumbing02", "name": "Queen West Plumbing", "address": "820 Queen St W, Toronto, ON M6J 1G3, Canada", "lat": 43.6449, "lng": -79.4115 },
+      { "place_id": "ChIJdemoDanforthDrainPros03", "name": "Danforth Drain Pros", "address": "1500 Danforth Ave, Toronto, ON M4J 1N4, Canada", "lat": 43.6829, "lng": -79.3285 }
+    ],
     "keywords_version_bumped": false
   }
 }
@@ -599,15 +604,18 @@ For each keyword: a summary per target (average rank, found rate, top-3 rate, ch
     "targets": [
       {
         "key": "self",
-        "place_id": "ChIJdemoMapleLeafPlumbing01"
+        "place_id": "ChIJdemoMapleLeafPlumbing01",
+        "name": "Maple Leaf Plumbing & Heating"
       },
       {
         "key": "competitor_1",
-        "place_id": "ChIJdemoQueenWestPlumbing02"
+        "place_id": "ChIJdemoQueenWestPlumbing02",
+        "name": "Queen West Plumbing"
       },
       {
         "key": "competitor_2",
-        "place_id": "ChIJdemoDanforthDrainPros03"
+        "place_id": "ChIJdemoDanforthDrainPros03",
+        "name": "Danforth Drain Pros"
       }
     ],
     "keywords": [
@@ -860,15 +868,18 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
     "targets": [
       {
         "key": "self",
-        "place_id": "ChIJdemoMapleLeafPlumbing01"
+        "place_id": "ChIJdemoMapleLeafPlumbing01",
+        "name": "Maple Leaf Plumbing & Heating"
       },
       {
         "key": "competitor_1",
-        "place_id": "ChIJdemoQueenWestPlumbing02"
+        "place_id": "ChIJdemoQueenWestPlumbing02",
+        "name": "Queen West Plumbing"
       },
       {
         "key": "competitor_2",
-        "place_id": "ChIJdemoDanforthDrainPros03"
+        "place_id": "ChIJdemoDanforthDrainPros03",
+        "name": "Danforth Drain Pros"
       }
     ],
     "grid": {
@@ -1168,7 +1179,7 @@ One tracked keyword across the location's finished runs, oldest first, for the p
         "run_at": "2026-09-01T03:00:00.000Z",
         "status": "done",
         "keywords_version": 1,
-        "targets": [{ "key": "self", "place_id": "ChIJdemoMapleLeafPlumbing01" }, { "key": "competitor_1", "place_id": "ChIJdemoQueenWestPlumbing02" }],
+        "targets": [{ "key": "self", "place_id": "ChIJdemoMapleLeafPlumbing01", "name": "Maple Leaf Plumbing & Heating" }, { "key": "competitor_1", "place_id": "ChIJdemoQueenWestPlumbing02", "name": "Queen West Plumbing" }],
         "summary": {
           "self": { "avgRank": 8.2, "foundRate": 1, "top3Rate": 0.2, "change": null, "changeLabel": null },
           "competitor_1": { "avgRank": 5, "foundRate": 1, "top3Rate": 0.4, "change": null, "changeLabel": null }
@@ -1179,7 +1190,7 @@ One tracked keyword across the location's finished runs, oldest first, for the p
         "run_at": "2026-10-01T03:00:00.000Z",
         "status": "done",
         "keywords_version": 2,
-        "targets": [{ "key": "self", "place_id": "ChIJdemoMapleLeafPlumbing01" }, { "key": "competitor_1", "place_id": "ChIJdemoQueenWestPlumbing02" }],
+        "targets": [{ "key": "self", "place_id": "ChIJdemoMapleLeafPlumbing01", "name": "Maple Leaf Plumbing & Heating" }, { "key": "competitor_1", "place_id": "ChIJdemoQueenWestPlumbing02", "name": "Queen West Plumbing" }],
         "summary": {
           "self": { "avgRank": 5.4, "foundRate": 1, "top3Rate": 0.6, "change": 2.8, "changeLabel": "improved" },
           "competitor_1": { "avgRank": 5.2, "foundRate": 1, "top3Rate": 0.4, "change": -0.2, "changeLabel": "declined" }

@@ -48,7 +48,7 @@ export const getKeywordHistory = catchAsync(async (req, res) => {
 	return responseWrapper(res, await keywordHistory(location(res), q.keyword, q.limit));
 });
 
-export const getTrackingSettings = catchAsync(async (req, res) => responseWrapper(res, getTracking(location(res))));
+export const getTrackingSettings = catchAsync(async (req, res) => responseWrapper(res, await getTracking(location(res))));
 
 export const getTrackingEstimate = catchAsync(async (req, res) =>
 	responseWrapper(res, await estimateTracking(location(res), (res.locals.estimateQuery ?? {}) as EstimateQuery)),
@@ -57,7 +57,7 @@ export const getTrackingEstimate = catchAsync(async (req, res) =>
 export const updateTrackingSettings = catchAsync(async (req, res) => {
 	// Phase 13a: no organization-wide keyword cap (the per-location cap RANK_MAX_KEYWORDS applies).
 	const before = [...withDefaults(location(res).tracking).competitors].sort().join(',');
-	const result = await updateTracking(location(res), res.locals.trackingUpdate as TrackingUpdate);
+	const result = await updateTracking(location(res), res.locals.trackingUpdate as TrackingUpdate, new Date(), { userId: res.locals.userId as string });
 	// 7c: a changed competitor set refreshes an existing GBP report (only new competitors cost a Place Details call).
 	const after = [...result.tracking.competitors].sort().join(',');
 	if (before !== after && location(res).gbp_report?.last_generated_at) await requestReportSafely(locationId(res), 'competitors_changed');

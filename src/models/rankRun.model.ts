@@ -126,7 +126,8 @@ export interface RankRunData {
 	};
 	/** Phase 12.5: expected duration from the estimate (the stuck guard allows twice this plus 10 minutes). */
 	expected_duration_ms?: number | null;
-	targets: { key: string; place_id: string }[];
+	/** Phase 17: `name` snapshot at run time (absent on older runs). */
+	targets: { key: string; place_id: string; name?: string | null }[];
 	estimate: RankRunEstimateDoc;
 	dev_capped: boolean;
 	tracker: TrackerSectionDoc[];
@@ -208,7 +209,7 @@ const rankRunSchema = new Schema<IRankRun>(
 			map_points: { type: Number, default: 1 },
 		},
 		expected_duration_ms: { type: Number, default: null },
-		targets: { type: [{ _id: false, key: String, place_id: String }], default: [] },
+		targets: { type: [{ _id: false, key: String, place_id: String, name: { type: String, default: null } }], default: [] },
 		estimate: {
 			keywords: Number,
 			gridSize: Number,

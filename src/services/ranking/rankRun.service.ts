@@ -106,8 +106,13 @@ export const enqueueRankRun = async (
 			},
 			expected_duration_ms: plan.expectedDurationMs,
 			targets: [
-				{ key: 'self', place_id: location.place_id },
-				...tracking.competitors.map((placeId, i) => ({ key: `competitor_${i + 1}`, place_id: placeId })),
+				// Phase 17: names snapshot at run time, so every ranking page can label its competitors.
+				{ key: 'self', place_id: location.place_id, name: location.name ?? null },
+				...tracking.competitors.map((placeId, i) => ({
+					key: `competitor_${i + 1}`,
+					place_id: placeId,
+					name: tracking.competitor_info.find((c) => c.place_id === placeId)?.name ?? null,
+				})),
 			],
 			estimate: plan.estimate,
 			dev_capped: plan.devCapped,

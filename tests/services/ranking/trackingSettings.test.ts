@@ -60,6 +60,20 @@ describe('validateCompetitors', () => {
 		const six = Array.from({ length: 6 }, (_, i) => `ChIJcompetitorNumber00${i}`);
 		expect(() => validateCompetitors(six, OWN)).toThrow('At most 5');
 	});
+	it('Phase 17: errors carry a reason', () => {
+		const six = Array.from({ length: 6 }, (_, i) => `ChIJcompetitorNumber00${i}`);
+		const reasonOf = (fn: () => unknown) => {
+			try {
+				fn();
+			} catch (err) {
+				return (err as { data?: { reason?: string } }).data?.reason;
+			}
+			return null;
+		};
+		expect(reasonOf(() => validateCompetitors(six, OWN))).toBe('too_many_competitors');
+		expect(reasonOf(() => validateCompetitors([OWN], OWN))).toBe('own_place_id');
+		expect(reasonOf(() => validateCompetitors(['short'], OWN))).toBe('invalid_place_id');
+	});
 });
 
 describe('applyTrackingUpdate', () => {

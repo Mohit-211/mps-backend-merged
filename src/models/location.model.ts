@@ -53,6 +53,15 @@ export interface ILocationKeywordGroup {
   keywords: string[];
 }
 
+/** Phase 17: a tracked competitor's name, address and position (Places content, accepted ToS risk). */
+export interface ILocationCompetitorInfo {
+  place_id: string;
+  name: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
 /** Ranking settings for one location (CLAUDE.md §9.1). One fixed keyword set, versioned. */
 export interface ILocationTracking {
   keywords: { text: string; normalized: string }[];
@@ -64,6 +73,8 @@ export interface ILocationTracking {
   frequency: TrackingFrequency;
   /** Phase 17 (max 20). */
   keyword_groups: ILocationKeywordGroup[];
+  /** Phase 17: one entry per competitor that has details (filled when competitors are saved). */
+  competitor_info: ILocationCompetitorInfo[];
   /** @deprecated since 7b (ignored): refresh.next_refresh_at schedules the location. */
   next_run_at: Date | null;
   last_run_at: Date | null;
@@ -209,6 +220,10 @@ const trackingSchema = new Schema<ILocationTracking>(
       radius_km: { type: Number, min: 0.5, max: 15 },
     },
     frequency: { type: String, enum: TRACKING_FREQUENCIES, default: 'auto_monthly' },
+    competitor_info: {
+      type: [{ _id: false, place_id: { type: String, required: true }, name: { type: String, default: null }, address: { type: String, default: null }, lat: { type: Number, default: null }, lng: { type: Number, default: null } }],
+      default: [],
+    },
     keyword_groups: {
       // _id explicit: implicit subdocuments here inherit the tracking schema's _id: false.
       type: [{ _id: { type: Schema.Types.ObjectId, required: true }, name: { type: String, required: true }, keywords: { type: [String], default: [] } }],

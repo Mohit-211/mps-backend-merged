@@ -452,7 +452,7 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 
 | # | Method | Path | Auth | Path params | Query params | Body | Returns |
 |---|---|---|---|---|---|---|---|
-| 1 | GET | `/locations/:locationId/tracking` | user, owner | `locationId` | – | – | Tracking settings (defaults filled) + the API-call estimate for a run, `expected_duration_ms`, `cap`, `over_cap` (17) |
+| 1 | GET | `/locations/:locationId/tracking` | user, owner | `locationId` | – | – | Tracking settings (defaults filled) + the API-call estimate for a run, `expected_duration_ms`, `cap`, `over_cap`, `competitors: [{ place_id, name, address, lat, lng }]` (17) |
 | 2 | PUT | `/locations/:locationId/tracking` | user, owner | `locationId` | – | At least one of the fields below | Saved settings, estimate, `keywords_version_bumped`, `onboarding_step` (onboarding locations only) |
 | 152 | GET | `/locations/:locationId/tracking/estimate` | user, owner | `locationId` | `size` (3–13 odd), `radius_km` (0.5–15) or `spacing_km` (0.1–15), `keywords` (a count, 1–100); each defaults to the saved settings | – | `{ grid: { size, spacing_km, radius_km }, keywords, points_per_keyword, tracker_offset_km, estimate, expected_duration_ms, cap, over_cap, dev_capped, token_cost: { rankings } }`; **400** `invalid_grid` |
 | 153 | GET | `/locations/:locationId/keyword-groups` | user, owner | `locationId` | – | – | `{ groups: [{ group_id, name, keywords }], limit: 20 }` |
@@ -469,7 +469,7 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 | Field | Rule |
 |---|---|
 | `keywords` | string[]: 1–20 keywords, each 2–80 characters. Duplicates are merged ignoring case. Changing the set bumps `keywords_version`. |
-| `competitors` | string[]: up to 5 place IDs, not your own. `[]` means none. |
+| `competitors` | string[]: up to 5 place IDs, not your own. `[]` means none. **400** `too_many_competitors`, `own_place_id`, `invalid_place_id` (17). The response's `competitors` gives each one's `name`, `address`, `lat`, `lng` (17). |
 | `grid` | Phase 17: `{ size: 3 \| 5 \| 7 \| 9 \| 11 \| 13, radius_km: 0.5–15 }` or `{ size, spacing_km: 0.1–15 }` (one of the two; the other is derived: spacing = radius ÷ ((size − 1) / 2), and both must stay in range). **400** `invalid_grid`. Default for a new location: `{ size: 7, radius_km: 8 }`. The Rank Tracker and Map Ranking points sit at radius ÷ 2 (at least 0.5 km). |
 | `frequency` | `'auto_monthly'` (default: refreshed monthly) \| `'manual_only'` (only on demand). Sending `next_run_at` is rejected (400). |
 

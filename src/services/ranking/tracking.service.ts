@@ -4,6 +4,7 @@ import { CallEstimate } from '../../ranking';
 import { nextOnboardingStep } from '../onboarding/steps';
 import { loadEntitlement } from '../billing/entitlement.service';
 import { RunPlan, planRun } from './runPlan';
+import { CompetitorInfo, competitorInfoService } from './competitorInfo';
 import { TrackingUpdate, applyTrackingUpdate, resolveGrid, withDefaults } from './trackingSettings';
 
 // GET / PUT /locations/:locationId/tracking (CLAUDE.md §9.4).
@@ -16,6 +17,8 @@ export interface TrackingResponse {
 	cap: number;
 	over_cap: boolean;
 	dev_capped: boolean;
+	/** Phase 17: the tracked competitors with name, address and position (null when unknown). */
+	competitors: CompetitorInfo[];
 }
 
 const planView = (plan: RunPlan) => ({
@@ -26,8 +29,9 @@ const planView = (plan: RunPlan) => ({
 	dev_capped: plan.devCapped,
 });
 
-const view = (location: Pick<ILocation, 'lat' | 'lng'>, tracking: ILocationTracking): TrackingResponse => ({
+const view = (location: Pick<ILocation, 'lat' | 'lng'>, tracking: ILocationTracking, competitors: CompetitorInfo[]): TrackingResponse => ({
 	tracking,
+	competitors,
 	...planView(planRun(location, tracking)),
 });
 
@@ -70,12 +74,18 @@ export const estimateTracking = async (location: ILocation, query: EstimateQuery
 	};
 };
 
-export const getTracking = (location: ILocation): TrackingResponse => view(location, withDefaults(location.tracking));
+/** GET: stored competitor details, completed from free sources only (no Google call on a page view). */
+export const getTracking = async (location: ILocation): Promise<TrackingResponse> => {
+	const tracking = withDefaults(location.tracking);
+	const { info } = await competitorInfoService.resolve(location, tracking.competitors);
+	return view(location, tracking, info);
+};
 
 export const updateTracking = async (
 	location: ILocation,
 	update: TrackingUpdate,
 	now: Date = new Date(),
+	options: { userId?: string; competitorInfo?: Pick<typeof competitorInfoService, 'resolve'> } = {},
 ): Promise<TrackingResponse & { keywords_version_bumped: boolean; onboarding_step?: string }> => {
 	const { tracking, keywordsVersionBumped } = applyTrackingUpdate(
 		withDefaults(location.tracking),
@@ -84,6 +94,14 @@ export const updateTracking = async (
 		now,
 		config.ranking.maxKeywords,
 	);
+	// Phase 17: names and positions for the competitors (a Place Details call only for a new one the free
+	// sources don't know); saved with the settings.
+	const resolver = options.competitorInfo ?? competitorInfoService;
+	const { info } = await resolver.resolve(location, tracking.competitors, {
+		stored: tracking.competitor_info,
+		userId: update.competitors !== undefined ? options.userId : undefined,
+	});
+	if (update.competitors !== undefined) tracking.competitor_info = info.filter((c) => c.name !== null || c.lat !== null);
 	const set: Record<string, unknown> = { tracking };
 	// Phase 7a: a tracking update during onboarding advances its step (never backwards).
 	const step = nextOnboardingStep(location.onboarding?.step, {
@@ -93,5 +111,5 @@ export const updateTracking = async (
 	if (step) set['onboarding.step'] = step;
 	await Location.updateOne({ _id: location._id }, { $set: set });
 	const onboarding = location.onboarding ? { onboarding_step: step ?? location.onboarding.step } : {};
-	return { ...view(location, tracking), keywords_version_bumped: keywordsVersionBumped, ...onboarding };
+	return { ...view(location, tracking, info), keywords_version_bumped: keywordsVersionBumped, ...onboarding };
 };

@@ -40,6 +40,7 @@ export const defaultTracking = (): ILocationTracking => ({
 	grid: { size: DEFAULT_GRID_SIZE, spacing_km: spacingFromRadius(DEFAULT_GRID_SIZE, DEFAULT_RADIUS_KM), radius_km: DEFAULT_RADIUS_KM },
 	frequency: 'auto_monthly',
 	keyword_groups: [],
+	competitor_info: [],
 	next_run_at: null,
 	last_run_at: null,
 	last_error: null,
@@ -63,6 +64,7 @@ export const withDefaults = (tracking?: Partial<ILocationTracking> | null): ILoc
 			: base.grid,
 		frequency: tracking.frequency ?? base.frequency,
 		keyword_groups: (tracking.keyword_groups ?? []).map((g) => ({ _id: g._id, name: g.name, keywords: [...(g.keywords ?? [])] })),
+		competitor_info: (tracking.competitor_info ?? []).map((c) => ({ place_id: c.place_id, name: c.name ?? null, address: c.address ?? null, lat: c.lat ?? null, lng: c.lng ?? null })),
 		next_run_at: tracking.next_run_at ?? null,
 		last_run_at: tracking.last_run_at ?? null,
 		last_error: tracking.last_error ?? null,
@@ -134,11 +136,13 @@ export const validateCompetitors = (ids: string[], ownPlaceId?: string | null): 
 	const result: string[] = [];
 	for (const raw of ids) {
 		const id = normalisePlaceId(String(raw).trim()) ?? '';
-		if (!PLACE_ID_PATTERN.test(id)) throw invalid(`Invalid competitor place_id: "${raw}"`);
-		if (own && id === own) throw invalid("A competitor cannot be the location's own place_id");
+		if (!PLACE_ID_PATTERN.test(id)) throw apiErrorWithData(httpStatus.BAD_REQUEST, `Invalid competitor place_id: "${raw}"`, { reason: 'invalid_place_id' });
+		if (own && id === own) throw apiErrorWithData(httpStatus.BAD_REQUEST, "A competitor cannot be the location's own place_id", { reason: 'own_place_id' });
 		if (!result.includes(id)) result.push(id);
 	}
-	if (result.length > MAX_COMPETITORS) throw invalid(`At most ${MAX_COMPETITORS} competitors are allowed`);
+	if (result.length > MAX_COMPETITORS) {
+		throw apiErrorWithData(httpStatus.BAD_REQUEST, `At most ${MAX_COMPETITORS} competitors are allowed`, { reason: 'too_many_competitors', limit: MAX_COMPETITORS });
+	}
 	return result;
 };
 
@@ -175,6 +179,8 @@ export const applyTrackingUpdate = (
 
 	if (update.competitors !== undefined) {
 		tracking.competitors = validateCompetitors(update.competitors, ownPlaceId);
+		// Phase 17: details of removed competitors go; new ones are filled by competitorInfo (tracking.service).
+		tracking.competitor_info = tracking.competitor_info.filter((c) => tracking.competitors.includes(c.place_id));
 	}
 
 	if (update.grid !== undefined) {

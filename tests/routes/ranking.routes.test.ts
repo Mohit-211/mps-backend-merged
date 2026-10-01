@@ -232,8 +232,9 @@ describe('rank runs and reports', () => {
 		const data = res.body.data;
 		expect(data.run).toMatchObject({ status: 'done', keywords_version: 1 });
 		expect(data.targets).toEqual([
-			{ key: 'self', place_id: SELF_PLACE_ID },
-			{ key: 'competitor_1', place_id: COMPETITOR_1 },
+			{ key: 'self', place_id: SELF_PLACE_ID, name: 'Maple Leaf Plumbing & Heating' },
+			// No run, suggestion or API key yet when the competitor was saved: no name (Phase 17).
+			{ key: 'competitor_1', place_id: COMPETITOR_1, name: null },
 		]);
 		expect(data.keywords).toHaveLength(2);
 		expect(data.keywords[0].summary.self).toMatchObject({ avgRank: 4, foundRate: 1, top3Rate: 0 });
