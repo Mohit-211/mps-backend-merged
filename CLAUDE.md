@@ -36,7 +36,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
 | 15 | Notifications & automations | planned | – | – |
-| 17 | Ranking extras: keyword groups, larger grids (the variance test is done; Dallas is a pre-launch item) | planned | – | – |
+| **17** | **Ranking extras** (pulled forward 2026-10-01 for the real ranking pages): grids 3–13 by radius (≤ 15 km), map pins for Map Ranking, keyword change across edits, keyword groups, keyword history, competitor names (max 5), report run dates. Spec §12i; plan `docs/plans/phase-17-ranking-extras.md` | **in progress** | `claude/phase-17-ranking-extras` | – |
 | – | **AI GBP posts**: AI text + images, publishing schedules, optional approval, calendar (needs GBP v4; extends 9). Groundwork: `docs/plans/upcoming-features.md` §A | planned, spec pending | – | – |
 | – | **AI visibility**: presence in AI assistants' answers (ChatGPT, Gemini, Perplexity, Claude) over time, score, competitor comparison. §B | planned, spec pending | – | – |
 | – | **Review management**: review sync, AI analysis, AI reply suggestions and auto-reply with rules / approval (needs GBP v4). §C | planned, spec pending | – | – |
@@ -949,6 +949,20 @@ Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data 
 - **Lint** 82 → 40 (all in legacy GBP posting); **tests** 878 → 903 (99 suites).
 
 **13c follow-ups (Mohit, 2026-09-29), branch `claude/phase-13c-followups`:** suspended organizations answer **403** `organization_suspended` (402 only for payment situations); `POST /billing/checkout { quantity }` (1 to the plan's cap, at least the active locations) so a trial user approves PayPal once; the stale `mongoMigrate.ts` tsconfig include removed. TypeScript: 0 errors in src, tests and scripts with the workspace compiler (5.9.3).
+
+## 12i. PHASE 17 — Ranking extras (pulled forward, 2026-10-01)
+
+Branch `claude/phase-17-ranking-extras` from `master`. Requested by the frontend for the real ranking pages; plan approved by Mohit: **`docs/plans/phase-17-ranking-extras.md`**. Offline only (fake Places client); the first real large-grid run is Mohit's.
+
+**Decisions (Mohit, 2026-10-01):**
+- Grid sizes **3, 5, 7, 9, 11, 13**, set by **radius** (0.5–15 km) or spacing; default **7×7 at 8 km** (~5 mi); `RANK_MAX_CALLS_PER_RUN` default **40,000**. The Rank Tracker / Map Ranking offset is derived per location (radius ÷ 2, at least 0.5 km); the search bias radius stays 5 km.
+- **Flat token cost** per manual refresh, whatever the grid (grid searches use the free IDs-only SKU).
+- **Change across keyword edits:** a keyword in both runs gets its change; the overall change uses the shared keywords (`comparable_keywords`). This replaces §4's "identical keyword set" rule.
+- **Competitors:** at most 5 per location (unchanged); names, addresses and coordinates stored when added (cache / map list first, else 1 Place Details call); run targets carry the name.
+
+**Scope:** the estimate endpoint; map pins (`lat`, `lng`, `address` on Map Ranking results, Text Search Pro fields); keyword groups (CRUD, `?group=` on rank-tracker and grid, group summaries, a report section); keyword history; `run_at` on report rows; the Google Maps wording; docs.
+
+**Gate.**
 
 ## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)
 
