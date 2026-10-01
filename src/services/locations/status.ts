@@ -6,18 +6,19 @@ import { isSetUp } from '../org/onboardingState';
 // Location status for the locations list (Phase 8, PRODUCT.md). First match wins:
 //   setup_required     onboarding not completed (or, for older locations, no keywords)
 //   reconnect_required bound, but the binding's Google connection was revoked (reconnect needed)
-//   gbp_not_connected  no GBP binding
+//   gbp_disconnected   no binding any more: its GBP was unbound (gbp_disconnected_at, 2026-10-01)
+//   gbp_not_connected  no GBP binding (never bound)
 //   active
 
-export const LOCATION_STATUSES = ['active', 'setup_required', 'gbp_not_connected', 'reconnect_required'] as const;
+export const LOCATION_STATUSES = ['active', 'setup_required', 'gbp_not_connected', 'gbp_disconnected', 'reconnect_required'] as const;
 export type LocationStatus = (typeof LOCATION_STATUSES)[number];
 
-type StatusInput = Pick<ILocation, '_id' | 'onboarding' | 'tracking'>;
+type StatusInput = Pick<ILocation, '_id' | 'onboarding' | 'tracking'> & Partial<Pick<ILocation, 'gbp_disconnected_at'>>;
 
 export const statusOf = (location: StatusInput, binding: { revoked: boolean } | null): LocationStatus => {
 	if (!isSetUp(location)) return 'setup_required';
 	if (binding?.revoked) return 'reconnect_required';
-	if (!binding) return 'gbp_not_connected';
+	if (!binding) return location.gbp_disconnected_at ? 'gbp_disconnected' : 'gbp_not_connected';
 	return 'active';
 };
 

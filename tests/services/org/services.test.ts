@@ -28,6 +28,10 @@ describe('location status', () => {
 		expect(statusOf(done, { revoked: true })).toBe('reconnect_required');
 		expect(statusOf(done, null)).toBe('gbp_not_connected');
 		expect(statusOf(done, { revoked: false })).toBe('active');
+		// 2026-10-01: unbound later → gbp_disconnected (never bound → gbp_not_connected).
+		const unbound = { _id: new Types.ObjectId(), tracking: { keywords: keywordsOf('x') }, gbp_disconnected_at: new Date() } as never;
+		expect(statusOf(unbound, null)).toBe('gbp_disconnected');
+		expect(statusOf(unbound, { revoked: false })).toBe('active');
 	});
 
 	it('batched: a binding whose Google connection is revoked or missing needs a reconnect', async () => {

@@ -31,6 +31,7 @@ import {
 	trackerPoints,
 } from '../../ranking';
 import { refundFailedRefresh } from '../billing/refreshTokens';
+import { centerView } from '../locations/center';
 
 // The rank-run job body (CLAUDE.md §9.3). Loads the run, resolves the center, runs every keyword
 // over tracker ∪ grid points through ONE engine (shared cache; Phase 12.5: full depth and N samples
@@ -153,6 +154,9 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 				throw new Error(`Could not resolve the location center: ${(err as Error).message}`);
 			}
 		}
+
+		// The center as the pages show it ("Measured around: …"), frozen with the run.
+		const shown = centerView({ ...location.toObject(), lat: center.lat, lng: center.lng, center_source: centerSource === 'place_details' ? 'place_details' : location.center_source });
 
 		// 2. Rank every keyword over tracker ∪ grid points with one engine (shared cache).
 		const engine = createRankingEngine({
@@ -310,7 +314,7 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 			run,
 			status,
 			clock(),
-			{ center, center_source: centerSource, tracker, grid, mapList, overall, api_calls: apiCalls, run_errors: runErrors },
+			{ center, center_source: centerSource, center_kind: shown?.source ?? 'place', center_label: shown?.label ?? null, tracker, grid, mapList, overall, api_calls: apiCalls, run_errors: runErrors },
 			everySearchFailed ? 'every search failed' : null,
 		);
 		logger.info(

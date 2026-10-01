@@ -12,6 +12,9 @@ import {
 	withRetry,
 } from './http';
 import {
+	AutocompleteParams,
+	AutocompleteResult,
+	AutocompleteSuggestion,
 	LatLng,
 	NamedPlaceEntry,
 	PlaceDetails,
@@ -23,6 +26,7 @@ import {
 	SearchTextNamesAddressesResult,
 	SearchTextSuggestionsResult,
 	SuggestionPlace,
+	RawAutocompleteResponse,
 	RawPlaceDetails,
 	RawSearchTextResponse,
 	SearchTextIdsParams,
@@ -56,6 +60,11 @@ export const SUGGESTIONS_FIELD_MASK =
 /** Manual competitor search: names and addresses only (Text Search Pro). */
 export const NAMES_ADDRESSES_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress';
 export const MANUAL_SEARCH_PAGE_SIZE = 10;
+/** Autocomplete (New): only what the center picker shows. */
+export const AUTOCOMPLETE_FIELD_MASK =
+	'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat,suggestions.placePrediction.types';
+/** Google: a URL- and filename-safe string of at most 36 characters (a UUID fits). */
+export const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,36}$/;
 
 /** Throws unless `mask` is exactly `expected` (same fields, no extras): each search keeps its SKU. */
 export const assertExactMask = (mask: string, expected: string): void => {
@@ -178,13 +187,14 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 	const sleep = options.sleep ?? defaultSleep;
 	const retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
 	const defaultRadiusM = options.defaultRadiusM ?? 5000;
-	const stats: PlacesCallStats = { ids_only: 0, pro: 0, enterprise: 0, details: 0 };
+	const stats: PlacesCallStats = { ids_only: 0, pro: 0, enterprise: 0, details: 0, autocomplete: 0 };
 	const limiter = options.limiter;
 	const onCall = options.onCall;
 	const skuOf: Record<Exclude<keyof PlacesCallStats, 'details'>, PlacesSku> = {
 		ids_only: 'places.text.ids_only',
 		pro: 'places.text.pro',
 		enterprise: 'places.text.enterprise',
+		autocomplete: 'places.autocomplete',
 	};
 
 	const requireKey = (): string => {
@@ -396,8 +406,54 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 		}
 	};
 
+	/**
+	 * Autocomplete (New), 2026-10-01: suggestions for the setup-center picker. The session token groups the
+	 * keystrokes with the Place Details call that ends the session (pass the same token to getPlaceDetails).
+	 */
+	const autocomplete = async (params: AutocompleteParams): Promise<AutocompleteResult> => {
+		const apiKey = requireKey();
+		const input = params.input.trim();
+		if (!input) throw new Error('input is required');
+		if (!SESSION_TOKEN_PATTERN.test(params.sessionToken)) throw new Error('Invalid session token');
+		try {
+			const { data, attempts } = await send<RawAutocompleteResponse>(
+				'autocomplete',
+				'autocomplete',
+				{
+					method: 'POST',
+					url: `${BASE_URL}/places:autocomplete`,
+					data: {
+						input,
+						includedRegionCodes: params.regionCodes.map((r) => r.toLowerCase()),
+						...(params.includedPrimaryTypes?.length ? { includedPrimaryTypes: params.includedPrimaryTypes } : {}),
+						sessionToken: params.sessionToken,
+					},
+				},
+				AUTOCOMPLETE_FIELD_MASK,
+				apiKey,
+			);
+			const suggestions: AutocompleteSuggestion[] = [];
+			for (const s of data.suggestions ?? []) {
+				const p = s.placePrediction;
+				const id = normalisePlaceId(p?.placeId);
+				if (!p || !id) continue;
+				suggestions.push({
+					place_id: id,
+					description: p.text?.text ?? [p.structuredFormat?.mainText?.text, p.structuredFormat?.secondaryText?.text].filter(Boolean).join(', '),
+					main_text: p.structuredFormat?.mainText?.text ?? null,
+					secondary_text: p.structuredFormat?.secondaryText?.text ?? null,
+					types: p.types ?? [],
+				});
+			}
+			return { suggestions, apiCalls: attempts };
+		} catch (err) {
+			if (!(err instanceof HttpRequestError)) throw err;
+			throw new PlacesApiError(err, err.attempts);
+		}
+	};
+
 	/** Place Details for the given fields (names without the "places." prefix). */
-	const getPlaceDetails = async (placeId: string, fields: PlaceDetailsField[]): Promise<PlaceDetailsResult> => {
+	const getPlaceDetails = async (placeId: string, fields: PlaceDetailsField[], options: { sessionToken?: string } = {}): Promise<PlaceDetailsResult> => {
 		const apiKey = requireKey();
 		const id = normalisePlaceId(placeId);
 		if (!id) throw new Error('placeId is required');
@@ -411,7 +467,11 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 			const { data, attempts } = await send<RawPlaceDetails>(
 				'details',
 				'getPlaceDetails',
-				{ method: 'GET', url: `${BASE_URL}/places/${encodeURIComponent(id)}` },
+				{
+					method: 'GET',
+					// A session token ends an Autocomplete session (its keystrokes then bill with this call).
+					url: `${BASE_URL}/places/${encodeURIComponent(id)}${options.sessionToken ? `?sessionToken=${encodeURIComponent(options.sessionToken)}` : ''}`,
+				},
 				fields.join(','),
 				apiKey,
 				detailsSkuFor(fields),
@@ -426,7 +486,7 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 
 	const getStats = (): PlacesCallStats => ({ ...stats });
 
-	return { searchTextIds, searchTextWithNames, searchTextForSuggestions, searchTextNamesAddresses, getPlaceDetails, getStats };
+	return { searchTextIds, searchTextWithNames, searchTextForSuggestions, searchTextNamesAddresses, autocomplete, getPlaceDetails, getStats };
 };
 
 /** Default client configured from the environment. Throws PlacesConfigError on use if no key is set. */

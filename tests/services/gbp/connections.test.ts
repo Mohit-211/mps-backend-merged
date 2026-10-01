@@ -106,7 +106,7 @@ describe('two Google accounts on one user', () => {
 
 		// Disconnect A: only A's token, binding and jobs go.
 		await expect(binding.disconnect(uid)).rejects.toMatchObject({ statusCode: 400 });
-		expect(await binding.disconnect(uid, SUB_A)).toEqual({ revoked: true, bindings_removed: 1, picks_removed: 0, google_email: 'a@client.test' });
+		expect(await binding.disconnect(uid, SUB_A)).toEqual({ ...{ revoked: true, bindings_removed: 1, picks_removed: 0, google_email: 'a@client.test' }, location_ids: expect.any(Array) });
 		expect(revoked).toEqual([`1//${SUB_A}`]);
 		expect(await tokens.load(uid, tokenTypes.GBP, SUB_A)).toBeNull();
 		expect(await UserGBP.countDocuments({ location_id: locA._id })).toBe(0);

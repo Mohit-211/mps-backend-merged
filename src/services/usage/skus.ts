@@ -12,6 +12,8 @@ export const PLACES_SKUS = [
 	'places.details.pro',
 	'places.details.enterprise',
 	'places.details.enterprise_atmosphere',
+	// 2026-10-01: the setup-center picker (Autocomplete Requests SKU; free beyond 12 per session ending in Details).
+	'places.autocomplete',
 ] as const;
 export const GBP_SKUS = ['gbp.account_management', 'gbp.business_information', 'gbp.performance', 'gbp.verifications', 'gbp.v4', 'gbp.oauth', 'gbp.other'] as const;
 export type PlacesSku = (typeof PLACES_SKUS)[number];

@@ -155,11 +155,13 @@ Plus the RankRun document (sample ranks per cell and target): up to ~1 MB at 20 
 
 A manual rankings refresh costs the Map Ranking row again (≈ $1.60 at 10 keywords). Setup, once: competitor suggestions (Enterprise, ≤ 1 per keyword), add location (Details Enterprise), manual search (Pro): ≈ $0.05–0.40. Prices are defaults in `src/configs/pricing.ts`; **Mohit is checking them against Google's pricing page** (2026-09-27).
 
+**Setup-center picker (2026-10-01):** `GET /places/autocomplete` + `PUT /locations/:id/center { place_id, session }`, one Google session per pick. Per Google's session pricing, the pick (Place Details Essentials, **$5 per 1,000**) ends the session, and only the session's first 12 autocomplete requests bill (Autocomplete Requests, **$2.83 per 1,000**; the rest are free). A pick after 3–5 keystrokes ≈ **$0.013–0.019**, inside the free 10,000 per SKU per month for a long time. Abandoned sessions bill every keystroke. Counts: the pick 1 toward `PLACES_USER_DAILY_LIMIT`; keystrokes rate-limited to 120 per user per hour. Usage SKU `places.autocomplete`.
+
 **Post-deploy steps (Phase 12.5):** `npm run db:sync-indexes -- --confirm` (builds `rank_result_lists`, `api_usage` and the `places_rate` TTL index), remove `COMPETITOR_DETAILS_ATMOSPHERE` from `.env` (done locally 2026-09-27), then the Google Cloud checklist below.
 
 **Variance test (rerun a spacing later):** `npm run variance:test -- --confirm-live --spacings=600` reruns only the 10-minute spacing (2 keywords × 5 points × 3 samples × 3 pages = 90 IDs-only calls, about 20 min). Results are written after each spacing, so an interrupted run keeps what finished.
 
-**Usage ledger.** Every Places and GBP HTTP call (retries included) is counted in `api_usage` per organization, location, month and billing SKU: `places.text.ids_only | pro | enterprise`, `places.details.ids_only | essentials | pro | enterprise | enterprise_atmosphere`, `gbp.account_management | business_information | performance | verifications | v4 | oauth`. Requests and jobs are attributed automatically; calls outside both are "unattributed". Counts only, no limits. `GET /organization/usage` → `api_usage` for the organization.
+**Usage ledger.** Every Places and GBP HTTP call (retries included) is counted in `api_usage` per organization, location, month and billing SKU: `places.text.ids_only | pro | enterprise`, `places.details.ids_only | essentials | pro | enterprise | enterprise_atmosphere`, `places.autocomplete` (2026-10-01), `gbp.account_management | business_information | performance | verifications | v4 | oauth`. Requests and jobs are attributed automatically; calls outside both are "unattributed". Counts only, no limits. `GET /organization/usage` → `api_usage` for the organization.
 
 ```sh
 npm run cost:report                                   # this month, per organization and location

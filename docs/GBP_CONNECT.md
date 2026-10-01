@@ -75,7 +75,7 @@ connectButton.onclick = () => codeClient.requestCode();
   - For a new account without one, the API returns 400 asking the user to remove access at myaccount.google.com/permissions and retry.
 - **Up to 3 Google accounts per user** (2026-10-01): the same button connects another account; a 4th answers 409 `google_account_limit`.
   - Each Google account is its own *connection* (`google_sub`, its email shown). Connecting the same account again just updates it.
-  - `GET /gbp/connections` lists them for the locations page; Disconnect (`POST /gbp/disconnect { google_sub }`) unbinds that account's locations (they stay, without GBP) and removes its picks; the others keep working.
+  - `GET /gbp/connections` lists them for the locations page; Disconnect (`POST /gbp/disconnect { google_sub }`) **deletes the locations bound through that account** (2026-10-01; `GET /gbp/connections` → `locations` names them for the warning) and removes its picks; the others keep working. Unbinding one location keeps it (status `gbp_disconnected`).
 
 After connecting, **in the same modal** (2026-10-01):
 1. `GET /gbp/connections/:googleSub/locations`: that account's locations as a checklist
@@ -211,6 +211,6 @@ Then run the scoring calibration against the real numbers ([PROGRESS.md](PROGRES
 | Action | Endpoint |
 |---|---|
 | Unbind one location | `POST /api/v1/gbp/unbind {"location_id": "…"}`. Removes the binding and cancels its scheduled jobs. Deletes that Google account's tokens if it was that account's last binding. |
-| Disconnect one Google account | `POST /api/v1/gbp/disconnect {"google_sub": "…"}` (`google_sub` is optional with a single account). Revokes that account at Google, then removes only its bindings, their jobs and its tokens. |
+| Disconnect one Google account | `POST /api/v1/gbp/disconnect {"google_sub": "…"}` (`google_sub` is optional with a single account). Revokes that account at Google, then removes only its bindings, their jobs and its tokens, and soft-deletes the locations bound through it (2026-10-01; `locations_removed`). |
 | Remove access from the Google side | [myaccount.google.com/permissions](https://myaccount.google.com/permissions) |
 

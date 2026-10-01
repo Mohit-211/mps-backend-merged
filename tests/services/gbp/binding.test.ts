@@ -219,7 +219,7 @@ describe('disconnect', () => {
 		await service.bindLocation(user._id, bindInput(a._id));
 		await agenda.schedule(new Date('2030-01-01T00:00:00Z'), JOB_NAMES.GBP_SYNC, { location_id: String(a._id) });
 
-		expect(await service.disconnect(user._id)).toEqual({ revoked: true, bindings_removed: 1, picks_removed: 0, google_email: null });
+		expect(await service.disconnect(user._id)).toEqual({ ...{ revoked: true, bindings_removed: 1, picks_removed: 0, google_email: null }, location_ids: expect.any(Array) });
 		expect(revoked).toEqual(['1//FAKE']);
 		expect(await UserGBP.countDocuments({})).toBe(0);
 		expect(await UserAuth.countDocuments({ token_type: tokenTypes.GBP })).toBe(0);
@@ -239,7 +239,7 @@ describe('disconnect', () => {
 			tokens,
 			agenda,
 		}).disconnect;
-		expect(await service(user._id)).toEqual({ revoked: false, bindings_removed: 0, picks_removed: 0, google_email: null });
+		expect(await service(user._id)).toEqual({ revoked: false, bindings_removed: 0, picks_removed: 0, google_email: null, location_ids: [] });
 		expect(await UserAuth.countDocuments({ user_id: user._id })).toBe(0);
 	});
 });

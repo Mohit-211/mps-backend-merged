@@ -231,6 +231,8 @@ describe('rank runs and reports', () => {
 		expect(res.status).toBe(200);
 		const data = res.body.data;
 		expect(data.run).toMatchObject({ status: 'done', keywords_version: 1 });
+		// 2026-10-01: the center the run was measured around, frozen with it.
+		expect(data.run.center).toMatchObject({ lat: expect.any(Number), lng: expect.any(Number), source: 'place', label: '100 Queen St E' });
 		expect(data.targets).toEqual([
 			{ key: 'self', place_id: SELF_PLACE_ID, name: 'Maple Leaf Plumbing & Heating' },
 			// No run, suggestion or API key yet when the competitor was saved: no name (Phase 17).

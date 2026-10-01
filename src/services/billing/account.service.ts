@@ -42,6 +42,13 @@ export const billingOverview = async (organizationId: Id, at: Date = new Date())
 			nextRenewal = { date: s.current_period_end, quantity, amount: p ? monthlyAmount(p, quantity) : null, fixed: false };
 		}
 	}
+	// 2026-10-01: the monthly token grant (custom plans), so the token bar can show "9 of 10 this month".
+	// Granted at each paid period start (billing-renewals); the next one is at the current period end.
+	const monthlyGrant = plan.monthly_token_grant ?? 0;
+	const lastGrant = monthlyGrant > 0
+		? await TokenLedger.findOne({ organization_id: organizationId, type: 'monthly_grant' }).sort({ at: -1 }).select({ at: 1, amount: 1 }).lean<Pick<ITokenLedger, 'at' | 'amount'>>()
+		: null;
+	const grantActive = monthlyGrant > 0 && s && (s.status === 'active' || s.status === 'past_due') && s.current_period_end && !s.cancel_at_period_end;
 	return {
 		state: e.state,
 		read_only: e.read_only,
@@ -66,7 +73,13 @@ export const billingOverview = async (organizationId: Id, at: Date = new Date())
 		next_renewal: nextRenewal,
 		locations: { active, allowed: e.locations.allowed, max: e.locations.max },
 		users: e.users,
-		tokens: { balance: e.tokens.balance, cost_per_refresh: e.tokens.cost_per_refresh },
+		tokens: {
+			balance: e.tokens.balance,
+			cost_per_refresh: e.tokens.cost_per_refresh,
+			monthly_grant: monthlyGrant,
+			last_grant_at: lastGrant?.at ?? null,
+			next_grant_at: grantActive ? (s?.current_period_end ?? null) : null,
+		},
 		billing_details: org.billing_details ?? null,
 		online_payments: paymentProvider().canSubscribe(currency),
 	};

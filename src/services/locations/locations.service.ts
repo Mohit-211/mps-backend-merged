@@ -1,3 +1,4 @@
+import { centerView } from './center';
 import { Types } from 'mongoose';
 import httpStatus from 'http-status';
 import { Client, GbpReport, IClient, IGbpReport, ILocation, Location, RankRun, UserGBP } from '../../models';
@@ -32,6 +33,8 @@ export interface LocationRow {
 	client: { client_id: string; name: string } | null;
 	source: ILocation['source'] | null;
 	gbp_connected: boolean;
+	/** 2026-10-01: when its GBP was unbound (status gbp_disconnected), else null. */
+	gbp_disconnected_at: Date | null;
 	status: LocationStatus;
 	rank: { overall_avg_rank: number | null; change: number | null } | null;
 	gbp: { score: number; grade: string | null; partial: boolean | null } | null;
@@ -71,6 +74,7 @@ export const toRow = (l: ILocation, status: LocationStatus, clients: Map<string,
 	client: l.client_id && clients.has(String(l.client_id)) ? { client_id: String(l.client_id), name: clients.get(String(l.client_id)) as string } : null,
 	source: l.source ?? null,
 	gbp_connected: Boolean(l.gbp_connected),
+	gbp_disconnected_at: l.gbp_disconnected_at ?? null,
 	status,
 	rank: l.summary && (l.summary.overall_avg_rank !== null || l.summary.last_run_at) ? { overall_avg_rank: l.summary.overall_avg_rank, change: l.summary.overall_change } : null,
 	gbp: typeof l.summary?.gbp_score === 'number' ? { score: l.summary.gbp_score, grade: l.summary.gbp_grade, partial: l.summary.gbp_partial } : null,
@@ -133,10 +137,13 @@ export const locationHeader = async (location: ILocation) => {
 		place_id: location.place_id ?? null,
 		source: location.source ?? null,
 		gbp_connected: Boolean(location.gbp_connected),
+		gbp_disconnected_at: location.gbp_disconnected_at ?? null,
 		status: row.status,
 		client: row.client,
 		lat: typeof location.lat === 'number' ? location.lat : null,
 		lng: typeof location.lng === 'number' ? location.lng : null,
+		// 2026-10-01: where rankings are measured from (the business pin or a city chosen at setup).
+		center: centerView(location),
 		timezone: location.timezone ?? null,
 		onboarding: location.onboarding ?? null,
 		created_at: location.created_at,

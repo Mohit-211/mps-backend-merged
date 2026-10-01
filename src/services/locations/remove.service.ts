@@ -18,7 +18,9 @@ export interface RemoveDeps {
 	now?: Date;
 }
 
-export const removeLocation = async (ctx: OrgContext, location: ILocation, deps: RemoveDeps = {}) => {
+/** The soft delete itself, for any caller (DELETE /locations/:id, and disconnecting a Google account). */
+export const softDeleteLocation = async (location: ILocation, actorUserId: string, deps: RemoveDeps = {}) => {
+	const ctx = { userId: actorUserId };
 	const agenda = deps.agenda ?? getAgenda();
 	const now = deps.now ?? new Date();
 	const id = location._id as Types.ObjectId;
@@ -44,6 +46,11 @@ export const removeLocation = async (ctx: OrgContext, location: ILocation, deps:
 		{ $set: { is_active: false, deleted_at: now, deleted_by: ctx.userId, 'refresh.next_refresh_at': null, 'gbp_report.scheduled_for': null } },
 	);
 	logger.info(`locations: location ${String(id)} deleted (soft) by user ${ctx.userId}`);
+	return { deleted: true as const, gbp_unbound: gbpUnbound, jobs_cancelled: cancelled };
+};
+
+export const removeLocation = async (ctx: OrgContext, location: ILocation, deps: RemoveDeps = {}) => {
+	const result = await softDeleteLocation(location, ctx.userId, deps);
 	const usage = await usageFor(ctx.organization);
-	return { deleted: true, gbp_unbound: gbpUnbound, jobs_cancelled: cancelled, usage: usage.locations };
+	return { ...result, usage: usage.locations };
 };

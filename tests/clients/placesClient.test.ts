@@ -6,6 +6,7 @@ import {
 	SUGGESTIONS_FIELD_MASK,
 	PlacesConfigError,
 	WITH_NAMES_FIELD_MASK,
+	AUTOCOMPLETE_FIELD_MASK,
 	assertExactMask,
 	assertIdsOnlyMask,
 	createPlacesClient,
@@ -232,6 +233,41 @@ describe('placesClient.searchTextWithNames', () => {
 	});
 });
 
+describe('placesClient.autocomplete (2026-10-01)', () => {
+	it('POSTs places:autocomplete with the region, types and session token on its own mask, and maps predictions', async () => {
+		const { client, fake } = clientWith([
+			{
+				status: 200,
+				body: {
+					suggestions: [
+						{ placePrediction: { placeId: 'ChIJtampaCity000000001', text: { text: 'Tampa, FL, USA' }, structuredFormat: { mainText: { text: 'Tampa' }, secondaryText: { text: 'FL, USA' } }, types: ['locality', 'political'] } },
+						{ queryPrediction: { text: { text: 'tampa bay' } } },
+					],
+				},
+			},
+		]);
+		const result = await client.autocomplete({ input: ' tam ', regionCodes: ['US'], sessionToken: 'b7f3c1d2-9a4e-4c1b-8e2f-0a1b2c3d4e5f', includedPrimaryTypes: ['(regions)'] });
+		expect(fake.requests[0]).toMatchObject({
+			method: 'POST',
+			url: 'https://places.googleapis.com/v1/places:autocomplete',
+			data: { input: 'tam', includedRegionCodes: ['us'], includedPrimaryTypes: ['(regions)'], sessionToken: 'b7f3c1d2-9a4e-4c1b-8e2f-0a1b2c3d4e5f' },
+		});
+		expect(fake.requests[0].headers['X-Goog-FieldMask']).toBe(AUTOCOMPLETE_FIELD_MASK);
+		expect(result).toEqual({
+			suggestions: [{ place_id: 'ChIJtampaCity000000001', description: 'Tampa, FL, USA', main_text: 'Tampa', secondary_text: 'FL, USA', types: ['locality', 'political'] }],
+			apiCalls: 1,
+		});
+		expect(client.getStats().autocomplete).toBe(1);
+		await expect(client.autocomplete({ input: 'x', regionCodes: ['us'], sessionToken: 'bad token!' })).rejects.toThrow('Invalid session token');
+	});
+
+	it('Place Details ends the session with ?sessionToken=', async () => {
+		const { client, fake } = clientWith([{ status: 200, body: { id: 'ChIJtampaCity000000001', location: { latitude: 27.95, longitude: -82.45 } } }]);
+		await client.getPlaceDetails('ChIJtampaCity000000001', ['location', 'formattedAddress'], { sessionToken: 'b7f3c1d2-9a4e' });
+		expect(fake.requests[0].url).toBe('https://places.googleapis.com/v1/places/ChIJtampaCity000000001?sessionToken=b7f3c1d2-9a4e');
+	});
+});
+
 describe('placesClient.getPlaceDetails', () => {
 	it('GETs the place with the fields as the mask and maps the location', async () => {
 		const { client, fake } = clientWith([{ status: 200, fixture: 'placeDetails_location' }]);
@@ -271,7 +307,7 @@ describe('call accounting and secrecy', () => {
 		await client.searchTextIds({ ...baseParams, stopWhenFound: [placeIds.target] });
 		await client.searchTextWithNames(baseParams);
 		await client.getPlaceDetails(placeIds.target, ['location']);
-		expect(client.getStats()).toEqual({ ids_only: 2, pro: 1, enterprise: 0, details: 1 });
+		expect(client.getStats()).toEqual({ ids_only: 2, pro: 1, enterprise: 0, details: 1, autocomplete: 0 });
 	});
 
 	it('never puts the API key in logs or errors', async () => {
@@ -311,7 +347,7 @@ describe('competitor search variants (Phase 7a)', () => {
 		});
 		expect(fake.requests[0].headers['X-Goog-FieldMask']).toBe(SUGGESTIONS_FIELD_MASK);
 		expect((fake.requests[0].data as { pageSize: number }).pageSize).toBe(20);
-		expect(client.getStats()).toEqual({ ids_only: 0, pro: 0, enterprise: 1, details: 0 });
+		expect(client.getStats()).toEqual({ ids_only: 0, pro: 0, enterprise: 1, details: 0, autocomplete: 0 });
 	});
 
 	it('suggestions keep movedPlaceId and null rating when Google omits it', async () => {

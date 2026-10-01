@@ -1187,7 +1187,7 @@
 								}
 							]
 						},
-						"description": "Location header (was unauthenticated)\n\n**Auth:** user + owner · **Phase:** legacy, rebuilt 8 · **Status:** live",
+						"description": "Location header (was unauthenticated); 2026-10-01: center { source, label, lat, lng }, gbp_disconnected_at\n\n**Auth:** user + owner · **Phase:** legacy, rebuilt 8 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3753,7 +3753,7 @@
 								"disconnect"
 							]
 						},
-						"description": "Disconnect one Google account (google_sub): revoke it, unbind its locations (they stay, without GBP), remove its picks, jobs and tokens\n\n**Auth:** user · **Phase:** 6, moved 13b, picks 2026-10-01 · **Status:** live",
+						"description": "Disconnect one Google account (google_sub): revoke it, **delete the locations bound through it** (soft delete, as DELETE /locations/:id; Mohit, 2026-10-01), remove its picks, jobs and tokens\n\n**Auth:** user · **Phase:** 6, moved 13b, changed 2026-10-01 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3869,7 +3869,7 @@
 								"connections"
 							]
 						},
-						"description": "The user's connected Google accounts (max 3) with their picked / bound counts\n\n**Auth:** user + org · **Phase:** 2026-10-01 · **Status:** live",
+						"description": "The user's connected Google accounts (max 3) with their picked / bound counts and bound locations (named in the disconnect warning)\n\n**Auth:** user + org · **Phase:** 2026-10-01 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -4099,7 +4099,7 @@
 								"unbind"
 							]
 						},
-						"description": "Unbind a Location (it stays, without GBP; its pick is removed; the Google connection stays)\n\n**Auth:** user · **Phase:** 6, changed 2026-10-01 · **Status:** live",
+						"description": "Unbind a Location (it stays, status gbp_disconnected + gbp_disconnected_at; its pick is removed; the Google connection stays)\n\n**Auth:** user · **Phase:** 6, changed 2026-10-01 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -4300,6 +4300,41 @@
 					}
 				},
 				{
+					"name": "GET /places/autocomplete",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-Organization-Id",
+								"value": "{{organizationId}}",
+								"description": "Optional: the organization to act in (default: your default organization).",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/places/autocomplete",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"places",
+								"autocomplete"
+							]
+						},
+						"description": "City / region / ZIP suggestions for the setup center (Autocomplete (New), one session token per picker; rate-limited per user, not charged to the daily Places limit)\n\n**Auth:** user + org (owner/member) · **Phase:** 2026-10-01 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
 					"name": "GET /places/search",
 					"request": {
 						"method": "GET",
@@ -4378,7 +4413,7 @@
 								}
 							]
 						},
-						"description": "Manual business center from a city or ZIP (service-area businesses; 1 IDs-only search + 1 Details location)\n\n**Auth:** user + owner · **Phase:** 7a · **Status:** live",
+						"description": "Manual business center: { query } (1 IDs-only search + 1 Details location) or a picked suggestion { place_id, session? } (1 Details Essentials call ending the session; 2026-10-01)\n\n**Auth:** user + owner · **Phase:** 7a, changed 2026-10-01 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
