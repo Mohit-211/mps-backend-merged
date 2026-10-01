@@ -34,7 +34,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: legacy removal, `/auth` session + account endpoints, payment-provider interface, flaky tests, admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | done: 13a (`2c77a8a`), 13b (`411b7c2`), 13c (`093b127`), pushed | `claude/phase-13c-followups` | M5 (pushed) |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
-| 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
+| 9 | GBP reviews & posting (incl. AI review replies) | planned (v4 access granted 2026-10-02) | – | – |
 | 15 | Notifications & automations | planned | – | – |
 | **17** | **Ranking extras** (pulled forward 2026-10-01 for the real ranking pages): grids 3–13 by radius (≤ 15 km), map pins for Map Ranking, keyword change across edits, keyword groups, keyword history, competitor names (max 5), report run dates. Spec §12i; plan `docs/plans/phase-17-ranking-extras.md` | **built, awaiting merge** | `claude/phase-17-ranking-extras` | – |
 | – | **AI GBP posts**: AI text + images, publishing schedules, optional approval, calendar (needs GBP v4; extends 9). Groundwork: `docs/plans/upcoming-features.md` §A | planned, spec pending | – | – |
@@ -50,7 +50,7 @@ There is no Phase 2 (security moved to Phase 10, 2026-09-25). Milestone pushes: 
 | Approval | Unblocks |
 |---|---|
 | Business Profile API access (Cloud project 1010247538246: quota 0) | the GBP live test (resume at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`) and the 7c scoring calibration |
-| Google My Business API v4 access | Phase 9 (reviews, posting) and the v4 report sections (`GBP_V4_ENABLED=true`) |
+| ~~Google My Business API v4 access~~ **granted 2026-10-02; `GBP_V4_ENABLED=true` on the server** | Phase 9 (reviews, posting) and the v4 report sections |
 | OAuth app verification (`business.manage` is a sensitive scope) | M5 (real customers can connect) |
 
 ---

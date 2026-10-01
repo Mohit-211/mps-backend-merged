@@ -22,6 +22,7 @@ import {
 	GbpLocation,
 	OAuthTokens,
 	PagedList,
+	RawAttributeMetadataPage,
 	RawAttributes,
 	RawDailyMetricsResponse,
 	RawGoogleUpdated,
@@ -522,6 +523,24 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 	const getAttributes = async (conn: ConnectionRef, locationName: string): Promise<RawAttributes> =>
 		authedGet<RawAttributes>(conn, 'locations.attributes', `${BUSINESS_INFORMATION_URL}/${locationName}/attributes`);
 
+	/**
+	 * Google's display names for the attributes this location can have (2026-10-02): attribute name, group and
+	 * value labels, in English. Business Information, no charge.
+	 */
+	const getAttributeMetadata = async (conn: ConnectionRef, locationName: string): Promise<NonNullable<RawAttributeMetadataPage['attributeMetadata']>> => {
+		const items: NonNullable<RawAttributeMetadataPage['attributeMetadata']> = [];
+		let pageToken: string | undefined;
+		let pages = 0;
+		do {
+			const url = withQuery(`${BUSINESS_INFORMATION_URL}/attributes`, { parent: locationName, languageCode: 'en', pageSize: '200', pageToken });
+			const data = await authedGet<RawAttributeMetadataPage>(conn, 'attributes.list', url);
+			items.push(...(data.attributeMetadata ?? []));
+			pageToken = data.nextPageToken;
+			pages += 1;
+		} while (pageToken && pages < MAX_LIST_PAGES);
+		return items;
+	};
+
 	/** Google's version of the profile, with diffMask (Google-changed fields) and pendingMask (edits under review). */
 	const getGoogleUpdated = async (conn: ConnectionRef, locationName: string): Promise<RawGoogleUpdated> =>
 		authedGet<RawGoogleUpdated>(
@@ -592,6 +611,7 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		listSearchKeywords,
 		getLocationFull,
 		getAttributes,
+		getAttributeMetadata,
 		getGoogleUpdated,
 		getVoiceOfMerchantState,
 		listReviews,

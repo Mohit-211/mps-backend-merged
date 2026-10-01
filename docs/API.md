@@ -1602,7 +1602,7 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
 {
   "rankings": { "run_id": "66f6…", "status": "queued", "existing": false, "estimate": { "idsOnly": { "min": 26, "max": 78, "maxWithRetries": 156 }, "…": "…" },
                 "dev_capped": true, "next_allowed_at": "2026-09-27T13:00:00.000Z" },
-  "gbp": { "sync_id": "66f6…", "status": "queued", "existing": false, "estimated_calls": 8, "next_allowed_at": "2026-09-27T13:00:00.000Z" }
+  "gbp": { "sync_id": "66f6…", "status": "queued", "existing": false, "estimated_calls": 13, "next_allowed_at": "2026-09-27T13:00:00.000Z" }
 }
 ```
 
@@ -1610,7 +1610,7 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
 - **Inside the 24 h window a type is skipped:** `{ "skipped": "rate_limited", "next_allowed_at": "…" }`.
 - An unconnected location gets `"gbp": { "skipped": "gbp_not_connected", "next_allowed_at": null }` (only when gbp was requested explicitly).
 - **429** when every requested type is rate-limited (the same body shape). **202** otherwise.
-- `estimated_calls` counts GBP API calls (free, quota-limited): performance 1, keywords 1 per month (6 on the first sync, 2 later), profile + attributes + Google edits + verification 4, one possible token refresh; with v4 also reviews, media, customer media, posts. Extra pages add more.
+- `estimated_calls` counts GBP API calls (free, quota-limited): performance 1, keywords 1 per month (6 on the first sync, 2 later), profile + attributes + attribute names (2026-10-02) + Google edits + verification 5, one possible token refresh; with v4 also reviews, media, customer media, posts. Extra pages add more.
 
 `POST /locations/:id/rank-runs` ("run now") is the same as a rankings refresh: it shares the limit and returns **429** `{ next_allowed_at }` inside the window.
 
@@ -1716,7 +1716,13 @@ Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
     "primary_phone": "(416) 555-0142", "additional_phones": [], "website": "https://mapleleafplumbing.example",
     "service_area": { "business_type": "CUSTOMER_AND_BUSINESS_LOCATION", "place_count": 3, "region_code": "CA" },
     "labels": [], "open_status": "OPEN",
-    "attributes": [ { "name": "has_wheelchair_accessible_entrance", "value_type": "BOOL", "values": [true] }, "…" ],
+    "attributes": [
+      { "name": "has_wheelchair_accessible_entrance", "value_type": "BOOL", "values": [true],
+        "display_name": "Wheelchair accessible entrance", "group": "Accessibility", "value_labels": ["Has wheelchair accessible entrance"] },
+      { "name": "pay_credit_card_types_accepted", "value_type": "REPEATED_ENUM", "values": ["visa", "mastercard"],
+        "display_name": "Credit cards", "group": "Payments", "value_labels": ["Visa", "Mastercard"] },
+      "…"
+    ],
     "service_items": [ { "name": "Boiler repair", "description": "Same-day service", "kind": "structured", "price": { "currency": "CAD", "amount": 120 } },
                        { "name": "Leak detection", "description": null, "kind": "free_form", "price": null } ],
     "maps_uri": "https://maps.google.com/?cid=123", "new_review_uri": "https://search.google.com/local/writereview?placeid=ChIJ…",
@@ -1804,7 +1810,8 @@ Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
 **`score_history`:** each entry has `version` (1 = with ranking data, before 2026-10-02; 2 = now). Draw a marker where it changes; don't compare scores across it (CHANGELOG `gbp_score_v2`). Production starts on a fresh database, so real customers only have version 2.
 
-**`profile`** (2026-10-02): the Business Profile as last synced (`taken_at`): title, description, categories, regular hours, special-hour dates, phones, website, service area, labels, open status, attributes (Google's attribute ids with their values), service items, `maps_uri`, `new_review_uri` (the "write a review" link), `latlng`. `{ available: false, reason }` as the other private sections. A report generated before this change has `not_synced_yet` until the next generation.
+**`profile`** (2026-10-02): the Business Profile as last synced (`taken_at`): title, description, categories, regular hours, special-hour dates, phones, website, service area, labels, open status, attributes, service items, `maps_uri`, `new_review_uri` (the "write a review" link), `latlng`. `{ available: false, reason }` as the other private sections. A report generated before this change has `not_synced_yet` until the next generation.
+- **Attribute names (2026-10-02):** each attribute has Google's English `display_name`, `group` (e.g. "Accessibility", "Payments") and `value_labels` (Google's label per value; a yes/no attribute gets Google's sentence, e.g. "Has wheelchair accessible entrance"; a URL attribute its links). They come from Google's attribute list during each GBP sync (one extra free call). `null` when that list couldn't be read, or until the next sync: fall back to a readable form of `name`.
 
 **Public Score (version 2):** the same formula for the client and every competitor, from public Place Details only: rating 25, review count 20, public profile 25 (category, hours, website, phone, editorial summary), rescaled to 100. Closed businesses score 0 with a `flag`. Version 1 also had center rank 20 and center top-3 10.
 

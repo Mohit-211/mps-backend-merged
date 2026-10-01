@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import {
 	GoogleDate,
+	RawAttributeMetadataPage,
 	RawAttributes,
 	RawDailyMetricsResponse,
 	RawGoogleUpdated,
@@ -132,14 +133,43 @@ export const mapProfile = (raw: Raw): GbpProfileSummary => {
 	};
 };
 
-export const mapAttributes = (raw: RawAttributes): NonNullable<IGbpProfileSnapshot['attributes']> =>
+/** Attribute names as Google shows them (from GET /v1/attributes), keyed by attribute id without "attributes/". */
+export type AttributeNames = Map<string, { display_name: string | null; group: string | null; values: Map<string, string> }>;
+
+export const mapAttributeMetadata = (items: NonNullable<RawAttributeMetadataPage['attributeMetadata']>): AttributeNames =>
+	new Map(
+		items
+			.filter((m) => m.parent)
+			.map((m) => [
+				String(m.parent).replace(/^attributes\//, ''),
+				{
+					display_name: m.displayName ?? null,
+					group: m.groupDisplayName ?? null,
+					values: new Map((m.valueMetadata ?? []).filter((v) => v.displayName).map((v) => [String(v.value), v.displayName as string])),
+				},
+			]),
+	);
+
+/**
+ * The location's set attributes. With `names` (2026-10-02) each gets Google's display name, group and value labels:
+ * a yes/no attribute's label is Google's sentence for that value; a URL attribute shows its links.
+ */
+export const mapAttributes = (raw: RawAttributes, names?: AttributeNames | null): NonNullable<IGbpProfileSnapshot['attributes']> =>
 	(raw.attributes ?? [])
 		.filter((a) => a.name)
-		.map((a) => ({
-			name: String(a.name).replace(/^attributes\//, ''),
-			value_type: a.valueType ?? null,
-			values: a.values ?? a.repeatedEnumValue?.setValues ?? (a.uriValues ?? []).map((u) => u.uri),
-		}));
+		.map((a) => {
+			const name = String(a.name).replace(/^attributes\//, '');
+			const values = a.values ?? a.repeatedEnumValue?.setValues ?? (a.uriValues ?? []).map((u) => u.uri);
+			const meta = names?.get(name);
+			return {
+				name,
+				value_type: a.valueType ?? null,
+				values,
+				display_name: meta?.display_name ?? null,
+				group: meta?.group ?? null,
+				value_labels: meta ? values.map((v) => meta.values.get(String(v)) ?? String(v)) : null,
+			};
+		});
 
 const maskFields = (mask: string | undefined): string[] =>
 	(mask ?? '')

@@ -32,6 +32,8 @@ import { AmbiguousConnectionError } from '../services/gbp/tokenStore';
 import { syncSettings } from '../services/gbp/sync.service';
 import { onGbpSyncFinished } from './hooks';
 import {
+	AttributeNames,
+	mapAttributeMetadata,
 	mapAttributes,
 	mapDailyMetrics,
 	mapGoogleUpdated,
@@ -56,6 +58,7 @@ type SyncClient = Pick<
 	| 'listSearchKeywords'
 	| 'getLocationFull'
 	| 'getAttributes'
+	| 'getAttributeMetadata'
 	| 'getGoogleUpdated'
 	| 'getVoiceOfMerchantState'
 	| 'listReviews'
@@ -215,7 +218,14 @@ export const executeGbpSync = async (syncId: string, deps: SyncExecutorDeps = {}
 			const raw = await client.getLocationFull(conn, locationName);
 			snapshot.profile = mapProfile(raw);
 			snapshot.raw_location = raw;
-			snapshot.attributes = mapAttributes(await client.getAttributes(conn, locationName));
+			// 2026-10-02: Google's display names for the attributes; without them the ids still show.
+			let names: AttributeNames | null = null;
+			try {
+				names = mapAttributeMetadata(await client.getAttributeMetadata(conn, locationName));
+			} catch (err) {
+				logger.warn(`gbp-sync: attribute names unavailable for location ${String(locationId)}: ${err instanceof Error ? err.name : 'error'}`);
+			}
+			snapshot.attributes = mapAttributes(await client.getAttributes(conn, locationName), names);
 			snapshot.pending_google_edits = mapGoogleUpdated(await client.getGoogleUpdated(conn, locationName));
 			return { rows: 1, range: null };
 		});

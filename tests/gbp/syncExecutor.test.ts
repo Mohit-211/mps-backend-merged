@@ -2,6 +2,7 @@ import { Agenda } from 'agenda';
 import { Types } from 'mongoose';
 import { GbpApiError, GbpReauthRequiredError } from '../../src/clients/gbpClient';
 import {
+	RawAttributeMetadataPage,
 	RawAttributes,
 	RawDailyMetricsResponse,
 	RawGoogleUpdated,
@@ -69,6 +70,10 @@ const fakeClient = (fail: Fail = {}) => {
 		getAttributes: async () => {
 			count('attributes');
 			return loadGbpFixture<RawAttributes>('attributes');
+		},
+		getAttributeMetadata: async () => {
+			count('attribute_metadata');
+			return loadGbpFixture<RawAttributeMetadataPage>('attribute_metadata').attributeMetadata ?? [];
 		},
 		getGoogleUpdated: async () => {
 			count('googleUpdated');
@@ -153,7 +158,7 @@ describe('gbp-sync executor', () => {
 			media: { status: 'not_available' },
 			posts: { status: 'not_available' },
 		});
-		expect(calls).toEqual({ performance: 1, keywords: 6, profile: 1, attributes: 1, googleUpdated: 1, verification: 1 });
+		expect(calls).toEqual({ performance: 1, keywords: 6, profile: 1, attributes: 1, attribute_metadata: 1, googleUpdated: 1, verification: 1 });
 		expect(ranges).toHaveLength(1);
 
 		expect(await GbpMetricDaily.countDocuments({ location_id: location._id })).toBe(6);
@@ -171,12 +176,13 @@ describe('gbp-sync executor', () => {
 			reviews_summary: null,
 		});
 		expect(snapshot?.attributes).toHaveLength(3);
+		expect(snapshot?.attributes?.[1]).toMatchObject({ display_name: 'Credit cards', group: 'Payments', value_labels: ['Visa', 'Mastercard'] });
 		expect(await GbpReview.countDocuments({})).toBe(0);
 
 		const saved = await Location.findById(location._id).lean<ILocation>();
 		expect(saved?.gbp_sync).toMatchObject({ last_status: 'done', last_sync_id: syncId });
 		expect(saved?.gbp_sync?.backfilled_at).toBeInstanceOf(Date);
-		expect(await GbpSync.findById(syncId).lean()).toMatchObject({ status: 'done', active: false, api_calls: { total: 11 } });
+		expect(await GbpSync.findById(syncId).lean()).toMatchObject({ status: 'done', active: false, api_calls: { total: 12 } }); // + attribute names (2026-10-02)
 	});
 
 	it('later syncs use the rolling windows; re-running upserts without duplicates; history of snapshots is kept', async () => {
@@ -239,7 +245,7 @@ describe('gbp-sync executor', () => {
 		const a = await enqueueGbpSync(location, String(user._id), 'manual', { agenda, now: NOW });
 		const b = await enqueueGbpSync(location, String(user._id), 'scheduled', { agenda, now: NOW });
 		expect(b).toMatchObject({ sync_id: a.sync_id, existing: true });
-		expect(a.estimated_calls).toBe(1 + 6 + 4 + 1); // backfill: 6 keyword months
+		expect(a.estimated_calls).toBe(1 + 6 + 5 + 1); // backfill: 6 keyword months (+ attribute names, 2026-10-02)
 		const { client } = fakeClient();
 		await executeGbpSync(a.sync_id, { client, v4Enabled: false, settings, now: () => NOW });
 		expect(await executeGbpSync(a.sync_id, { client, v4Enabled: false, settings, now: () => NOW })).toBeNull();

@@ -1,0 +1,32 @@
+{
+  "attributeMetadata": [
+    {
+      "parent": "attributes/has_wheelchair_accessible_entrance",
+      "valueType": "BOOL",
+      "displayName": "Wheelchair accessible entrance",
+      "groupDisplayName": "Accessibility",
+      "valueMetadata": [
+        { "value": true, "displayName": "Has wheelchair accessible entrance" },
+        { "value": false, "displayName": "No wheelchair accessible entrance" }
+      ]
+    },
+    {
+      "parent": "attributes/pay_credit_card_types_accepted",
+      "valueType": "REPEATED_ENUM",
+      "displayName": "Credit cards",
+      "groupDisplayName": "Payments",
+      "repeatable": true,
+      "valueMetadata": [
+        { "value": "visa", "displayName": "Visa" },
+        { "value": "mastercard", "displayName": "Mastercard" },
+        { "value": "american_express", "displayName": "American Express" }
+      ]
+    },
+    {
+      "parent": "attributes/url_appointment",
+      "valueType": "URL",
+      "displayName": "Appointment links",
+      "groupDisplayName": "Place page URLs"
+    }
+  ]
+}

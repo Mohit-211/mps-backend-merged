@@ -31,12 +31,12 @@ export const syncSettings = (): WindowSettings => ({
 });
 
 /**
- * Minimum calls for one sync: performance 1, keywords 1 per month, profile 1, attributes 1, Google
- * edits 1, verification 1, plus 1 possible token refresh; with v4: reviews 1, media 1, customer media 1,
+ * Minimum calls for one sync: performance 1, keywords 1 per month, profile 1, attributes 1, attribute
+ * names 1 (2026-10-02), Google edits 1, verification 1, plus 1 possible token refresh; with v4: reviews 1, media 1, customer media 1,
  * posts 1 (more pages add more).
  */
 export const estimateSyncCalls = (backfill: boolean, v4Enabled: boolean, now: Date = new Date(), settings: WindowSettings = syncSettings()): number =>
-	1 + keywordMonths(now, backfill, settings).length + 4 + 1 + (v4Enabled ? 4 : 0);
+	1 + keywordMonths(now, backfill, settings).length + 5 + 1 + (v4Enabled ? 4 : 0);
 
 export class GbpNotBoundError extends ApiError {
 	constructor() {

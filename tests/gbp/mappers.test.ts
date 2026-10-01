@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import {
+	RawAttributeMetadataPage,
 	RawAttributes,
 	RawDailyMetricsResponse,
 	RawGoogleUpdated,
@@ -10,6 +11,7 @@ import {
 	RawVoiceOfMerchantState,
 } from '../../src/clients/types/gbp';
 import {
+	mapAttributeMetadata,
 	mapAttributes,
 	mapDailyMetrics,
 	mapGoogleUpdated,
@@ -73,9 +75,18 @@ describe('GBP mappers', () => {
 
 	it('attributes: bool, enum and URL values', () => {
 		expect(mapAttributes(loadGbpFixture<RawAttributes>('attributes'))).toEqual([
-			{ name: 'has_wheelchair_accessible_entrance', value_type: 'BOOL', values: [true] },
-			{ name: 'pay_credit_card_types_accepted', value_type: 'REPEATED_ENUM', values: ['visa', 'mastercard'] },
-			{ name: 'url_appointment', value_type: 'URL', values: ['https://example-plumbing.test/book'] },
+			{ name: 'has_wheelchair_accessible_entrance', value_type: 'BOOL', values: [true], display_name: null, group: null, value_labels: null },
+			{ name: 'pay_credit_card_types_accepted', value_type: 'REPEATED_ENUM', values: ['visa', 'mastercard'], display_name: null, group: null, value_labels: null },
+			{ name: 'url_appointment', value_type: 'URL', values: ['https://example-plumbing.test/book'], display_name: null, group: null, value_labels: null },
+		]);
+	});
+
+	it('attributes with Google\'s names (2026-10-02): display name, group and value labels', () => {
+		const names = mapAttributeMetadata(loadGbpFixture<RawAttributeMetadataPage>('attribute_metadata').attributeMetadata ?? []);
+		expect(mapAttributes(loadGbpFixture<RawAttributes>('attributes'), names)).toEqual([
+			{ name: 'has_wheelchair_accessible_entrance', value_type: 'BOOL', values: [true], display_name: 'Wheelchair accessible entrance', group: 'Accessibility', value_labels: ['Has wheelchair accessible entrance'] },
+			{ name: 'pay_credit_card_types_accepted', value_type: 'REPEATED_ENUM', values: ['visa', 'mastercard'], display_name: 'Credit cards', group: 'Payments', value_labels: ['Visa', 'Mastercard'] },
+			{ name: 'url_appointment', value_type: 'URL', values: ['https://example-plumbing.test/book'], display_name: 'Appointment links', group: 'Place page URLs', value_labels: ['https://example-plumbing.test/book'] },
 		]);
 	});
 
