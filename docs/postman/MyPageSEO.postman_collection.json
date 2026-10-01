@@ -1092,7 +1092,7 @@
 								}
 							]
 						},
-						"description": "The locations table: search, filter (client, status), sort, pagination; status, rank, GBP score, reviews per row\n\n**Auth:** user + org · **Phase:** legacy, rebuilt 8 · **Status:** live",
+						"description": "The locations table: search, filter (client, status), sort, pagination; status, rank, GBP score, reviews per row; pending_gbp: the user's picked Business Profile locations not bound yet (2026-10-01)\n\n**Auth:** user + org · **Phase:** legacy, rebuilt 8 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3478,7 +3478,7 @@
 								"callback"
 							]
 						},
-						"description": "Google OAuth callback (redirect flow): stores encrypted tokens\n\n**Auth:** none (one-time state) · **Phase:** 6, moved 13b · **Status:** live",
+						"description": "Google OAuth callback (redirect flow): stores encrypted tokens, then redirects the browser to FRONTEND_URL/gbp/connect/callback?status=success|denied|error&message=… (JSON when FRONTEND_URL is empty)\n\n**Auth:** none (one-time state) · **Phase:** 6, moved 13b, redirect 2026-09-30 · **Status:** live",
 						"auth": {
 							"type": "noauth"
 						}
@@ -3504,7 +3504,7 @@
 								"disconnect"
 							]
 						},
-						"description": "Disconnect one Google account (google_sub): revoke it, remove its bindings, jobs and tokens\n\n**Auth:** user · **Phase:** 6, moved 13b · **Status:** live",
+						"description": "Disconnect one Google account (google_sub): revoke it, unbind its locations (they stay, without GBP), remove its picks, jobs and tokens\n\n**Auth:** user · **Phase:** 6, moved 13b, picks 2026-10-01 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3599,20 +3599,28 @@
 					}
 				},
 				{
-					"name": "GET /gbp",
+					"name": "GET /gbp/connections",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "X-Organization-Id",
+								"value": "{{organizationId}}",
+								"description": "Optional: the organization to act in (default: your default organization).",
+								"disabled": true
+							}
+						],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/gbp",
+							"raw": "{{baseUrl}}/api/v1/gbp/connections",
 							"host": [
 								"{{baseUrl}}/api/v1"
 							],
 							"path": [
-								"gbp"
+								"gbp",
+								"connections"
 							]
 						},
-						"description": "Every GBP profile from every connected Google account, grouped ({ connections: [...] }; no Places calls)\n\n**Auth:** user · **Phase:** legacy, rebuilt 6 · **Status:** live",
+						"description": "The user's connected Google accounts (max 3) with their picked / bound counts\n\n**Auth:** user + org · **Phase:** 2026-10-01 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3626,26 +3634,83 @@
 					}
 				},
 				{
-					"name": "POST /gbp/bind",
+					"name": "GET /gbp/connections/:googleSub/locations",
 					"request": {
-						"method": "POST",
+						"method": "GET",
 						"header": [
+							{
+								"key": "X-Organization-Id",
+								"value": "{{organizationId}}",
+								"description": "Optional: the organization to act in (default: your default organization).",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gbp/connections/:googleSub/locations",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"gbp",
+								"connections",
+								":googleSub",
+								"locations"
+							],
+							"variable": [
+								{
+									"key": "googleSub",
+									"value": "{{googleSub}}"
+								}
+							]
+						},
+						"description": "The connect modal: one account's Business Profile locations with supported / picked / bound_location_id (no Places calls)\n\n**Auth:** user + org · **Phase:** 2026-10-01 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "PUT /gbp/connections/:googleSub/picks",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "X-Organization-Id",
+								"value": "{{organizationId}}",
+								"description": "Optional: the organization to act in (default: your default organization).",
+								"disabled": true
+							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/gbp/bind",
+							"raw": "{{baseUrl}}/api/v1/gbp/connections/:googleSub/picks",
 							"host": [
 								"{{baseUrl}}/api/v1"
 							],
 							"path": [
 								"gbp",
-								"bind"
+								"connections",
+								":googleSub",
+								"picks"
+							],
+							"variable": [
+								{
+									"key": "googleSub",
+									"value": "{{googleSub}}"
+								}
 							]
 						},
-						"description": "Bind a GBP location to a Location (read from Google, place_id rules; google_sub with several accounts)\n\n**Auth:** user · **Phase:** 6, moved 13b · **Status:** live",
+						"description": "Save the modal's selection for that account (gbp_location_ids); only picked locations show on the locations page\n\n**Auth:** user + org (owner/member) · **Phase:** 2026-10-01 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3658,12 +3723,110 @@
 						},
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"location_id\": \"{{locationId}}\",\n  \"gbpAccountId\": \"accounts/{{gbpAccountId}}\",\n  \"gbpLocationId\": \"locations/{{gbpLocationId}}\",\n  \"google_sub\": \"{{googleSub}}\"\n}",
+							"raw": "{\n  \"gbp_location_ids\": [\n    \"locations/{{gbpLocationId}}\"\n  ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
 								}
 							}
+						}
+					}
+				},
+				{
+					"name": "POST /gbp/picks/:pickId/bind",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Organization-Id",
+								"value": "{{organizationId}}",
+								"description": "Optional: the organization to act in (default: your default organization).",
+								"disabled": true
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gbp/picks/:pickId/bind",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"gbp",
+								"picks",
+								":pickId",
+								"bind"
+							],
+							"variable": [
+								{
+									"key": "pickId",
+									"value": "{{pickId}}"
+								}
+							]
+						},
+						"description": "The Bind button: create (subscription-gated) or link the location from the profile and bind it; client_id?\n\n**Auth:** user + org (owner/member) · **Phase:** 2026-10-01 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"client_id\": \"{{clientId}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "DELETE /gbp/picks/:pickId",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-Organization-Id",
+								"value": "{{organizationId}}",
+								"description": "Optional: the organization to act in (default: your default organization).",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gbp/picks/:pickId",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"gbp",
+								"picks",
+								":pickId"
+							],
+							"variable": [
+								{
+									"key": "pickId",
+									"value": "{{pickId}}"
+								}
+							]
+						},
+						"description": "Remove an unbound pick from the locations page\n\n**Auth:** user + org (owner/member) · **Phase:** 2026-10-01 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
 						}
 					}
 				},
@@ -3687,7 +3850,7 @@
 								"unbind"
 							]
 						},
-						"description": "Unbind a Location\n\n**Auth:** user · **Phase:** 6 · **Status:** live",
+						"description": "Unbind a Location (it stays, without GBP; its pick is removed; the Google connection stays)\n\n**Auth:** user · **Phase:** 6, changed 2026-10-01 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -3746,89 +3909,6 @@
 									"type": "string"
 								}
 							]
-						}
-					}
-				},
-				{
-					"name": "GET /onboarding/gbp-profiles",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "X-Organization-Id",
-								"value": "{{organizationId}}",
-								"description": "Optional: the organization to act in (default: your default organization).",
-								"disabled": true
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/onboarding/gbp-profiles",
-							"host": [
-								"{{baseUrl}}/api/v1"
-							],
-							"path": [
-								"onboarding",
-								"gbp-profiles"
-							]
-						},
-						"description": "Every accessible profile, supported flag\n\n**Auth:** user + org · **Phase:** 7a · **Status:** live",
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{accessToken}}",
-									"type": "string"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "POST /onboarding/select-profile",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "X-Organization-Id",
-								"value": "{{organizationId}}",
-								"description": "Optional: the organization to act in (default: your default organization).",
-								"disabled": true
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/onboarding/select-profile",
-							"host": [
-								"{{baseUrl}}/api/v1"
-							],
-							"path": [
-								"onboarding",
-								"select-profile"
-							]
-						},
-						"description": "Create (plan limit) or link a location of the organization from a profile and bind; client_id? (agency)\n\n**Auth:** user + org · **Phase:** 7a, changed 8 · **Status:** live",
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{accessToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"gbpAccountId\": \"accounts/{{gbpAccountId}}\",\n  \"gbpLocationId\": \"locations/{{gbpLocationId}}\",\n  \"google_sub\": \"{{googleSub}}\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
 						}
 					}
 				},

@@ -4,7 +4,6 @@ import { GbpAccount, GbpLocation, RawAccountsPage, RawLocationsPage } from '../.
 import { HttpRequestError } from '../../../src/clients/http';
 import { UserGBP } from '../../../src/models';
 import { createDiscoveryService, formatAddress } from '../../../src/services/gbp/discovery.service';
-import { ConnectionInfo } from '../../../src/services/gbp/tokenStore';
 import { loadGbpFixture } from '../../helpers/fakeTransport';
 import { clearDb, createLocation, createUser, startTestDb } from '../../helpers/mongoose';
 
@@ -16,8 +15,6 @@ const locationsFrom = (...pages: string[]): GbpLocation[] =>
 	pages.flatMap((p) => (loadGbpFixture<RawLocationsPage>(p).locations ?? []).map((l) => mapLocation(l) as GbpLocation));
 
 const ACCOUNTS = accountsFrom('accounts_p1', 'accounts_p2');
-const ONE: ConnectionInfo[] = [{ googleSub: 'sub-a', googleEmail: 'a@example.test', status: 'active', expiryDate: null }];
-const one = { listConnections: async () => ONE };
 const LOCATIONS = locationsFrom('locations_p1', 'locations_p2');
 
 let db: { stop: () => Promise<void> };
@@ -54,12 +51,8 @@ describe('listAllLocations', () => {
 					return account === ACCOUNTS[0].name ? LOCATIONS.slice(0, 2) : account === ACCOUNTS[2].name ? LOCATIONS.slice(2) : [];
 				},
 			},
-			tokens: one,
 		});
-		const { connections } = await service.listAllLocations(user._id);
-		expect(connections).toHaveLength(1);
-		const result = connections[0];
-		expect(result).toMatchObject({ google_sub: 'sub-a', google_email: 'a@example.test', label: 'Connected as a@example.test', status: 'ok' });
+		const result = await service.listConnectionLocations(user._id, 'sub-a');
 		expect(listed).toEqual(ACCOUNTS.map((a) => a.name));
 		expect(result.accounts).toBe(3);
 		expect(result.errors).toEqual([]);
@@ -88,9 +81,8 @@ describe('listAllLocations', () => {
 		const { user } = await createUser('b@test.dev');
 		const service = createDiscoveryService({
 			client: { listAccounts: async () => ACCOUNTS.slice(0, 2), listLocations: async () => LOCATIONS.slice(0, 1) },
-			tokens: one,
 		});
-		expect((await service.listAllLocations(user._id)).connections[0].locations).toHaveLength(1);
+		expect((await service.listConnectionLocations(user._id, 'sub-a')).locations).toHaveLength(1);
 	});
 
 	it('keeps going when one account fails, and reports it', async () => {
@@ -103,47 +95,26 @@ describe('listAllLocations', () => {
 					return account === ACCOUNTS[0].name ? LOCATIONS.slice(0, 2) : [];
 				},
 			},
-			tokens: one,
 		});
-		const result = (await service.listAllLocations(user._id)).connections[0];
+		const result = await service.listConnectionLocations(user._id, 'sub-a');
 		expect(result.locations).toHaveLength(2);
 		expect(result.errors).toEqual([{ account: ACCOUNTS[1].name, message: 'GBP locations.list failed: internal' }]);
 	});
 
-	it('reports a connection-wide failure (quota 0) on its own group and keeps the other accounts', async () => {
+	it('a connection-wide failure (quota 0) is an API error for that account', async () => {
 		const { user } = await createUser('d@test.dev');
 		const quota0 = new GbpAccessNotApprovedError(
 			new HttpRequestError({ code: 'HTTP_ERROR', status: 429, message: 'Quota exceeded', quotaLimitValue: '0' }),
 			1,
 		);
-		const two: ConnectionInfo[] = [...ONE, { googleSub: 'sub-b', googleEmail: 'b@example.test', status: 'active', expiryDate: null }];
 		const service = createDiscoveryService({
 			client: {
-				listAccounts: async (conn) => {
-					if (conn.googleSub === 'sub-a') throw quota0;
-					return ACCOUNTS.slice(0, 1);
+				listAccounts: async () => {
+					throw quota0;
 				},
 				listLocations: async () => LOCATIONS.slice(0, 1),
 			},
-			tokens: { listConnections: async () => two },
 		});
-		const { connections } = await service.listAllLocations(user._id);
-		expect(connections[0]).toMatchObject({ google_sub: 'sub-a', status: 'error', locations: [] });
-		expect(connections[0].error).toMatch(/^GBP API access not approved \(quota 0\)/);
-		expect(connections[1]).toMatchObject({ google_sub: 'sub-b', status: 'ok', label: 'Connected as b@example.test' });
-		expect(connections[1].locations[0].google_sub).toBe('sub-b');
-	});
-
-	it('shows a revoked connection without calling Google, and 400s with no connection', async () => {
-		const { user } = await createUser('e@test.dev');
-		const listAccounts = jest.fn();
-		const service = createDiscoveryService({
-			client: { listAccounts, listLocations: jest.fn() },
-			tokens: { listConnections: async () => [{ ...ONE[0], status: 'revoked' as const }] },
-		});
-		expect((await service.listAllLocations(user._id)).connections[0]).toMatchObject({ status: 'revoked' });
-		expect(listAccounts).not.toHaveBeenCalled();
-		const none = createDiscoveryService({ client: { listAccounts, listLocations: jest.fn() }, tokens: { listConnections: async () => [] } });
-		await expect(none.listAllLocations(user._id)).rejects.toMatchObject({ statusCode: 400 });
+		await expect(service.listConnectionLocations(user._id, 'sub-a')).rejects.toMatchObject({ message: expect.stringMatching(/^GBP API access not approved \(quota 0\)/) });
 	});
 });

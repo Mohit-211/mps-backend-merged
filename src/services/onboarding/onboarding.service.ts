@@ -11,7 +11,7 @@ import { canWrite, findAccessibleLocation, findLocationForUser, locationScope, r
 import { assertCanAddLocation } from '../org/limits';
 import { EmptyStates, OrgOnboarding, orgOnboardingState } from '../org/onboardingState';
 import { BindResult, bindingService } from '../gbp/binding.service';
-import { DiscoveredLocation, countryName, discoveryService, formatAddress } from '../gbp/discovery.service';
+import { countryName, formatAddress } from '../gbp/discovery.service';
 import { toGbpApiError } from '../gbp/errors';
 import { resolveConnection } from '../gbp/connections';
 import { TokenStore, tokenStore } from '../gbp/tokenStore';
@@ -73,7 +73,6 @@ export interface CompleteResult {
 export interface OnboardingDeps {
 	client?: Pick<GbpClient, 'getLocation'>;
 	tokens?: Pick<TokenStore, 'listConnections'>;
-	discovery?: { listAllLocations: typeof discoveryService.listAllLocations };
 	binding?: { bindLocation: typeof bindingService.bindLocation };
 	enqueue?: (location: ILocation, userId: UserId) => Promise<EnqueueResult>;
 	enqueueSync?: (location: ILocation, userId: UserId) => Promise<SyncEnqueueResult>;
@@ -104,7 +103,6 @@ export const locationFieldsFromProfile = (profile: GbpLocation) => {
 export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 	const client = deps.client ?? gbpClient;
 	const tokens = deps.tokens ?? tokenStore;
-	const discovery = deps.discovery ?? discoveryService;
 	const binding = deps.binding ?? bindingService;
 	const enqueue = deps.enqueue ?? ((location: ILocation, userId: UserId) => enqueueRankRun(location, userId, 'manual'));
 	const enqueueSync = deps.enqueueSync ?? ((location: ILocation, userId: UserId) => enqueueGbpSync(location, userId, 'onboarding'));
@@ -131,20 +129,6 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 			}))
 			.sort((a, b) => Number(a.onboarding?.step === 'completed' || !a.onboarding) - Number(b.onboarding?.step === 'completed' || !b.onboarding));
 		return { organization, empty_states, gbp, locations: rows };
-	};
-
-	/** Every profile from every connected Google account (grouped), with whether we can onboard it. */
-	const listProfiles = async (userId: UserId) => {
-		const result = await discovery.listAllLocations(userId);
-		return {
-			connections: result.connections.map((group) => ({
-				...group,
-				locations: group.locations.map((l: DiscoveredLocation) => ({
-					...l,
-					supported: l.region_code !== null && SUPPORTED_REGIONS.includes(l.region_code),
-				})),
-			})),
-		};
 	};
 
 	/** A location of the context's organization the caller may change (404 otherwise; 403 for a client_user). */
@@ -320,7 +304,8 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 		};
 	};
 
-	return { getState, listProfiles, selectProfile, complete };
+	// selectProfile is the internal create-or-link + bind step of POST /gbp/picks/:pickId/bind (2026-10-01).
+	return { getState, selectProfile, complete };
 };
 
 export const onboardingService = createOnboardingService();

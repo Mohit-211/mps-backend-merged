@@ -96,7 +96,6 @@ describe('onboarding service', () => {
 			client,
 			tokens,
 			binding: createBindingService({ client, tokens, agenda: {} as Agenda }),
-			discovery: { listAllLocations: async () => ({ connections: [] }) },
 			enqueue: async (location: ILocation): Promise<EnqueueResult> => {
 				enqueued.push(String(location._id));
 				return { run_id: 'run-1', status: 'queued', existing: false, estimate: {} as EnqueueResult['estimate'], dev_capped: false };

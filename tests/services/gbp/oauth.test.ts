@@ -29,6 +29,7 @@ const googleTokens = (over: Partial<OAuthTokens> & { sub?: string; email?: strin
 	};
 };
 
+const revoked: string[] = [];
 const setup = (opts: { exchange?: () => OAuthTokens; exchangeFails?: boolean } = {}) => {
 	let clock = new Date(NOW);
 	const exchanged: { code: string; redirectUri?: string }[] = [];
@@ -38,6 +39,9 @@ const setup = (opts: { exchange?: () => OAuthTokens; exchangeFails?: boolean } =
 				exchanged.push({ code, redirectUri });
 				if (opts.exchangeFails) throw new GbpApiError('GBP oauth.exchange failed: invalid_grant', { status: 400, reason: 'invalid_grant' }, 1);
 				return opts.exchange ? opts.exchange() : googleTokens();
+			},
+			revoke: async (token: string) => {
+				revoked.push(token);
 			},
 		},
 		tokens,
@@ -200,6 +204,20 @@ describe('several Google accounts and missing refresh tokens', () => {
 		expect((await tokens.listConnections(user._id, tokenTypes.GBP)).map((c) => c.googleEmail)).toEqual(['owner@example.test', 'other@example.test']);
 		expect(await tokens.load(user._id, tokenTypes.GBP, OWNER_SUB)).toMatchObject({ refreshToken: '1//FAKE' });
 		expect(await tokens.load(user._id, tokenTypes.GBP, OTHER_SUB)).toMatchObject({ refreshToken: '1//OTHER' });
+	});
+
+	it('2026-10-01: at most 3 Google accounts per user; a 4th is refused (409 google_account_limit) and revoked at Google; the same account reconnects', async () => {
+		const { user } = await createUser('u@test.dev');
+		const uid = user._id as Types.ObjectId;
+		for (const n of [1, 2, 3]) await connectAs(uid, { sub: `sub-${n}`, email: `g${n}@example.test`, refreshToken: `1//R${n}` });
+		revoked.length = 0;
+		await expect(connectAs(uid, { sub: 'sub-4', email: 'g4@example.test', refreshToken: '1//R4' })).rejects.toMatchObject({
+			statusCode: 409,
+			data: { reason: 'google_account_limit', limit: 3, connected: ['g1@example.test', 'g2@example.test', 'g3@example.test'] },
+		});
+		expect(revoked).toEqual(['1//R4']);
+		expect(await UserAuth.countDocuments({ user_id: uid })).toBe(3);
+		await expect(connectAs(uid, { sub: 'sub-2', email: 'g2@example.test', refreshToken: '1//R2b' })).resolves.toMatchObject({ connected: true });
 	});
 
 	it('updates the same Google account instead of duplicating it', async () => {

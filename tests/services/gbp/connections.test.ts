@@ -64,7 +64,7 @@ const setup = () => {
 		revoke: async (token: string) => void revoked.push(token),
 	};
 	const binding = createBindingService({ client, tokens, agenda });
-	const discovery = createDiscoveryService({ client, tokens });
+	const discovery = createDiscoveryService({ client });
 	return { binding, discovery, calls, revoked };
 };
 
@@ -85,12 +85,9 @@ describe('two Google accounts on one user', () => {
 		const locB = await createLocation(uid, { place_id: null });
 		const { binding, discovery, calls, revoked } = setup();
 
-		// Profiles are grouped per Google account.
-		const { connections } = await discovery.listAllLocations(uid);
-		expect(connections.map((c) => [c.label, c.locations.map((l) => l.title)])).toEqual([
-			['Connected as a@client.test', ['Client A Plumbing']],
-			['Connected as b@client.test', ['Client B Dental']],
-		]);
+		// Each connected account lists its own profiles.
+		expect((await discovery.listConnectionLocations(uid, SUB_A)).locations.map((l) => l.title)).toEqual(['Client A Plumbing']);
+		expect((await discovery.listConnectionLocations(uid, SUB_B)).locations.map((l) => l.title)).toEqual(['Client B Dental']);
 
 		// Binding needs google_sub when several accounts are connected.
 		await expect(binding.bindLocation(uid, { location_id: String(locA._id), gbpAccountId: 'accounts/x', gbpLocationId: PROFILE_A.name })).rejects.toMatchObject({
@@ -109,7 +106,7 @@ describe('two Google accounts on one user', () => {
 
 		// Disconnect A: only A's token, binding and jobs go.
 		await expect(binding.disconnect(uid)).rejects.toMatchObject({ statusCode: 400 });
-		expect(await binding.disconnect(uid, SUB_A)).toEqual({ revoked: true, bindings_removed: 1, google_email: 'a@client.test' });
+		expect(await binding.disconnect(uid, SUB_A)).toEqual({ revoked: true, bindings_removed: 1, picks_removed: 0, google_email: 'a@client.test' });
 		expect(revoked).toEqual([`1//${SUB_A}`]);
 		expect(await tokens.load(uid, tokenTypes.GBP, SUB_A)).toBeNull();
 		expect(await UserGBP.countDocuments({ location_id: locA._id })).toBe(0);
@@ -134,7 +131,7 @@ describe('two Google accounts on one user', () => {
 		expect((await User.findById(uid))?.is_gbp_connected).toBe(false);
 	});
 
-	it('unbind deletes a connection only with its last binding; the other account is untouched', async () => {
+	it('unbind keeps both Google connections (2026-10-01: only disconnect removes one)', async () => {
 		const { user } = await createUser('agency2@test.dev');
 		const uid = user._id as Types.ObjectId;
 		await connect(uid, SUB_A, 'a@client.test');
@@ -145,8 +142,8 @@ describe('two Google accounts on one user', () => {
 		await binding.bindLocation(uid, { location_id: String(locA._id), gbpAccountId: 'accounts/x', gbpLocationId: PROFILE_A.name, google_sub: SUB_A });
 		await binding.bindLocation(uid, { location_id: String(locB._id), gbpAccountId: 'accounts/y', gbpLocationId: PROFILE_B.name, google_sub: SUB_B });
 
-		expect((await binding.unbindLocation(uid, String(locA._id))).tokens_deleted).toBe(true);
-		expect(await tokens.load(uid, tokenTypes.GBP, SUB_A)).toBeNull();
+		expect(await binding.unbindLocation(uid, String(locA._id))).toMatchObject({ unbound: true });
+		expect(await tokens.load(uid, tokenTypes.GBP, SUB_A)).not.toBeNull();
 		expect(await tokens.load(uid, tokenTypes.GBP, SUB_B)).not.toBeNull();
 	});
 

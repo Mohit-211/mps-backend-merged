@@ -2,6 +2,7 @@ import httpStatus from 'http-status';
 import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
 import { ILocation } from '../../models';
 import { addLocationFromPlace } from '../../services/locations/add.service';
+import { picksService } from '../../services/gbp/picks.service';
 import { ListQuery, listLocations, locationHeader, locationOverview, updateLocation } from '../../services/locations/locations.service';
 import { removeLocation } from '../../services/locations/remove.service';
 import { OrgContext, resolveOrgContext } from '../../services/org/context';
@@ -16,8 +17,14 @@ const locationOf = (res: Locals): ILocation => res.locals.location as ILocation;
 /** The context of the location's own organization (it may differ from the X-Organization-Id one). */
 const locationContext = (res: Locals): Promise<OrgContext> => resolveOrgContext(res.locals.userId as string, String(locationOf(res).organization_id));
 
+// 2026-10-01: pending_gbp = the user's Business Profile picks not bound yet (shown with a Bind button);
+// they are not locations, so they are outside the list's filters and pagination.
 export const list = catchAsync(async (req, res) =>
-	responseWrapper(res, { ...(await listLocations(orgOf(res), res.locals.listQuery as ListQuery)), attribution: GOOGLE_ATTRIBUTION }),
+	responseWrapper(res, {
+		...(await listLocations(orgOf(res), res.locals.listQuery as ListQuery)),
+		pending_gbp: await picksService.pending(orgOf(res)),
+		attribution: GOOGLE_ATTRIBUTION,
+	}),
 );
 
 export const add = catchAsync(async (req, res) => {

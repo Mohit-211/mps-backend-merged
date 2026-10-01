@@ -1,7 +1,7 @@
 import express from 'express';
 import * as onboardingController from '../../../controllers/onboarding/onboarding.controller';
 import { userAuthMiddleware } from '../../../middlewares';
-import { validateComplete, validateSelectProfile, validateSkip } from '../../../middlewares/onboarding/onboarding.middleware';
+import { validateComplete, validateSkip } from '../../../middlewares/onboarding/onboarding.middleware';
 import { loadOrgContext, requireWrite } from '../../../middlewares/org/org.middleware';
 import { requireBilling } from '../../../middlewares/billing/billing.middleware';
 
@@ -11,8 +11,6 @@ const router = express.Router();
 const auth = [userAuthMiddleware.verifyAuthJWTToken, loadOrgContext];
 
 router.get('/state', auth, onboardingController.getState);
-router.get('/gbp-profiles', auth, onboardingController.listProfiles);
-router.post('/select-profile', [...auth, validateSelectProfile], onboardingController.selectProfile);
 router.post('/complete', [...auth, requireWrite, requireBilling, validateComplete], onboardingController.complete);
 router.post('/skip', [...auth, requireWrite, validateSkip], onboardingController.skipStep);
 

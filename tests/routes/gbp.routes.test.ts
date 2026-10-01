@@ -8,7 +8,7 @@ import { OAuthState, User, UserAuth, UserGBP } from '../../src/models';
 import { isEncrypted } from '../../src/utils/tokenCrypto';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { loadGbpFixture } from '../helpers/fakeTransport';
-import { clearDb, createLocation, createUser, startTestDb } from '../helpers/mongoose';
+import { clearDb, createUser, ensureOrg, startTestDb } from '../helpers/mongoose';
 
 // Routers pull in services that import mongoConnection and the real agenda: replace both.
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
@@ -55,7 +55,7 @@ jest.mock('../../src/clients/gbpClient', () => {
 				return fake.accounts;
 			},
 			listLocations: async () => fake.locations,
-			getLocation: async () => fake.location,
+			getLocation: async (_conn: unknown, name: string) => fake.locations.find((l) => l.name === name) ?? fake.location,
 			revoke: async (token: string) => void fake.revoked.push(token),
 			getAccessToken: async () => 'ya29.FAKE-route',
 		},
@@ -65,12 +65,14 @@ jest.mock('../../src/clients/gbpClient', () => {
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const { mapAccount, mapLocation } = require('../../src/clients/gbpClient');
 const gbpRoute = require('../../src/routes/v1/common/gbpPostSchedular.route').default;
+const locationRoute = require('../../src/routes/v1/common/location.route').default;
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 
 const app = express();
 app.use(express.json());
 app.use(getQueryParams(queryTypesArr));
 app.use('/api/v1/gbp', gbpRoute);
+app.use('/api/v1/locations', locationRoute);
 app.use(apiErrorHandler);
 
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -109,8 +111,10 @@ const resultOf = (res: request.Response): { status: string | null; message: stri
 describe('GBP routes: auth', () => {
 	it('401 without a token on every protected GBP route', async () => {
 		const calls = [
-			request(app).get('/api/v1/gbp'),
-			request(app).post('/api/v1/gbp/bind').send({}),
+			request(app).get('/api/v1/gbp/connections'),
+			request(app).put('/api/v1/gbp/connections/x/picks').send({ gbp_location_ids: [] }),
+			request(app).post(`/api/v1/gbp/picks/${new Types.ObjectId().toHexString()}/bind`).send({}),
+			request(app).delete(`/api/v1/gbp/picks/${new Types.ObjectId().toHexString()}`),
 			request(app).post('/api/v1/gbp/unbind').send({}),
 			request(app).get('/api/v1/gbp/connect/url'),
 			request(app).post('/api/v1/gbp/disconnect'),
@@ -174,65 +178,114 @@ describe('GBP routes: connect', () => {
 	});
 });
 
-describe('GBP routes: discovery, bind, unbind, disconnect', () => {
-	it('GET /gbp lists locations from Business Information only (C22: no Places calls)', async () => {
-		const { token } = await createUser('d@test.dev');
+describe('GBP routes: connections, picks, bind, unbind, disconnect (2026-10-01)', () => {
+	const SUB = '100000000000000000001';
+	const owner = async (email: string) => {
+		const created = await createUser(email);
+		await ensureOrg(created.user._id);
+		return created;
+	};
+	const pickAll = (token: string, ids: string[]) => request(app).put(`/api/v1/gbp/connections/${SUB}/picks`).set(auth(token)).send({ gbp_location_ids: ids });
+
+	it('lists the connected accounts and one account\'s locations from Business Information only (C22: no Places calls)', async () => {
+		const { token } = await owner('d@test.dev');
+		expect((await request(app).get('/api/v1/gbp/connections').set(auth(token))).body.data).toEqual({ limit: 3, connections: [] });
 		await connect(token);
-		const res = await request(app).get('/api/v1/gbp').set(auth(token));
+		const accounts = await request(app).get('/api/v1/gbp/connections').set(auth(token));
+		expect(accounts.body.data).toEqual({ limit: 3, connections: [{ google_sub: SUB, google_email: 'owner@example.test', status: 'active', picked: 0, bound: 0 }] });
+		const res = await request(app).get(`/api/v1/gbp/connections/${SUB}/locations`).set(auth(token));
 		expect(res.status).toBe(200);
-		expect(res.body.data.connections).toHaveLength(1);
-		const group = res.body.data.connections[0];
-		expect(group).toMatchObject({ google_email: 'owner@example.test', label: 'Connected as owner@example.test', status: 'ok', accounts: 2, errors: [] });
-		expect(group.locations).toHaveLength(2); // same 2 locations under both accounts, listed once
-		expect(group.locations[0]).toMatchObject({
+		expect(res.body.data).toMatchObject({ google_sub: SUB, google_email: 'owner@example.test', errors: [] });
+		expect(res.body.data.locations).toHaveLength(2); // the same 2 locations under both accounts, listed once
+		expect(res.body.data.locations[0]).toMatchObject({
+			gbpLocationId: 'locations/200000000000000000001',
+			title: 'Example Plumbing Co',
 			address: '100 Example St, Suite 5, Dallas, TX 75201',
 			place_id: 'ChIJfakeGbpPlace000000001',
+			supported: true,
+			picked: false,
+			pick_id: null,
+			bound_location_id: null,
 		});
 		expect(placesCalls).not.toHaveBeenCalled();
+		expect((await request(app).get('/api/v1/gbp/connections/unknown-sub/locations').set(auth(token))).body.data).toMatchObject({ reason: 'google_account_not_connected' });
 	});
 
-	it('GET /gbp before connecting explains what to do', async () => {
-		const { token } = await createUser('e@test.dev');
-		const res = await request(app).get('/api/v1/gbp').set(auth(token));
-		expect(res.status).toBe(400);
-		expect(res.body.message).toBe('Please connect with Google Business Profile');
-	});
-
-	it('bind → unbind round trip', async () => {
-		const { user, token } = await createUser('f@test.dev');
-		const location = await createLocation(user._id as Types.ObjectId, { place_id: null });
+	it('pick only some locations: only those show on the locations page (pending_gbp), nothing is a location yet', async () => {
+		const { token } = await owner('p@test.dev');
 		await connect(token);
-		const body = { location_id: String(location._id), gbpAccountId: 'accounts/100000000000000000001', gbpLocationId: 'locations/200000000000000000001' };
-
-		const bound = await request(app).post('/api/v1/gbp/bind').set(auth(token)).send(body);
-		expect(bound.status).toBe(200);
-		expect(bound.body.data.place_id).toEqual({ location: 'ChIJfakeGbpPlace000000001', gbp: 'ChIJfakeGbpPlace000000001', status: 'set' });
-
-		const unbound = await request(app).post('/api/v1/gbp/unbind').set(auth(token)).send({ location_id: String(location._id) });
-		expect(unbound.status).toBe(200);
-		expect(unbound.body.data).toMatchObject({ unbound: true, tokens_deleted: true });
-		expect(cancelMock).toHaveBeenCalled();
-		expect((await request(app).post('/api/v1/gbp/unbind').set(auth(token)).send({ location_id: String(location._id) })).status).toBe(404);
-	});
-
-	it('bind validates input and requires a connection', async () => {
-		const { user, token } = await createUser('g@test.dev');
-		const location = await createLocation(user._id as Types.ObjectId);
-		const body = { location_id: String(location._id), gbpAccountId: 'accounts/1', gbpLocationId: 'locations/2' };
-		expect((await request(app).post('/api/v1/gbp/bind').set(auth(token)).send(body)).body.message).toBe('Please connect GBP first');
-		await connect(token);
-		expect((await request(app).post('/api/v1/gbp/bind').set(auth(token)).send({ ...body, gbpLocationId: 'x' })).status).toBe(400);
-		expect((await request(app).post('/api/v1/gbp/bind').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
-		expect((await request(app).post('/api/v1/gbp/unbind').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
-	});
-
-	it('disconnect revokes and removes the connection', async () => {
-		const { user, token } = await createUser('h@test.dev');
-		await connect(token);
-		const res = await request(app).post('/api/v1/gbp/disconnect').set(auth(token));
+		let res = await pickAll(token, ['locations/200000000000000000001']);
 		expect(res.status).toBe(200);
-		expect(res.body.data).toEqual({ revoked: true, bindings_removed: 0, google_email: 'owner@example.test' });
+		expect(res.body.data).toMatchObject({ picked: 1, removed: 0, kept_bound: 0 });
+		expect(res.body.data.locations.map((l: { picked: boolean }) => l.picked)).toEqual([true, false]);
+		const list = await request(app).get('/api/v1/locations').set(auth(token));
+		expect(list.body.data.locations).toEqual([]);
+		expect(list.body.data.pending_gbp).toEqual([
+			expect.objectContaining({ gbpLocationId: 'locations/200000000000000000001', title: 'Example Plumbing Co', google_email: 'owner@example.test', existing_location_id: null }),
+		]);
+		// Changing the selection replaces it; an unknown or malformed id is refused.
+		res = await pickAll(token, ['locations/200000000000000000002']);
+		expect(res.body.data).toMatchObject({ picked: 1, removed: 1 });
+		expect((await pickAll(token, ['locations/999'])).body.data).toMatchObject({ reason: 'unknown_location', gbp_location_ids: ['locations/999'] });
+		expect((await pickAll(token, ['bad'])).status).toBe(400);
+		// Removing a pick from the locations page.
+		const pickId = (await request(app).get('/api/v1/locations').set(auth(token))).body.data.pending_gbp[0].pick_id;
+		expect((await request(app).delete(`/api/v1/gbp/picks/${pickId}`).set(auth(token))).body.data).toEqual({ removed: true, pick_id: pickId });
+		expect((await request(app).get('/api/v1/locations').set(auth(token))).body.data.pending_gbp).toEqual([]);
+	});
+
+	it('Bind creates the location (subscription-gated: the trial allows 1, the next one answers 402); unbind keeps the location and the connection', async () => {
+		const { token } = await owner('b@test.dev');
+		await connect(token);
+		const picks = (await pickAll(token, ['locations/200000000000000000001', 'locations/200000000000000000002'])).body.data.locations;
+		const bound = await request(app).post(`/api/v1/gbp/picks/${picks[0].pick_id}/bind`).set(auth(token)).send({});
+		expect(bound.status).toBe(200);
+		expect(bound.body.data).toMatchObject({ pick_id: picks[0].pick_id, created: true, center_needed: false, binding: { binding: { gbpLocationId: 'locations/200000000000000000001' } } });
+		const locationId = bound.body.data.location.location_id as string;
+		expect((await request(app).post(`/api/v1/gbp/picks/${picks[0].pick_id}/bind`).set(auth(token)).send({})).body.data).toMatchObject({ reason: 'already_bound', location_id: locationId });
+		// The trial covers one location: binding the second needs a subscription.
+		const second = await request(app).post(`/api/v1/gbp/picks/${picks[1].pick_id}/bind`).set(auth(token)).send({});
+		expect([second.status, second.body.data.reason]).toEqual([402, 'subscription_required']);
+		let list = (await request(app).get('/api/v1/locations').set(auth(token))).body.data;
+		expect(list.locations.map((l: { location_id: string }) => l.location_id)).toEqual([locationId]);
+		expect(list.pending_gbp.map((p: { pick_id: string }) => p.pick_id)).toEqual([picks[1].pick_id]);
+		expect((await request(app).get('/api/v1/gbp/connections').set(auth(token))).body.data.connections[0]).toMatchObject({ picked: 1, bound: 1 });
+		// A bound pick can't be removed or unpicked; unbind instead.
+		expect((await request(app).delete(`/api/v1/gbp/picks/${picks[0].pick_id}`).set(auth(token))).body.data).toMatchObject({ reason: 'already_bound' });
+		expect((await pickAll(token, [])).body.data).toMatchObject({ removed: 1, kept_bound: 1 });
+
+		const unbound = await request(app).post('/api/v1/gbp/unbind').set(auth(token)).send({ location_id: locationId });
+		expect(unbound.body.data).toMatchObject({ unbound: true });
+		expect(cancelMock).toHaveBeenCalled();
+		list = (await request(app).get('/api/v1/locations').set(auth(token))).body.data;
+		expect(list.locations).toEqual([expect.objectContaining({ location_id: locationId, gbp_connected: false })]);
+		expect(await UserAuth.countDocuments({ token_type: tokenTypes.GBP })).toBe(1);
+		expect((await request(app).post('/api/v1/gbp/unbind').set(auth(token)).send({ location_id: locationId })).status).toBe(404);
+		// Picking the same profile again links to the existing location (no new location slot).
+		const again = (await pickAll(token, ['locations/200000000000000000001'])).body.data.locations[0];
+		expect((await request(app).get('/api/v1/locations').set(auth(token))).body.data.pending_gbp[0]).toMatchObject({ existing_location_id: locationId });
+		const relinked = await request(app).post(`/api/v1/gbp/picks/${again.pick_id}/bind`).set(auth(token)).send({});
+		expect(relinked.body.data).toMatchObject({ created: false, location: { location_id: locationId } });
+	});
+
+	it('disconnect revokes, unbinds that account\'s locations and removes its picks', async () => {
+		const { user, token } = await owner('h@test.dev');
+		await connect(token);
+		const picks = (await pickAll(token, ['locations/200000000000000000001', 'locations/200000000000000000002'])).body.data.locations;
+		const bound = await request(app).post(`/api/v1/gbp/picks/${picks[0].pick_id}/bind`).set(auth(token)).send({});
+		const res = await request(app).post('/api/v1/gbp/disconnect').set(auth(token)).send({ google_sub: SUB });
+		expect(res.status).toBe(200);
+		expect(res.body.data).toEqual({ revoked: true, bindings_removed: 1, picks_removed: 2, google_email: 'owner@example.test' });
 		expect(fake.revoked).toEqual(['1//FAKE-route']);
 		expect(await UserAuth.countDocuments({ user_id: user._id })).toBe(0);
+		const list = (await request(app).get('/api/v1/locations').set(auth(token))).body.data;
+		expect(list.pending_gbp).toEqual([]);
+		expect(list.locations).toEqual([expect.objectContaining({ location_id: bound.body.data.location.location_id, gbp_connected: false })]);
+	});
+
+	it('unbind validates input', async () => {
+		const { token } = await owner('g@test.dev');
+		expect((await request(app).post('/api/v1/gbp/unbind').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
+		expect((await request(app).post(`/api/v1/gbp/picks/${new Types.ObjectId().toHexString()}/bind`).set(auth(token)).send({})).status).toBe(404);
 	});
 });

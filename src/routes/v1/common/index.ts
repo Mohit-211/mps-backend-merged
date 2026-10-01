@@ -95,7 +95,7 @@ const commonRoutes = [
 		route: reportSchedulesRoute,
 	},
 	{
-		// Onboarding (Phase 7a): /onboarding/{state,gbp-profiles,select-profile,complete}
+		// Onboarding (Phase 7a): /onboarding/{state,complete,skip}; picking and binding GBP locations is /gbp (2026-10-01)
 		path: '/onboarding',
 		route: onboardingRoute,
 	},

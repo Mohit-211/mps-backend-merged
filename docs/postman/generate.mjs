@@ -90,13 +90,13 @@ const B = {
 	'PUT /locations/:locationId/tracking': { keywords: ['plumber', 'emergency plumber'], competitors: [], grid: { size: 5, spacing_km: 1 }, frequency: 'auto_monthly' },
 	'PUT /locations/:locationId/center': { query: 'Fredericton, NB' },
 	'POST /locations/:locationId/refresh': { types: ['rankings', 'gbp'] },
-	'POST /onboarding/select-profile': { gbpAccountId: 'accounts/{{gbpAccountId}}', gbpLocationId: 'locations/{{gbpLocationId}}', google_sub: '{{googleSub}}' },
 	'POST /onboarding/complete': { location_id: ID('locationId') },
 	'POST /onboarding/skip': { step: 'google' },
 	// GBP
 	'POST /gbp/connect/code': { code: '<code from the Google popup>', state: '<state from GET /gbp/connect/popup>' },
 	'POST /gbp/disconnect': { google_sub: '{{googleSub}}' },
-	'POST /gbp/bind': { location_id: ID('locationId'), gbpAccountId: 'accounts/{{gbpAccountId}}', gbpLocationId: 'locations/{{gbpLocationId}}', google_sub: '{{googleSub}}' },
+	'PUT /gbp/connections/:googleSub/picks': { gbp_location_ids: ['locations/{{gbpLocationId}}'] },
+	'POST /gbp/picks/:pickId/bind': { client_id: ID('clientId') },
 	'POST /gbp/unbind': { location_id: ID('locationId') },
 	'DELETE /gbp/post/remove': { post_id: '{{postId}}' },
 	// Citations (admin)

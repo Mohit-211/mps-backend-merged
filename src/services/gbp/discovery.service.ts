@@ -4,13 +4,10 @@ import {
 	GbpAccessNotApprovedError,
 	GbpApiDisabledError,
 	GbpClient,
-	GbpNotConnectedError,
 	GbpReauthRequiredError,
 	gbpClient,
 } from '../../clients/gbpClient';
 import { GbpAccount, GbpLocation, GbpPostalAddress } from '../../clients/types/gbp';
-import { tokenTypes } from '../../configs/constantTypes';
-import { TokenStore, tokenStore } from './tokenStore';
 import { UserGBP } from '../../models';
 import { toGbpApiError } from './errors';
 
@@ -40,25 +37,6 @@ export interface DiscoveredLocation {
 	place_id: string | null;
 	latlng: { latitude: number; longitude: number } | null;
 	bound_location_id: string | null;
-}
-
-/** One connected Google account and the profiles it can reach. */
-export interface ConnectionProfiles {
-	google_sub: string | null;
-	google_email: string | null;
-	/** "Connected as x@…" for display. */
-	label: string;
-	/** 'ok' | 'revoked' (reconnect) | 'error' (see `error`). */
-	status: 'ok' | 'revoked' | 'error';
-	error: string | null;
-	accounts: number;
-	locations: DiscoveredLocation[];
-	/** Accounts whose locations could not be listed (the other accounts are still returned). */
-	errors: { account: string; message: string }[];
-}
-
-export interface DiscoveryResult {
-	connections: ConnectionProfiles[];
 }
 
 type UserId = Types.ObjectId | string;
@@ -116,17 +94,15 @@ const isConnectionWide = (err: unknown): boolean =>
 
 export interface DiscoveryDeps {
 	client?: Pick<GbpClient, 'listAccounts' | 'listLocations'>;
-	tokens?: Pick<TokenStore, 'listConnections'>;
 }
 
 export const createDiscoveryService = (deps: DiscoveryDeps = {}) => {
 	const client = deps.client ?? gbpClient;
-	const tokens = deps.tokens ?? tokenStore;
 
 	const listConnection = async (userId: UserId, sub: string | null, boundTo: Map<string, string>) => {
 		const accounts = await client.listAccounts({ userId, googleSub: sub });
 		const locations: DiscoveredLocation[] = [];
-		const errors: ConnectionProfiles['errors'] = [];
+		const errors: { account: string; message: string }[] = [];
 		const seen = new Set<string>();
 		for (const account of accounts) {
 			try {
@@ -146,38 +122,21 @@ export const createDiscoveryService = (deps: DiscoveryDeps = {}) => {
 		return { accounts: accounts.length, locations, errors };
 	};
 
-	/** Every profile from every connected Google account, grouped by account. No Places calls. */
-	const listAllLocations = async (userId: UserId): Promise<DiscoveryResult> => {
-		const connections = await tokens.listConnections(userId, tokenTypes.GBP);
-		if (connections.length === 0) throw toGbpApiError(new GbpNotConnectedError());
+	/**
+	 * The profiles of one connected Google account (2026-10-01: the connect modal lists one account at a time).
+	 * Connection-wide failures (revoked, access not approved) are thrown as API errors.
+	 */
+	const listConnectionLocations = async (userId: UserId, googleSub: string) => {
 		const bindings = await UserGBP.find({ user_id: userId, is_active: true }).select({ gbpLocationId: 1, location_id: 1 }).lean();
 		const boundTo = new Map(bindings.map((b) => [b.gbpLocationId, String(b.location_id)]));
-
-		const groups: ConnectionProfiles[] = [];
-		for (const connection of connections) {
-			const base = {
-				google_sub: connection.googleSub,
-				google_email: connection.googleEmail,
-				label: `Connected as ${connection.googleEmail ?? 'a Google account'}`,
-			};
-			if (connection.status === 'revoked') {
-				groups.push({ ...base, status: 'revoked', error: 'Reconnect this Google account.', accounts: 0, locations: [], errors: [] });
-				continue;
-			}
-			try {
-				groups.push({ ...base, status: 'ok', error: null, ...(await listConnection(userId, connection.googleSub, boundTo)) });
-			} catch (err) {
-				const mapped = toGbpApiError(err);
-				const message = mapped instanceof Error ? mapped.message : 'Google Business Profile request failed.';
-				logger.warn(`gbp discovery: connection ${connection.googleEmail ?? '(no email)'} failed: ${message}`);
-				const revoked = err instanceof GbpReauthRequiredError;
-				groups.push({ ...base, status: revoked ? 'revoked' : 'error', error: message, accounts: 0, locations: [], errors: [] });
-			}
+		try {
+			return await listConnection(userId, googleSub, boundTo);
+		} catch (err) {
+			throw toGbpApiError(err);
 		}
-		return { connections: groups };
 	};
 
-	return { listAllLocations };
+	return { listConnectionLocations };
 };
 
 export const discoveryService = createDiscoveryService();

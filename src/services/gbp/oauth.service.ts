@@ -6,7 +6,8 @@ import logger from '../../configs/logger';
 import { tokenTypes } from '../../configs/constantTypes';
 import { GbpApiError, GbpClient, GbpConfigError, gbpClient } from '../../clients/gbpClient';
 import { OAuthFlow, OAuthState, User } from '../../models';
-import { ApiError } from '../../utils';
+import { ApiError, apiErrorWithData } from '../../utils';
+import { MAX_GOOGLE_ACCOUNTS } from './constants';
 import { IdTokenError, IdTokenVerifier, verifyGoogleIdToken } from './idToken';
 import { TokenStore, tokenStore } from './tokenStore';
 
@@ -55,8 +56,8 @@ export interface ConnectResult {
 }
 
 export interface GbpOAuthDeps {
-	client?: Pick<GbpClient, 'exchangeCode'>;
-	tokens?: Pick<TokenStore, 'save' | 'load'>;
+	client?: Pick<GbpClient, 'exchangeCode' | 'revoke'>;
+	tokens?: Pick<TokenStore, 'save' | 'load' | 'listConnections'>;
 	verifyIdToken?: IdTokenVerifier;
 	now?: () => Date;
 	clientId?: string;
@@ -165,8 +166,20 @@ export const createGbpOAuthService = (deps: GbpOAuthDeps = {}) => {
 			throw err;
 		}
 
-		// One connection per Google account (sub): the same account again updates it, a new one adds one.
+		// One connection per Google account (sub): the same account again updates it, a new one adds one,
+		// up to MAX_GOOGLE_ACCOUNTS per user (2026-10-01). Over the limit the new grant is revoked at Google.
 		const existing = await tokens.load(user._id, tokenTypes.GBP, identity.sub).catch(() => null);
+		if (existing === null) {
+			const connected = await tokens.listConnections(user._id, tokenTypes.GBP);
+			if (connected.length >= MAX_GOOGLE_ACCOUNTS) {
+				await client.revoke(exchanged.refreshToken ?? exchanged.accessToken).catch(() => undefined);
+				throw apiErrorWithData(httpStatus.CONFLICT, `You can connect up to ${MAX_GOOGLE_ACCOUNTS} Google accounts. Disconnect one first.`, {
+					reason: 'google_account_limit',
+					limit: MAX_GOOGLE_ACCOUNTS,
+					connected: connected.map((c) => c.googleEmail),
+				});
+			}
+		}
 		if (!exchanged.refreshToken && existing === null) {
 			throw new ApiError(
 				httpStatus.BAD_REQUEST,

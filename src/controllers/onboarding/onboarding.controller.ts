@@ -13,13 +13,6 @@ const orgOf = (res: { locals: Record<string, unknown> }): OrgContext => res.loca
 
 export const getState = catchAsync(async (req, res) => responseWrapper(res, await onboardingService.getState(orgOf(res))));
 
-export const listProfiles = catchAsync(async (req, res) => responseWrapper(res, await onboardingService.listProfiles(userIdOf(req))));
-
-export const selectProfile = catchAsync(async (req, res) => {
-	const result = await onboardingService.selectProfile(orgOf(res), res.locals.selectProfile);
-	return responseWrapper(res, result, result.created ? 'Location created and linked to the Business Profile.' : 'Location linked to the Business Profile.');
-});
-
 export const complete = catchAsync(async (req, res) => {
 	const result = await onboardingService.complete(userIdOf(req), res.locals.locationId as string);
 	return responseWrapper(res, result, 'Onboarding complete. The first ranking run is queued.');

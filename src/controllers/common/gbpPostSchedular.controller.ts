@@ -3,25 +3,6 @@ import httpStatus from 'http-status';
 import { responseWrapper, catchAsync, pick } from '../../utils';
 import { gbpPSService } from '../../services';
 
-export const getRegisteredGoogleBusinessProfile = catchAsync(async (req, res) => {
-    const body = pick(req.body, ['user'])
-    const result = await gbpPSService.getRegisteredGoogleBusinessProfile(body);
-    return responseWrapper(
-        res,
-        result,
-    );
-});
-
-export const bindGoogleBusinessProfileWithUser = catchAsync(async (req, res) => {
-    const body = pick(req.body, ['user', 'gbpLocationId', 'gbpAccountId', 'location_id', 'google_sub'])
-    const result = await gbpPSService.bindGoogleBusinessProfileWithUser(body);
-    return responseWrapper(
-        res,
-        result,
-        'Google Business Profile bound successfully'
-    );
-});
-
 export const unbindGoogleBusinessProfileWithUser = catchAsync(async (req, res) => {
     const body = pick(req.body, ['user', 'location_id'])
     const result = await gbpPSService.unbindGoogleBusinessProfileWithUser(body);

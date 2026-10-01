@@ -12,7 +12,7 @@ import { GBPPost, UserGBP } from '../../models';
 import { postPublishStatus } from '../../configs/constantTypes';
 import { gbpClient } from '../../clients/gbpClient';
 import { agenda } from '../../configs/mongoConnection';
-import { BindResult, DiscoveryResult, UnbindResult, bindingService, connectionForBinding, discoveryService, toGbpApiError } from '../gbp';
+import { UnbindResult, bindingService, connectionForBinding, toGbpApiError } from '../gbp';
 
 /**
  * Access token for the posting calls, from the connection (Google account) that bound this GBP
@@ -30,22 +30,6 @@ const gbpAccessToken = async (userId: string, gbpLocationId: string | undefined)
 /** "accounts/1/locations/2/localPosts/3" → "locations/2". */
 const locationOfPost = (gbpPostId: string): string | undefined => /(locations\/[^/]+)/.exec(gbpPostId)?.[1];
 
-
-// Phase 6: discovery across all accounts with no Places calls (C9, C22), and server-side binding.
-export const getRegisteredGoogleBusinessProfile = async (body: BodyDefinition): Promise<DiscoveryResult> => {
-	const { user } = body;
-	return discoveryService.listAllLocations(user._id);
-};
-
-export const bindGoogleBusinessProfileWithUser = async (body: BodyDefinition): Promise<BindResult> => {
-	const { user, gbpAccountId, gbpLocationId, location_id, google_sub } = body;
-	return bindingService.bindLocation(user._id, {
-		location_id,
-		gbpAccountId,
-		gbpLocationId,
-		google_sub: typeof google_sub === 'string' ? google_sub : undefined,
-	});
-};
 
 export const addPostToGBP = async (body: BodyDefinition): Promise<any> => {
 	try {

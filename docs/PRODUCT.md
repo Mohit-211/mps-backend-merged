@@ -37,7 +37,7 @@ Since Phase 8 the backend keys ownership by **organization**: users act through 
 
 - **A location is one business on Google Maps (usually a GBP).** Every location has a Google **`place_id`**.
 - **It can be added in two ways only. There is no manual entry**, so businesses that aren't on Google Maps can't be added.
-  - **(a) Connect GBP, then pick a profile** (7a `select-profile`). `source: "gbp"`, `gbp_connected: true`.
+  - **(a) Connect GBP, pick profiles in the connect modal, then Bind each from the locations page** (2026-10-01; Bind is subscription-gated). `source: "gbp"`, `gbp_connected: true`.
   - **(b) Places search, then pick a result.** One Place Details call with minimal fields stores `place_id`, name, address, lat/lng, phone and website. `source: "places_search"`, `gbp_connected: false`.
 - A (b) location can **connect its GBP later**. The bind is matched by `place_id`; a bind whose GBP `place_id` differs is refused with a clear error.
 - **Without a GBP connection:** rankings and the public competitor comparison work. The GBP report returns the private sections as `{ available: false, reason: "gbp_not_connected" }`, and the Public Score still shows.

@@ -101,7 +101,6 @@ describe('service-area onboarding: profile → center → keywords → competito
 			client,
 			tokens,
 			binding: createBindingService({ client, tokens, agenda: {} as Agenda }),
-			discovery: { listAllLocations: async () => ({ connections: [] }) },
 			enqueue: async (loc: ILocation): Promise<EnqueueResult> => {
 				enqueued.push(String(loc._id));
 				return { run_id: 'run-1', status: 'queued', existing: false, estimate: {} as EnqueueResult['estimate'], dev_capped: false };
@@ -140,7 +139,6 @@ describe('service-area onboarding: profile → center → keywords → competito
 			client,
 			tokens,
 			binding: createBindingService({ client, tokens, agenda: {} as Agenda }),
-			discovery: { listAllLocations: async () => ({ connections: [] }) },
 		});
 		const selected = await onboarding.selectProfile(await ctxFor(user._id), { gbpAccountId: 'accounts/1', gbpLocationId: profile.name });
 		expect(selected.center_needed).toBe(false);

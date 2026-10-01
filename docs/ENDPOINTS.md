@@ -53,7 +53,7 @@
 ## Billing gates (Phase 13a)
 
 **402 `subscription_required`** answers these when the organization is read-only (trial over without a subscription, a failed payment past its 7-day grace, an overdue manual invoice past grace). The body is `{ reason, billing: { state, trial_ends_at } }`; an admin suspension gives **403** `{ reason: "organization_suspended" }` instead (13c: 402 is only for payment situations).
-- `POST /locations`, `POST /onboarding/select-profile` (new location), `POST /onboarding/complete`, `PUT /locations/:id/center`
+- `POST /locations`, `POST /gbp/picks/:pickId/bind` (new location; 2026-10-01), `POST /onboarding/complete`, `PUT /locations/:id/center`
 - `GET /places/search`, `GET /locations/:id/competitor-suggestions`
 - `PUT /locations/:id/tracking`, `POST /locations/:id/rank-runs`, `POST /locations/:id/refresh`
 - `POST /reports`, `POST /reports/:id/email`, `POST /report-schedules`, `PATCH /report-schedules/:id`
@@ -67,11 +67,11 @@ Reads, billing, support and GBP connect / bind stay open.
 - `POST /reports`
 - the white-label branding writes
 
-## Summary (2026-09-29, Phase 13b built)
+## Summary (2026-10-01)
 
-**225 endpoints:** 224 live, 1 dev-only.
-- **By origin:** 190 rebuilt or new, 35 legacy.
-- **By auth:** 97 user, 92 platform admin (each with a permission), 36 none.
+**226 endpoints:** 225 live, 1 dev-only.
+- **By origin:** 191 rebuilt or new, 35 legacy.
+- **By auth:** 98 user, 92 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -130,7 +130,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/locations` | user + org | The locations table: search, filter (client, status), sort, pagination; status, rank, GBP score, reviews per row | legacy, rebuilt 8 | live |
+| GET | `/api/v1/locations` | user + org | The locations table: search, filter (client, status), sort, pagination; status, rank, GBP score, reviews per row; `pending_gbp`: the user's picked Business Profile locations not bound yet (2026-10-01) | legacy, rebuilt 8 | live |
 | POST | `/api/v1/locations` | user + org (owner/member) | Add a location from a Places search result `{ place_id, client_id? }` (1 Place Details call; plan limit; one place per organization). No manual entry | legacy, rebuilt 8 | live |
 | GET | `/api/v1/locations/:locationId` | user + owner | Location header (was unauthenticated) | legacy, rebuilt 8 | live |
 | GET | `/api/v1/locations/:locationId/overview` | user + owner | Header + the latest summary of every module (`available: false` sections when there's no data yet) | 8 | live |
@@ -214,20 +214,21 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 |---|---|---|---|---|---|
 | GET | `/api/v1/gbp/connect/url` | user | Google consent URL (redirect fallback flow) | 6, moved 13b | live |
 | GET | `/api/v1/gbp/connect/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens, then redirects the browser to `FRONTEND_URL/gbp/connect/callback?status=success\|denied\|error&message=…` (JSON when `FRONTEND_URL` is empty) | 6, moved 13b, redirect 2026-09-30 | live |
-| POST | `/api/v1/gbp/disconnect` | user | Disconnect one Google account (`google_sub`): revoke it, remove its bindings, jobs and tokens | 6, moved 13b | live |
+| POST | `/api/v1/gbp/disconnect` | user | Disconnect one Google account (`google_sub`): revoke it, unbind its locations (they stay, without GBP), remove its picks, jobs and tokens | 6, moved 13b, picks 2026-10-01 | live |
 | GET | `/api/v1/gbp/connect/popup` | user | GIS popup config with a one-time state | 7a, moved 13b | live |
 | POST | `/api/v1/gbp/connect/code` | user | Exchange the popup code (`postmessage`), verify id_token | 7a, moved 13b | live |
-| GET | `/api/v1/gbp` | user | Every GBP profile from every connected Google account, grouped (`{ connections: [...] }`; no Places calls) | legacy, rebuilt 6 | live |
-| POST | `/api/v1/gbp/bind` | user | Bind a GBP location to a Location (read from Google, `place_id` rules; `google_sub` with several accounts) | 6, moved 13b | live |
-| POST | `/api/v1/gbp/unbind` | user | Unbind a Location | 6 | live |
+| GET | `/api/v1/gbp/connections` | user + org | The user's connected Google accounts (max 3) with their picked / bound counts | 2026-10-01 | live |
+| GET | `/api/v1/gbp/connections/:googleSub/locations` | user + org | The connect modal: one account's Business Profile locations with `supported` / `picked` / `bound_location_id` (no Places calls) | 2026-10-01 | live |
+| PUT | `/api/v1/gbp/connections/:googleSub/picks` | user + org (owner/member) | Save the modal's selection for that account (`gbp_location_ids`); only picked locations show on the locations page | 2026-10-01 | live |
+| POST | `/api/v1/gbp/picks/:pickId/bind` | user + org (owner/member) | The Bind button: create (subscription-gated) or link the location from the profile and bind it; `client_id?` | 2026-10-01 | live |
+| DELETE | `/api/v1/gbp/picks/:pickId` | user + org (owner/member) | Remove an unbound pick from the locations page | 2026-10-01 | live |
+| POST | `/api/v1/gbp/unbind` | user | Unbind a Location (it stays, without GBP; its pick is removed; the Google connection stays) | 6, changed 2026-10-01 | live |
 
 ### Onboarding
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/onboarding/state` | user + org | Organization onboarding steps (Business / Agency, resumable), empty states, connection, onboarding locations | 7a, rebuilt 8 | live |
-| GET | `/api/v1/onboarding/gbp-profiles` | user + org | Every accessible profile, `supported` flag | 7a | live |
-| POST | `/api/v1/onboarding/select-profile` | user + org | Create (plan limit) or link a location of the organization from a profile and bind; `client_id?` (agency) | 7a, changed 8 | live |
 | POST | `/api/v1/onboarding/complete` | user + org (owner/member) | First rank run (+ GBP sync when bound) and the monthly refresh; no GBP needed since Phase 8 | 7a | live |
 | POST | `/api/v1/onboarding/skip` | user + org (owner/member) | Skip an organization step (`google`, `reporting_brand`) | 8 | live |
 | GET | `/api/v1/locations/:locationId/competitor-suggestions` | user + owner | Top 10 competitors across keywords (Places Enterprise, 24 h cache, daily cap) | 7a | live |
@@ -484,28 +485,30 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 | 10 | GET | `/gbp/connect/callback` | none (Google calls it) | `code`, `state`, `error` (from Google) | – | **302** to `FRONTEND_URL/gbp/connect/callback?status=success\|denied\|error&message=…`; without `FRONTEND_URL`: `{ connected: true, google_email, google_sub }` (400 on errors) |
 | 11 | GET | `/gbp/connect/popup` | user | – | – | **Popup flow** config for Google Identity Services: `{ client_id, scope, state, ux_mode: "popup", select_account: true }` |
 | 12 | POST | `/gbp/connect/code` | user | – | `{ code, state }` (from the popup callback) | `{ connected: true, google_email, google_sub }` |
-| 13 | POST | `/gbp/disconnect` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, google_email }` |
-| 14 | GET | `/gbp` | user | – | – | Every GBP profile from every connected Google account, grouped: `{ connections: [{ google_sub, google_email, label, status, error, accounts, locations, errors }] }` |
-| 15 | POST | `/gbp/bind` | user | – | `{ location_id, gbpAccountId: "accounts/…", gbpLocationId: "locations/…", google_sub? }` | `{ binding, place_id: { location, gbp, status }, coordinates }` |
-| 16 | POST | `/gbp/unbind` | user | – | `{ location_id }` | `{ unbound, jobs_cancelled: { gbp_sync, scheduled_posts }, tokens_deleted }` |
+| 13 | POST | `/gbp/disconnect` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, picks_removed, google_email }` |
+| 14 | GET | `/gbp/connections` | user + org | – | – | `{ limit: 3, connections: [{ google_sub, google_email, status: active\|revoked, picked, bound }] }` |
+| 14a | GET | `/gbp/connections/:googleSub/locations` | user + org | `googleSub` | – | `{ google_sub, google_email, locations: [{ gbpAccountId, gbpLocationId, title, address, city, region_code, place_id, supported, picked, picked_by_other, pick_id, bound_location_id }], errors }`; **404** `google_account_not_connected` |
+| 14b | PUT | `/gbp/connections/:googleSub/picks` | user + org (owner/member) | `googleSub` | `{ gbp_location_ids: ["locations/…"] }` | as #14a + `{ picked, removed, kept_bound }`; **400** `unknown_location`, `unsupported_region`; **409** `picked_by_other` |
+| 15 | POST | `/gbp/picks/:pickId/bind` | user + org (owner/member) | `pickId` | `{ client_id? }` | `{ pick_id, location: { location_id, name, address, place_id, lat, lng }, created, center_needed, binding }`; **402** `subscription_required` / `location_payment_required` (+ `quote`), **403** `enterprise_required`, **409** `already_bound`, `place_id_mismatch` |
+| 15a | DELETE | `/gbp/picks/:pickId` | user + org (owner/member) | `pickId` | – | `{ removed, pick_id }`; **409** `already_bound` |
+| 16 | POST | `/gbp/unbind` | user | – | `{ location_id }` | `{ unbound, jobs_cancelled: { gbp_sync, scheduled_posts } }` |
 
 **Notes:**
 - **#9:** scopes `openid email business.manage`, with `prompt=select_account consent`.
 - **#10:** returns **400** for an unknown, expired or reused state, `error=access_denied`, or an unverifiable Google account. A user can connect **several Google accounts**: a new account is added as its own connection (`google_sub`), and the same account again updates it.
 - **#11:** the `state` is valid 10 minutes and works once. Scopes are the same as #9. There is no `prompt` / `access_type` in the popup settings (GIS doesn't support them).
 - **#12:** the code is exchanged with `redirect_uri=postmessage`. The state must be a popup state belonging to the caller. Errors as #10.
-- **#13:** revokes that Google account at Google (best effort), then removes only its bindings, their scheduled jobs and its tokens. Other connected accounts are untouched. `google_sub` is required when several accounts are connected.
-- **#14:** read from Business Information only (no Places calls). Each location includes `address`, `place_id`, `latlng`, `region_code` and `bound_location_id`. Returns **400** if not connected, **503** if GBP access is not approved (quota 0).
-- **#15:** you must own the location, and it needs 1 GBP call. `google_sub` is required when several Google accounts are connected. `place_id` is set only if empty (never overwritten; a conflict is reported). lat/lng are filled only if both are empty. Returns **409** if that GBP location is bound to another of your locations.
-- **#16:** cancels the location's sync jobs and pending scheduled posts. Deletes that Google account's tokens only if it was that account's last binding. Returns **404** if the location is not bound.
+- **#13:** revokes that Google account at Google (best effort), then unbinds its locations (they stay as locations without GBP), cancels their scheduled jobs and removes its picks and tokens.
+- **#14 (2026-10-01):** up to 3 Google accounts per user (`POST /gbp/connect/code` answers **409** `google_account_limit` for a 4th, and revokes it at Google). Reconnecting the same account refreshes it. `status: revoked` means connect it again.
+- **#14a / #14b:** read from Business Information only (no Places calls). Picking is free and creates no location; leaving an unbound pick out of the list removes it, bound ones stay (unbind first).
+- **#15:** reads the profile from Google (1 GBP call). A profile whose place is already a location of the organization is linked (no new location slot); otherwise a location is created through the subscription limits.
+- **#16:** cancels the location's sync jobs and pending scheduled posts and removes its pick. The Google connection stays (2026-10-01: disconnect is explicit).
 
 ### Onboarding (Phase 7a)
 
 | # | Method | Path | Auth | Path / query params | Body | Returns |
 |---|---|---|---|---|---|---|
 | 17 | GET | `/onboarding/state` | user | – | – | `{ gbp: { connected, connections: [{ google_sub, google_email, status }] }, locations: [{ location_id, name, onboarding: { step, started_at, completed_at } }] }` |
-| 18 | GET | `/onboarding/gbp-profiles` | user | – | – | Same as #14 (grouped per Google account), plus `supported` (US/CA) per location |
-| 19 | POST | `/onboarding/select-profile` | user | – | `{ gbpAccountId, gbpLocationId, location_id?, google_sub? }` | `{ location: { location_id, name, address, place_id, lat, lng }, created, center_needed, binding }` |
 | 19b | PUT | `/locations/:locationId/center` | user, owner | `locationId` | `{ query }` (city or ZIP, 2–100 chars) | `{ lat, lng, center_source: "manual", center_label, api_calls, onboarding_step? }` |
 | 20 | GET | `/locations/:locationId/competitor-suggestions` | user, owner | `locationId`; query `refresh` (optional boolean) | – | `{ generated_at, cached, keywords_used, api_calls, suggestions: [{ place_id, name, address, rating, userRatingCount, best_position, keywords, already_selected }], attribution }` |
 | 21 | GET | `/places/search` | user, owner (via `locationId`) | query `q` (required, 2–100 chars), `locationId` (required, 24-hex) | – | `{ results: [{ place_id, name, address }], api_calls, attribution }` |
@@ -596,7 +599,6 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 - **#53:** reads only the stored per-location summaries (no rank-run or report documents, no Google). A client_user gets the agency shape for its clients only.
 - **#54–#60:** the invitation token (32 random bytes) is stored as a SHA-256 hash, valid `INVITATION_TTL_DAYS` (7), single use, and travels in the request body (never a URL path). In development no email is sent: the link is logged with the email masked.
 - **#17 (Phase 8):** `GET /onboarding/state` now returns `organization` (steps, `next_step`, `completed`) and `empty_states` before `gbp` and `locations`; every location of the organization is listed (unfinished first) with `source` and `client_id`.
-- **#19 (Phase 8):** `select-profile` takes `client_id?`, is limit-checked when it creates a location, links a location of the organization with the same place, and answers **409** `place_id_mismatch` for a location with a different place (also #15).
 - **#21 (Phase 8):** without `locationId` it is the add-location search (`country` or the organization's).
 - **#22 (Phase 8):** no GBP binding needed; the GBP sync is queued only when bound.
 - **#29–#34:** codes are stored hashed, expire in 15 minutes, allow 5 attempts, single use; rate-limited per email (and IP) with **429** `rate_limited`.
@@ -748,6 +750,8 @@ Removed in Phase 8: `GET /locations/google-locations/:name` and `GET /locations/
 Removed in Phase 13a: the legacy plan CRUD (`POST/GET /subscription`, `PUT/DELETE /subscription/:plan_id`), `GET /subscription/plans/country/:country` (→ `GET /pricing`), the guest checkout (`POST /subscription/create-subscription`, `GET /subscription/payment-status`), the prefix coupons (`POST /subscription/coupon/generate`, `POST /subscription/coupon/validate`, `GET /subscription/coupons`), `GET /subscription/payments/all`, `POST /subscription/send-subscription-welcome-mail`, and the Square citation-credit routes (`POST /payments/process-payment`, `GET /payments/plans/list`, `GET /payments/getAllPayments`). Replaced by `/billing`, `/pricing` and the billing admin (Phase 13a D5).
 
 Removed in Phase 16: the 13 legacy `/api/v1/citation/*` routes (manual pricings, aggregators, remove prices, `lists/:location_id`, campaign add / business info / details / all, `locations/campaigns/list/all`, tracker GET / POST, builder, `getAllCitatioList`). They were a paid citation-campaign ordering flow with a SerpAPI "tracker" returning sample data and a stub builder; replaced by the Phase 16 citation endpoints. See [plans/phase-16-citations.md](plans/phase-16-citations.md) §1.
+
+Removed on 2026-10-01: `GET /api/v1/gbp`, `POST /api/v1/gbp/bind`, `GET /api/v1/onboarding/gbp-profiles` and `POST /api/v1/onboarding/select-profile` (replaced by the connect, pick and bind flow, #14–#15a).
 
 Removed in Phase 8.1: `POST /api/v1/auth/verify-email/resend` (now `POST /api/v1/auth/resend-verification`) and the legacy `POST /api/v1/user/auth/register` (use `POST /api/v1/auth/signup`).
 
