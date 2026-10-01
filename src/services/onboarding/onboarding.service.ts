@@ -250,10 +250,10 @@ export const createOnboardingService = (deps: OnboardingDeps = {}) => {
 			};
 		}
 		if (typeof location.lat !== 'number' || typeof location.lng !== 'number') {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'Set the business center first (city or ZIP).');
+			throw apiErrorWithData(httpStatus.BAD_REQUEST, 'Set the business center first (city or ZIP).', { reason: 'center_required' });
 		}
 		if (withDefaults(location.tracking).keywords.length === 0) {
-			throw new ApiError(httpStatus.BAD_REQUEST, 'Add at least one keyword first.');
+			throw apiErrorWithData(httpStatus.BAD_REQUEST, 'Add at least one keyword first.', { reason: 'keywords_required' });
 		}
 
 		let run: EnqueueResult;

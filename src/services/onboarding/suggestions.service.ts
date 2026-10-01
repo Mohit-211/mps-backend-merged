@@ -6,7 +6,7 @@ import { SuggestionPlace } from '../../clients/types/places';
 import { CompetitorSuggestion, ILocation, Location } from '../../models';
 import { applyDevKeywordCap } from '../../ranking/limits';
 import { regionFromCountry } from '../../ranking/region';
-import { ApiError } from '../../utils';
+import { ApiError, apiErrorWithData } from '../../utils';
 import { withDefaults } from '../ranking/trackingSettings';
 import { PlacesUsageService, placesUsage } from './usage';
 
@@ -95,7 +95,7 @@ export const createSuggestionsService = (deps: SuggestionsDeps = {}) => {
 
 	const getSuggestions = async (location: ILocation, userId: Types.ObjectId | string, options: { refresh?: boolean } = {}): Promise<SuggestionsView> => {
 		const tracking = withDefaults(location.tracking);
-		if (tracking.keywords.length === 0) throw new ApiError(httpStatus.BAD_REQUEST, 'Add at least one keyword first.');
+		if (tracking.keywords.length === 0) throw apiErrorWithData(httpStatus.BAD_REQUEST, 'Add at least one keyword first.', { reason: 'keywords_required' });
 		if (typeof location.lat !== 'number' || typeof location.lng !== 'number') {
 			throw new ApiError(httpStatus.BAD_REQUEST, 'This location has no coordinates yet.');
 		}

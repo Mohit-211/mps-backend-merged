@@ -148,6 +148,7 @@ describe('rank runs and reports', () => {
 			const res = await request(app).get(base(path)).set(auth(ownerToken));
 			expect(res.status).toBe(404);
 			expect(res.body.message).toBe('No completed run yet');
+			expect(res.body.data).toEqual({ reason: 'no_completed_run' });
 		}
 	});
 
@@ -167,6 +168,8 @@ describe('rank runs and reports', () => {
 		const queued = await RankRun.findOne({ location_id: locationId, status: 'queued' });
 		const res = await request(app).get(base(`/rank-tracker?runId=${queued?._id}`)).set(auth(ownerToken));
 		expect(res.status).toBe(409);
+		expect(res.body.data).toEqual({ reason: 'run_not_finished', status: 'queued' });
+		expect((await request(app).get(base(`/rank-tracker?runId=${new Types.ObjectId()}`)).set(auth(ownerToken))).body.data).toEqual({ reason: 'run_not_found' });
 	});
 
 	it('GET rank-runs/:runId shows status and API calls after the run', async () => {

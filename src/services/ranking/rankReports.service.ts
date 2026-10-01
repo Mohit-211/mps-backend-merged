@@ -4,7 +4,7 @@ import config from '../../configs/config';
 import { PlacesConfigError } from '../../clients/placesClient';
 import { LeanRankRun, RankCellDoc, RankRun } from '../../models/rankRun.model';
 import { RankCell, bucket, displayRank, normaliseKeyword } from '../../ranking';
-import { ApiError } from '../../utils';
+import { ApiError, apiErrorWithData } from '../../utils';
 import { resolveNames } from './resolveNames';
 import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
 
@@ -42,16 +42,16 @@ export const resolveViewRun = async (locationId: Types.ObjectId | string, runId?
 	if (runId) {
 		if (!Types.ObjectId.isValid(runId)) throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid runId');
 		const run = await RankRun.findOne({ _id: runId, location_id: locationId }).lean<LeanRun>();
-		if (!run) throw new ApiError(httpStatus.NOT_FOUND, 'Rank run not found');
+		if (!run) throw apiErrorWithData(httpStatus.NOT_FOUND, 'Rank run not found', { reason: 'run_not_found' });
 		if (!VIEWABLE.includes(run.status)) {
-			throw new ApiError(httpStatus.CONFLICT, `Rank run is ${run.status}; only done or partial runs have reports`);
+			throw apiErrorWithData(httpStatus.CONFLICT, `Rank run is ${run.status}; only done or partial runs have reports`, { reason: 'run_not_finished', status: run.status });
 		}
 		return run;
 	}
 	const latest = await RankRun.findOne({ location_id: locationId, status: { $in: VIEWABLE } })
 		.sort({ run_at: -1 })
 		.lean<LeanRun>();
-	if (!latest) throw new ApiError(httpStatus.NOT_FOUND, 'No completed run yet');
+	if (!latest) throw apiErrorWithData(httpStatus.NOT_FOUND, 'No completed run yet', { reason: 'no_completed_run' });
 	return latest;
 };
 
@@ -59,7 +59,7 @@ const pickKeyword = <T extends { keyword: string }>(sections: T[], keyword?: str
 	if (!keyword) return sections;
 	const wanted = normaliseKeyword(keyword);
 	const found = sections.filter((s) => normaliseKeyword(s.keyword) === wanted);
-	if (found.length === 0) throw new ApiError(httpStatus.NOT_FOUND, `Keyword not in this run: "${keyword}"`);
+	if (found.length === 0) throw apiErrorWithData(httpStatus.NOT_FOUND, `Keyword not in this run: "${keyword}"`, { reason: 'keyword_not_in_run' });
 	return found;
 };
 
@@ -116,7 +116,7 @@ export const mapRankingView = async (
 	const pointOf = (s: { point?: string }) => s.point ?? 'C';
 	const available = [...new Set(run.mapList.map(pointOf))];
 	if (point !== 'all' && !available.includes(point)) {
-		throw new ApiError(httpStatus.NOT_FOUND, `This run has no Map Ranking list at point ${point} (available: ${available.join(', ')})`);
+		throw apiErrorWithData(httpStatus.NOT_FOUND, `This run has no Map Ranking list at point ${point} (available: ${available.join(', ')})`, { reason: 'point_not_in_run', available });
 	}
 	const sections = pickKeyword(run.mapList, keyword).filter((s) => point === 'all' || pointOf(s) === point);
 	const namesStored = run.config.store_place_names;
