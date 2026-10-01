@@ -1,5 +1,6 @@
 import httpStatus from 'http-status';
 import Joi from 'joi';
+import { GRID_SIZES, MAX_RADIUS_KM, MAX_SPACING_KM, MIN_RADIUS_KM, MIN_SPACING_KM } from '../../ranking/points';
 import { findLocationForUser } from '../../services/org/access';
 import { catchAsync, isValidMongoObjectId, pick, responseWrapper } from '../../utils';
 
@@ -29,10 +30,12 @@ export const loadOwnedLocation = catchAsync(async (req, res, next) => {
 const trackingUpdateSchema = Joi.object({
 	keywords: Joi.array().items(Joi.string().max(200)).max(100),
 	competitors: Joi.array().items(Joi.string().max(300)).max(20),
+	// Phase 17: the radius (center to edge) or the spacing; the service derives the other and checks both.
 	grid: Joi.object({
-		size: Joi.number().valid(3, 5, 7).required(),
-		spacing_km: Joi.number().min(0.25).max(5).required(),
-	}),
+		size: Joi.number().valid(...GRID_SIZES).required(),
+		radius_km: Joi.number().min(MIN_RADIUS_KM).max(MAX_RADIUS_KM),
+		spacing_km: Joi.number().min(MIN_SPACING_KM).max(MAX_SPACING_KM),
+	}).xor('radius_km', 'spacing_km'),
 	frequency: Joi.string().valid('auto_monthly', 'manual_only'),
 }).min(1);
 
@@ -50,9 +53,25 @@ export const validateTrackingUpdate = catchAsync(async (req, res, next) => {
 	const { value, error } = trackingUpdateSchema.validate(pick(req.body, TRACKING_FIELDS), { abortEarly: true });
 	if (error) {
 		const message = error.details[0]?.type === 'object.min' ? 'Provide at least one tracking field to update' : error.message;
-		return responseWrapper(res, '', message, httpStatus.BAD_REQUEST);
+		const data = error.details[0]?.path[0] === 'grid' ? { reason: 'invalid_grid' } : '';
+		return responseWrapper(res, data, message, httpStatus.BAD_REQUEST);
 	}
 	res.locals.trackingUpdate = value;
+	next();
+});
+
+// Phase 17: what a grid setting would cost before saving it (no Google calls).
+const estimateQuerySchema = Joi.object({
+	size: Joi.number().valid(...GRID_SIZES),
+	radius_km: Joi.number().min(MIN_RADIUS_KM).max(MAX_RADIUS_KM),
+	spacing_km: Joi.number().min(MIN_SPACING_KM).max(MAX_SPACING_KM),
+	keywords: Joi.number().integer().min(1).max(100),
+}).oxor('radius_km', 'spacing_km');
+
+export const validateEstimateQuery = catchAsync(async (req, res, next) => {
+	const { value, error } = estimateQuerySchema.validate(pick(req.query, ['size', 'radius_km', 'spacing_km', 'keywords']));
+	if (error) return responseWrapper(res, { reason: 'invalid_grid' }, error.message, httpStatus.BAD_REQUEST);
+	res.locals.estimateQuery = value;
 	next();
 });
 

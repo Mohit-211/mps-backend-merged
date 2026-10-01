@@ -4,7 +4,7 @@ import { RunOverCapError, getRunForLocation, listRuns, runStatusView } from '../
 import { refreshLocation } from '../../services/refresh/refresh.service';
 import { requestReportSafely } from '../../services/gbp/report.service';
 import { gridView, mapRankingView, rankTrackerView } from '../../services/ranking/rankReports.service';
-import { getTracking, updateTracking } from '../../services/ranking/tracking.service';
+import { EstimateQuery, estimateTracking, getTracking, updateTracking } from '../../services/ranking/tracking.service';
 import { TrackingUpdate, withDefaults } from '../../services/ranking/trackingSettings';
 import { catchAsync, responseWrapper } from '../../utils';
 
@@ -22,6 +22,10 @@ const locationId = (res: { locals: Record<string, unknown> }): string => String(
 const reportQuery = (res: { locals: Record<string, unknown> }): ReportQuery => (res.locals.reportQuery ?? {}) as ReportQuery;
 
 export const getTrackingSettings = catchAsync(async (req, res) => responseWrapper(res, getTracking(location(res))));
+
+export const getTrackingEstimate = catchAsync(async (req, res) =>
+	responseWrapper(res, await estimateTracking(location(res), (res.locals.estimateQuery ?? {}) as EstimateQuery)),
+);
 
 export const updateTrackingSettings = catchAsync(async (req, res) => {
 	// Phase 13a: no organization-wide keyword cap (the per-location cap RANK_MAX_KEYWORDS applies).

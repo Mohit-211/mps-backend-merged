@@ -1,7 +1,7 @@
 import express from 'express';
 import * as rankingController from '../../../controllers/ranking/ranking.controller';
 import { userAuthMiddleware } from '../../../middlewares';
-import { loadOwnedLocation, validateReportQuery, validateTrackingUpdate } from '../../../middlewares/ranking/ranking.middleware';
+import { loadOwnedLocation, validateEstimateQuery, validateReportQuery, validateTrackingUpdate } from '../../../middlewares/ranking/ranking.middleware';
 import * as onboardingController from '../../../controllers/onboarding/onboarding.controller';
 import { validateCenter, validateSuggestionsQuery } from '../../../middlewares/onboarding/onboarding.middleware';
 import * as refreshController from '../../../controllers/refresh/refresh.controller';
@@ -16,6 +16,8 @@ const router = express.Router();
 const owned = [userAuthMiddleware.verifyAuthJWTToken, loadOwnedLocation];
 
 router.get('/:locationId/tracking', owned, rankingController.getTrackingSettings);
+// Phase 17: what a grid / keyword count would need (calls, duration, cap) before saving it; no Google calls.
+router.get('/:locationId/tracking/estimate', [...owned, validateEstimateQuery], rankingController.getTrackingEstimate);
 router.put('/:locationId/tracking', [...owned, requireBilling, validateTrackingUpdate], rankingController.updateTrackingSettings);
 router.post('/:locationId/rank-runs', [...owned, requireBilling], rankingController.createRankRun);
 router.get('/:locationId/rank-runs', owned, rankingController.listRankRuns);

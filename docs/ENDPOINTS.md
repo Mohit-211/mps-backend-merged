@@ -69,9 +69,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-10-01)
 
-**226 endpoints:** 225 live, 1 dev-only.
-- **By origin:** 191 rebuilt or new, 35 legacy.
-- **By auth:** 98 user, 92 platform admin (each with a permission), 36 none.
+**227 endpoints:** 226 live, 1 dev-only.
+- **By origin:** 192 rebuilt or new, 35 legacy.
+- **By auth:** 99 user, 92 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -200,6 +200,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/locations/:locationId/tracking` | user + owner | Ranking settings (keywords, competitors, grid, frequency) and the cost estimate | 5 | live |
+| GET | `/api/v1/locations/:locationId/tracking/estimate` | user + owner | What a run would need for a grid / keyword count before saving it (calls, duration, cap, token cost); no Google calls | 17 | live |
 | PUT | `/api/v1/locations/:locationId/tracking` | user + owner | Update ranking settings (bumps `keywords_version` when the keyword set changes) | 5 | live |
 | POST | `/api/v1/locations/:locationId/rank-runs` | user + owner | "Run now": queue a rank run (one active run per location; 422 over the call cap; 7b: shares the 24 h rankings refresh limit, 429; 13a: costs the rankings token price, 402 `insufficient_tokens`) | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-runs` | user + owner | Run history (paginated) | 5 | live |
@@ -446,8 +447,9 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 
 | # | Method | Path | Auth | Path params | Query params | Body | Returns |
 |---|---|---|---|---|---|---|---|
-| 1 | GET | `/locations/:locationId/tracking` | user, owner | `locationId` | – | – | Tracking settings (defaults filled) + the API-call estimate for a run |
+| 1 | GET | `/locations/:locationId/tracking` | user, owner | `locationId` | – | – | Tracking settings (defaults filled) + the API-call estimate for a run, `expected_duration_ms`, `cap`, `over_cap` (17) |
 | 2 | PUT | `/locations/:locationId/tracking` | user, owner | `locationId` | – | At least one of the fields below | Saved settings, estimate, `keywords_version_bumped`, `onboarding_step` (onboarding locations only) |
+| 152 | GET | `/locations/:locationId/tracking/estimate` | user, owner | `locationId` | `size` (3–13 odd), `radius_km` (0.5–15) or `spacing_km` (0.1–15), `keywords` (a count, 1–100); each defaults to the saved settings | – | `{ grid: { size, spacing_km, radius_km }, keywords, points_per_keyword, tracker_offset_km, estimate, expected_duration_ms, cap, over_cap, dev_capped, token_cost: { rankings } }`; **400** `invalid_grid` |
 | 3 | POST | `/locations/:locationId/rank-runs` | user, owner | `locationId` | – | – | **202** `{ run_id, status, existing, estimate, dev_capped }`; **402** `insufficient_tokens` (13a) |
 | 4 | GET | `/locations/:locationId/rank-runs` | user, owner | `locationId` | `page` (default 1), `limit` (default 15, max 100) | – | Run history: `{ runs, page, limit, total }` |
 | 5 | GET | `/locations/:locationId/rank-runs/:runId` | user, owner | `locationId`, `runId` | – | – | Run status, timings, `api_calls`, estimate (12.5: + `samples`, `mapPoints`), `config` (`samples`, `sample_spacing_sec`, `map_points`), `expected_duration_ms`, `errors_count`, `failure_reason` |
@@ -458,7 +460,7 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 |---|---|
 | `keywords` | string[]: 1–20 keywords, each 2–80 characters. Duplicates are merged ignoring case. Changing the set bumps `keywords_version`. |
 | `competitors` | string[]: up to 5 place IDs, not your own. `[]` means none. |
-| `grid` | `{ size: 3 \| 5 \| 7, spacing_km: 0.25–5 }` |
+| `grid` | Phase 17: `{ size: 3 \| 5 \| 7 \| 9 \| 11 \| 13, radius_km: 0.5–15 }` or `{ size, spacing_km: 0.1–15 }` (one of the two; the other is derived: spacing = radius ÷ ((size − 1) / 2), and both must stay in range). **400** `invalid_grid`. Default for a new location: `{ size: 7, radius_km: 8 }`. The Rank Tracker and Map Ranking points sit at radius ÷ 2 (at least 0.5 km). |
 | `frequency` | `'auto_monthly'` (default: refreshed monthly) \| `'manual_only'` (only on demand). Sending `next_run_at` is rejected (400). |
 
 **Notes:**

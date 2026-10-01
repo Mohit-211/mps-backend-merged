@@ -237,8 +237,8 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - **Rank buckets (for UI)**: 1–3 `pack`, 4–10 `visible`, 11–20 `low`, 21–60 `invisible`, 60+ `not_found`, `error`.
 
 ### Sample points
-- **Rank Tracker points**: center + 4 compass points at `offsetKm = 1.5` (N, S, E, W). 5 points total.
-- **Grid points**: `generateGrid(center, size ∈ {3,5,7}, spacingKm)`. Center point is always included.
+- **Rank Tracker points**: center + 4 compass points (N, S, E, W), 5 points total, at `offsetKm` = the grid radius ÷ 2, at least 0.5 km (Phase 17; it was a global 1.5 km). Map Ranking uses the same 5 points.
+- **Grid points**: `gridPoints(center, size ∈ {3,5,7,9,11,13}, spacingKm)` (Phase 17). The grid is set by its radius (center to edge, 0.5–15 km) or its spacing (0.1–15 km); spacing = radius ÷ ((size − 1) / 2). Default for a new location: 7×7 at 8 km. Center point is always included.
 - **Center**: location `lat/lng`. If missing, resolve once from `place_id` via Place Details (field `location`) and save to the Location.
 - Every Text Search uses `locationBias.circle` centered on the sample point, radius **5000 m** (configurable), `regionCode` from the location country (`US → us`, `Canada → ca`).
 
@@ -1043,7 +1043,7 @@ Each fix = its own commit. Add a regression test per auth fix (request without t
 
 - Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Full depth since Phase 12.5: 3 calls per point, keyword and sample (fewer only in markets with under 41 results); 3 samples per point by default.
   - Unique points per keyword = tracker (5) ∪ grid (size²), with the center shared: 13 / 29 / 53 for 3×3 / 5×5 / 7×7 at 1 km spacing (fewer if tracker points land on grid points). Use `estimateCalls()` from `src/ranking/estimate.ts`.
-  - 2 keywords × 3×3 = 78 calls; 20 keywords × 7×7 = **3,180** calls per run per sample, **15,900** with 5 samples (`RANK_MAX_CALLS_PER_RUN` 16,000; the one retry can at most double this).
+  - 2 keywords × 3×3 = 78 calls; 20 keywords × 7×7 = **3,180** calls per run per sample, **15,900** with 5 samples. Phase 17: 20 keywords × 13×13 ≈ 10,100 per sample, ≈ 30,400 with 3 samples (`RANK_MAX_CALLS_PER_RUN` 40,000; the one retry can at most double this). Bigger grids cost run time (≈ 65 min for 13×13 at 8/s), not money.
 - Text Search with `displayName` (Pro SKU, $32 per 1,000 list): 1 call per keyword per Map Ranking point: 5 per keyword with `MAP_RANKING_POINTS=all` (Phase 12.5), 1 with `center`.
 - Place Details for the competitor comparison: ~(1 + competitors) calls per monthly cycle, with reviews, photos and editorial summary: **Enterprise + Atmosphere** SKU ($25 per 1,000 list).
 - A monthly refresh at 10 keywords × 5×5 costs about **$1.75** at list price ($3.35 at 20 keywords); IDs-only samples are free. **Accepted by Mohit on 2026-09-27** (quality first; Map Ranking stays at 5 points).

@@ -16,7 +16,7 @@ import mongoose from 'mongoose';
 import config from '../configs/config';
 import { PlacesClient, placesClient } from '../clients/placesClient';
 import { Location } from '../models';
-import { createRankingEngine, regionFromCountry, trackerPoints } from '../ranking';
+import { DEFAULT_TRACKER_OFFSET_KM, createRankingEngine, regionFromCountry, trackerPoints } from '../ranking';
 import { withDefaults } from '../services/ranking/trackingSettings';
 import { VariancePoint, VarianceSummary, recommendSampling, summariseVariance } from '../services/ranking/variance';
 import { withLocationUsage } from '../services/usage/jobScope';
@@ -80,7 +80,7 @@ const main = async (): Promise<number> => {
 		}
 		const tracking = withDefaults(location.tracking);
 		const targets = [{ key: 'self' as const, placeId: location.place_id }, ...tracking.competitors.map((p, i) => ({ key: `competitor_${i + 1}` as `competitor_${number}`, placeId: p }))];
-		const points = trackerPoints({ lat: location.lat as number, lng: location.lng as number }, config.ranking.trackerOffsetKm);
+		const points = trackerPoints({ lat: location.lat as number, lng: location.lng as number }, DEFAULT_TRACKER_OFFSET_KM);
 		const budget = budgeted(placesClient, BUDGET);
 		const results: { spacingSec: number; summaries: VarianceSummary[]; points: VariancePoint[]; calls: number }[] = [];
 		const date = new Date().toISOString().slice(0, 10);

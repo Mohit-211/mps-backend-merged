@@ -96,6 +96,7 @@ export const enqueueRankRun = async (
 			config: {
 				grid_size: plan.gridSize,
 				spacing_km: plan.spacingKm,
+				radius_km: plan.radiusKm,
 				tracker_offset_km: plan.offsetKm,
 				radius_m: plan.radiusM,
 				store_place_names: config.ranking.storePlaceNames,

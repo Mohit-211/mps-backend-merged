@@ -40,9 +40,8 @@ const envVarsSchema = Joi.object({
 
 	PLACES_SEARCH_RADIUS_M: Joi.number().integer().min(1).max(50000).default(5000),
 	RANK_MAX_KEYWORDS: Joi.number().integer().min(1).max(50).default(20),
-	RANK_TRACKER_OFFSET_KM: Joi.number().min(0.1).max(20).default(1.5),
 	RANK_DEV_MAX_KEYWORDS: Joi.number().integer().min(1).max(20).default(2),
-	RANK_MAX_CALLS_PER_RUN: Joi.number().integer().min(1).default(16000).description('IDs-only calls a single run may need (20 keywords × 7×7 × 3 pages × 5 samples = 15,900)'),
+	RANK_MAX_CALLS_PER_RUN: Joi.number().integer().min(1).default(40000).description('IDs-only calls a single run may need (Phase 17: 20 keywords × 13×13 × 3 pages × 3 samples ≈ 31,000)'),
 	RANK_SAMPLES_PER_POINT: Joi.number().integer().min(1).max(5).default(3).description('Searches per point per keyword; the point rank is their median (3: decided from the variance test, Mohit 2026-09-27)'),
 	RANK_SAMPLE_SPACING_SEC: Joi.number().integer().min(0).max(1800).default(60).description('Minimum seconds between the samples of one point (60: decided from the variance test, Mohit 2026-09-27)'),
 	RANK_SEARCH_CONCURRENCY: Joi.number().integer().min(1).max(8).default(4).description('Ranking searches in flight per run'),
@@ -192,7 +191,6 @@ interface Config {
 	ranking: {
 		searchRadiusM: number;
 		maxKeywords: number;
-		trackerOffsetKm: number;
 		devMaxKeywords: number;
 		maxCallsPerRun: number;
 		storePlaceNames: boolean;
@@ -358,7 +356,6 @@ const config: Config = {
 	ranking: {
 		searchRadiusM: envVars.PLACES_SEARCH_RADIUS_M,
 		maxKeywords: envVars.RANK_MAX_KEYWORDS,
-		trackerOffsetKm: envVars.RANK_TRACKER_OFFSET_KM,
 		devMaxKeywords: envVars.RANK_DEV_MAX_KEYWORDS,
 		maxCallsPerRun: envVars.RANK_MAX_CALLS_PER_RUN,
 		storePlaceNames: envVars.STORE_PLACE_NAMES,

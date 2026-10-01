@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 import config from '../../configs/config';
 import { PlacesConfigError } from '../../clients/placesClient';
 import { LeanRankRun, RankCellDoc, RankRun } from '../../models/rankRun.model';
-import { RankCell, bucket, displayRank, normaliseKeyword } from '../../ranking';
+import { RankCell, bucket, displayRank, normaliseKeyword, radiusFromSpacing } from '../../ranking';
 import { ApiError, apiErrorWithData } from '../../utils';
 import { resolveNames } from './resolveNames';
 import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
@@ -95,7 +95,11 @@ export const gridView = async (locationId: Types.ObjectId | string, keyword?: st
 	return {
 		run: runMeta(run),
 		targets: run.targets,
-		grid: { size: run.config.grid_size, spacing_km: run.config.spacing_km },
+		grid: {
+			size: run.config.grid_size,
+			spacing_km: run.config.spacing_km,
+			radius_km: run.config.radius_km ?? radiusFromSpacing(run.config.grid_size, run.config.spacing_km),
+		},
 		keywords: pickKeyword(run.grid, keyword).map((section) => ({
 			keyword: section.keyword,
 			summary: section.summary,

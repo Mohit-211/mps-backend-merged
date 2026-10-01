@@ -178,4 +178,4 @@ mongosh "mongodb://mps_local:<local-db-password>@127.0.0.1:27017/mps_rebuild?aut
 ## After the test
 
 - Record in PROGRESS.md: the real `api_calls` against the estimate, the run duration, and the calibration verdict. Commit the filled-in CSV.
-- Only then try larger runs outside development (`NODE_ENV=production` lifts the 2-keyword / 3×3 limits). The hard cap `RANK_MAX_CALLS_PER_RUN` (default 3200) still applies.
+- Only then try larger runs outside development (`NODE_ENV=production` lifts the 2-keyword / 3×3 limits). The hard cap `RANK_MAX_CALLS_PER_RUN` (default 40,000 since Phase 17) still applies.

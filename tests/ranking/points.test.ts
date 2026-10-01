@@ -1,5 +1,5 @@
 import legacyGrid from '../fixtures/ranking/legacy_generateGrid_toronto_5x5_750m.json';
-import { gridPoints, offsetPoint, trackerPoints } from '../../src/ranking/points';
+import { gridPoints, offsetPoint, radiusFromSpacing, spacingFromRadius, trackerOffsetForRadius, trackerPoints } from '../../src/ranking/points';
 import { GeoPoint } from '../../src/ranking/types';
 import { haversineKm } from '../helpers/geo';
 
@@ -26,12 +26,27 @@ describe('trackerPoints', () => {
 		expect(e.lat).toBe(center.lat);
 	});
 
-	it('defaults the offset to RANK_TRACKER_OFFSET_KM (1.5)', () => {
+	it('defaults the offset to DEFAULT_TRACKER_OFFSET_KM (1.5)', () => {
 		withinOnePercent(haversineKm(TORONTO, trackerPoints(TORONTO)[1]), 1.5);
 	});
 
 	it.each([0, -1, 25, Number.NaN])('rejects offset %p', (offset) => {
 		expect(() => trackerPoints(TORONTO, offset)).toThrow('Invalid tracker offset');
+	});
+});
+
+describe('grid radius (Phase 17)', () => {
+	it('converts between radius and spacing', () => {
+		expect(spacingFromRadius(7, 8)).toBe(2.667);
+		expect(radiusFromSpacing(7, 8 / 3)).toBe(8);
+		expect(spacingFromRadius(13, 15)).toBe(2.5);
+		expect(radiusFromSpacing(3, 1)).toBe(1);
+	});
+
+	it('puts the tracker points halfway to the edge, at least 0.5 km', () => {
+		expect(trackerOffsetForRadius(8)).toBe(4);
+		expect(trackerOffsetForRadius(15)).toBe(7.5);
+		expect(trackerOffsetForRadius(0.6)).toBe(0.5);
 	});
 });
 
@@ -41,6 +56,9 @@ describe('gridPoints', () => {
 		[5, 0.25],
 		[7, 5],
 		[7, 1],
+		[9, 1.875],
+		[11, 0.1],
+		[13, 2.5],
 	])('size %i at %s km: size² points, heatmap order, center exact, spacing within 1%%', (size, spacing) => {
 		for (const center of [TORONTO, HIGH_LAT]) {
 			const points = gridPoints(center, size, spacing);
@@ -80,9 +98,9 @@ describe('gridPoints', () => {
 
 	it.each([
 		[4, 1, 'Invalid grid size'],
-		[9, 1, 'Invalid grid size'],
-		[3, 0.1, 'Invalid grid spacing'],
-		[3, 6, 'Invalid grid spacing'],
+		[15, 1, 'Invalid grid size'],
+		[3, 0.05, 'Invalid grid spacing'],
+		[3, 16, 'Invalid grid spacing'],
 	])('rejects size %i / spacing %s', (size, spacing, message) => {
 		expect(() => gridPoints(TORONTO, size, spacing)).toThrow(message);
 	});

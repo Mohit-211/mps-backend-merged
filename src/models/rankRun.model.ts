@@ -107,6 +107,8 @@ export interface RankRunData {
 	config: {
 		grid_size: number;
 		spacing_km: number;
+		/** Phase 17: center to edge (absent on older runs: derived from size and spacing). */
+		radius_km?: number;
 		tracker_offset_km: number;
 		radius_m: number;
 		store_place_names: boolean;
@@ -190,6 +192,7 @@ const rankRunSchema = new Schema<IRankRun>(
 		config: {
 			grid_size: { type: Number, required: true },
 			spacing_km: { type: Number, required: true },
+			radius_km: { type: Number },
 			tracker_offset_km: { type: Number, required: true },
 			radius_m: { type: Number, required: true },
 			store_place_names: { type: Boolean, required: true },

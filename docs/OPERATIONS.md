@@ -119,7 +119,8 @@ Every email goes through one service (`src/services/common/email.service.ts`, `d
 **Limits and quota.**
 - `PLACES_MAX_QPS=8` (480/min): enforced across **all** pm2 processes by a MongoDB per-second counter (`places_rate`, TTL). It assumes Google's default quota of **600 requests per minute per method** (Text Search, Place Details); Mohit is confirming it in Cloud (2026-09-27). Raise both together only.
 - `RANK_SEARCH_CONCURRENCY=4` searches in flight per run.
-- `RANK_MAX_CALLS_PER_RUN=16000` IDs-only calls: the largest run, 20 keywords × 7×7 × 3 pages × 5 samples = 15,900, fits.
+- `RANK_MAX_CALLS_PER_RUN=40000` IDs-only calls (Phase 17): a 20-keyword 13×13 run at 3 samples (≈ 30,400 at full depth) fits; at 5 samples it doesn't (≈ 51,000) and is refused with 422. Grids are 3×3 to 13×13 with a radius up to 15 km (default 7×7 at 8 km); the Rank Tracker / Map Ranking offset is radius ÷ 2 per location (`RANK_TRACKER_OFFSET_KM` was removed).
+- **Run durations at `PLACES_MAX_QPS` 8** (20 keywords, 3 samples, full depth): 7×7 ≈ 17 min, 9×9 ≈ 32 min, 11×11 ≈ 47 min, 13×13 ≈ 65 min. Runs share the 8/s across the server, so monthly refreshes of many large-grid locations queue behind each other; `GET /locations/:id/tracking/estimate` shows a grid's figures before it is saved.
 
 **Run duration** (background jobs, at 8 req/s; full depth assumes 60 results everywhere; **bold = the current defaults**):
 
@@ -346,7 +347,7 @@ Manual, admin-managed citation tracking (no external citation APIs, no Google ca
 
 **Limits**
 - One queued or running run per location, enforced by a unique index.
-- A run is rejected (422) when its estimated maximum IDs-only calls exceed `RANK_MAX_CALLS_PER_RUN` (default 3200).
+- A run is rejected (422) when its estimated maximum IDs-only calls exceed `RANK_MAX_CALLS_PER_RUN` (default 40,000).
 - In development, runs use at most `RANK_DEV_MAX_KEYWORDS` (2) keywords and a 3×3 grid.
 - `STORE_PLACE_NAMES` (default `true`) controls whether Map Ranking business names are stored.
 - **Manual refresh:** at most once per `REFRESH_MIN_INTERVAL_HOURS` (24) per location per type (rankings, gbp); "run now" shares the rankings limit.
@@ -469,7 +470,7 @@ certbot --nginx -d api.mypageseo.com     # certificate + HTTP→HTTPS redirect, 
    - Email (13b): `EMAIL_TRANSPORT=smtp` (the production default) with the `SMTP_*` settings and `EMAIL_FROM`; `SUPPORT_EMAIL` (support inbox).
    - Google OAuth (13b): the redirect-fallback URI moved to `<API>/api/v1/gbp/connect/callback`: set `GOOGLE_GBP_REDIRECT_URI` to it and add it to the OAuth client's authorised redirect URIs in Google Cloud.
    - Google: `GOOGLE_PLACE_API_KEY`, the GBP OAuth client, `GBP_V4_ENABLED` (false until v4 access).
-   - Ranking: `RANK_MAX_CALLS_PER_RUN=16000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`.
+   - Ranking: `RANK_MAX_CALLS_PER_RUN=40000`, `PLACES_MAX_QPS=8`, `MAP_RANKING_POINTS=all`, `RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`.
    - PayPal and billing: section "PayPal setup". `PAYPAL_WEBHOOK_ID` may stay empty until the webhook exists (step 5): the app starts with a warning and refuses every PayPal webhook until it is set.
    - First super admin: `SUPER_ADMIN_EMAIL` (and optionally `SUPER_ADMIN_PASSWORD`, at least 12 characters; otherwise a password is generated and shown once).
    - Check it with `npm run config:check`: it lists every missing or invalid variable at once (the app refuses to start with the same list).

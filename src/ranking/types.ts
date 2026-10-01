@@ -17,7 +17,7 @@ export interface GridPoint extends GeoPoint {
 	col: number;
 }
 
-export type GridSize = 3 | 5 | 7;
+export type GridSize = 3 | 5 | 7 | 9 | 11 | 13;
 
 export type RankStatus = 'ok' | 'not_found' | 'error';
 

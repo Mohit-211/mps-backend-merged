@@ -51,7 +51,7 @@ The demo data comes from an offline client, so it needs no API key.
 - **404** `{ "reason": "run_not_found" }` for an unknown `runId`; **409** `{ "reason": "run_not_finished", "status": "queued" | "running" | "failed" }` for a run that is not done or partial.
 - **404** `{ "reason": "keyword_not_in_run" }` for a `keyword` the run doesn't have; map-ranking: **404** `{ "reason": "point_not_in_run", "available": ["C", …] }`.
 
-**`RunMeta`** (the `run` field on page responses): `{ run_id, run_at, status, keywords_version, center: { lat, lng }, config: { grid_size, spacing_km, tracker_offset_km, radius_m, store_place_names } }`.
+**`RunMeta`** (the `run` field on page responses): `{ run_id, run_at, status, keywords_version, center: { lat, lng }, config: { grid_size, spacing_km, radius_km (17), tracker_offset_km, radius_m, store_place_names } }`. `radius_m` is the search bias around each point (5 km), not the grid radius.
 
 **Estimate** (`CallEstimate`, returned by several endpoints):
 - `idsOnly`: free Text Search IDs-only calls, as `{ min, max, maxWithRetries }`
@@ -95,8 +95,9 @@ Returns the location's ranking settings, with defaults filled in, and what a run
         "ChIJdemoDanforthDrainPros03"
       ],
       "grid": {
-        "size": 5,
-        "spacing_km": 1
+        "size": 7,
+        "spacing_km": 2.667,
+        "radius_km": 8
       },
       "frequency": "auto_monthly",
       "last_run_at": "2026-09-25T20:43:20.960Z",
@@ -140,7 +141,7 @@ Partial update: only the fields you send change.
 {
   "keywords": ["Emergency Plumber", "Drain Cleaning", "Water Heater Repair"],
   "competitors": ["ChIJdemoQueenWestPlumbing02", "ChIJdemoDanforthDrainPros03"],
-  "grid": { "size": 5, "spacing_km": 1 },
+  "grid": { "size": 7, "radius_km": 8 },
   "frequency": "auto_monthly"
 }
 ```
@@ -149,7 +150,8 @@ Partial update: only the fields you send change.
 - **`keywords`:** 1 to `RANK_MAX_KEYWORDS` (20) entries of 2–80 characters each. They are trimmed and de-duplicated case-insensitively, and the first spelling is kept.
 - **`keywords_version`:** goes up **only when the set of keywords changes**. Reordering or re-casing does not bump it. Changes are never compared across versions.
 - **`competitors`:** up to 5 Google place IDs, never the location's own `place_id`.
-- **`grid.size`:** 3, 5 or 7. **`grid.spacing_km`:** 0.25–5.
+- **`grid`** (Phase 17): `size` 3, 5, 7, 9, 11 or 13, plus **either** `radius_km` (center to edge, 0.5–15) **or** `spacing_km` (between neighbouring points, 0.1–15). The other is derived (spacing = radius ÷ ((size − 1) / 2)) and both must stay in range, so a 13×13 needs a radius of at least 0.6 km. The response carries all three. New locations start at `{ size: 7, radius_km: 8 }` (about 5 miles). The Rank Tracker and Map Ranking points sit halfway to the edge (radius ÷ 2, at least 0.5 km); the search bias around each point stays 5 km. Error: **400** `{ "reason": "invalid_grid" }`.
+- **Cost of a bigger grid:** grid searches use the free IDs-only SKU, so a bigger grid costs run time, not money: at 20 keywords and 3 samples, about 32 min for 9×9, 47 min for 11×11 and 65 min for 13×13. `over_cap: true` means a run with these settings would be refused (422); check it with `GET /tracking/estimate` before saving.
 - **`frequency`** (7b): `auto_monthly` (default: the location refreshes automatically once a month, on the day it completed setup, at about 03:00 local) or `manual_only` (only `POST /refresh` or "run now"). `next_run_at` is no longer accepted (400).
 
 **Response 200**
@@ -184,8 +186,9 @@ Partial update: only the fields you send change.
         "ChIJdemoDanforthDrainPros03"
       ],
       "grid": {
-        "size": 5,
-        "spacing_km": 1
+        "size": 7,
+        "spacing_km": 2.667,
+        "radius_km": 8
       },
       "frequency": "auto_monthly",
       "last_run_at": "2026-09-25T20:43:20.960Z",
@@ -216,6 +219,9 @@ Partial update: only the fields you send change.
         "maxWithRetries": 160
       }
     },
+    "expected_duration_ms": 9750,
+    "cap": 40000,
+    "over_cap": false,
     "dev_capped": true,
     "keywords_version_bumped": false
   }
@@ -228,10 +234,41 @@ Partial update: only the fields you send change.
 {
   "success": false,
   "status": 400,
-  "message": "\"grid.size\" must be one of [3, 5, 7]",
-  "data": ""
+  "message": "A 13×13 grid needs a radius of 0.5–15 km and points 0.1–15 km apart",
+  "data": { "reason": "invalid_grid", "radius_km": 0.5, "spacing_km": 0.083 }
 }
 ```
+
+### `GET /tracking/estimate` (Phase 17)
+
+What a run would need with a grid and keyword count, **before** saving them (the grid picker). No Google calls, nothing saved. Query (each optional, defaulting to the saved settings): `size`, `radius_km` **or** `spacing_km`, `keywords` (a count). With only `size`, the saved radius is kept.
+
+`GET /locations/:locationId/tracking/estimate?size=13&radius_km=15&keywords=20`
+
+```json
+{
+  "success": true,
+  "status": 200,
+  "message": "Completed Successfully.",
+  "data": {
+    "grid": { "size": 13, "spacing_km": 2.5, "radius_km": 15 },
+    "keywords": 20,
+    "points_per_keyword": 169,
+    "tracker_offset_km": 7.5,
+    "estimate": { "keywords": 20, "gridSize": 13, "points": 169, "samples": 3, "mapPoints": 5, "idsOnly": { "min": 10140, "max": 30420, "maxWithRetries": 60840 }, "pro": { "min": 100, "max": 100, "maxWithRetries": 200 }, "details": { "min": 0, "max": 0, "maxWithRetries": 0 }, "total": { "min": 10240, "max": 30520, "maxWithRetries": 61040 } },
+    "expected_duration_ms": 3815000,
+    "cap": 40000,
+    "over_cap": false,
+    "dev_capped": false,
+    "token_cost": { "rankings": 1 }
+  }
+}
+```
+
+- `token_cost.rankings`: what a manual refresh / "run now" costs; it is the same for every grid (Mohit, 2026-10-01).
+- `expected_duration_ms`: at `PLACES_MAX_QPS` (8/s), shared by every run on the server.
+- In development `dev_capped` is true and the grid is 3×3.
+- **400** `{ "reason": "invalid_grid" }` as for `PUT /tracking`.
 
 ---
 
@@ -242,7 +279,7 @@ Partial update: only the fields you send change.
 "Run now". Queues a run and returns immediately. The run takes about a minute in the background, depending on the number of keywords and the grid size.
 - If a run is already queued or running for this location, that run is returned with `existing: true`, and no second run is created.
 - **400:** the location has no `place_id`, no tracking keywords, or is not in the US or Canada.
-- **422:** the estimated maximum IDs-only calls exceed `RANK_MAX_CALLS_PER_RUN` (default 3200). The response includes the estimate.
+- **422:** the estimated maximum IDs-only calls exceed `RANK_MAX_CALLS_PER_RUN` (default 40,000 since Phase 17). The response includes the estimate.
 
 **Response 202** (a new run; this one is from development, so it is capped to 2 keywords and 3×3):
 
@@ -808,7 +845,8 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
     ],
     "grid": {
       "size": 5,
-      "spacing_km": 1
+      "spacing_km": 1,
+      "radius_km": 2
     },
     "keywords": [
       {

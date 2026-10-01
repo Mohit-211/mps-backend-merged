@@ -52,7 +52,8 @@ export interface ILocationTracking {
   keywords_version: number;
   keywords_updated_at: Date | null;
   competitors: string[];
-  grid: { size: number; spacing_km: number };
+  /** Phase 17: radius_km = center to edge; spacing_km = between neighbouring points (one is derived from the other). */
+  grid: { size: number; spacing_km: number; radius_km?: number };
   frequency: TrackingFrequency;
   /** @deprecated since 7b (ignored): refresh.next_refresh_at schedules the location. */
   next_run_at: Date | null;
@@ -193,8 +194,10 @@ const trackingSchema = new Schema<ILocationTracking>(
     keywords_updated_at: { type: Date, default: null },
     competitors: { type: [String], default: [] },
     grid: {
-      size: { type: Number, enum: [3, 5, 7], default: 5 },
-      spacing_km: { type: Number, min: 0.25, max: 5, default: 1 },
+      size: { type: Number, enum: [3, 5, 7, 9, 11, 13], default: 7 },
+      spacing_km: { type: Number, min: 0.1, max: 15, default: 8 / 3 }, // 7×7 reaching 8 km
+      // No default: a grid saved with only a spacing gets its radius derived (withDefaults).
+      radius_km: { type: Number, min: 0.5, max: 15 },
     },
     frequency: { type: String, enum: TRACKING_FREQUENCIES, default: 'auto_monthly' },
     next_run_at: { type: Date, default: null },
