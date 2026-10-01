@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 const RANKING_KEYS = [
 	'PLACES_SEARCH_RADIUS_M',
 	'RANK_MAX_KEYWORDS',
-	'RANK_TRACKER_OFFSET_KM',
 	'RANK_DEV_MAX_KEYWORDS',
 	'RANK_SAMPLES_PER_POINT',
 	'RANK_SAMPLE_SPACING_SEC',
@@ -46,9 +45,8 @@ describe('config.ranking', () => {
 		expect(config.ranking).toEqual({
 			searchRadiusM: 5000,
 			maxKeywords: 20,
-			trackerOffsetKm: 1.5,
 			devMaxKeywords: 2,
-			maxCallsPerRun: 16000,
+			maxCallsPerRun: 40000,
 			storePlaceNames: true,
 			samplesPerPoint: 3,
 			sampleSpacingSec: 60,
@@ -60,9 +58,9 @@ describe('config.ranking', () => {
 	});
 
 	it('reads overrides from the environment', () => {
-		const config = loadConfig({ PLACES_SEARCH_RADIUS_M: '3000', RANK_TRACKER_OFFSET_KM: '2.5' });
+		const config = loadConfig({ PLACES_SEARCH_RADIUS_M: '3000', RANK_MAX_CALLS_PER_RUN: '25000' });
 		expect(config.ranking.searchRadiusM).toBe(3000);
-		expect(config.ranking.trackerOffsetKm).toBe(2.5);
+		expect(config.ranking.maxCallsPerRun).toBe(25000);
 	});
 
 	it('rejects out-of-range values at startup', () => {

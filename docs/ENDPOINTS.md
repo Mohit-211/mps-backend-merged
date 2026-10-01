@@ -69,9 +69,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-10-01)
 
-**226 endpoints:** 225 live, 1 dev-only.
-- **By origin:** 191 rebuilt or new, 35 legacy.
-- **By auth:** 98 user, 92 platform admin (each with a permission), 36 none.
+**232 endpoints:** 231 live, 1 dev-only.
+- **By origin:** 197 rebuilt or new, 35 legacy.
+- **By auth:** 104 user, 92 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -200,13 +200,19 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/locations/:locationId/tracking` | user + owner | Ranking settings (keywords, competitors, grid, frequency) and the cost estimate | 5 | live |
+| GET | `/api/v1/locations/:locationId/tracking/estimate` | user + owner | What a run would need for a grid / keyword count before saving it (calls, duration, cap, token cost); no Google calls | 17 | live |
 | PUT | `/api/v1/locations/:locationId/tracking` | user + owner | Update ranking settings (bumps `keywords_version` when the keyword set changes) | 5 | live |
+| GET | `/api/v1/locations/:locationId/keyword-groups` | user + owner | Keyword groups (filters and summaries on rank-tracker and grid) | 17 | live |
+| POST | `/api/v1/locations/:locationId/keyword-groups` | user + owner | Create a keyword group (max 20; tracked keywords only) | 17 | live |
+| PATCH | `/api/v1/locations/:locationId/keyword-groups/:groupId` | user + owner | Rename a group or replace its keywords | 17 | live |
+| DELETE | `/api/v1/locations/:locationId/keyword-groups/:groupId` | user + owner | Delete a keyword group | 17 | live |
 | POST | `/api/v1/locations/:locationId/rank-runs` | user + owner | "Run now": queue a rank run (one active run per location; 422 over the call cap; 7b: shares the 24 h rankings refresh limit, 429; 13a: costs the rankings token price, 402 `insufficient_tokens`) | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-runs` | user + owner | Run history (paginated) | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-runs/:runId` | user + owner | Run status, API calls, errors | 5 | live |
-| GET | `/api/v1/locations/:locationId/rank-tracker` | user + owner | Rank Tracker page (`?runId=`) | 5 | live |
-| GET | `/api/v1/locations/:locationId/grid` | user + owner | Local Search Grid page (`?keyword=&runId=`) | 5 | live |
-| GET | `/api/v1/locations/:locationId/map-ranking` | user + owner | Local Map Ranking page (`?keyword=&runId=&resolveNames=&point=C\|N\|S\|E\|W\|all`; 12.5: lists at the 5 tracker points) | 5, changed 12.5 | live |
+| GET | `/api/v1/locations/:locationId/rank-tracker` | user + owner | Rank Tracker page (`?runId=`; 17: `?group=`, `groups` summaries) | 5, changed 17 | live |
+| GET | `/api/v1/locations/:locationId/keyword-history` | user + owner | One keyword across the finished runs, for its chart (`?keyword=&limit=`) | 17 | live |
+| GET | `/api/v1/locations/:locationId/grid` | user + owner | Local Search Grid page (`?keyword=&runId=`; 17: `?group=`, `grid.radius_km`) | 5, changed 17 | live |
+| GET | `/api/v1/locations/:locationId/map-ranking` | user + owner | Local Map Ranking page (`?keyword=&runId=&resolveNames=&point=C\|N\|S\|E\|W\|all`; 12.5: lists at the 5 tracker points; 17: map pins `address`, `lat`, `lng`) | 5, changed 12.5, 17 | live |
 
 ### GBP connection
 
@@ -446,10 +452,16 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 
 | # | Method | Path | Auth | Path params | Query params | Body | Returns |
 |---|---|---|---|---|---|---|---|
-| 1 | GET | `/locations/:locationId/tracking` | user, owner | `locationId` | – | – | Tracking settings (defaults filled) + the API-call estimate for a run |
+| 1 | GET | `/locations/:locationId/tracking` | user, owner | `locationId` | – | – | Tracking settings (defaults filled) + the API-call estimate for a run, `expected_duration_ms`, `cap`, `over_cap`, `competitors: [{ place_id, name, address, lat, lng }]` (17) |
 | 2 | PUT | `/locations/:locationId/tracking` | user, owner | `locationId` | – | At least one of the fields below | Saved settings, estimate, `keywords_version_bumped`, `onboarding_step` (onboarding locations only) |
+| 152 | GET | `/locations/:locationId/tracking/estimate` | user, owner | `locationId` | `size` (3–13 odd), `radius_km` (0.5–15) or `spacing_km` (0.1–15), `keywords` (a count, 1–100); each defaults to the saved settings | – | `{ grid: { size, spacing_km, radius_km }, keywords, points_per_keyword, tracker_offset_km, estimate, expected_duration_ms, cap, over_cap, dev_capped, token_cost: { rankings } }`; **400** `invalid_grid` |
+| 153 | GET | `/locations/:locationId/keyword-groups` | user, owner | `locationId` | – | – | `{ groups: [{ group_id, name, keywords }], limit: 20 }` |
+| 154 | POST | `/locations/:locationId/keyword-groups` | user, owner (write) | `locationId` | – | `{ name: 1–60, keywords: string[] (≥ 1, tracked) }` | **201** `{ group_id, name, keywords }`; **400** `unknown_keyword` (+ `keywords`), `too_many_groups`; **409** `group_name_taken` |
+| 155 | PATCH | `/locations/:locationId/keyword-groups/:groupId` | user, owner (write) | `locationId`, `groupId` | – | `{ name?, keywords? }` (at least one) | the group; **404** `group_not_found`; as #154 |
+| 156 | DELETE | `/locations/:locationId/keyword-groups/:groupId` | user, owner (write) | `locationId`, `groupId` | – | – | `{ deleted: true, group_id }`; **404** `group_not_found` |
+| 157 | GET | `/locations/:locationId/keyword-history` | user, owner | `locationId` | `keyword` (required, any case), `limit` (1–24, default 12) | – | `{ keyword, runs: [{ run_id, run_at, status, keywords_version, targets, summary: { [target]: { avgRank, foundRate, top3Rate, change, changeLabel } } }] }`, oldest first; runs without the keyword are skipped; **404** `keyword_not_tracked` |
 | 3 | POST | `/locations/:locationId/rank-runs` | user, owner | `locationId` | – | – | **202** `{ run_id, status, existing, estimate, dev_capped }`; **402** `insufficient_tokens` (13a) |
-| 4 | GET | `/locations/:locationId/rank-runs` | user, owner | `locationId` | `page` (default 1), `limit` (default 15, max 100) | – | Run history: `{ runs, page, limit, total }` |
+| 4 | GET | `/locations/:locationId/rank-runs` | user, owner | `locationId` | `page` (default 1), `limit` (default 15, max 100) | – | Run history: `{ runs: [{ run_id, run_at, status, trigger, keywords_version, overall, targets (17) }], page, limit, total }` |
 | 5 | GET | `/locations/:locationId/rank-runs/:runId` | user, owner | `locationId`, `runId` | – | – | Run status, timings, `api_calls`, estimate (12.5: + `samples`, `mapPoints`), `config` (`samples`, `sample_spacing_sec`, `map_points`), `expected_duration_ms`, `errors_count`, `failure_reason` |
 
 **Body fields for #2** (all optional; send at least one):
@@ -457,8 +469,8 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 | Field | Rule |
 |---|---|
 | `keywords` | string[]: 1–20 keywords, each 2–80 characters. Duplicates are merged ignoring case. Changing the set bumps `keywords_version`. |
-| `competitors` | string[]: up to 5 place IDs, not your own. `[]` means none. |
-| `grid` | `{ size: 3 \| 5 \| 7, spacing_km: 0.25–5 }` |
+| `competitors` | string[]: up to 5 place IDs, not your own. `[]` means none. **400** `too_many_competitors`, `own_place_id`, `invalid_place_id` (17). The response's `competitors` gives each one's `name`, `address`, `lat`, `lng` (17). |
+| `grid` | Phase 17: `{ size: 3 \| 5 \| 7 \| 9 \| 11 \| 13, radius_km: 0.5–15 }` or `{ size, spacing_km: 0.1–15 }` (one of the two; the other is derived: spacing = radius ÷ ((size − 1) / 2), and both must stay in range). **400** `invalid_grid`. Default for a new location: `{ size: 7, radius_km: 8 }`. The Rank Tracker and Map Ranking points sit at radius ÷ 2 (at least 0.5 km). |
 | `frequency` | `'auto_monthly'` (default: refreshed monthly) \| `'manual_only'` (only on demand). Sending `next_run_at` is rejected (400). |
 
 **Notes:**
@@ -601,7 +613,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 - **#17 (Phase 8):** `GET /onboarding/state` now returns `organization` (steps, `next_step`, `completed`) and `empty_states` before `gbp` and `locations`; every location of the organization is listed (unfinished first) with `source` and `client_id`.
 - **#21 (Phase 8):** without `locationId` it is the add-location search (`country` or the organization's).
 - **#22 (Phase 8):** no GBP binding needed; the GBP sync is queued only when bound.
-- **#29–#34:** codes are stored hashed, expire in 15 minutes, allow 5 attempts, single use; rate-limited per email (and IP) with **429** `rate_limited`.
+- **#29–#34:** verification and reset are one-time links (no codes): tokens stored hashed, single use (verification 24 h, reset 60 min); rate-limited per email (and IP) with **429** `rate_limited`.
 - **#40:** 1 Place Details call (US/CA only), after the limit and duplicate checks.
 - **#44:** soft delete; history is kept and the plan slot freed at once.
 
@@ -612,7 +624,7 @@ A report freezes stored data (rank runs, the GBP report, the profile snapshot) a
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
 | 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|citation (16)\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_citations_yet` (16), `no_data` |
-| 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), page, limit` | `{ reports: [view], page, limit, total }` |
+| 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), page, limit` | `{ reports: [view], page, limit, total }`; each view has `run_id` and `run_at` (17: the rank run's date) |
 | 63 | GET | `/reports/:reportId` | user + org | – | `{ report, snapshot: { location, data, sources } \| null, document: { title, period, generated_at, branding, blocks } \| null }` |
 | 64 | GET | `/reports/:reportId/pdf` | user + org | – | `application/pdf` attachment; **409** `not_ready` / `expired` |
 | 65 | DELETE | `/reports/:reportId` | user + org (owner/member) | – | `{ archived, report_id }` |

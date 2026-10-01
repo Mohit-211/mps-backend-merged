@@ -10,6 +10,7 @@ import { executeRankRun } from '../../../src/services/ranking/rankRunExecutor';
 import { updateTracking } from '../../../src/services/ranking/tracking.service';
 import {
 	COMPETITOR_1,
+	COMPETITOR_2,
 	SELF_PLACE_ID,
 	TORONTO,
 	clearDb,
@@ -114,7 +115,7 @@ describe('rank-run: full run (2 keywords × 3×3)', () => {
 			name: 'Maple Leaf Plumbing & Heating',
 		});
 		expect(run.mapList[0].results[9]).toMatchObject({ rank: 10, place_id: COMPETITOR_1, target_key: 'competitor_1' });
-		expect((run.overall as unknown as Record<string, unknown>).self).toEqual({ overallAvgRank: 4.4, change: null });
+		expect((run.overall as unknown as Record<string, unknown>).self).toEqual({ overallAvgRank: 4.4, change: null, comparable_keywords: 0, keywords_total: 2 });
 
 		const saved = await reload(location._id as Types.ObjectId);
 		expect(saved.tracking?.last_run_at).toEqual(new Date('2026-09-26T10:00:00Z'));
@@ -161,21 +162,40 @@ describe('rank-run: change between runs', () => {
 		expect(drain.self).toMatchObject({ change: null, changeLabel: 'entered_top_60' });
 		expect(drain.competitor_1).toMatchObject({ change: null, changeLabel: 'dropped_out_of_top_60' });
 		// overall self: run1 (8 + 61)/2 = 34.5, run2 (3 + 40)/2 = 21.5 → +13
-		expect((run.overall as unknown as Record<string, unknown>).self).toEqual({ overallAvgRank: 21.5, change: 13 });
+		expect((run.overall as unknown as Record<string, unknown>).self).toEqual({ overallAvgRank: 21.5, change: 13, comparable_keywords: 2, keywords_total: 2 });
 	});
 
-	it('does not compute change after a keyword edit (new keywords_version)', async () => {
+	it('Phase 17: after a keyword edit, compares the shared keywords only (new keywords get no change)', async () => {
 		const location = await newLocation();
-		await runOnce(location, baseScript(), new Date('2026-09-12T10:00:00Z'));
+		// Run 1: self at 8 for every keyword.
+		await runOnce(location, baseScript({ rank: ({ placeId }) => (placeId === SELF_PLACE_ID ? 8 : 10) }), new Date('2026-09-12T10:00:00Z'));
 		const edited = await updateTracking(await reload(location._id as Types.ObjectId), {
 			keywords: ['Emergency Plumber', 'Water Heater Repair'],
 		});
 		expect(edited.keywords_version_bumped).toBe(true);
-		const { run } = await runOnce(location, baseScript(), new Date('2026-09-19T10:00:00Z'));
+		// Run 2: self at 5 for "emergency plumber" (shared, +3) and 50 for the new keyword.
+		const { run } = await runOnce(
+			location,
+			baseScript({ rank: ({ placeId, keyword }) => (placeId === SELF_PLACE_ID ? (keyword.toLowerCase().startsWith('emergency') ? 5 : 50) : 10) }),
+			new Date('2026-09-19T10:00:00Z'),
+		);
 		expect(run.keywords_version).toBe(2);
+		type Summaries = Record<string, { change: number | null; changeLabel: string | null }>;
+		expect((run.tracker[0].summary as unknown as Summaries).self).toMatchObject({ change: 3, changeLabel: 'improved' });
+		expect((run.tracker[1].summary as unknown as Summaries).self).toMatchObject({ change: null, changeLabel: null });
+		// Overall: only "emergency plumber" counts (8 → 5), although the full average went from 8 to 27.5.
+		expect((run.overall as unknown as Record<string, unknown>).self).toEqual({ overallAvgRank: 27.5, change: 3, comparable_keywords: 1, keywords_total: 2 });
+	});
+
+	it('Phase 17: a competitor slot that now holds another business is not compared', async () => {
+		const location = await newLocation();
+		await runOnce(location, baseScript(), new Date('2026-09-12T10:00:00Z'));
+		await updateTracking(await reload(location._id as Types.ObjectId), { competitors: [COMPETITOR_2] });
+		const { run } = await runOnce(location, baseScript({ candidates: [SELF_PLACE_ID, COMPETITOR_2] }), new Date('2026-09-19T10:00:00Z'));
 		const summary = run.tracker[0].summary as unknown as Record<string, { change: number | null; changeLabel: string | null }>;
-		expect(summary.self).toMatchObject({ change: null, changeLabel: null });
-		expect((run.overall as unknown as Record<string, { change: number | null }>).self.change).toBeNull();
+		expect(summary.self).toMatchObject({ change: 0, changeLabel: 'unchanged' });
+		expect(summary.competitor_1).toMatchObject({ change: null, changeLabel: null });
+		expect((run.overall as unknown as Record<string, { change: number | null; comparable_keywords: number }>).competitor_1).toMatchObject({ change: null, comparable_keywords: 0 });
 	});
 });
 

@@ -1,6 +1,9 @@
 import { Types } from 'mongoose';
 import { LeanRankRun, RankRun } from '../../../models';
 import { RankTrackerData, RtKeywordRow } from '../types';
+import { ILocationKeywordGroup } from '../../../models/location.model';
+import { normaliseKeyword } from '../../../ranking';
+import { summariseGroup } from '../../ranking/keywordGroups';
 
 // Rank Tracker report data (Phase 12): copied from one stored RankRun (the self target) and the
 // overall of the last runs. Pure builder + loader; no recomputation of ranks.
@@ -8,7 +11,7 @@ import { RankTrackerData, RtKeywordRow } from '../types';
 export const HISTORY_RUNS = 12;
 const MOVERS = 5;
 
-type Section = 'summary' | 'keywords' | 'history' | 'grid' | 'movers' | 'map_ranking';
+type Section = 'summary' | 'keywords' | 'history' | 'grid' | 'movers' | 'map_ranking' | 'keyword_groups';
 
 const MAP_TOP = 5;
 const POINT_ORDER = ['C', 'N', 'S', 'E', 'W'];
@@ -17,7 +20,12 @@ export type RunForReport = Pick<LeanRankRun, 'run_at' | 'finished_at' | 'status'
 
 const mean = (values: number[]): number | null => (values.length ? Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100) / 100 : null);
 
-export const buildRankTrackerData = (run: RunForReport, history: { run_at: Date; overall_avg_rank: number | null }[], sections: readonly string[]): RankTrackerData => {
+export const buildRankTrackerData = (
+	run: RunForReport,
+	history: { run_at: Date; overall_avg_rank: number | null }[],
+	sections: readonly string[],
+	groups: Pick<ILocationKeywordGroup, 'name' | 'keywords'>[] = [],
+): RankTrackerData => {
 	const want = (s: Section) => sections.includes(s);
 	const keywords: RtKeywordRow[] = (run.tracker ?? []).map((t) => {
 		const s = t.summary?.self;
@@ -78,6 +86,20 @@ export const buildRankTrackerData = (run: RunForReport, history: { run_at: Date;
 		}
 		data.map_ranking = [...byKeyword.values()].map((k) => ({ ...k, points: k.points.sort((a, b) => POINT_ORDER.indexOf(a.point) - POINT_ORDER.indexOf(b.point)) }));
 	}
+	if (want('keyword_groups') && groups.length) {
+		data.keyword_groups = groups.map((g) => {
+			const s = summariseGroup(run.tracker ?? [], g.keywords, ['self']).summary.self;
+			return {
+				name: g.name,
+				keywords: (run.tracker ?? []).filter((t) => g.keywords.includes(normaliseKeyword(t.keyword))).map((t) => t.keyword),
+				avg_rank: s.avgRank,
+				top3_rate: s.top3Rate,
+				found_rate: s.foundRate,
+				change: s.change,
+				comparable_keywords: s.comparable_keywords,
+			};
+		});
+	}
 	return data;
 };
 
@@ -88,7 +110,12 @@ export const findReportRun = (locationId: Types.ObjectId | string, runId?: Types
 		.select({ _id: 1, run_at: 1 })
 		.lean<{ _id: Types.ObjectId; run_at: Date } | null>();
 
-export const loadRankTrackerData = async (locationId: Types.ObjectId | string, runId: Types.ObjectId | string, sections: readonly string[]) => {
+export const loadRankTrackerData = async (
+	locationId: Types.ObjectId | string,
+	runId: Types.ObjectId | string,
+	sections: readonly string[],
+	groups: Pick<ILocationKeywordGroup, 'name' | 'keywords'>[] = [],
+) => {
 	const run = await RankRun.findOne({ _id: runId, location_id: locationId })
 		.select({ run_at: 1, finished_at: 1, status: 1, config: 1, tracker: 1, grid: 1, overall: 1, mapList: 1 })
 		.lean<RunForReport & { _id: Types.ObjectId }>();
@@ -104,6 +131,7 @@ export const loadRankTrackerData = async (locationId: Types.ObjectId | string, r
 			run,
 			history.map((h) => ({ run_at: h.run_at, overall_avg_rank: h.overall?.self?.overallAvgRank ?? null })),
 			sections,
+			groups,
 		),
 	};
 };

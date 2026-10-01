@@ -9,7 +9,7 @@ export type ReportType = (typeof REPORT_TYPES)[number];
 
 /** The sections each type can contain (the default is all of them). A full report's sections are report types. */
 export const REPORT_SECTIONS = {
-	rank_tracker: ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking'],
+	rank_tracker: ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking', 'keyword_groups'],
 	gbp_audit: ['score', 'checks', 'performance', 'keywords', 'profile', 'verification', 'pending_edits', 'reviews_media_posts'],
 	competitor_analysis: ['public_scores', 'table', 'ranks', 'insights', 'reviews'],
 	// Phase 16: the Citation Report (and the Citations part of the Full report).
@@ -40,7 +40,8 @@ export interface IReport extends Document {
 	client_id: Types.ObjectId | null;
 	type: ReportType;
 	sections: string[];
-	params: { run_id: Types.ObjectId | null; range: ReportRangeParam };
+	/** run_at (Phase 17): when the report's rank run ran, for the library rows. */
+	params: { run_id: Types.ObjectId | null; run_at?: Date | null; range: ReportRangeParam };
 	status: ReportStatus;
 	/** True while queued/generating: one active report per (location, type). */
 	active: boolean;
@@ -65,6 +66,7 @@ const ReportSchema = new Schema<IReport>(
 		sections: { type: [String], default: [] },
 		params: {
 			run_id: { type: Schema.Types.ObjectId, ref: 'RankRun', default: null },
+			run_at: { type: Date, default: null },
 			range: { type: String, enum: REPORT_RANGES, default: '28d' },
 		},
 		status: { type: String, enum: REPORT_STATUSES, default: 'queued' },

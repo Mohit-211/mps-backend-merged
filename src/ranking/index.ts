@@ -1,6 +1,20 @@
 // Public API of the ranking engine (CLAUDE.md §4, §8).
 export * from './types';
-export { GRID_SIZES, MIN_SPACING_KM, MAX_SPACING_KM, gridPoints, isGridSize, offsetPoint, trackerPoints } from './points';
+export {
+	GRID_SIZES,
+	MIN_SPACING_KM,
+	MAX_SPACING_KM,
+	MIN_RADIUS_KM,
+	MAX_RADIUS_KM,
+	DEFAULT_TRACKER_OFFSET_KM,
+	gridPoints,
+	isGridSize,
+	offsetPoint,
+	trackerPoints,
+	radiusFromSpacing,
+	spacingFromRadius,
+	trackerOffsetForRadius,
+} from './points';
 export { MAX_RANK, bucket, displayRank, toCell } from './rankCell';
 export {
 	NOT_FOUND_RANK_VALUE,
@@ -10,6 +24,7 @@ export {
 	keywordChange,
 	overallAvgRank,
 	overallChange,
+	sharedOverallChange,
 	round1,
 	round2,
 	summarise,

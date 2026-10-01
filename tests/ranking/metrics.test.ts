@@ -5,6 +5,7 @@ import {
 	keywordChange,
 	overallAvgRank,
 	overallChange,
+	sharedOverallChange,
 	summarise,
 	top3Rate,
 } from '../../src/ranking/metrics';
@@ -114,6 +115,18 @@ describe('keywordChange', () => {
 		expect(keywordChange(s(12.4, 1), s(9.1, 1))).toEqual({ change: 3.3, changeLabel: 'improved' });
 		expect(keywordChange(s(9.1, 1), s(12.4, 1))).toEqual({ change: -3.3, changeLabel: 'declined' });
 		expect(keywordChange(s(61, 0), s(61, 0))).toEqual({ change: 0, changeLabel: 'unchanged' });
+	});
+});
+
+describe('sharedOverallChange (Phase 17)', () => {
+	it('compares only the keywords measured in both runs', () => {
+		expect(sharedOverallChange([{ previous: 8, current: 5 }, { previous: undefined, current: 50 }, { previous: 12, current: null }])).toEqual({ change: 3, comparable: 1 });
+		expect(sharedOverallChange([{ previous: 10, current: 12 }, { previous: 20, current: 14 }])).toEqual({ change: 2, comparable: 2 });
+	});
+
+	it('is null with nothing comparable', () => {
+		expect(sharedOverallChange([])).toEqual({ change: null, comparable: 0 });
+		expect(sharedOverallChange([{ previous: null, current: 4 }])).toEqual({ change: null, comparable: 0 });
 	});
 });
 

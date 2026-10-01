@@ -107,7 +107,14 @@ export const createScriptedPlaces = (script: PlacesScript): ScriptedPlaces => {
 		const candidates = (script.candidates ?? []).map((id) => normalisePlaceId(id) as string);
 		const places: NamedPlaceEntry[] = buildList(ctx, candidates)
 			.slice(0, PAGE)
-			.map((p, i) => ({ id: p.id, name: script.name ? script.name(p.id, i + 1) : `Business ${i + 1}` }));
+			.map((p, i) => ({
+				id: p.id,
+				name: script.name ? script.name(p.id, i + 1) : `Business ${i + 1}`,
+				// Phase 17 map pins: a deterministic spread around the search point.
+				address: `${100 + i} Demo Street`,
+				lat: ctx.lat + ((i % 5) - 2) * 0.004,
+				lng: ctx.lng + (Math.floor(i / 5) - 2) * 0.004,
+			}));
 		return { places, apiCalls: 1 };
 	};
 

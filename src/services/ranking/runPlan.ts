@@ -1,6 +1,6 @@
 import config from '../../configs/config';
 import { ILocationTracking } from '../../models/location.model';
-import { CallEstimate, applyDevKeywordCap, estimateCalls, estimateDuration } from '../../ranking';
+import { CallEstimate, applyDevKeywordCap, estimateCalls, estimateDuration, radiusFromSpacing, trackerOffsetForRadius } from '../../ranking';
 
 // What a rank run for a location would do right now, and what it would cost (CLAUDE.md §9.3,
 // Mohit's Phase 5 point 5). Used by "run now", the scheduler and GET tracking.
@@ -21,6 +21,9 @@ export interface RunPlan {
 	keywords: ILocationTracking['keywords'];
 	gridSize: number;
 	spacingKm: number;
+	/** Phase 17: the grid's center-to-edge distance. */
+	radiusKm: number;
+	/** Rank Tracker / Map Ranking offset: radius ÷ 2, at least 0.5 km (Phase 17). */
 	offsetKm: number;
 	radiusM: number;
 	/** Phase 12.5: samples per point, their spacing, Map Ranking points (5 or 1), expected duration. */
@@ -46,7 +49,6 @@ export const planRun = (
 ): RunPlan => {
 	const env = options.env ?? config.essentials.env;
 	const cap = options.maxCallsPerRun ?? config.ranking.maxCallsPerRun;
-	const offsetKm = options.offsetKm ?? config.ranking.trackerOffsetKm;
 	const radiusM = options.radiusM ?? config.ranking.searchRadiusM;
 	const samples = options.samples ?? config.ranking.samplesPerPoint;
 	const sampleSpacingSec = options.sampleSpacingSec ?? config.ranking.sampleSpacingSec;
@@ -56,6 +58,11 @@ export const planRun = (
 	const isDev = env === 'development';
 	const gridSize = isDev ? 3 : tracking.grid.size;
 	const devCapped = capped.capped || (isDev && tracking.grid.size !== 3);
+	// The development 3×3 keeps the spacing, so its radius shrinks with it.
+	const radiusKm = gridSize === tracking.grid.size && tracking.grid.radius_km !== undefined
+		? tracking.grid.radius_km
+		: radiusFromSpacing(gridSize, tracking.grid.spacing_km);
+	const offsetKm = options.offsetKm ?? trackerOffsetForRadius(radiusKm);
 	const needsCenterResolution = !hasCenter(location);
 
 	const estimate = estimateCalls(
@@ -76,6 +83,7 @@ export const planRun = (
 		keywords: capped.keywords,
 		gridSize,
 		spacingKm: tracking.grid.spacing_km,
+		radiusKm,
 		offsetKm,
 		radiusM,
 		samples,

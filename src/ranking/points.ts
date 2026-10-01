@@ -1,4 +1,3 @@
-import config from '../configs/config';
 import { GeoPoint, GridPoint, GridSize, TrackerPoint } from './types';
 
 // Sample points around a location (CLAUDE.md §4 "Sample points").
@@ -9,9 +8,26 @@ const EARTH_RADIUS_KM = 6371;
 const DEG_PER_RAD = 180 / Math.PI;
 const MAX_ABS_LAT = 85;
 
-export const GRID_SIZES: readonly GridSize[] = [3, 5, 7];
-export const MIN_SPACING_KM = 0.25;
-export const MAX_SPACING_KM = 5;
+export const GRID_SIZES: readonly GridSize[] = [3, 5, 7, 9, 11, 13];
+/** Phase 17: a grid is set by its radius (center to edge) or its spacing; both are bounded. */
+export const MIN_SPACING_KM = 0.1;
+export const MAX_SPACING_KM = 15;
+export const MIN_RADIUS_KM = 0.5;
+export const MAX_RADIUS_KM = 15;
+/** Rank Tracker / Map Ranking offset when nothing else is given (the pre-Phase 17 global default). */
+export const DEFAULT_TRACKER_OFFSET_KM = 1.5;
+const MIN_TRACKER_OFFSET_KM = 0.5;
+
+const round3 = (n: number): number => Math.round(n * 1000) / 1000;
+
+/** Center-to-edge distance of a size × size grid (km). */
+export const radiusFromSpacing = (size: number, spacingKm: number): number => round3((spacingKm * (size - 1)) / 2);
+
+/** Spacing between neighbouring points of a size × size grid whose edge is radiusKm from the center. */
+export const spacingFromRadius = (size: number, radiusKm: number): number => round3(radiusKm / ((size - 1) / 2));
+
+/** Phase 17: the Rank Tracker and Map Ranking points sit halfway to the grid edge (at least 0.5 km). */
+export const trackerOffsetForRadius = (radiusKm: number): number => round3(Math.max(MIN_TRACKER_OFFSET_KM, radiusKm / 2));
 
 const assertCenter = (center: GeoPoint): void => {
 	const { lat, lng } = center;
@@ -29,7 +45,7 @@ export const offsetPoint = (center: GeoPoint, northKm: number, eastKm: number): 
 /** Rank Tracker points: the center plus N, S, E, W at offsetKm (5 points, center first). */
 export const trackerPoints = (
 	center: GeoPoint,
-	offsetKm: number = config.ranking.trackerOffsetKm,
+	offsetKm: number = DEFAULT_TRACKER_OFFSET_KM,
 ): TrackerPoint[] => {
 	assertCenter(center);
 	if (!Number.isFinite(offsetKm) || offsetKm <= 0 || offsetKm > 20) {

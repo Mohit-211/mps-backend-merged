@@ -46,14 +46,35 @@ export interface ILocationGbpReport {
   force_competitors_at: Date | null;
 }
 
+/** Phase 17: a named set of the location's tracked keywords (normalised), for filters and group summaries. */
+export interface ILocationKeywordGroup {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  keywords: string[];
+}
+
+/** Phase 17: a tracked competitor's name, address and position (Places content, accepted ToS risk). */
+export interface ILocationCompetitorInfo {
+  place_id: string;
+  name: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
 /** Ranking settings for one location (CLAUDE.md §9.1). One fixed keyword set, versioned. */
 export interface ILocationTracking {
   keywords: { text: string; normalized: string }[];
   keywords_version: number;
   keywords_updated_at: Date | null;
   competitors: string[];
-  grid: { size: number; spacing_km: number };
+  /** Phase 17: radius_km = center to edge; spacing_km = between neighbouring points (one is derived from the other). */
+  grid: { size: number; spacing_km: number; radius_km?: number };
   frequency: TrackingFrequency;
+  /** Phase 17 (max 20). */
+  keyword_groups: ILocationKeywordGroup[];
+  /** Phase 17: one entry per competitor that has details (filled when competitors are saved). */
+  competitor_info: ILocationCompetitorInfo[];
   /** @deprecated since 7b (ignored): refresh.next_refresh_at schedules the location. */
   next_run_at: Date | null;
   last_run_at: Date | null;
@@ -193,10 +214,21 @@ const trackingSchema = new Schema<ILocationTracking>(
     keywords_updated_at: { type: Date, default: null },
     competitors: { type: [String], default: [] },
     grid: {
-      size: { type: Number, enum: [3, 5, 7], default: 5 },
-      spacing_km: { type: Number, min: 0.25, max: 5, default: 1 },
+      size: { type: Number, enum: [3, 5, 7, 9, 11, 13], default: 7 },
+      spacing_km: { type: Number, min: 0.1, max: 15, default: 8 / 3 }, // 7×7 reaching 8 km
+      // No default: a grid saved with only a spacing gets its radius derived (withDefaults).
+      radius_km: { type: Number, min: 0.5, max: 15 },
     },
     frequency: { type: String, enum: TRACKING_FREQUENCIES, default: 'auto_monthly' },
+    competitor_info: {
+      type: [{ _id: false, place_id: { type: String, required: true }, name: { type: String, default: null }, address: { type: String, default: null }, lat: { type: Number, default: null }, lng: { type: Number, default: null } }],
+      default: [],
+    },
+    keyword_groups: {
+      // _id explicit: implicit subdocuments here inherit the tracking schema's _id: false.
+      type: [{ _id: { type: Schema.Types.ObjectId, required: true }, name: { type: String, required: true }, keywords: { type: [String], default: [] } }],
+      default: [],
+    },
     next_run_at: { type: Date, default: null },
     last_run_at: { type: Date, default: null },
     last_error: { type: String, default: null },

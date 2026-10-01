@@ -41,7 +41,9 @@ The demo data comes from an offline client, so it needs no API key.
 
 **Change** is `previous − current`, so a positive number means improved.
 - `changeLabel` is one of: `improved`, `declined`, `unchanged`, `entered_top_60` or `dropped_out_of_top_60`. For the two "top 60" labels, `change` is `null`.
-- Change is `null` when there is no earlier run with the same `keywords_version`, for example after the keywords were edited.
+- **Across keyword edits (Phase 17):** the previous run is the latest finished one, whatever its `keywords_version`. A keyword is compared when both runs have it; a newly added keyword has `change: null`. Competitors are matched by place, so a replaced competitor has no change.
+- **Overall:** `overall[target].change` compares only the keywords both runs measured; `comparable_keywords` says how many (`keywords_total` = the run's keywords). Show e.g. "+2.1 (on 3 of 5 keywords)" when they differ, and no change when `comparable_keywords` is 0.
+- Edited keywords appear from the next run (monthly or a manual refresh), and in reports generated from that run.
 - At keyword level, `entered_top_60` means the business was not found at any point last run and is found somewhere now; `dropped_out_of_top_60` is the reverse (CLAUDE.md §4).
 
 **Run status:** `queued` → `running` → `done` | `partial` (some searches failed) | `failed`. Only `done` and `partial` runs have reports.
@@ -51,7 +53,7 @@ The demo data comes from an offline client, so it needs no API key.
 - **404** `{ "reason": "run_not_found" }` for an unknown `runId`; **409** `{ "reason": "run_not_finished", "status": "queued" | "running" | "failed" }` for a run that is not done or partial.
 - **404** `{ "reason": "keyword_not_in_run" }` for a `keyword` the run doesn't have; map-ranking: **404** `{ "reason": "point_not_in_run", "available": ["C", …] }`.
 
-**`RunMeta`** (the `run` field on page responses): `{ run_id, run_at, status, keywords_version, center: { lat, lng }, config: { grid_size, spacing_km, tracker_offset_km, radius_m, store_place_names } }`.
+**`RunMeta`** (the `run` field on page responses): `{ run_id, run_at, status, keywords_version, center: { lat, lng }, config: { grid_size, spacing_km, radius_km (17), tracker_offset_km, radius_m, store_place_names } }`. `radius_m` is the search bias around each point (5 km), not the grid radius.
 
 **Estimate** (`CallEstimate`, returned by several endpoints):
 - `idsOnly`: free Text Search IDs-only calls, as `{ min, max, maxWithRetries }`
@@ -95,8 +97,9 @@ Returns the location's ranking settings, with defaults filled in, and what a run
         "ChIJdemoDanforthDrainPros03"
       ],
       "grid": {
-        "size": 5,
-        "spacing_km": 1
+        "size": 7,
+        "spacing_km": 2.667,
+        "radius_km": 8
       },
       "frequency": "auto_monthly",
       "last_run_at": "2026-09-25T20:43:20.960Z",
@@ -140,16 +143,18 @@ Partial update: only the fields you send change.
 {
   "keywords": ["Emergency Plumber", "Drain Cleaning", "Water Heater Repair"],
   "competitors": ["ChIJdemoQueenWestPlumbing02", "ChIJdemoDanforthDrainPros03"],
-  "grid": { "size": 5, "spacing_km": 1 },
+  "grid": { "size": 7, "radius_km": 8 },
   "frequency": "auto_monthly"
 }
 ```
 
 **Rules**
 - **`keywords`:** 1 to `RANK_MAX_KEYWORDS` (20) entries of 2–80 characters each. They are trimmed and de-duplicated case-insensitively, and the first spelling is kept.
-- **`keywords_version`:** goes up **only when the set of keywords changes**. Reordering or re-casing does not bump it. Changes are never compared across versions.
-- **`competitors`:** up to 5 Google place IDs, never the location's own `place_id`.
-- **`grid.size`:** 3, 5 or 7. **`grid.spacing_km`:** 0.25–5.
+- **`keywords_version`:** goes up **only when the set of keywords changes**. Reordering or re-casing does not bump it. Changes are still compared on the keywords both runs share (Phase 17).
+- **`competitors`:** up to 5 Google place IDs, never the location's own `place_id`. Errors: **400** `too_many_competitors` (+ `limit: 5`), `own_place_id`, `invalid_place_id`.
+- **Competitor details (Phase 17):** the response (and `GET /tracking`) has a top-level `competitors: [{ place_id, name, address, lat, lng }]` in the order of `tracking.competitors` (which stays a list of place IDs, as sent). When competitors are saved, each new one gets its details from the competitor suggestions or the latest Map Ranking lists (free), otherwise from one Place Details call (counted in the daily Places limit). If that fails (no key, daily limit, Google error) the fields are `null` and the save still succeeds; they fill in on a later save or when the business shows in a Map Ranking list. Every run stores the names in `targets: [{ key, place_id, name }]`, so the ranking pages label `competitor_1`… without another call.
+- **`grid`** (Phase 17): `size` 3, 5, 7, 9, 11 or 13, plus **either** `radius_km` (center to edge, 0.5–15) **or** `spacing_km` (between neighbouring points, 0.1–15). The other is derived (spacing = radius ÷ ((size − 1) / 2)) and both must stay in range, so a 13×13 needs a radius of at least 0.6 km. The response carries all three. New locations start at `{ size: 7, radius_km: 8 }` (about 5 miles). The Rank Tracker and Map Ranking points sit halfway to the edge (radius ÷ 2, at least 0.5 km); the search bias around each point stays 5 km. Error: **400** `{ "reason": "invalid_grid" }`.
+- **Cost of a bigger grid:** grid searches use the free IDs-only SKU, so a bigger grid costs run time, not money: at 20 keywords and 3 samples, about 32 min for 9×9, 47 min for 11×11 and 65 min for 13×13. `over_cap: true` means a run with these settings would be refused (422); check it with `GET /tracking/estimate` before saving.
 - **`frequency`** (7b): `auto_monthly` (default: the location refreshes automatically once a month, on the day it completed setup, at about 03:00 local) or `manual_only` (only `POST /refresh` or "run now"). `next_run_at` is no longer accepted (400).
 
 **Response 200**
@@ -184,8 +189,9 @@ Partial update: only the fields you send change.
         "ChIJdemoDanforthDrainPros03"
       ],
       "grid": {
-        "size": 5,
-        "spacing_km": 1
+        "size": 7,
+        "spacing_km": 2.667,
+        "radius_km": 8
       },
       "frequency": "auto_monthly",
       "last_run_at": "2026-09-25T20:43:20.960Z",
@@ -216,7 +222,14 @@ Partial update: only the fields you send change.
         "maxWithRetries": 160
       }
     },
+    "expected_duration_ms": 9750,
+    "cap": 40000,
+    "over_cap": false,
     "dev_capped": true,
+    "competitors": [
+      { "place_id": "ChIJdemoQueenWestPlumbing02", "name": "Queen West Plumbing", "address": "820 Queen St W, Toronto, ON M6J 1G3, Canada", "lat": 43.6449, "lng": -79.4115 },
+      { "place_id": "ChIJdemoDanforthDrainPros03", "name": "Danforth Drain Pros", "address": "1500 Danforth Ave, Toronto, ON M4J 1N4, Canada", "lat": 43.6829, "lng": -79.3285 }
+    ],
     "keywords_version_bumped": false
   }
 }
@@ -228,10 +241,41 @@ Partial update: only the fields you send change.
 {
   "success": false,
   "status": 400,
-  "message": "\"grid.size\" must be one of [3, 5, 7]",
-  "data": ""
+  "message": "A 13×13 grid needs a radius of 0.5–15 km and points 0.1–15 km apart",
+  "data": { "reason": "invalid_grid", "radius_km": 0.5, "spacing_km": 0.083 }
 }
 ```
+
+### `GET /tracking/estimate` (Phase 17)
+
+What a run would need with a grid and keyword count, **before** saving them (the grid picker). No Google calls, nothing saved. Query (each optional, defaulting to the saved settings): `size`, `radius_km` **or** `spacing_km`, `keywords` (a count). With only `size`, the saved radius is kept.
+
+`GET /locations/:locationId/tracking/estimate?size=13&radius_km=15&keywords=20`
+
+```json
+{
+  "success": true,
+  "status": 200,
+  "message": "Completed Successfully.",
+  "data": {
+    "grid": { "size": 13, "spacing_km": 2.5, "radius_km": 15 },
+    "keywords": 20,
+    "points_per_keyword": 169,
+    "tracker_offset_km": 7.5,
+    "estimate": { "keywords": 20, "gridSize": 13, "points": 169, "samples": 3, "mapPoints": 5, "idsOnly": { "min": 10140, "max": 30420, "maxWithRetries": 60840 }, "pro": { "min": 100, "max": 100, "maxWithRetries": 200 }, "details": { "min": 0, "max": 0, "maxWithRetries": 0 }, "total": { "min": 10240, "max": 30520, "maxWithRetries": 61040 } },
+    "expected_duration_ms": 3815000,
+    "cap": 40000,
+    "over_cap": false,
+    "dev_capped": false,
+    "token_cost": { "rankings": 1 }
+  }
+}
+```
+
+- `token_cost.rankings`: what a manual refresh / "run now" costs; it is the same for every grid (Mohit, 2026-10-01).
+- `expected_duration_ms`: at `PLACES_MAX_QPS` (8/s), shared by every run on the server.
+- In development `dev_capped` is true and the grid is 3×3.
+- **400** `{ "reason": "invalid_grid" }` as for `PUT /tracking`.
 
 ---
 
@@ -242,7 +286,7 @@ Partial update: only the fields you send change.
 "Run now". Queues a run and returns immediately. The run takes about a minute in the background, depending on the number of keywords and the grid size.
 - If a run is already queued or running for this location, that run is returned with `existing: true`, and no second run is created.
 - **400:** the location has no `place_id`, no tracking keywords, or is not in the US or Canada.
-- **422:** the estimated maximum IDs-only calls exceed `RANK_MAX_CALLS_PER_RUN` (default 3200). The response includes the estimate.
+- **422:** the estimated maximum IDs-only calls exceed `RANK_MAX_CALLS_PER_RUN` (default 40,000 since Phase 17). The response includes the estimate.
 
 **Response 202** (a new run; this one is from development, so it is capped to 2 keywords and 3×3):
 
@@ -444,15 +488,21 @@ Run history, newest first, with each run's overall average per target. The defau
         "overall": {
           "self": {
             "overallAvgRank": 21.3,
-            "change": 12.6
+            "change": 12.6,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           },
           "competitor_1": {
             "overallAvgRank": 22,
-            "change": -0.7
+            "change": -0.7,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           },
           "competitor_2": {
             "overallAvgRank": 10,
-            "change": 0
+            "change": 0,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           }
         }
       },
@@ -465,15 +515,21 @@ Run history, newest first, with each run's overall average per target. The defau
         "overall": {
           "self": {
             "overallAvgRank": 33.9,
-            "change": -11
+            "change": -11,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           },
           "competitor_1": {
             "overallAvgRank": 21.3,
-            "change": 5.7
+            "change": 5.7,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           },
           "competitor_2": {
             "overallAvgRank": 10,
-            "change": 0.3
+            "change": 0.3,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           }
         }
       },
@@ -486,15 +542,21 @@ Run history, newest first, with each run's overall average per target. The defau
         "overall": {
           "self": {
             "overallAvgRank": 22.9,
-            "change": null
+            "change": null,
+            "comparable_keywords": 0,
+            "keywords_total": 3
           },
           "competitor_1": {
             "overallAvgRank": 27,
-            "change": null
+            "change": null,
+            "comparable_keywords": 0,
+            "keywords_total": 3
           },
           "competitor_2": {
             "overallAvgRank": 10.3,
-            "change": null
+            "change": null,
+            "comparable_keywords": 0,
+            "keywords_total": 3
           }
         }
       }
@@ -513,6 +575,8 @@ Run history, newest first, with each run's overall average per target. The defau
 ### `GET /rank-tracker?runId=`
 
 For each keyword: a summary per target (average rank, found rate, top-3 rate, change) and the 5 sample points. The points are the center `C` plus `N`, `S`, `E` and `W` at `tracker_offset_km`. The response also has `overall` per target and `trend`: the overall average of `self` over the last 12 done or partial runs, oldest first.
+
+**Keyword groups (Phase 17):** `?group=<group_id>` limits `keywords` to that group (`group: { group_id, name }` in the response, `null` without a filter; **404** `group_not_found`). `groups` always lists every group with its summary for this run; see [Keyword groups](#keyword-groups-phase-17). `GET /grid` takes the same `?group=`.
 
 ```json
 {
@@ -540,15 +604,18 @@ For each keyword: a summary per target (average rank, found rate, top-3 rate, ch
     "targets": [
       {
         "key": "self",
-        "place_id": "ChIJdemoMapleLeafPlumbing01"
+        "place_id": "ChIJdemoMapleLeafPlumbing01",
+        "name": "Maple Leaf Plumbing & Heating"
       },
       {
         "key": "competitor_1",
-        "place_id": "ChIJdemoQueenWestPlumbing02"
+        "place_id": "ChIJdemoQueenWestPlumbing02",
+        "name": "Queen West Plumbing"
       },
       {
         "key": "competitor_2",
-        "place_id": "ChIJdemoDanforthDrainPros03"
+        "place_id": "ChIJdemoDanforthDrainPros03",
+        "name": "Danforth Drain Pros"
       }
     ],
     "keywords": [
@@ -723,15 +790,21 @@ For each keyword: a summary per target (average rank, found rate, top-3 rate, ch
     "overall": {
       "self": {
         "overallAvgRank": 21.3,
-        "change": 12.6
+        "change": 12.6,
+        "comparable_keywords": 3,
+        "keywords_total": 3
       },
       "competitor_1": {
         "overallAvgRank": 22,
-        "change": -0.7
+        "change": -0.7,
+        "comparable_keywords": 3,
+        "keywords_total": 3
       },
       "competitor_2": {
         "overallAvgRank": 10,
-        "change": 0
+        "change": 0,
+        "comparable_keywords": 3,
+        "keywords_total": 3
       }
     },
     "trend": [
@@ -795,20 +868,24 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
     "targets": [
       {
         "key": "self",
-        "place_id": "ChIJdemoMapleLeafPlumbing01"
+        "place_id": "ChIJdemoMapleLeafPlumbing01",
+        "name": "Maple Leaf Plumbing & Heating"
       },
       {
         "key": "competitor_1",
-        "place_id": "ChIJdemoQueenWestPlumbing02"
+        "place_id": "ChIJdemoQueenWestPlumbing02",
+        "name": "Queen West Plumbing"
       },
       {
         "key": "competitor_2",
-        "place_id": "ChIJdemoDanforthDrainPros03"
+        "place_id": "ChIJdemoDanforthDrainPros03",
+        "name": "Danforth Drain Pros"
       }
     ],
     "grid": {
       "size": 5,
-      "spacing_km": 1
+      "spacing_km": 1,
+      "radius_km": 2
     },
     "keywords": [
       {
@@ -957,6 +1034,8 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
   - `?resolveNames=true` looks the names up live, costing up to 20 Place Details calls per request, and needs the API key (503 without it).
   - This mode is pending a ToS decision (see STATUS.md).
 
+**Map pins (Phase 17):** each result has `address`, `lat` and `lng`, so the page can show the 20 businesses on a map (the client's pin from `is_self`, competitors' from `target_key`). They come from the same Map Ranking search (Text Search Pro fields, no extra cost) and are stored under the same `STORE_PLACE_NAMES` switch as the names. Runs before Phase 17 answer `null` for all three: hide the map for them.
+
 ```json
 {
   "success": true,
@@ -975,7 +1054,8 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
       "config": {
         "grid_size": 5,
         "spacing_km": 1,
-        "tracker_offset_km": 1.5,
+        "radius_km": 2,
+        "tracker_offset_km": 1,
         "radius_m": 5000,
         "store_place_names": true
       }
@@ -989,6 +1069,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 1,
             "place_id": "ChIJmvIS6dRTiBdjvc1Fdgtdjzj",
             "name": "Riverdale Plumbing",
+            "address": "12 Riverdale Ave, Toronto, ON M4K 1C2, Canada",
+            "lat": 43.6668,
+            "lng": -79.3523,
             "is_self": false,
             "target_key": null
           },
@@ -996,6 +1079,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 2,
             "place_id": "ChIJiJn_u4YaYyvyAlAYjjO_FuP",
             "name": "Leslieville Drain Service",
+            "address": "1020 Queen St E, Toronto, ON M4M 1K1, Canada",
+            "lat": 43.6614,
+            "lng": -79.3381,
             "is_self": false,
             "target_key": null
           },
@@ -1003,6 +1089,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 3,
             "place_id": "ChIJdemoMapleLeafPlumbing01",
             "name": "Maple Leaf Plumbing & Heating",
+            "address": "745 Gerrard St E, Toronto, ON M4M 1Y5, Canada",
+            "lat": 43.6629,
+            "lng": -79.3347,
             "is_self": true,
             "target_key": "self"
           },
@@ -1010,6 +1099,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 4,
             "place_id": "ChIJXbrc_yt-ajCkTaaEuMksJ_O",
             "name": "Junction Plumbers",
+            "address": "2958 Dundas St W, Toronto, ON M6P 1Z2, Canada",
+            "lat": 43.6655,
+            "lng": -79.4713,
             "is_self": false,
             "target_key": null
           },
@@ -1017,6 +1109,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 5,
             "place_id": "ChIJQIUbDcbRlCRTJKmRFzJsto3",
             "name": "Corktown Water Heaters",
+            "address": "455 King St E, Toronto, ON M5A 1L6, Canada",
+            "lat": 43.6542,
+            "lng": -79.3601,
             "is_self": false,
             "target_key": null
           },
@@ -1027,6 +1122,87 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
   }
 }
 ```
+
+---
+
+## Keyword groups (Phase 17)
+
+Named sets of a location's tracked keywords (e.g. "Emergency", "Water heaters") for filtering the Rank Tracker and grid pages and for group summaries. A keyword can be in several groups or none. Up to 20 groups per location; groups are free (no tokens, no Google calls) and don't change `keywords_version`. Removing a keyword from tracking (`PUT /tracking`) removes it from its groups. Owner and member can edit; a client user can read.
+
+| Call | Body | Answer |
+|---|---|---|
+| `GET /locations/:locationId/keyword-groups` | | `{ groups: [{ group_id, name, keywords }], limit: 20 }` (`keywords` in the tracked spelling) |
+| `POST /locations/:locationId/keyword-groups` | `{ name (1–60), keywords: ["…"] }` (at least 1, all tracked; case and spacing ignored) | **201** `{ group_id, name, keywords }` |
+| `PATCH /locations/:locationId/keyword-groups/:groupId` | `{ name?, keywords? }` (at least one; `keywords` replaces the list) | the group |
+| `DELETE /locations/:locationId/keyword-groups/:groupId` | | `{ deleted: true, group_id }` |
+
+**Errors:** **400** `{ reason: "unknown_keyword", keywords: ["…"] }` (not tracked), **400** `{ reason: "too_many_groups", limit: 20 }`, **409** `group_name_taken` (names are unique per location, ignoring case), **404** `group_not_found`.
+
+**Group summaries** on `GET /rank-tracker` (`groups[]`), per target:
+
+```json
+{
+  "group_id": "6abe37102faf69393e391b12",
+  "name": "Emergency",
+  "keywords": ["Emergency Plumber", "24 Hour Plumber"],
+  "keywords_in_run": 2,
+  "summary": {
+    "self": { "avgRank": 6.4, "foundRate": 0.9, "top3Rate": 0.4, "change": 1.5, "comparable_keywords": 2 },
+    "competitor_1": { "avgRank": 9, "foundRate": 1, "top3Rate": 0.2, "change": -0.5, "comparable_keywords": 2 }
+  }
+}
+```
+
+- `avgRank`, `foundRate`, `top3Rate`: the means over the group's keywords that this run measured (`keywords` / `keywords_in_run`; a keyword added since the run isn't in it).
+- `change`: the mean of those keywords' numeric changes (positive = improved); `comparable_keywords` says how many had one (`entered_top_60` / `dropped_out_of_top_60` and new keywords have none). `null` when none.
+- `GET /tracking` returns the stored groups as `tracking.keyword_groups: [{ _id, name, keywords }]` with **normalised** keywords; use `GET /keyword-groups` for display.
+- Rank Tracker reports have a `keyword_groups` section (a table: group, keywords, average rank, top-3, change for the client), frozen at generation.
+
+---
+
+## Keyword history (Phase 17)
+
+### `GET /keyword-history?keyword=&limit=`
+
+One tracked keyword across the location's finished runs, oldest first, for the per-keyword chart. `limit` 1–24 (default 12). Runs that didn't measure the keyword (before it was added) are skipped. Each run lists its `targets`, because a competitor slot (`competitor_1`) can hold another business in an older run: match competitors across runs by `place_id`.
+
+```json
+{
+  "success": true,
+  "status": 200,
+  "message": "Completed Successfully.",
+  "data": {
+    "keyword": "Emergency Plumber",
+    "runs": [
+      {
+        "run_id": "6ab6dc8a10f657b7c9476cff",
+        "run_at": "2026-09-01T03:00:00.000Z",
+        "status": "done",
+        "keywords_version": 1,
+        "targets": [{ "key": "self", "place_id": "ChIJdemoMapleLeafPlumbing01", "name": "Maple Leaf Plumbing & Heating" }, { "key": "competitor_1", "place_id": "ChIJdemoQueenWestPlumbing02", "name": "Queen West Plumbing" }],
+        "summary": {
+          "self": { "avgRank": 8.2, "foundRate": 1, "top3Rate": 0.2, "change": null, "changeLabel": null },
+          "competitor_1": { "avgRank": 5, "foundRate": 1, "top3Rate": 0.4, "change": null, "changeLabel": null }
+        }
+      },
+      {
+        "run_id": "6abe37102faf69393e391b40",
+        "run_at": "2026-10-01T03:00:00.000Z",
+        "status": "done",
+        "keywords_version": 2,
+        "targets": [{ "key": "self", "place_id": "ChIJdemoMapleLeafPlumbing01", "name": "Maple Leaf Plumbing & Heating" }, { "key": "competitor_1", "place_id": "ChIJdemoQueenWestPlumbing02", "name": "Queen West Plumbing" }],
+        "summary": {
+          "self": { "avgRank": 5.4, "foundRate": 1, "top3Rate": 0.6, "change": 2.8, "changeLabel": "improved" },
+          "competitor_1": { "avgRank": 5.2, "foundRate": 1, "top3Rate": 0.4, "change": -0.2, "changeLabel": "declined" }
+        }
+      }
+    ]
+  }
+}
+```
+
+- **404** `{ "reason": "keyword_not_tracked" }` for a keyword the location doesn't track now.
+- **Overall history for every target** (the client and each competitor): `GET /rank-runs` (each run's `overall[target]`), or `trend` on `GET /rank-tracker` (the client only, last 12 runs).
 
 ---
 
@@ -1592,7 +1768,7 @@ Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
 ### Auth (`/api/v1/auth`)
 
-**Email verification is by link (Phase 8.1).** Signup emails `FRONTEND_URL/verify-email?token=<token>`. The token is random, stored only as a hash, single use, and valid 24 h (`EMAIL_VERIFICATION_TTL_HOURS`). An account not verified within 24 h of signup is deleted (hourly job), and the email can sign up again. Password-reset codes are still 6 digits, stored hashed, valid 15 minutes (`AUTH_CODE_TTL_MINUTES`), 5 attempts, single use.
+**Email verification is by link (Phase 8.1).** Signup emails `FRONTEND_URL/verify-email?token=<token>`. The token is random, stored only as a hash, single use, and valid 24 h (`EMAIL_VERIFICATION_TTL_HOURS`). An account not verified within 24 h of signup is deleted (hourly job), and the email can sign up again. Password reset is by link too (13b; no codes or OTP anywhere): see `POST /auth/forgot-password` below.
 
 **Rate limits** (per email, and per IP): above a limit → **429** `{ "reason": "rate_limited", "retry_after_seconds": 3599 }`.
 
@@ -1930,7 +2106,7 @@ A report freezes stored data (the rank run, the GBP report, the profile snapshot
 
 | Type | Sections |
 |---|---|
-| `rank_tracker` | `summary`, `keywords`, `history` (last 12 runs), `grid` (heatmap per keyword), `movers` |
+| `rank_tracker` | `summary`, `keywords`, `history` (last 12 runs), `grid` (heatmap per keyword), `movers`, `map_ranking` (12.5), `keyword_groups` (17: only when the location has groups) |
 | `gbp_audit` | `score`, `checks` (with top fixes), `performance` (`range` 28d/90d/12m), `keywords`, `profile` (with name/phone/website consistency), `verification`, `pending_edits`, `reviews_media_posts` (needs v4) |
 | `competitor_analysis` | `public_scores`, `table`, `ranks`, `insights` |
 | `citation` (Phase 16) | `score` (Citation Health, coverage, counts), `table` (every listing: directory, type, status, NAP issues, last checked), `nap_issues` (listed as vs should be), `changes` (the report's `range`) |
@@ -1944,6 +2120,8 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
 { "location_id": "6ab8ad2e7c446457a3999f95", "type": "gbp_audit", "range": "90d" }
 ```
 
+**A report for an older run (Phase 17):** send `run_id` (any finished run of the location, e.g. from `GET /locations/:id/rank-runs`) with a `rank_tracker` or `full` report: `{ "location_id": "…", "type": "rank_tracker", "run_id": "6ab6dc8a10f657b7c9476cff" }`. Without it the latest finished run is used. Every report row has `run_id` and `run_at` (the run's date; `null` for types without rankings), so the library can show which month a report covers.
+
 **202**:
 
 ```json
@@ -1951,7 +2129,7 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
   "status": "queued", "trigger": "manual", "schedule_id": null,
   "location": { "location_id": "6ab8ad2e7c446457a3999f95", "name": "Maple Leaf Plumbing & Heating" },
   "client": { "client_id": "6ab8ad2e7c446457a3999f8f", "name": null },
-  "range": "90d", "run_id": null, "pdf": null, "failure_reason": null,
+  "range": "90d", "run_id": null, "run_at": null, "pdf": null, "failure_reason": null,
   "created_at": "2026-09-27T05:44:53.101Z", "generated_at": null, "expires_at": null, "archived_at": null, "existing": false }
 ```
 
@@ -1966,7 +2144,7 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
 ```json
 { "reports": [ { "report_id": "…", "type": "full", "status": "ready", "trigger": "manual",
                  "location": { "location_id": "…", "name": "Danforth Drain Pros" }, "client": { "client_id": "…", "name": "Danforth Services" },
-                 "range": "28d", "run_id": "…", "pdf": { "bytes": 36594, "pages": 5 }, "created_at": "…", "generated_at": "…", "expires_at": "2028-09-27T05:41:18.424Z", "archived_at": null } ],
+                 "range": "28d", "run_id": "…", "run_at": "2026-09-01T03:00:00.000Z", "pdf": { "bytes": 36594, "pages": 5 }, "created_at": "…", "generated_at": "…", "expires_at": "2028-09-27T05:41:18.424Z", "archived_at": null } ],
   "page": 1, "limit": 20, "total": 1 }
 ```
 

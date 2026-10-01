@@ -31,12 +31,12 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | 10 | Security hardening: all Deferred-P10 audit items incl. S19 and S30, plus the admin authentication and roles Phase 16 relies on | done | `claude/phase-10-security` | M5 (pushed) |
 | 8.1 | Email verification by link (24 h link, login refused until verified, hourly cleanup of unverified accounts; spec §12g) | done | `claude/phase-8.1-email-verify` | M5 (pushed) |
 | 16 | Citations: manual, admin-managed citation tracking, Citation Health, Citation Report (spec §12f; plan `docs/plans/phase-16-citations.md`) | done | `claude/phase-16-citations` | M5 (pushed) |
-| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: legacy removal, `/auth` session + account endpoints, payment-provider interface, flaky tests, admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | 13a done (`2c77a8a`), 13b done (`411b7c2`), pushed; **13c follow-ups built, awaiting merge** | `claude/phase-13c-followups` | M5 |
+| **13** | **Billing & plans** (13a: per-location pricing, first location priced higher, 20-location cap, tokens, PayPal, invoices; 13b: legacy removal, `/auth` session + account endpoints, payment-provider interface, flaky tests, admin panel backend + support). Spec §12h; plan `docs/plans/phase-13-billing-admin.md` | done: 13a (`2c77a8a`), 13b (`411b7c2`), 13c (`093b127`), pushed | `claude/phase-13c-followups` | M5 (pushed) |
 | 14 | Production readiness: fresh server (Mongo, backups, nginx, pm2, log rotation, error monitoring, alerts), deploy-checklist dry run, Maps ToS decisions | planned | – | M5 |
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | blocked (v4 access) | – | – |
 | 15 | Notifications & automations | planned | – | – |
-| 17 | Ranking extras: keyword groups, larger grids (the variance test is done; Dallas is a pre-launch item) | planned | – | – |
+| **17** | **Ranking extras** (pulled forward 2026-10-01 for the real ranking pages): grids 3–13 by radius (≤ 15 km), map pins for Map Ranking, keyword change across edits, keyword groups, keyword history, competitor names (max 5), report run dates. Spec §12i; plan `docs/plans/phase-17-ranking-extras.md` | **built, awaiting merge** | `claude/phase-17-ranking-extras` | – |
 | – | **AI GBP posts**: AI text + images, publishing schedules, optional approval, calendar (needs GBP v4; extends 9). Groundwork: `docs/plans/upcoming-features.md` §A | planned, spec pending | – | – |
 | – | **AI visibility**: presence in AI assistants' answers (ChatGPT, Gemini, Perplexity, Claude) over time, score, competitor comparison. §B | planned, spec pending | – | – |
 | – | **Review management**: review sync, AI analysis, AI reply suggestions and auto-reply with rules / approval (needs GBP v4). §C | planned, spec pending | – | – |
@@ -222,7 +222,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - **foundRate**: share of non-error cells with status `ok`. 2 decimals.
 - **top3Rate**: share of non-error cells with rank ≤ 3. 2 decimals.
 - **overallAvgRank**: mean of keyword avgRanks (unweighted). 1 decimal.
-- **Change vs previous run**: only computed when both runs have the **identical keyword set** (same `keywords_version`). Otherwise every change is `null`.
+- **Change vs previous run** (Phase 17, Mohit 2026-10-01; before: only with an identical keyword set): the previous run is the location's latest `done`/`partial` run, **whatever its `keywords_version`**. A keyword is compared when both runs have it (normalised); a new keyword has `change: null`. Targets are matched by `place_id`, so a competitor slot that now holds another business is not compared.
   - **Per cell** (one target at one point, `cellChange`):
     - Both `ok`: `change = previous - current` (positive = improved), labelled `improved`, `declined` or `unchanged`.
     - `not_found → ok`: label `entered_top_60`, no numeric change.
@@ -233,18 +233,18 @@ Use plan mode before each phase: show the plan and the list of files to create/m
     - `foundRate` went from > 0 to 0: label `dropped_out_of_top_60`, no numeric change.
     - Otherwise `change = previous avgRank - current avgRank` (1 decimal), labelled `improved`, `declined` or `unchanged`.
     - Either summary all-`error` (`avgRank` null), or no comparable previous run: `change = null`, no label.
-  - **Overall**: `change = previous overallAvgRank - current overallAvgRank` (1 decimal), or `null`.
+  - **Overall**: over the **shared keywords only** (avgRank known in both runs): mean of their previous avgRanks − mean of their current avgRanks (1 decimal), or `null` when none. `overall[target]` also carries `comparable_keywords` (how many were compared) and `keywords_total`. `overallAvgRank` itself stays the mean over all current keywords.
 - **Rank buckets (for UI)**: 1–3 `pack`, 4–10 `visible`, 11–20 `low`, 21–60 `invisible`, 60+ `not_found`, `error`.
 
 ### Sample points
-- **Rank Tracker points**: center + 4 compass points at `offsetKm = 1.5` (N, S, E, W). 5 points total.
-- **Grid points**: `generateGrid(center, size ∈ {3,5,7}, spacingKm)`. Center point is always included.
+- **Rank Tracker points**: center + 4 compass points (N, S, E, W), 5 points total, at `offsetKm` = the grid radius ÷ 2, at least 0.5 km (Phase 17; it was a global 1.5 km). Map Ranking uses the same 5 points.
+- **Grid points**: `gridPoints(center, size ∈ {3,5,7,9,11,13}, spacingKm)` (Phase 17). The grid is set by its radius (center to edge, 0.5–15 km) or its spacing (0.1–15 km); spacing = radius ÷ ((size − 1) / 2). Default for a new location: 7×7 at 8 km. Center point is always included.
 - **Center**: location `lat/lng`. If missing, resolve once from `place_id` via Place Details (field `location`) and save to the Location.
 - Every Text Search uses `locationBias.circle` centered on the sample point, radius **5000 m** (configurable), `regionCode` from the location country (`US → us`, `Canada → ca`).
 
 ### Keywords
 - Fixed per location: `location.tracking.keywords` (max **20**, trimmed, lowercased for comparison, de-duplicated, original casing kept for display).
-- Editing keywords increments `keywords_version` and sets `keywords_updated_at`. Change calculations never compare across versions.
+- Editing keywords increments `keywords_version` and sets `keywords_updated_at`. Since Phase 17 changes are compared across versions on the shared keywords (see Ranking above); `keywords_version` still marks the edit for charts. Edited keywords count from the next run (monthly or manual) and the reports made from it.
 
 ### Refresh cadence (Mohit, 2026-09-26)
 - `location.tracking.frequency`: **`auto_monthly`** (default) | **`manual_only`**. This replaces `weekly | monthly | manual`; existing values are migrated (`weekly`/`monthly` → `auto_monthly`, `manual` → `manual_only`).
@@ -378,7 +378,7 @@ Create typed, mockable clients. Each client: axios instance, timeout 15s, 1 retr
     - **Hard guard:** throw if the field mask for this function contains anything else (this keeps it on the free "Text Search Essentials (IDs Only)" SKU).
     - Body: `textQuery, regionCode, pageSize: 20, locationBias.circle{center{latitude,longitude},radius}, pageToken?`.
     - Paginates up to 3 pages (60 results). Accepts `stopWhenFound: string[]`: stop paging once all given place IDs are found.
-  - `searchTextWithNames(params)`: same endpoint, field mask `places.id,places.movedPlaceId,places.displayName,nextPageToken` (Pro SKU). Max 1 page (20 results). Used only for Map Ranking.
+  - `searchTextWithNames(params)`: same endpoint, field mask `places.id,places.movedPlaceId,places.displayName,nextPageToken` (Pro SKU; Phase 17 adds `places.formattedAddress,places.location` for map pins, also Pro). Max 1 page (20 results). Used only for Map Ranking.
   - `getPlaceDetails(placeId, fields[])` → GET `https://places.googleapis.com/v1/places/{placeId}` with `X-Goog-FieldMask` (no `places.` prefix). Used for center resolution and competitor comparison.
 - `src/clients/gbpClient.ts`: **deferred to Phase 6** (see §10).
 
@@ -950,6 +950,29 @@ Plan: **`docs/plans/phase-16-citations.md`** (the audit of the old module, data 
 
 **13c follow-ups (Mohit, 2026-09-29), branch `claude/phase-13c-followups`:** suspended organizations answer **403** `organization_suspended` (402 only for payment situations); `POST /billing/checkout { quantity }` (1 to the plan's cap, at least the active locations) so a trial user approves PayPal once; the stale `mongoMigrate.ts` tsconfig include removed. TypeScript: 0 errors in src, tests and scripts with the workspace compiler (5.9.3).
 
+## 12i. PHASE 17 — Ranking extras (pulled forward, 2026-10-01)
+
+Branch `claude/phase-17-ranking-extras` from `master`. Requested by the frontend for the real ranking pages; plan approved by Mohit: **`docs/plans/phase-17-ranking-extras.md`**. Offline only (fake Places client); the first real large-grid run is Mohit's.
+
+**Decisions (Mohit, 2026-10-01):**
+- Grid sizes **3, 5, 7, 9, 11, 13**, set by **radius** (0.5–15 km) or spacing; default **7×7 at 8 km** (~5 mi); `RANK_MAX_CALLS_PER_RUN` default **40,000**. The Rank Tracker / Map Ranking offset is derived per location (radius ÷ 2, at least 0.5 km); the search bias radius stays 5 km.
+- **Flat token cost** per manual refresh, whatever the grid (grid searches use the free IDs-only SKU).
+- **Change across keyword edits:** a keyword in both runs gets its change; the overall change uses the shared keywords (`comparable_keywords`). This replaces §4's "identical keyword set" rule.
+- **Competitors:** at most 5 per location (unchanged); names, addresses and coordinates stored when added (cache / map list first, else 1 Place Details call); run targets carry the name.
+
+**Scope:** the estimate endpoint; map pins (`lat`, `lng`, `address` on Map Ranking results, Text Search Pro fields); keyword groups (CRUD, `?group=` on rank-tracker and grid, group summaries, a report section); keyword history; `run_at` on report rows; the Google Maps wording; docs.
+
+**As built (2026-10-01):**
+- **Grid:** `src/ranking/points.ts` (`GRID_SIZES` 3–13, `radiusFromSpacing`, `spacingFromRadius`, `trackerOffsetForRadius`); `resolveGrid` in `trackingSettings.ts` (400 `invalid_grid`); `tracking.grid.radius_km` and `run.config.radius_km`; `RANK_TRACKER_OFFSET_KM` removed; `GET /locations/:id/tracking/estimate` (`tracking.service.ts` `estimateTracking`), and `GET/PUT /tracking` add `expected_duration_ms`, `cap`, `over_cap`.
+- **Map pins:** `WITH_NAMES_FIELD_MASK` + `places.formattedAddress,places.location` (both Pro, checked 2026-10-01); `mapList[].results[]` `address`, `lat`, `lng`, stored under `STORE_PLACE_NAMES`.
+- **Change across edits:** `rankRunExecutor.ts` (previous run of any version, targets matched by `place_id`), `sharedOverallChange` in `metrics.ts`; `overall[target].comparable_keywords` / `keywords_total`.
+- **Keyword groups:** `tracking.keyword_groups`, `src/services/ranking/keywordGroups.ts`, `/locations/:id/keyword-groups` (CRUD), `?group=` + `groups` on rank-tracker, `?group=` on grid, report section `keyword_groups`.
+- **History:** `src/services/ranking/keywordHistory.ts`, `GET /locations/:id/keyword-history`; `GET /rank-runs` adds `targets`.
+- **Competitors:** `src/services/ranking/competitorInfo.ts`, `tracking.competitor_info`, `competitors` on `GET/PUT /tracking`, `targets[].name` on runs, reasons `too_many_competitors`, `own_place_id`, `invalid_place_id`.
+- **Reports:** `Report.params.run_at`, `run_at` on report views.
+
+**Gate.**
+
 ## 12a. PHASE 9 — GBP Posting (moved from Phase 8; needs GBP v4 access)
 
 Keep the existing flow (`gbpPostSchedular.service.ts`, `jobs/postToGbp.ts`, v4 `localPosts`). Improve without breaking existing endpoints:
@@ -1029,7 +1052,7 @@ Each fix = its own commit. Add a regression test per auth fix (request without t
 
 - Text Search IDs-only (`places.id`, `places.movedPlaceId`, `nextPageToken` only): free SKU. Full depth since Phase 12.5: 3 calls per point, keyword and sample (fewer only in markets with under 41 results); 3 samples per point by default.
   - Unique points per keyword = tracker (5) ∪ grid (size²), with the center shared: 13 / 29 / 53 for 3×3 / 5×5 / 7×7 at 1 km spacing (fewer if tracker points land on grid points). Use `estimateCalls()` from `src/ranking/estimate.ts`.
-  - 2 keywords × 3×3 = 78 calls; 20 keywords × 7×7 = **3,180** calls per run per sample, **15,900** with 5 samples (`RANK_MAX_CALLS_PER_RUN` 16,000; the one retry can at most double this).
+  - 2 keywords × 3×3 = 78 calls; 20 keywords × 7×7 = **3,180** calls per run per sample, **15,900** with 5 samples. Phase 17: 20 keywords × 13×13 ≈ 10,100 per sample, ≈ 30,400 with 3 samples (`RANK_MAX_CALLS_PER_RUN` 40,000; the one retry can at most double this). Bigger grids cost run time (≈ 65 min for 13×13 at 8/s), not money.
 - Text Search with `displayName` (Pro SKU, $32 per 1,000 list): 1 call per keyword per Map Ranking point: 5 per keyword with `MAP_RANKING_POINTS=all` (Phase 12.5), 1 with `center`.
 - Place Details for the competitor comparison: ~(1 + competitors) calls per monthly cycle, with reviews, photos and editorial summary: **Enterprise + Atmosphere** SKU ($25 per 1,000 list).
 - A monthly refresh at 10 keywords × 5×5 costs about **$1.75** at list price ($3.35 at 20 keywords); IDs-only samples are free. **Accepted by Mohit on 2026-09-27** (quality first; Map Ranking stays at 5 points).

@@ -221,7 +221,14 @@ describe('placesClient.searchTextWithNames', () => {
 		expect(fake.requests[0].headers['X-Goog-FieldMask']).toBe(WITH_NAMES_FIELD_MASK);
 		expect(result.apiCalls).toBe(1);
 		expect(result.places).toHaveLength(20);
-		expect(result.places[1]).toEqual({ id: placeIds.target, name: 'Maple Leaf Plumbing & Heating' });
+		expect(WITH_NAMES_FIELD_MASK).toBe('places.id,places.movedPlaceId,places.displayName,places.formattedAddress,places.location,nextPageToken');
+		expect(result.places[1]).toEqual({
+			id: placeIds.target,
+			name: 'Maple Leaf Plumbing & Heating',
+			address: '101 Queen St E, Toronto, ON M4M 1K1, Canada',
+			lat: 43.6424,
+			lng: -79.3847,
+		});
 	});
 });
 

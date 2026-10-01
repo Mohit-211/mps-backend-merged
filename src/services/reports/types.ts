@@ -45,6 +45,8 @@ export interface RankTrackerData {
 	movers?: { improved: { keyword: string; change: number }[]; declined: { keyword: string; change: number }[]; entered: string[]; dropped: string[] };
 	/** Phase 12.5: the named top 5 at each Map Ranking point, and the client's rank there (null = not in the top 20). */
 	map_ranking?: { keyword: string; points: { point: string; top: { rank: number; name: string | null; is_self: boolean }[]; self_rank: number | null }[] }[];
+	/** Phase 17: the location's keyword groups (frozen at generation), the client's means per group. */
+	keyword_groups?: { name: string; keywords: string[]; avg_rank: number | null; top3_rate: number | null; found_rate: number | null; change: number | null; comparable_keywords: number }[];
 }
 
 // ---- GBP Audit ----

@@ -96,6 +96,7 @@ export const enqueueRankRun = async (
 			config: {
 				grid_size: plan.gridSize,
 				spacing_km: plan.spacingKm,
+				radius_km: plan.radiusKm,
 				tracker_offset_km: plan.offsetKm,
 				radius_m: plan.radiusM,
 				store_place_names: config.ranking.storePlaceNames,
@@ -105,8 +106,13 @@ export const enqueueRankRun = async (
 			},
 			expected_duration_ms: plan.expectedDurationMs,
 			targets: [
-				{ key: 'self', place_id: location.place_id },
-				...tracking.competitors.map((placeId, i) => ({ key: `competitor_${i + 1}`, place_id: placeId })),
+				// Phase 17: names snapshot at run time, so every ranking page can label its competitors.
+				{ key: 'self', place_id: location.place_id, name: location.name ?? null },
+				...tracking.competitors.map((placeId, i) => ({
+					key: `competitor_${i + 1}`,
+					place_id: placeId,
+					name: tracking.competitor_info.find((c) => c.place_id === placeId)?.name ?? null,
+				})),
 			],
 			estimate: plan.estimate,
 			dev_capped: plan.devCapped,
@@ -168,7 +174,7 @@ export const listRuns = async (locationId: Types.ObjectId | string, page: number
 			.sort({ run_at: -1 })
 			.skip((page - 1) * limit)
 			.limit(limit)
-			.select({ status: 1, run_at: 1, keywords_version: 1, overall: 1, trigger: 1 })
+			.select({ status: 1, run_at: 1, keywords_version: 1, overall: 1, trigger: 1, targets: 1 })
 			.lean(),
 		RankRun.countDocuments(filter),
 	]);
@@ -180,6 +186,8 @@ export const listRuns = async (locationId: Types.ObjectId | string, page: number
 			trigger: r.trigger,
 			keywords_version: r.keywords_version,
 			overall: r.overall ?? {},
+			// Phase 17: which business each target key was in this run (competitor history matches by place_id).
+			targets: r.targets ?? [],
 		})),
 		page,
 		limit,

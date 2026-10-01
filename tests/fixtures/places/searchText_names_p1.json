@@ -5,6 +5,11 @@
       "displayName": {
         "text": "Leslieville Plumbing",
         "languageCode": "en"
+      },
+      "formattedAddress": "100 Queen St E, Toronto, ON M4M 1K0, Canada",
+      "location": {
+        "latitude": 43.6412,
+        "longitude": -79.3862
       }
     },
     {
@@ -12,6 +17,11 @@
       "displayName": {
         "text": "Maple Leaf Plumbing & Heating",
         "languageCode": "en"
+      },
+      "formattedAddress": "101 Queen St E, Toronto, ON M4M 1K1, Canada",
+      "location": {
+        "latitude": 43.6424,
+        "longitude": -79.3847
       }
     },
     {
@@ -19,6 +29,11 @@
       "displayName": {
         "text": "Liberty Village Drain Services",
         "languageCode": "en"
+      },
+      "formattedAddress": "102 Queen St E, Toronto, ON M4M 1K2, Canada",
+      "location": {
+        "latitude": 43.6436,
+        "longitude": -79.3832
       }
     },
     {
@@ -26,6 +41,11 @@
       "displayName": {
         "text": "Riverdale Heating & Cooling",
         "languageCode": "en"
+      },
+      "formattedAddress": "103 Queen St E, Toronto, ON M4M 1K3, Canada",
+      "location": {
+        "latitude": 43.6448,
+        "longitude": -79.3817
       }
     },
     {
@@ -33,6 +53,11 @@
       "displayName": {
         "text": "Junction Water Heaters",
         "languageCode": "en"
+      },
+      "formattedAddress": "104 Queen St E, Toronto, ON M4M 1K4, Canada",
+      "location": {
+        "latitude": 43.646,
+        "longitude": -79.3802
       }
     },
     {
@@ -40,6 +65,11 @@
       "displayName": {
         "text": "Danforth Emergency Plumbing",
         "languageCode": "en"
+      },
+      "formattedAddress": "105 Queen St E, Toronto, ON M4M 1K5, Canada",
+      "location": {
+        "latitude": 43.6472,
+        "longitude": -79.3862
       }
     },
     {
@@ -47,6 +77,11 @@
       "displayName": {
         "text": "Yorkville Pipe Repair",
         "languageCode": "en"
+      },
+      "formattedAddress": "106 Queen St E, Toronto, ON M4M 1K6, Canada",
+      "location": {
+        "latitude": 43.6484,
+        "longitude": -79.3847
       }
     },
     {
@@ -54,6 +89,11 @@
       "displayName": {
         "text": "Roncesvalles Sewer & Drain",
         "languageCode": "en"
+      },
+      "formattedAddress": "107 Queen St E, Toronto, ON M4M 1K7, Canada",
+      "location": {
+        "latitude": 43.6496,
+        "longitude": -79.3832
       }
     },
     {
@@ -61,6 +101,11 @@
       "displayName": {
         "text": "Leaside Plumbing",
         "languageCode": "en"
+      },
+      "formattedAddress": "108 Queen St E, Toronto, ON M4M 1K8, Canada",
+      "location": {
+        "latitude": 43.6508,
+        "longitude": -79.3817
       }
     },
     {
@@ -68,6 +113,11 @@
       "displayName": {
         "text": "Parkdale Plumbers",
         "languageCode": "en"
+      },
+      "formattedAddress": "109 Queen St E, Toronto, ON M4M 1K9, Canada",
+      "location": {
+        "latitude": 43.652,
+        "longitude": -79.3802
       }
     },
     {
@@ -75,6 +125,11 @@
       "displayName": {
         "text": "Etobicoke Drain Services",
         "languageCode": "en"
+      },
+      "formattedAddress": "110 Queen St E, Toronto, ON M4M 1K0, Canada",
+      "location": {
+        "latitude": 43.6532,
+        "longitude": -79.3862
       }
     },
     {
@@ -82,6 +137,11 @@
       "displayName": {
         "text": "Scarborough Heating & Cooling",
         "languageCode": "en"
+      },
+      "formattedAddress": "111 Queen St E, Toronto, ON M4M 1K1, Canada",
+      "location": {
+        "latitude": 43.6544,
+        "longitude": -79.3847
       }
     },
     {
@@ -89,6 +149,11 @@
       "displayName": {
         "text": "North York Water Heaters",
         "languageCode": "en"
+      },
+      "formattedAddress": "112 Queen St E, Toronto, ON M4M 1K2, Canada",
+      "location": {
+        "latitude": 43.6556,
+        "longitude": -79.3832
       }
     },
     {
@@ -96,6 +161,11 @@
       "displayName": {
         "text": "East York Emergency Plumbing",
         "languageCode": "en"
+      },
+      "formattedAddress": "113 Queen St E, Toronto, ON M4M 1K3, Canada",
+      "location": {
+        "latitude": 43.6568,
+        "longitude": -79.3817
       }
     },
     {
@@ -103,6 +173,11 @@
       "displayName": {
         "text": "Midtown Pipe Repair",
         "languageCode": "en"
+      },
+      "formattedAddress": "114 Queen St E, Toronto, ON M4M 1K4, Canada",
+      "location": {
+        "latitude": 43.658,
+        "longitude": -79.3802
       }
     },
     {
@@ -110,6 +185,11 @@
       "displayName": {
         "text": "Corktown Sewer & Drain",
         "languageCode": "en"
+      },
+      "formattedAddress": "115 Queen St E, Toronto, ON M4M 1K5, Canada",
+      "location": {
+        "latitude": 43.6592,
+        "longitude": -79.3862
       }
     },
     {
@@ -117,6 +197,11 @@
       "displayName": {
         "text": "Distillery Plumbing",
         "languageCode": "en"
+      },
+      "formattedAddress": "116 Queen St E, Toronto, ON M4M 1K6, Canada",
+      "location": {
+        "latitude": 43.6604,
+        "longitude": -79.3847
       }
     },
     {
@@ -124,6 +209,11 @@
       "displayName": {
         "text": "Kensington Plumbers",
         "languageCode": "en"
+      },
+      "formattedAddress": "117 Queen St E, Toronto, ON M4M 1K7, Canada",
+      "location": {
+        "latitude": 43.6616,
+        "longitude": -79.3832
       }
     },
     {
@@ -131,6 +221,11 @@
       "displayName": {
         "text": "Harbourfront Drain Services",
         "languageCode": "en"
+      },
+      "formattedAddress": "118 Queen St E, Toronto, ON M4M 1K8, Canada",
+      "location": {
+        "latitude": 43.6628,
+        "longitude": -79.3817
       }
     },
     {
@@ -138,6 +233,11 @@
       "displayName": {
         "text": "Cabbagetown Heating & Cooling",
         "languageCode": "en"
+      },
+      "formattedAddress": "119 Queen St E, Toronto, ON M4M 1K9, Canada",
+      "location": {
+        "latitude": 43.664,
+        "longitude": -79.3802
       }
     }
   ],

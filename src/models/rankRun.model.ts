@@ -46,6 +46,10 @@ export interface MapListResultDoc {
 	rank: number;
 	place_id: string;
 	name: string | null;
+	/** Phase 17 map pins (absent on older runs). */
+	address?: string | null;
+	lat?: number | null;
+	lng?: number | null;
 	is_self: boolean;
 	target_key: string | null;
 }
@@ -59,7 +63,10 @@ export interface MapListSectionDoc {
 
 export interface OverallDoc {
 	overallAvgRank: number | null;
+	/** Phase 17: over the keywords both runs measured (absent on older runs). */
 	change: number | null;
+	comparable_keywords?: number;
+	keywords_total?: number;
 }
 
 export interface RunErrorDoc {
@@ -107,6 +114,8 @@ export interface RankRunData {
 	config: {
 		grid_size: number;
 		spacing_km: number;
+		/** Phase 17: center to edge (absent on older runs: derived from size and spacing). */
+		radius_km?: number;
 		tracker_offset_km: number;
 		radius_m: number;
 		store_place_names: boolean;
@@ -117,7 +126,8 @@ export interface RankRunData {
 	};
 	/** Phase 12.5: expected duration from the estimate (the stuck guard allows twice this plus 10 minutes). */
 	expected_duration_ms?: number | null;
-	targets: { key: string; place_id: string }[];
+	/** Phase 17: `name` snapshot at run time (absent on older runs). */
+	targets: { key: string; place_id: string; name?: string | null }[];
 	estimate: RankRunEstimateDoc;
 	dev_capped: boolean;
 	tracker: TrackerSectionDoc[];
@@ -190,6 +200,7 @@ const rankRunSchema = new Schema<IRankRun>(
 		config: {
 			grid_size: { type: Number, required: true },
 			spacing_km: { type: Number, required: true },
+			radius_km: { type: Number },
 			tracker_offset_km: { type: Number, required: true },
 			radius_m: { type: Number, required: true },
 			store_place_names: { type: Boolean, required: true },
@@ -198,7 +209,7 @@ const rankRunSchema = new Schema<IRankRun>(
 			map_points: { type: Number, default: 1 },
 		},
 		expected_duration_ms: { type: Number, default: null },
-		targets: { type: [{ _id: false, key: String, place_id: String }], default: [] },
+		targets: { type: [{ _id: false, key: String, place_id: String, name: { type: String, default: null } }], default: [] },
 		estimate: {
 			keywords: Number,
 			gridSize: Number,
@@ -270,6 +281,9 @@ const rankRunSchema = new Schema<IRankRun>(
 							rank: Number,
 							place_id: String,
 							name: { type: String, default: null },
+							address: { type: String, default: null },
+							lat: { type: Number, default: null },
+							lng: { type: Number, default: null },
 							is_self: Boolean,
 							target_key: { type: String, default: null },
 						},
@@ -281,7 +295,7 @@ const rankRunSchema = new Schema<IRankRun>(
 		overall: {
 			type: Map,
 			of: new Schema<OverallDoc>(
-				{ overallAvgRank: { type: Number, default: null }, change: { type: Number, default: null } },
+				{ overallAvgRank: { type: Number, default: null }, change: { type: Number, default: null }, comparable_keywords: Number, keywords_total: Number },
 				{ _id: false },
 			),
 			default: {},

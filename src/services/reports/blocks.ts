@@ -107,6 +107,14 @@ export const rankTrackerBlocks = (d: RankTrackerData): Block[] => {
 		out.push({ kind: 'heading', level: 2, text: 'Biggest movers' });
 		out.push(items.length ? { kind: 'list', items } : { kind: 'paragraph', text: 'No comparable movement since the previous run.', muted: true });
 	}
+	if (d.keyword_groups && d.keyword_groups.length) {
+		out.push({ kind: 'heading', level: 2, text: 'Keyword groups' });
+		out.push({
+			kind: 'table',
+			columns: [{ label: 'Group', weight: 2 }, { label: 'Keywords', align: 'right' }, { label: 'Avg rank', align: 'right' }, { label: 'Top 3', align: 'right' }, { label: 'Change', align: 'right' }],
+			rows: d.keyword_groups.map((g) => [g.name, String(g.keywords.length), avgRank(g.avg_rank), fmtPct(g.top3_rate), g.change === null ? '-' : `${g.change > 0 ? '+' : ''}${fmtNum(g.change, 1)}`]),
+		});
+	}
 	if (d.map_ranking && d.map_ranking.length) {
 		out.push({ kind: 'heading', level: 2, text: 'Who ranks across the area' });
 		out.push({ kind: 'paragraph', text: 'The top 5 on Google Maps at the center and at the four compass points around your business.', muted: true });

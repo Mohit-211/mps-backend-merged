@@ -2,6 +2,7 @@ import {
 	applyTrackingUpdate,
 	defaultTracking,
 	normaliseKeywords,
+	resolveGrid,
 	sameKeywordSet,
 	validateCompetitors,
 	withDefaults,
@@ -59,6 +60,20 @@ describe('validateCompetitors', () => {
 		const six = Array.from({ length: 6 }, (_, i) => `ChIJcompetitorNumber00${i}`);
 		expect(() => validateCompetitors(six, OWN)).toThrow('At most 5');
 	});
+	it('Phase 17: errors carry a reason', () => {
+		const six = Array.from({ length: 6 }, (_, i) => `ChIJcompetitorNumber00${i}`);
+		const reasonOf = (fn: () => unknown) => {
+			try {
+				fn();
+			} catch (err) {
+				return (err as { data?: { reason?: string } }).data?.reason;
+			}
+			return null;
+		};
+		expect(reasonOf(() => validateCompetitors(six, OWN))).toBe('too_many_competitors');
+		expect(reasonOf(() => validateCompetitors([OWN], OWN))).toBe('own_place_id');
+		expect(reasonOf(() => validateCompetitors(['short'], OWN))).toBe('invalid_place_id');
+	});
 });
 
 describe('applyTrackingUpdate', () => {
@@ -86,7 +101,7 @@ describe('applyTrackingUpdate', () => {
 		const next = applyTrackingUpdate(v1, { grid: { size: 7, spacing_km: 2 } }, OWN, NOW, 20).tracking;
 		expect(next.keywords).toEqual(v1.keywords);
 		expect(next.competitors).toEqual([C1]);
-		expect(next.grid).toEqual({ size: 7, spacing_km: 2 });
+		expect(next.grid).toEqual({ size: 7, spacing_km: 2, radius_km: 6 });
 	});
 
 	it('frequency is auto_monthly by default; manual_only can be set and back', () => {
@@ -96,6 +111,33 @@ describe('applyTrackingUpdate', () => {
 		expect(applyTrackingUpdate(manual, { frequency: 'auto_monthly' }, OWN, NOW, 20).tracking.frequency).toBe('auto_monthly');
 	});
 
+});
+
+describe('resolveGrid (Phase 17)', () => {
+	it('derives the spacing from a radius and the radius from a spacing', () => {
+		expect(resolveGrid({ size: 7, radius_km: 8 })).toEqual({ size: 7, radius_km: 8, spacing_km: 2.667 });
+		expect(resolveGrid({ size: 9, spacing_km: 1 })).toEqual({ size: 9, radius_km: 4, spacing_km: 1 });
+	});
+
+	it.each([
+		[{ size: 8, radius_km: 5 }],
+		[{ size: 13, radius_km: 0.5 }],
+		[{ size: 13, spacing_km: 3 }],
+		[{ size: 3, radius_km: 16 }],
+		[{ size: 5 }],
+	])('refuses %p with invalid_grid', (grid) => {
+		expect(() => resolveGrid(grid)).toThrow(expect.objectContaining({ statusCode: 400, data: expect.objectContaining({ reason: 'invalid_grid' }) }));
+	});
+
+	it('defaults new locations to 7×7 at 8 km; stored grids without a radius get it derived', () => {
+		expect(defaultTracking().grid).toEqual({ size: 7, spacing_km: 2.667, radius_km: 8 });
+		expect(withDefaults({ grid: { size: 5, spacing_km: 1 } }).grid).toEqual({ size: 5, spacing_km: 1, radius_km: 2 });
+	});
+
+	it('runs place the tracker points halfway to the edge', () => {
+		const plan = planRun({ lat: 43.65, lng: -79.38 }, { ...defaultTracking(), keywords: [{ text: 'a b', normalized: 'a b' }] }, { env: 'production' });
+		expect(plan).toMatchObject({ gridSize: 7, radiusKm: 8, offsetKm: 4 });
+	});
 });
 
 describe('planRun', () => {

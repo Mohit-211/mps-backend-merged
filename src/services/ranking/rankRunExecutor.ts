@@ -26,7 +26,7 @@ import {
 	keywordChange,
 	normaliseKeyword,
 	overallAvgRank,
-	overallChange,
+	sharedOverallChange,
 	summarise,
 	trackerPoints,
 } from '../../ranking';
@@ -54,7 +54,7 @@ export interface ExecuteResult {
 	runId: string;
 }
 
-type PreviousRun = Pick<IRankRun, 'tracker' | 'overall'> | null;
+type PreviousRun = Pick<IRankRun, 'tracker' | 'overall' | 'targets'> | null;
 
 const cellsFor = (entries: { byTarget: Record<string, RankCell> }[], key: string): RankCell[] =>
 	entries.map((e) => e.byTarget[key]);
@@ -66,6 +66,16 @@ const previousSummary = (previous: PreviousRun, keyword: string, key: string): K
 	const section = previous?.tracker.find((t) => normaliseKeyword(t.keyword) === normaliseKeyword(keyword));
 	const summary = section?.summary?.[key];
 	return summary ? { avgRank: summary.avgRank, foundRate: summary.foundRate, top3Rate: summary.top3Rate } : null;
+};
+
+/**
+ * Phase 17: a target's key in the previous run, by place_id (competitor_2 may have been another business then).
+ * 'self' is always 'self'; a competitor added since has none.
+ */
+const previousKeyFor = (previous: PreviousRun, target: { key: string; place_id: string }): string | null => {
+	if (!previous) return null;
+	if (target.key === 'self') return 'self';
+	return previous.targets.find((t) => t.place_id === target.place_id && t.key !== 'self')?.key ?? null;
 };
 
 const finish = async (
@@ -209,6 +219,10 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 								rank: i + 1,
 								place_id: p.id,
 								name: run.config.store_place_names ? p.name : null,
+								// Phase 17 map pins: Places content, stored under the same switch as the names.
+								address: run.config.store_place_names ? (p.address ?? null) : null,
+								lat: run.config.store_place_names ? (p.lat ?? null) : null,
+								lng: run.config.store_place_names ? (p.lng ?? null) : null,
 								is_self: key === 'self',
 								target_key: key ?? null,
 							};
@@ -223,19 +237,20 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 			}
 		}
 
-		// 4. Metrics and change vs the previous comparable run (same keywords_version).
+		// 4. Metrics and change vs the previous done/partial run (Phase 17: any keywords_version). A keyword is
+		// compared when both runs have it; the overall change uses only those keywords; targets match by place_id.
 		const previous: PreviousRun = await RankRun.findOne({
 			location_id: run.location_id,
 			_id: { $ne: run._id },
 			status: { $in: ['done', 'partial'] },
-			keywords_version: run.keywords_version,
 			run_at: { $lt: run.run_at },
 		})
 			.sort({ run_at: -1 })
-			.select({ tracker: 1, overall: 1 })
+			.select({ tracker: 1, overall: 1, targets: 1 })
 			.lean<PreviousRun>();
 
 		const keys = run.targets.map((t) => t.key);
+		const prevKeyOf = new Map(run.targets.map((t) => [t.key, previousKeyFor(previous, t)]));
 		const tracker: TrackerSectionDoc[] = [];
 		const grid: GridSectionDoc[] = [];
 		for (const { keyword, tracker: tRanks, grid: gRanks } of ranked) {
@@ -243,7 +258,8 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 			const gridSummary: Record<string, SummaryDoc> = {};
 			for (const key of keys) {
 				const current = summarise(cellsFor(tRanks, key));
-				const { change, changeLabel } = keywordChange(previousSummary(previous, keyword, key), current);
+				const prevKey = prevKeyOf.get(key);
+				const { change, changeLabel } = keywordChange(prevKey ? previousSummary(previous, keyword, prevKey) : null, current);
 				trackerSummary[key] = { ...current, change, changeLabel };
 				gridSummary[key] = summarise(cellsFor(gRanks, key));
 			}
@@ -278,7 +294,13 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 		const overall: Record<string, OverallDoc> = {};
 		for (const key of keys) {
 			const current = overallAvgRank(tracker.map((t) => t.summary[key].avgRank));
-			overall[key] = { overallAvgRank: current, change: overallChange(previous?.overall?.[key]?.overallAvgRank, current) };
+			const prevKey = prevKeyOf.get(key);
+			const shared = sharedOverallChange(
+				prevKey
+					? tracker.map((t) => ({ previous: previousSummary(previous, t.keyword, prevKey)?.avgRank, current: t.summary[key].avgRank }))
+					: [],
+			);
+			overall[key] = { overallAvgRank: current, change: shared.change, comparable_keywords: shared.comparable, keywords_total: tracker.length };
 		}
 
 		// 5. Status: failed only if every search failed; partial on any error.

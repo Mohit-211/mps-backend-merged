@@ -1,6 +1,6 @@
 import config from '../configs/config';
 import { cacheKey, normaliseKeyword } from './engine';
-import { gridPoints, isGridSize, trackerPoints } from './points';
+import { DEFAULT_TRACKER_OFFSET_KM, gridPoints, isGridSize, trackerPoints } from './points';
 import { GeoPoint } from './types';
 
 // API-call estimate for one rank run (run caps, the live-test checklist, cost and duration).
@@ -61,7 +61,7 @@ export const countKeywords = (keywords: number | string[]): number => {
 /** Number of distinct points the engine will search per keyword (same keys as its cache). */
 export const uniquePointCount = (gridSize: number, options: EstimateOptions = {}): number => {
 	const center = options.center ?? DEFAULT_CENTER;
-	const offsetKm = options.offsetKm ?? config.ranking.trackerOffsetKm;
+	const offsetKm = options.offsetKm ?? DEFAULT_TRACKER_OFFSET_KM;
 	const spacingKm = options.spacingKm ?? DEFAULT_SPACING_KM;
 	const keys = new Set(
 		[...trackerPoints(center, offsetKm), ...gridPoints(center, gridSize, spacingKm)].map((p) => cacheKey('', p)),

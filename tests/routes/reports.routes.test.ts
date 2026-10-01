@@ -95,8 +95,10 @@ describe('POST /reports + generation', () => {
 		const { token, id } = await setup({ bound: true });
 		const res = await request(app).post('/api/v1/reports').set(auth(token)).send({ location_id: id, type: 'rank_tracker' });
 		expect(res.status).toBe(202);
-		expect(res.body.data).toMatchObject({ status: 'queued', type: 'rank_tracker', existing: false, sections: ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking'] });
+		expect(res.body.data).toMatchObject({ status: 'queued', type: 'rank_tracker', existing: false, sections: ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking', 'keyword_groups'] });
 		expect(scheduleMock).toHaveBeenCalledWith(expect.any(Date), 'report-generate', { report_id: res.body.data.report_id });
+		// Phase 17: the row says which run (and when) the report shows.
+		expect(res.body.data).toMatchObject({ run_id: expect.any(String), run_at: expect.any(String) });
 		const again = await request(app).post('/api/v1/reports').set(auth(token)).send({ location_id: id, type: 'rank_tracker' });
 		expect(again.body.data).toMatchObject({ existing: true, report_id: res.body.data.report_id });
 

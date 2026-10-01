@@ -100,6 +100,19 @@ export const keywordChange = (previous: KeywordSummary | null | undefined, curre
 	return { change, changeLabel: labelFor(change) };
 };
 
+/**
+ * Phase 17: the overall change across a keyword edit. Only the keywords measured in both runs count (avgRank
+ * known on both sides): previous mean − current mean over those, 1 decimal. `comparable` is how many there
+ * were (0 → change null).
+ */
+export const sharedOverallChange = (pairs: { previous: number | null | undefined; current: number | null }[]): { change: number | null; comparable: number } => {
+	const usable = pairs.filter((p): p is { previous: number; current: number } => p.previous !== null && p.previous !== undefined && p.current !== null);
+	if (usable.length === 0) return { change: null, comparable: 0 };
+	const prev = overallAvgRank(usable.map((p) => p.previous));
+	const curr = overallAvgRank(usable.map((p) => p.current));
+	return { change: overallChange(prev, curr), comparable: usable.length };
+};
+
 /** Change of the overall average rank (previous − current, 1 decimal), or null. */
 export const overallChange = (previous: number | null | undefined, current: number | null): number | null => {
 	if (previous === null || previous === undefined || current === null) return null;
