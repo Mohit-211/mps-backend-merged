@@ -1087,74 +1087,109 @@ Since Phase 7a, both connect flows request `openid email business.manage` and ve
 
 In JSON mode, **400** is returned for an unknown, expired or reused `state` ("This connection link is invalid or has expired. Start the connection again."), and for `error=access_denied` ("Google Business Profile access was not granted.").
 
-### `GET /api/v1/gbp`
+### Connected accounts, the connect modal and the Bind button (2026-10-01)
 
-Every profile from **every connected Google account**, grouped by account. The data comes from Business Information only: no Places calls.
+Per user. Flow: connect a Google account (popup) → in the same modal list that account's locations → tick the ones you want → save the selection (**picks**). Only picked locations appear on the locations page, as `pending_gbp` rows with a **Bind** button. Binding creates (or links) our location and is where the subscription applies. Picking is free.
 
-> **Changed in 7a:** `data` is `{ connections: [...] }`, one group per Google account. (It was `{ accounts, locations, errors }` in Phase 6, and a bare array before that.) Each location keeps the old fields and adds `google_sub`, `accountName`, `place_id`, `latlng`, `region_code` and `bound_location_id`.
+#### `GET /api/v1/gbp/connections`
 
 ```json
 {
+  "limit": 3,
   "connections": [
-    {
-      "google_sub": "100000000000000000001",
-      "google_email": "owner@example.test",
-      "label": "Connected as owner@example.test",
-      "status": "ok",
-      "error": null,
-      "accounts": 2,
-      "locations": [
-        {
-          "google_sub": "100000000000000000001",
-          "gbpAccountId": "accounts/100000000000000000001",
-          "accountName": "Example Owner",
-          "gbpLocationId": "locations/200000000000000000001",
-          "title": "Example Plumbing Co",
-          "websiteUri": "https://example-plumbing.test/",
-          "languageCode": "en",
-          "metadata": { "placeId": "ChIJfakeGbpPlace000000001", "mapsUri": "https://maps.google.com/maps?cid=1" },
-          "profile": { "description": "Family-run plumbers." },
-          "mobile": "(214) 555-0100",
-          "business_category": "Plumber",
-          "country": "United States",
-          "state": "TX",
-          "city": "Dallas",
-          "zip_code": "75201",
-          "address": "100 Example St, Suite 5, Dallas, TX 75201",
-          "region_code": "US",
-          "place_id": "ChIJfakeGbpPlace000000001",
-          "latlng": { "latitude": 32.7801, "longitude": -96.8005 },
-          "bound_location_id": null
-        }
-      ],
-      "errors": []
-    }
+    { "google_sub": "100000000000000000001", "google_email": "owner@example.test", "status": "active", "picked": 2, "bound": 1 }
   ]
 }
 ```
 
-- **`status`** per group: `ok`; `revoked` (reconnect that Google account); or `error` (see `error`, e.g. "GBP API access not approved (quota 0)"). One failing account does not stop the others.
-- **`errors`** lists business accounts inside that Google account whose locations could not be listed.
-- A service-area business with no storefront has `address: null`. A missing website shows as `"NA"` (legacy value).
-- **400** "Please connect with Google Business Profile" when no Google account is connected.
+- Up to **3 Google accounts per user**. Connecting a 4th answers **409** `{ "reason": "google_account_limit", "limit": 3, "connected": ["…"] }` on `POST /gbp/connect/code` (the new grant is revoked at Google). Connecting an already connected account again just refreshes it.
+- `status: "revoked"`: Google refused the stored access; connect the same account again.
+- `picked` = picks not bound yet; `bound` = picks bound to a location.
 
-### `POST /api/v1/gbp/bind`
+#### `GET /api/v1/gbp/connections/:googleSub/locations`
 
-Body: `{ "location_id", "gbpAccountId": "accounts/…", "gbpLocationId": "locations/…", "google_sub"?: "…" }`. `google_sub` (from the `GET /gbp` group) is **required when several Google accounts are connected** (otherwise 400 "google_sub is required"), and the binding remembers which account it was made with. Other fields the old frontend sent (`title`, `metadata`, …) are accepted and ignored: the server reads the profile from Google, which also checks that the connected account can access it.
+The connect modal's list for one account (Business Information only, no Places calls):
 
 ```json
 {
-  "binding": {
-    "location_id": "66f5…",
-    "gbpAccountId": "accounts/100000000000000000001",
-    "gbpLocationId": "locations/200000000000000000001",
-    "title": "Example Plumbing Co",
-    "place_id": "ChIJfakeGbpPlace000000001"
-  },
-  "place_id": { "location": "ChIJfakeGbpPlace000000001", "gbp": "ChIJfakeGbpPlace000000001", "status": "set" },
-  "coordinates": "set"
+  "google_sub": "100000000000000000001",
+  "google_email": "owner@example.test",
+  "locations": [
+    {
+      "gbpAccountId": "accounts/100000000000000000001",
+      "gbpLocationId": "locations/200000000000000000001",
+      "title": "Example Plumbing Co",
+      "address": "100 Example St, Suite 5, Dallas, TX 75201",
+      "city": "Dallas",
+      "region_code": "US",
+      "place_id": "ChIJfakeGbpPlace000000001",
+      "supported": true,
+      "picked": false,
+      "picked_by_other": false,
+      "pick_id": null,
+      "bound_location_id": null
+    }
+  ],
+  "errors": []
 }
 ```
+
+- `supported: false` (not US/CA): show it greyed out; it can't be picked.
+- `picked_by_other`: another user of the organization picked it (it can't be picked twice).
+- `bound_location_id`: already bound; show it as bound, not selectable.
+- `errors`: business accounts inside the Google account whose locations could not be listed.
+- **404** `google_account_not_connected` for a `googleSub` that isn't one of yours; a connection-wide Google failure (revoked, access not approved) is an error for the whole request.
+
+#### `PUT /api/v1/gbp/connections/:googleSub/picks`
+
+Body: `{ "gbp_location_ids": ["locations/200000000000000000001", "…"] }`: the full selection for that account (send the ticked ids; an empty list clears it).
+
+- New ids are picked; unbound picks left out are removed; bound ones stay (`kept_bound`; unbind them first).
+- Returns the same body as the list above, plus `{ "picked": 1, "removed": 0, "kept_bound": 0 }`.
+- **400** `unknown_location` (the account doesn't list it) or `unsupported_region` (with `gbp_location_ids`); **409** `picked_by_other`.
+
+#### Picks on the locations page: `GET /api/v1/locations` → `pending_gbp`
+
+`GET /locations` adds `pending_gbp` (the current user's picks not bound yet; outside the table's filters and pagination):
+
+```json
+"pending_gbp": [
+  { "pick_id": "6702…", "google_sub": "1000…", "google_email": "owner@example.test", "gbpLocationId": "locations/200000000000000000001",
+    "title": "Example Plumbing Co", "address": "100 Example St, Suite 5, Dallas, TX 75201", "city": "Dallas", "region_code": "US",
+    "place_id": "ChIJfakeGbpPlace000000001", "picked_at": "2026-10-01T10:00:00.000Z", "existing_location_id": null }
+]
+```
+
+`existing_location_id`: the organization already has a location for this place (e.g. added from a Places search, or unbound earlier): binding links to it and uses no new location slot.
+
+#### `POST /api/v1/gbp/picks/:pickId/bind` (the Bind button)
+
+Body: `{ "client_id"?: "…" }` (optional grouping).
+
+- Reads the profile from Google (1 GBP call); links the organization's location with the same place, or creates one from the profile (name, address, city, state, zip, country, phone, website, category, `place_id`, lat/lng; missing text fields become `"n/a"`).
+- **Subscription gate:** read-only organizations answer **402** `subscription_required`; creating a location beyond the paid quantity answers **402** `location_payment_required` with a `quote` (pay for a slot, then press Bind again); beyond the plan's cap **403** `enterprise_required`; a suspended organization **403** `organization_suspended`.
+- **409** `already_bound` (with `location_id`), `place_id_mismatch`; **400** "Only US and Canadian businesses are supported."
+
+```json
+{
+  "pick_id": "6702…",
+  "location": { "location_id": "66f5…", "name": "Example Plumbing Co", "address": "100 Example St, Suite 5, Dallas, TX 75201",
+                "place_id": "ChIJfakeGbpPlace000000001", "lat": 32.7801, "lng": -96.8005 },
+  "created": true,
+  "center_needed": false,
+  "binding": {
+    "binding": { "location_id": "66f5…", "gbpAccountId": "accounts/1000…", "gbpLocationId": "locations/2000…", "title": "Example Plumbing Co", "place_id": "ChIJfakeGbpPlace000000001" },
+    "place_id": { "location": "ChIJfakeGbpPlace000000001", "gbp": "ChIJfakeGbpPlace000000001", "status": "set" },
+    "coordinates": "set"
+  }
+}
+```
+
+After Bind the location continues the setup: `center_needed: true` (a service-area business) → `PUT /locations/:id/center`, then keywords, competitors and `POST /onboarding/complete`.
+
+#### `DELETE /api/v1/gbp/picks/:pickId`
+
+Removes an unbound pick from the locations page: `{ "removed": true, "pick_id": "…" }`. **409** `already_bound` for a bound one (unbind the location instead).
 
 **`place_id.status`:**
 
@@ -1178,21 +1213,22 @@ Body: `{ "location_id", "gbpAccountId": "accounts/…", "gbpLocationId": "locati
 Body: `{ "location_id" }`.
 
 ```json
-{ "unbound": true, "jobs_cancelled": { "gbp_sync": 0, "scheduled_posts": 1 }, "tokens_deleted": true }
+{ "unbound": true, "jobs_cancelled": { "gbp_sync": 0, "scheduled_posts": 1 } }
 ```
 
+- The location stays (rankings keep working, `gbp_connected: false`); its pick is removed. Pick the profile again in the connect modal and Bind to reconnect it (it links to the same location, no new slot).
+- The Google account stays connected (2026-10-01: disconnecting is explicit, `POST /gbp/disconnect`).
 - Cancelled scheduled posts are marked `REJECTED` with `last_error: "GBP location unbound"`.
-- `tokens_deleted` is true only when this was the **last bound location of that Google account**. That account then has to be connected again to bind another of its profiles. Other connected accounts are untouched.
 
 ### `POST /api/v1/gbp/disconnect` (disconnect one Google account)
 
 Body: `{ "google_sub"?: "…" }`. It is required when several Google accounts are connected.
 
 ```json
-{ "revoked": true, "bindings_removed": 1, "google_email": "a@client.test" }
+{ "revoked": true, "bindings_removed": 1, "picks_removed": 3, "google_email": "a@client.test" }
 ```
 
-- Revokes that account at Google (best effort), unbinds **only that account's** profiles (cancelling their scheduled jobs) and deletes its tokens. Other connected accounts keep working.
+- Revokes that account at Google (best effort), unbinds **only that account's** locations (they stay, without GBP; their scheduled jobs are cancelled), removes its picks and deletes its tokens. Other connected accounts keep working.
 - `revoked: false` means Google could not be reached; the local cleanup still happened.
 - `is_gbp_connected` on the user stays true while another usable connection remains.
 
@@ -1206,8 +1242,8 @@ The first-run flow. The examples use test fixtures; no live calls have been made
 
 | # | Screen | Endpoint(s) |
 |---|---|---|
-| 1 | Connect Google (popup; any account, and more accounts later) | `GET /gbp/connect/popup` → GIS popup → `POST /gbp/connect/code` |
-| 2 | Pick your business | `GET /onboarding/gbp-profiles` (grouped per Google account) → `POST /onboarding/select-profile` |
+| 1 | Connect Google (popup; up to 3 accounts) | `GET /gbp/connect/popup` → GIS popup → `POST /gbp/connect/code` |
+| 2 | Pick your business (in the connect modal), then Bind | `GET /gbp/connections/:googleSub/locations` → `PUT /gbp/connections/:googleSub/picks` → (locations page) `POST /gbp/picks/:pickId/bind` |
 | 2b | Business center (only when `center_needed`: service-area businesses) | `PUT /locations/:id/center { query: "city or ZIP" }` |
 | 3 | Keywords | `PUT /locations/:id/tracking { keywords }` |
 | 4 | Competitors | `GET /locations/:id/competitor-suggestions`, optional `GET /places/search?q=&locationId=`, then `PUT /locations/:id/tracking { competitors }` (an empty list is fine) |
@@ -1250,35 +1286,6 @@ Body: `{ "code", "state" }` from the popup callback.
 - `gbp.connections` lists every connected Google account; `status` is `active` or `revoked` (reconnect that account). `connected` is true while any is active.
 - `locations` holds only locations created or linked through onboarding, unfinished ones first.
 - `step` is one of `profile_selected` → (`center_needed` → `center_set`, service-area businesses only) → `keywords_set` → `competitors_set` → `completed`.
-
-### `GET /api/v1/onboarding/gbp-profiles`
-
-The same shape as `GET /api/v1/gbp`: grouped per connected Google account ("Connected as …"), no Places calls. Each location adds:
-- `region_code` (`"US"`, `"CA"`, … from the storefront, or the service area for businesses without one)
-- `supported` (US/CA only)
-
-### `POST /api/v1/onboarding/select-profile`
-
-Body: `{ "gbpAccountId": "accounts/…", "gbpLocationId": "locations/…", "location_id"?: "…", "google_sub"?: "…" }`. Pass the profile's `google_sub` from `gbp-profiles`; it is required when several Google accounts are connected.
-
-- With `location_id`, that location is linked.
-- Otherwise a location of yours with the same place ID is linked.
-- Otherwise a new one is created from the profile: name, address, city, state, zip, country, phone, website, category, `place_id`, lat/lng. Missing text fields become `"n/a"`.
-- In every case it binds, with the Phase 6 `place_id` rules. It makes 1 GBP call.
-
-```json
-{
-  "location": { "location_id": "66f5…", "name": "Example Plumbing Co", "address": "100 Example St, Suite 5, Dallas, TX 75201",
-                "place_id": "ChIJfakeGbpPlace000000001", "lat": 32.7801, "lng": -96.8005 },
-  "created": true,
-  "center_needed": false,
-  "binding": { "binding": { "…": "…" }, "place_id": { "location": "ChIJfake…", "gbp": "ChIJfake…", "status": "match" }, "coordinates": "kept" }
-}
-```
-
-`center_needed: true` means the profile has no coordinates (a service-area business): the step is `center_needed`, and the next screen asks for a city or ZIP (`PUT /locations/:id/center`).
-
-**400:** "Only US and Canadian businesses are supported.", or the connected account cannot access the profile. **404:** `location_id` is not yours.
 
 ### `PUT /api/v1/locations/:locationId/center` (service-area businesses)
 
@@ -1789,7 +1796,7 @@ A business organization gets **403** `{ "reason": "agency_only" }`. A `client_us
 
 ```json
 { "organization": { "id": "…", "type": "agency",
-    "steps": [ { "id": "agency_info", "status": "done" }, { "id": "google", "status": "done" }, { "id": "first_client", "status": "done" },
+    "steps": [ { "id": "agency_info", "status": "done" }, { "id": "google", "status": "done" },
                { "id": "first_location", "status": "done" }, { "id": "location_setup", "status": "done" }, { "id": "reporting_brand", "status": "done" } ],
     "next_step": null, "completed": true, "completed_at": "…" },
   "empty_states": { "no_locations": false, "google_not_connected": false, "no_ranking_data": false, "no_keywords": false, "no_competitors": false, "no_reports": false },
@@ -1797,10 +1804,10 @@ A business organization gets **403** `{ "reason": "agency_only" }`. A `client_us
   "locations": [ { "location_id": "…", "name": "…", "source": "gbp", "client_id": "…", "onboarding": { "step": "completed", "…": "…" } } ] }
 ```
 
-- **Business steps:** `organization_info` → `google` → `first_location` → `location_setup`. **Agency:** `agency_info` → `google` → `first_client` → `first_location` → `location_setup` → `reporting_brand` (Phase 12: `done` once any branding is saved with `PUT /organization/branding`; skippable). Status: `done | pending | skipped | not_available`.
+- **Business steps:** `organization_info` → `google` → `first_location` → `location_setup`. **Agency:** `agency_info` → `google` → `first_location` → `location_setup` → `reporting_brand` (clients are optional grouping, not a step: 2026-10-01) (Phase 12: `done` once any branding is saved with `PUT /organization/branding`; skippable). Status: `done | pending | skipped | not_available`.
 - `POST /onboarding/skip { "step": "google" | "reporting_brand" }` (owner/member): skip Google to add locations from a Places search.
 - **Location steps:** `profile_selected` (GBP) or `place_selected` (Places search) → (`center_needed` → `center_set`) → `keywords_set` → `competitors_set` → `completed`.
-- `POST /onboarding/select-profile` accepts `client_id` (agency) and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind`).
+- Binding a picked Business Profile location (`POST /gbp/picks/:pickId/bind`, 2026-10-01) accepts `client_id` and is limit-checked when it creates a location. A location of the organization with the same place is linked (connect GBP later). A location with a **different** place → **409** `{ "reason": "place_id_mismatch", "location_place_id", "gbp_place_id" }` (also for `POST /gbp/bind`).
 - `POST /onboarding/complete` no longer needs a GBP binding: it queues the first rank run, the first GBP sync only when bound, and sets the monthly refresh.
 
 ## Dashboard and team (Phase 11)
@@ -2431,7 +2438,7 @@ Body (13c): `{ "quantity": 3 }`, the number of locations to pay for, from 1 to t
 
 ### Location slots
 
-When `POST /locations` or `POST /onboarding/select-profile` answers **402** `location_payment_required` (with a `quote`), the organization is at its paid quantity:
+When `POST /locations` or `POST /gbp/picks/:pickId/bind` answers **402** `location_payment_required` (with a `quote`), the organization is at its paid quantity:
 
 `GET /api/v1/billing/location-slots/quote?quantity=1` →
 

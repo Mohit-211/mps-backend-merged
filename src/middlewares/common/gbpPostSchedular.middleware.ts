@@ -7,29 +7,6 @@ import config from '../../configs/config';
 import { FilesDefinition } from '../../types/RouteDefinition';
 import { findLocationForUser } from '../../services/org/access';
 
-// Phase 6: bind needs only location_id, gbpAccountId and gbpLocationId. Title, metadata etc. are
-// read from Google by the binding service; client-sent copies are ignored. Ownership and the GBP
-// access check happen in services/gbp/binding.service.ts.
-export const validateBindGBPbody = catchAsync(async (req, res, next) => {
-	const { user, gbpAccountId, gbpLocationId, location_id } = req.body;
-	if (typeof gbpAccountId !== 'string' || typeof gbpLocationId !== 'string' || typeof location_id !== 'string') {
-		return responseWrapper(res, '', 'Please Provide Required Fields: location_id, gbpAccountId, gbpLocationId', httpStatus.BAD_REQUEST);
-	}
-	if (!user.is_gbp_connected) {
-		return responseWrapper(res, '', 'Please connect GBP first', httpStatus.BAD_REQUEST);
-	}
-	if (!gbpAccountId.startsWith('accounts/')) {
-		return responseWrapper(res, '', 'Invalid gbpAccountId format it must be starts with accounts/.', httpStatus.BAD_REQUEST);
-	}
-	if (!gbpLocationId.startsWith('locations/')) {
-		return responseWrapper(res, '', 'Invalid gbpLocationId format it must be starts with locations/.', httpStatus.BAD_REQUEST);
-	}
-	if (!isValidMongoObjectId(location_id)) {
-		return responseWrapper(res, '', 'Invalid location_id provided', httpStatus.BAD_REQUEST);
-	}
-	next();
-});
-
 export const validateUnbindGBPbody = catchAsync(async (req, res, next) => {
 	const { location_id } = req.body;
 	if (typeof location_id !== 'string' || !isValidMongoObjectId(location_id)) {

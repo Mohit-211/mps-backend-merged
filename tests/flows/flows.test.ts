@@ -247,9 +247,14 @@ describe('flow 2 + 3: Agency', () => {
 		expect(res.status).toBe(200);
 		res = await user.post('/gbp/connect/code', { code: '4/FAKE', state: res.body.data.state });
 		expect(res.body.data).toMatchObject({ connected: true });
-		res = await user.get('/onboarding/gbp-profiles');
-		expect(res.status).toBe(200);
-		res = await user.post('/onboarding/select-profile', { gbpAccountId: 'accounts/900', gbpLocationId: 'locations/400000000000000000001', client_id: b.client_id });
+		const googleSub = res.body.data.google_sub as string;
+		// In the connect modal: the account's locations, pick one, then Bind it from the locations table.
+		res = await user.get(`/gbp/connections/${googleSub}/locations`);
+		expect(res.body.data.locations.map((l: { gbpLocationId: string }) => l.gbpLocationId)).toEqual(['locations/400000000000000000001']);
+		res = await user.put(`/gbp/connections/${googleSub}/picks`, { gbp_location_ids: ['locations/400000000000000000001'] });
+		const pickId = res.body.data.locations[0].pick_id as string;
+		expect((await user.get('/locations')).body.data.pending_gbp.map((p: { pick_id: string }) => p.pick_id)).toEqual([pickId]);
+		res = await user.post(`/gbp/picks/${pickId}/bind`, { client_id: b.client_id });
 		expect(res.status).toBe(200);
 		expect(res.body.data).toMatchObject({ created: true, center_needed: false });
 		const gbpLoc = res.body.data.location.location_id as string;

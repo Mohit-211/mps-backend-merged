@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { tokenTypes } from '../../configs/constantTypes';
-import { Client, GbpReport, ILocation, IOrganization, Location, Organization, RankRun } from '../../models';
+import { GbpReport, ILocation, IOrganization, Location, Organization, RankRun } from '../../models';
 import { TokenStore, tokenStore } from '../gbp/tokenStore';
 import { withDefaults } from '../ranking/trackingSettings';
 import { OrgContext } from './context';
@@ -9,12 +9,13 @@ import { locationScope } from './access';
 // Organization onboarding (Phase 8, roadmap PDF §5). Steps are derived from the data plus explicit
 // skips, so the flow can be resumed anywhere:
 //   Business: organization_info → google → first_location → location_setup → dashboard
-//   Agency:   agency_info → google → first_client → first_location → location_setup → reporting_brand → dashboard
+//   Agency:   agency_info → google → first_location → location_setup → reporting_brand → dashboard
+// Clients are an optional grouping of locations (2026-10-01, Mohit): never an onboarding step.
 // google can be skipped (a location can be added from a Places search); reporting_brand (Phase 12:
 // report white-label) is done once any branding is saved, and can be skipped.
 
 export type StepStatus = 'done' | 'pending' | 'skipped' | 'not_available';
-export type OrgStepId = 'organization_info' | 'agency_info' | 'google' | 'first_client' | 'first_location' | 'location_setup' | 'reporting_brand';
+export type OrgStepId = 'organization_info' | 'agency_info' | 'google' | 'first_location' | 'location_setup' | 'reporting_brand';
 
 export interface OrgOnboarding {
 	id: string;
@@ -49,9 +50,8 @@ export const orgOnboardingState = async (ctx: OrgContext, deps: OrgStateDeps = {
 	const scope = locationScope(ctx);
 	const locations = await Location.find(scope).select({ onboarding: 1, tracking: 1, gbp_connected: 1 }).lean<ILocation[]>();
 	const ids = locations.map((l) => l._id as Types.ObjectId);
-	const [connections, clients, runs, reports] = await Promise.all([
+	const [connections, runs, reports] = await Promise.all([
 		tokens.listConnections(ctx.userId, tokenTypes.GBP),
-		org.type === 'agency' ? Client.countDocuments({ organization_id: org._id, is_active: true }) : Promise.resolve(0),
 		RankRun.countDocuments({ location_id: { $in: ids }, status: { $in: ['done', 'partial'] } }),
 		GbpReport.countDocuments({ location_id: { $in: ids } }),
 	]);
@@ -62,7 +62,6 @@ export const orgOnboardingState = async (ctx: OrgContext, deps: OrgStateDeps = {
 	const steps: OrgOnboarding['steps'] = [
 		{ id: org.type === 'agency' ? 'agency_info' : 'organization_info', status: done(Boolean(org.name && org.country)) },
 		{ id: 'google', status: done(googleConnected, 'google') },
-		...(org.type === 'agency' ? [{ id: 'first_client' as const, status: done(clients > 0) }] : []),
 		{ id: 'first_location', status: done(locations.length > 0) },
 		{ id: 'location_setup', status: done(locations.some(isSetUp)) },
 		...(org.type === 'agency' ? [{ id: 'reporting_brand' as const, status: done(Boolean(org.branding), 'reporting_brand') }] : []),

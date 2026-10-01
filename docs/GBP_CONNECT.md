@@ -73,14 +73,14 @@ connectButton.onclick = () => codeClient.requestCode();
   - The code flow returns a refresh token on the first consent.
   - If Google omits it on a same-account reconnect, the stored one is kept.
   - For a new account without one, the API returns 400 asking the user to remove access at myaccount.google.com/permissions and retry.
-- **Several Google accounts** (agencies): the same button connects another account.
-  - Each Google account is its own *connection* (`google_sub`, shown as "Connected as …"). Connecting the same account again just updates it.
-  - Pass `google_sub` when binding (`select-profile`, `bind-with-user`) or disconnecting once more than one account is connected.
-  - Disconnect (`POST /gbp/disconnect { google_sub }`) removes only that account and its bound profiles; the others keep working.
+- **Up to 3 Google accounts per user** (2026-10-01): the same button connects another account; a 4th answers 409 `google_account_limit`.
+  - Each Google account is its own *connection* (`google_sub`, its email shown). Connecting the same account again just updates it.
+  - `GET /gbp/connections` lists them for the locations page; Disconnect (`POST /gbp/disconnect { google_sub }`) unbinds that account's locations (they stay, without GBP) and removes its picks; the others keep working.
 
-After connecting, the onboarding screens call, in order:
-1. `GET /onboarding/gbp-profiles` (grouped per Google account)
-2. `POST /onboarding/select-profile` (with the profile's `google_sub`)
+After connecting, **in the same modal** (2026-10-01):
+1. `GET /gbp/connections/:googleSub/locations`: that account's locations as a checklist
+2. `PUT /gbp/connections/:googleSub/picks { gbp_location_ids }`: save the ticked ones. Only these appear on the locations page (`GET /locations` → `pending_gbp`).
+3. On the locations page, **Bind** (`POST /gbp/picks/:pickId/bind`) creates or links the location; this is where the subscription limits apply.
    - **If the response says `center_needed: true`** (a service-area business with no address), ask for a city or ZIP: `PUT /locations/:id/center { query }`. That is 2 Places calls, resolved once.
 3. `PUT /locations/:id/tracking` (keywords)
 4. `GET /locations/:id/competitor-suggestions` (and optionally `GET /places/search`)
@@ -103,7 +103,7 @@ After connecting, the onboarding screens call, in order:
 1. `npm run dev`, then `npm run setup:live-test -- --token-only --token-file <scratch dir>/live_token`.
 2. Open `http://localhost:<PORT>/dev/gbp-connect` and paste the token (kept in the page's memory only).
 3. **1. Prepare** calls `GET /gbp/connect/popup` (no Google calls). **2. Connect** opens Google's account chooser and consent; the page then calls `POST /gbp/connect/code` and shows `{ connected: true, google_email, google_sub }`.
-4. **3. List profiles** (optional) calls `GET /onboarding/gbp-profiles`: 1 accounts call + 1 locations call per account.
+4. **3. List this account's locations** (optional) calls `GET /gbp/connections/:googleSub/locations`: 1 accounts call + 1 locations call per business account.
 
 Each state works once and lasts 10 minutes: click **Prepare** again before connecting another account.
 
@@ -157,10 +157,11 @@ Each state works once and lasts 10 minutes: click **Prepare** again before conne
 
 7. **Bind** the GBP location to our MyPageSEO location:
    ```sh
-   curl -s http://localhost:5055/api/v1/gbp -H "Authorization: Bearer $TOKEN"        # every location, all accounts
-   curl -s -X POST http://localhost:5055/api/v1/gbp/bind -H "Authorization: Bearer $TOKEN" \
-     -H 'Content-Type: application/json' \
-     -d '{"location_id":"<MyPageSEO location id>","gbpAccountId":"accounts/…","gbpLocationId":"locations/…"}'
+   curl -s http://localhost:5055/api/v1/gbp/connections -H "Authorization: Bearer $TOKEN"                    # the connected account(s) → google_sub
+   curl -s http://localhost:5055/api/v1/gbp/connections/<google_sub>/locations -H "Authorization: Bearer $TOKEN" # its locations
+   curl -s -X PUT http://localhost:5055/api/v1/gbp/connections/<google_sub>/picks -H "Authorization: Bearer $TOKEN" \
+     -H 'Content-Type: application/json' -d '{"gbp_location_ids":["locations/…"]}'                          # → pick_id
+   curl -s -X POST http://localhost:5055/api/v1/gbp/picks/<pick_id>/bind -H "Authorization: Bearer $TOKEN"     # links the location with the same place
    ```
    `data.place_id.status` should be `match`: the location already has `ChIJneho2koPp0wRIbUtaCCIReA` from Phase 5.5. A `conflict` means Google's place ID differs; it is reported and never overwritten.
 

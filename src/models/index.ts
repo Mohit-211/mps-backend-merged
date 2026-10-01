@@ -70,3 +70,6 @@ export * from "./blogCategory.model";
 export * from "./blogCategoryMapping.model";
 // support tickets (Phase 13b)
 export * from "./supportTicket.model";
+
+// Google connect picks (2026-10-01)
+export * from "./gbpPick.model";

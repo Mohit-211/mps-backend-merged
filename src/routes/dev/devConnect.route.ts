@@ -42,7 +42,7 @@ The token stays in this page's memory only.</p>
 <div>
   <button id="prepare">1. Prepare</button>
   <button id="connect" disabled>2. Connect Google account</button>
-  <button id="profiles" disabled>3. List profiles (GBP calls: 1 + 1 per account)</button>
+  <button id="profiles" disabled>3. List this account's locations (GBP calls: 1 + 1 per account)</button>
 </div>
 <h3>Result</h3>
 <pre id="out">Paste the token, then click 1.</pre>
@@ -59,6 +59,7 @@ The token stays in this page's memory only.</p>
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   let codeClient = null;
+  let googleSub = null;
 
   document.getElementById('prepare').onclick = async () => {
     if (!token()) return show('Error', 'Paste the token first.');
@@ -72,6 +73,7 @@ The token stays in this page's memory only.</p>
         if (error) return show('Google popup error', error);
         const done = await api('POST', '/gbp/connect/code', { code, state });
         show('POST /gbp/connect/code → ' + done.status, done.body);
+        googleSub = done.body && done.body.data ? done.body.data.google_sub : null;
         document.getElementById('connect').disabled = true; // each state works once: prepare again for another account
         document.getElementById('profiles').disabled = false;
       },
@@ -84,8 +86,8 @@ The token stays in this page's memory only.</p>
   document.getElementById('connect').onclick = () => codeClient && codeClient.requestCode();
 
   document.getElementById('profiles').onclick = async () => {
-    const res = await api('GET', '/onboarding/gbp-profiles');
-    show('GET /onboarding/gbp-profiles → ' + res.status, res.body);
+    const res = await api('GET', '/gbp/connections/' + encodeURIComponent(googleSub) + '/locations');
+    show('GET /gbp/connections/:googleSub/locations → ' + res.status, res.body);
   };
 </script>
 </body>

@@ -35,8 +35,8 @@ jest.mock('../../src/clients/gbpClient', () => {
 				return { accessToken: 'ya29.FAKE', refreshToken: '1//FAKE', expiryDate: new Date(Date.now() + 3600_000), scope: 'openid email', idToken: 'x.y.z' };
 			},
 			getLocation: async () => fake.profile,
-			listAccounts: async () => [],
-			listLocations: async () => [],
+			listAccounts: async () => [{ name: 'accounts/100000000000000000001', accountName: 'Owner', type: 'PERSONAL', role: 'OWNER', verificationState: null }],
+			listLocations: async () => (fake.profile ? [fake.profile] : []),
 			revoke: async () => undefined,
 		},
 	};
@@ -111,8 +111,10 @@ describe('auth on every 7a route', () => {
 			request(app).get('/api/v1/gbp/connect/popup'),
 			request(app).post('/api/v1/gbp/connect/code').send({}),
 			request(app).get('/api/v1/onboarding/state'),
-			request(app).get('/api/v1/onboarding/gbp-profiles'),
-			request(app).post('/api/v1/onboarding/select-profile').send({}),
+			request(app).get('/api/v1/gbp/connections'),
+			request(app).get('/api/v1/gbp/connections/sub/locations'),
+			request(app).put('/api/v1/gbp/connections/sub/picks').send({ gbp_location_ids: [] }),
+			request(app).post(`/api/v1/gbp/picks/${id}/bind`).send({}),
 			request(app).post('/api/v1/onboarding/complete').send({}),
 			request(app).get(`/api/v1/locations/${id}/competitor-suggestions`),
 			request(app).get(`/api/v1/places/search?q=abc&locationId=${id}`),
@@ -147,14 +149,18 @@ describe('popup connect', () => {
 });
 
 describe('onboarding flow over HTTP', () => {
-	it('select-profile → keywords → suggestions → manual search → competitors → complete', async () => {
+	it('connect → pick → bind → keywords → suggestions → manual search → competitors → complete', async () => {
 		const { token } = await createUser('flow@test.dev');
-		await connectViaPopup(token);
+		const connected = await connectViaPopup(token);
+		const sub = connected.body.data.google_sub as string;
 
-		const selected = await request(app)
-			.post('/api/v1/onboarding/select-profile')
-			.set(auth(token))
-			.send({ gbpAccountId: 'accounts/100000000000000000001', gbpLocationId: 'locations/200000000000000000001' });
+		const listed = await request(app).get(`/api/v1/gbp/connections/${sub}/locations`).set(auth(token));
+		expect(listed.status).toBe(200);
+		const profile = listed.body.data.locations[0];
+		const picked = await request(app).put(`/api/v1/gbp/connections/${sub}/picks`).set(auth(token)).send({ gbp_location_ids: [profile.gbpLocationId] });
+		expect(picked.status).toBe(200);
+		const pickId = picked.body.data.locations[0].pick_id as string;
+		const selected = await request(app).post(`/api/v1/gbp/picks/${pickId}/bind`).set(auth(token)).send({});
 		expect(selected.status).toBe(200);
 		expect(selected.body.data.created).toBe(true);
 		const locationId = selected.body.data.location.location_id as string;
@@ -215,7 +221,7 @@ describe('onboarding flow over HTTP', () => {
 		// Phase 8: without locationId it is the add-location search (the organization's country).
 		expect((await request(app).get('/api/v1/places/search?q=rival').set(auth(token))).status).toBe(200);
 		expect((await request(app).get('/api/v1/places/search?q=rival&country=GB').set(auth(token))).status).toBe(400);
-		expect((await request(app).post('/api/v1/onboarding/select-profile').set(auth(token)).send({ gbpAccountId: 'x', gbpLocationId: 'locations/1' })).status).toBe(400);
+		expect((await request(app).put('/api/v1/gbp/connections/sub/picks').set(auth(token)).send({ gbp_location_ids: ['x'] })).status).toBe(400);
 		expect((await request(app).post('/api/v1/onboarding/complete').set(auth(token)).send({ location_id: 'nope' })).status).toBe(400);
 		expect((await request(app).post('/api/v1/onboarding/complete').set(auth(token)).send({ location_id: String(theirs._id) })).status).toBe(404);
 	});

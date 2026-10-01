@@ -37,7 +37,7 @@ Keep both tokens. On a 401 call `POST /auth/refresh { refresh_token }` once and 
 
 A Business account has no clients: `POST /clients` → **403** `{ reason: "agency_only" }` (hide the Clients menu for `type: "business"`).
 
-To connect GBP later for this location, use the Google connect of flow 2 and `POST /onboarding/select-profile { gbpAccountId, gbpLocationId, location_id }` (the profile's `place_id` must match, else **409** `place_id_mismatch`).
+To connect GBP later for this location, connect Google (flow 2), pick its profile in the modal and press Bind: a pick whose place is already a location of the organization links to it (`pending_gbp[].existing_location_id`), using no new location slot.
 
 ## 2. Agency: clients and locations
 
@@ -47,8 +47,9 @@ To connect GBP later for this location, use the Google connect of flow 2 and `PO
 | 2 | **Places search path** (as flow 1, steps 2–3) with the client | `POST /locations { place_id, client_id }` | `location.client: { client_id, name }` |
 | 3 | **GBP path: connect Google** | `GET /gbp/connect/popup` | `{ client_id, scope, state, ux_mode: "popup", select_account: true }` → open the Google Identity Services code client with these |
 | 4 | | `POST /gbp/connect/code { code, state }` (from the popup callback) | `{ connected: true, google_email, google_sub }` |
-| 5 | | `GET /onboarding/gbp-profiles` | `{ connections: [{ google_sub, google_email, label, status: "ok" \| "revoked" \| "error", locations: [{ gbpAccountId, gbpLocationId, title, address, place_id, region_code, supported, bound_location_id, … }] }] }` (show `supported: false` profiles greyed out: only US and CA) |
-| 6 | | `POST /onboarding/select-profile { gbpAccountId, gbpLocationId, client_id, google_sub? }` (the values of the chosen profile) | `{ location: { location_id, … }, created: true, center_needed, binding }` (`google_sub` only when several Google accounts are connected). If `center_needed`, `PUT /locations/:id/center { query: "<city or ZIP>" }` first. |
+| 5 | (same modal) | `GET /gbp/connections/:googleSub/locations` (`google_sub` from step 4) | `{ locations: [{ gbpLocationId, title, address, city, place_id, supported, picked, picked_by_other, pick_id, bound_location_id }] }`: show a checklist (`supported: false` and `picked_by_other` greyed out, `bound_location_id` shown as bound) |
+| 5b | (same modal) Save the ticked ones | `PUT /gbp/connections/:googleSub/picks { gbp_location_ids: [...] }` | the same list with `picked: true` + `{ picked, removed, kept_bound }`. Only these appear on the locations page. |
+| 6 | (locations page) the **Bind** button on a `pending_gbp` row | `POST /gbp/picks/:pickId/bind { client_id? }` | `{ location: { location_id, … }, created: true, center_needed, binding }`; **402** with a `quote` when the subscription doesn't cover another location. If `center_needed`, `PUT /locations/:id/center { query: "<city or ZIP>" }` first. |
 | 7 | Keywords, competitors, complete | as flow 1, steps 4–8, for each location | |
 | 8 | **Reassign** a location to the other client | `PATCH /locations/:locationId { client_id }` | the location header with the new `client` |
 | 9 | **Unassign** | `DELETE /clients/:clientId/locations/:locationId` | `{ unassigned: true }`; the location stays in the organization with `client: null` |

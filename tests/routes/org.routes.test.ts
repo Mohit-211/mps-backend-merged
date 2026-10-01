@@ -416,21 +416,20 @@ describe('clients and roles', () => {
 });
 
 describe('onboarding state', () => {
-	it('agency steps are derived and resumable; google and reporting_brand can be skipped', async () => {
+	it('agency steps are derived and resumable; google and reporting_brand can be skipped; clients are not a step (2026-10-01)', async () => {
 		const { user, token, org } = await orgOwner('a@test.dev');
 		let state = (await request(app).get('/api/v1/onboarding/state').set(auth(token))).body.data;
 		expect(state.organization.steps).toEqual([
 			{ id: 'agency_info', status: 'done' },
 			{ id: 'google', status: 'pending' },
-			{ id: 'first_client', status: 'pending' },
 			{ id: 'first_location', status: 'pending' },
 			{ id: 'location_setup', status: 'pending' },
 			{ id: 'reporting_brand', status: 'pending' },
 		]);
 		expect(state.empty_states).toMatchObject({ no_locations: true, google_not_connected: true });
 		state = (await request(app).post('/api/v1/onboarding/skip').set(auth(token)).send({ step: 'google' })).body.data;
-		expect(state.organization.next_step).toBe('first_client');
-		await Client.create({ company_name: 'A', organization_id: org._id });
+		expect(state.organization.next_step).toBe('first_location');
+		// A location without any client completes the location steps.
 		await createLocation(user._id as Types.ObjectId, { tracking: { keywords: keywordsOf('x') } });
 		state = (await request(app).get('/api/v1/onboarding/state').set(auth(token))).body.data;
 		expect(state.organization).toMatchObject({ completed: false, next_step: 'reporting_brand' });

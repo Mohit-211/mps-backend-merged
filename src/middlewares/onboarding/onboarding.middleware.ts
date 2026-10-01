@@ -5,21 +5,6 @@ import { catchAsync, pick, responseWrapper } from '../../utils';
 
 // Onboarding + manual Places search (Phase 7a). Validated input goes on res.locals, not req.body.
 
-const selectProfileSchema = Joi.object({
-	gbpAccountId: Joi.string().pattern(/^accounts\/[A-Za-z0-9_-]{1,64}$/).required(),
-	gbpLocationId: Joi.string().pattern(/^locations\/[A-Za-z0-9_-]{1,64}$/).required(),
-	location_id: Joi.string().hex().length(24),
-	google_sub: Joi.string().trim().min(1).max(255),
-	client_id: Joi.string().hex().length(24),
-});
-
-export const validateSelectProfile = catchAsync(async (req, res, next) => {
-	const { value, error } = selectProfileSchema.validate(pick(req.body, ['gbpAccountId', 'gbpLocationId', 'location_id', 'google_sub', 'client_id']));
-	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
-	res.locals.selectProfile = value;
-	next();
-});
-
 export const validateComplete = catchAsync(async (req, res, next) => {
 	const { value, error } = Joi.object({ location_id: Joi.string().hex().length(24).required() }).validate(pick(req.body, ['location_id']));
 	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);

@@ -166,7 +166,7 @@ describe('unbind (C12)', () => {
 		return post;
 	};
 
-	it('bind → unbind leaves no binding, no tokens and no scheduled jobs', async () => {
+	it('bind → unbind leaves no binding and no scheduled jobs; the Google connection stays (2026-10-01: disconnect is explicit)', async () => {
 		const user = await connectedUser('e@test.dev');
 		const location = await createLocation(user._id as Types.ObjectId, { place_id: null });
 		const { service } = setup();
@@ -176,13 +176,13 @@ describe('unbind (C12)', () => {
 		expect(await jobsFor(JOB_NAMES.GBP_SYNC)).toBe(1);
 
 		const result = await service.unbindLocation(user._id, String(location._id));
-		expect(result).toEqual({ unbound: true, jobs_cancelled: { gbp_sync: 1, scheduled_posts: 1 }, tokens_deleted: true });
+		expect(result).toEqual({ unbound: true, jobs_cancelled: { gbp_sync: 1, scheduled_posts: 1 } });
 		expect(await UserGBP.countDocuments({})).toBe(0);
-		expect(await UserAuth.countDocuments({ user_id: user._id, token_type: tokenTypes.GBP })).toBe(0);
+		expect(await UserAuth.countDocuments({ user_id: user._id, token_type: tokenTypes.GBP })).toBe(1);
 		expect(await jobsFor(JOB_NAMES.GBP_SYNC)).toBe(0);
 		expect(await jobsFor(JOB_NAMES.POST_TO_GBP)).toBe(0);
 		expect(await GBPPost.findById(post._id).lean()).toMatchObject({ status: postPublishStatus.rejected, last_error: UNBOUND_REASON });
-		expect((await User.findById(user._id))?.is_gbp_connected).toBe(false);
+		expect((await User.findById(user._id))?.is_gbp_connected).toBe(true);
 	});
 
 	it('keeps the tokens while another binding still needs them, and leaves other locations alone', async () => {
@@ -197,7 +197,6 @@ describe('unbind (C12)', () => {
 		await schedulePost(user._id, b._id, locB.name);
 
 		const result = await service.unbindLocation(user._id, String(a._id));
-		expect(result.tokens_deleted).toBe(false);
 		expect(result.jobs_cancelled).toEqual({ gbp_sync: 0, scheduled_posts: 0 });
 		expect(await tokens.load(user._id, tokenTypes.GBP)).not.toBeNull();
 		expect(await UserGBP.countDocuments({ location_id: b._id })).toBe(1);
@@ -220,7 +219,7 @@ describe('disconnect', () => {
 		await service.bindLocation(user._id, bindInput(a._id));
 		await agenda.schedule(new Date('2030-01-01T00:00:00Z'), JOB_NAMES.GBP_SYNC, { location_id: String(a._id) });
 
-		expect(await service.disconnect(user._id)).toEqual({ revoked: true, bindings_removed: 1, google_email: null });
+		expect(await service.disconnect(user._id)).toEqual({ revoked: true, bindings_removed: 1, picks_removed: 0, google_email: null });
 		expect(revoked).toEqual(['1//FAKE']);
 		expect(await UserGBP.countDocuments({})).toBe(0);
 		expect(await UserAuth.countDocuments({ token_type: tokenTypes.GBP })).toBe(0);
@@ -240,7 +239,7 @@ describe('disconnect', () => {
 			tokens,
 			agenda,
 		}).disconnect;
-		expect(await service(user._id)).toEqual({ revoked: false, bindings_removed: 0, google_email: null });
+		expect(await service(user._id)).toEqual({ revoked: false, bindings_removed: 0, picks_removed: 0, google_email: null });
 		expect(await UserAuth.countDocuments({ user_id: user._id })).toBe(0);
 	});
 });

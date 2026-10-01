@@ -7,7 +7,7 @@ import { postPublishStatus, tokenTypes } from '../../configs/constantTypes';
 import { ConnectionRef, GbpClient, gbpClient } from '../../clients/gbpClient';
 import { GbpLocation } from '../../clients/types/gbp';
 import { JOB_NAMES } from '../../jobs/jobNames';
-import { GBPPost, Location, UserGBP } from '../../models';
+import { GBPPost, GbpPick, Location, UserGBP } from '../../models';
 import { ApiError, apiErrorWithData } from '../../utils';
 import { toGbpApiError } from './errors';
 import { TokenStore, tokenStore } from './tokenStore';
@@ -19,8 +19,8 @@ import { findLocationForUser } from '../org/access';
 // - Bind reads the profile from Google (never trusts client-sent title/metadata) and takes place_id
 //   from metadata.placeId. Location.place_id is set only when empty; a different value is reported
 //   as a conflict and never overwritten. lat/lng are filled from GBP only when both are empty.
-// - Unbind removes the binding, cancels the location's gbp-sync jobs and pending scheduled posts, and
-//   deletes the GBP tokens when it was the user's last binding (tokens belong to the Google account).
+// - Unbind removes the binding and the location's pick, and cancels its gbp-sync jobs and pending scheduled
+//   posts. The Google connection stays (2026-10-01: disconnecting is explicit).
 // - Disconnect revokes at Google (best effort), unbinds everything and deletes the tokens.
 
 const ACCOUNT_ID = /^accounts\/[A-Za-z0-9_-]{1,64}$/;
@@ -56,7 +56,6 @@ export interface BindResult {
 export interface UnbindResult {
 	unbound: true;
 	jobs_cancelled: { gbp_sync: number; scheduled_posts: number };
-	tokens_deleted: boolean;
 }
 
 export interface BindingDeps {
@@ -223,12 +222,6 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 	/** Bindings made through a connection (the Google account it was bound with). */
 	const bindingsOf = async (userId: UserId, googleSub: string | null) => UserGBP.find({ user_id: userId, is_active: true, google_sub: googleSub });
 
-	/** Deletes a connection's tokens once none of its profiles is bound any more. */
-	const deleteTokensIfUnbound = async (userId: UserId, googleSub: string | null): Promise<boolean> => {
-		if ((await bindingsOf(userId, googleSub)).length > 0) return false;
-		return tokens.remove(userId, tokenTypes.GBP, googleSub);
-	};
-
 	const unbindLocation = async (userId: UserId, locationId: string): Promise<UnbindResult> => {
 		const location = await ownedLocation(userId, locationId);
 		// Phase 8: any owner/member may unbind; the binding's own user owns the Google connection.
@@ -240,10 +233,12 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 		const jobs = await cancelLocationJobs(bindingUser, location._id as Types.ObjectId, binding.gbpLocationId);
 		await UserGBP.deleteOne({ _id: binding._id });
 		await Location.updateOne({ _id: location._id }, { $set: { gbp_connected: false } });
+		// 2026-10-01: its pick goes too (the Location stays, without GBP); pick it again to rebind. The Google
+		// connection stays: disconnecting an account is an explicit action now (POST /gbp/disconnect).
+		await GbpPick.deleteMany({ location_id: location._id });
 		await requestReportSafely(location._id as Types.ObjectId, 'unbind', { agenda: agenda() });
-		const tokensDeleted = await deleteTokensIfUnbound(bindingUser, googleSub);
-		logger.info(`gbp unbind: location ${String(location._id)} (tokens_deleted=${tokensDeleted})`);
-		return { unbound: true, jobs_cancelled: jobs, tokens_deleted: tokensDeleted };
+		logger.info(`gbp unbind: location ${String(location._id)} (google_sub ${googleSub ?? '-'})`);
+		return { unbound: true, jobs_cancelled: jobs };
 	};
 
 	/**
@@ -253,7 +248,7 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 	const disconnect = async (
 		userId: UserId,
 		googleSub?: string | null,
-	): Promise<{ revoked: boolean; bindings_removed: number; google_email: string | null }> => {
+	): Promise<{ revoked: boolean; bindings_removed: number; picks_removed: number; google_email: string | null }> => {
 		let conn: ConnectionRef;
 		try {
 			conn = await resolveConnection(userId, googleSub, tokens);
@@ -280,8 +275,10 @@ export const createBindingService = (deps: BindingDeps = {}) => {
 			await Location.updateOne({ _id: binding.location_id }, { $set: { gbp_connected: false } });
 			await requestReportSafely(binding.location_id as unknown as Types.ObjectId, 'unbind', { agenda: agenda() });
 		}
+		// 2026-10-01: every pick made through this account goes too (bound locations stay, without GBP).
+		const picks = await GbpPick.deleteMany({ user_id: userId, google_sub: sub });
 		await tokens.remove(userId, tokenTypes.GBP, sub);
-		return { revoked, bindings_removed: bindings.length, google_email: email };
+		return { revoked, bindings_removed: bindings.length, picks_removed: picks.deletedCount, google_email: email };
 	};
 
 	return { bindLocation, unbindLocation, disconnect };
