@@ -4602,7 +4602,7 @@
 								}
 							]
 						},
-						"description": "The stored GBP report (?range=28d|90d|12m): GBP Score, performance, keywords, reviews/media/posts, competitor comparison with Public Scores and gap insights\n\n**Auth:** user + owner · **Phase:** 7c · **Status:** live",
+						"description": "The stored GBP report (?range=28d|90d|12m): GBP Score (2026-10-02: version 2, no ranking data, states per check and pillar), profile, performance, keywords, reviews/media/posts, competitor comparison with Public Scores and gap insights\n\n**Auth:** user + owner · **Phase:** 7c, changed 2026-10-02 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [

@@ -11,6 +11,15 @@ Changes that shift numbers users see over time: ranks, averages, the GBP Score o
 
 For the frontend: use the `key` as the marker id and the effective date as its position.
 
+## 2026-10-02: GBP Score and Public Score version 2 (branch `claude/gbp-audit-no-ranking`)
+
+Mohit's rule: ranking data belongs in the ranking report, not the GBP audit.
+
+| Key | What changed | Effect on history charts |
+|---|---|---|
+| `gbp_score_v2` | The GBP Score drops the average map rank (8) and top-3 rate (6) checks. Visibility and Engagement merge into **Performance (30)**: impressions trend, actions per 1,000 impressions, actions trend. Pillars: completeness 25, activity 20, reviews 25, performance 30. With v4 off the score is Completeness + Performance. The `map_rank` top fix goes with it. | **One-time shift** in the GBP Score and grade. `score_history[].version` is 1 before and 2 after: draw a marker at the first version-2 entry and don't compare across it. Not recomputed (production starts on a fresh database). |
+| `public_score_v2` | The Public Score drops center rank (20) and center top-3 rate (10): rating, review count and profile fields, rescaled to 100. Competitor rows lose `center_rank`; the `rank_gap` insight and the Competitor Analysis report's `ranks` section are removed. | **One-time shift** in every Public Score (client and competitors). Same `version` marker on `score_history`. |
+
 ## 2026-10-01: Phase 17 (branch `claude/phase-17-ranking-extras`)
 
 | Key | What changed | Effect on history charts |

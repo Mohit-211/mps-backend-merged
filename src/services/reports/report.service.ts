@@ -16,10 +16,8 @@ import {
 	ILocation,
 	IReport,
 	IReportSnapshot,
-	LeanRankRun,
 	Location,
 	LocationCitation,
-	RankRun,
 	REPORT_SECTIONS,
 	Report,
 	ReportRangeParam,
@@ -332,11 +330,7 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 				if (!gbp) data.competitor_analysis = off('no_gbp_report');
 				else if (!gbp.competitors.available) data.competitor_analysis = off((gbp.competitors as PartUnavailable).reason);
 				else {
-					const run = runId
-						? await RankRun.findById(runId).select({ targets: 1, overall: 1, 'tracker.summary': 1 }).lean<Pick<LeanRankRun, 'targets' | 'overall' | 'tracker'>>()
-						: null;
-					data.competitor_analysis = buildCompetitorData(gbp.competitors, run, sectionsFor(key));
-					if (run && !rankRunId) rankRunId = String(runId);
+					data.competitor_analysis = buildCompetitorData(gbp.competitors, sectionsFor(key));
 				}
 			}
 		}

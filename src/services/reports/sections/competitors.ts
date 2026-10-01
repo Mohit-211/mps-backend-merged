@@ -1,24 +1,15 @@
-import { CompetitorsSection, LeanRankRun } from '../../../models';
+import { CompetitorsSection } from '../../../models';
 import { CompetitorData } from '../types';
 
 // Competitor Analysis report data (Phase 12): the comparison rows and insights of the stored GBP
-// report (7c) joined with the latest rank run's overall rank per tracked target. Names only: place
-// ids are not copied into the snapshot.
+// report (7c). Names only: place ids are not copied into the snapshot. 2026-10-02: no ranking data
+// (the 'ranks' section was removed; competitor ranks are on the ranking pages and in the Rank Tracker report).
 
-type Section = 'public_scores' | 'table' | 'ranks' | 'insights' | 'reviews';
+type Section = 'public_scores' | 'table' | 'insights' | 'reviews';
 
 const REVIEWS_PER_BUSINESS = 2;
 
-export type RunForCompetitors = Pick<LeanRankRun, 'targets' | 'overall' | 'tracker'>;
-
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-
-const top3Of = (run: RunForCompetitors, key: string): number | null => {
-	const values = (run.tracker ?? []).map((t) => t.summary?.[key]?.top3Rate).filter((v): v is number => typeof v === 'number');
-	return values.length ? round2(values.reduce((s, v) => s + v, 0) / values.length) : null;
-};
-
-export const buildCompetitorData = (section: CompetitorsSection, run: RunForCompetitors | null, sections: readonly string[]): CompetitorData => {
+export const buildCompetitorData = (section: CompetitorsSection, sections: readonly string[]): CompetitorData => {
 	const want = (s: Section) => sections.includes(s);
 	const rows = section.rows;
 	const nameOf = (r: (typeof rows)[number]) => r.name ?? (r.is_self ? 'Your business' : 'Unnamed business');
@@ -43,20 +34,6 @@ export const buildCompetitorData = (section: CompetitorsSection, run: RunForComp
 			photos: r.photo_count ?? null,
 			photos_capped: r.photos_capped ?? false,
 		}));
-	}
-	if (want('ranks')) {
-		const keyByPlace = new Map((run?.targets ?? []).map((t) => [t.place_id, t.key]));
-		data.ranks = rows.map((r) => {
-			const key = r.is_self ? 'self' : keyByPlace.get(r.place_id);
-			return {
-				name: nameOf(r),
-				is_self: r.is_self,
-				overall_avg_rank: run && key ? run.overall?.[key]?.overallAvgRank ?? null : null,
-				top3_rate: run && key ? top3Of(run, key) : null,
-				center_avg: r.center_rank?.avg ?? null,
-				center_top3_rate: r.center_rank?.top3_rate ?? null,
-			};
-		});
 	}
 	if (want('insights')) data.insights = section.insights.map((i) => i.message);
 	if (want('reviews')) {

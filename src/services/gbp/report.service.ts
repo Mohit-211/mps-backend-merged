@@ -121,6 +121,8 @@ export const getReportView = async (location: ILocation, range: ReportRange, now
 		v4_enabled: report.v4_enabled,
 		range,
 		gbp_score: report.gbp_score,
+		// 2026-10-02: the Business Profile as last synced (reports generated before have none until the next one).
+		profile: report.profile ?? { available: false as const, reason: report.gbp_connected ? 'not_synced_yet' : 'gbp_not_connected' },
 		performance,
 		keywords: report.keywords,
 		reviews: report.reviews,
@@ -130,7 +132,8 @@ export const getReportView = async (location: ILocation, range: ReportRange, now
 		verification: report.verification,
 		competitors: report.competitors,
 		sync: report.sync,
-		score_history: report.score_history,
+		// version 1 = scored with ranking data (before 2026-10-02); charts mark where it changes.
+		score_history: report.score_history.map((e) => ({ ...e, version: e.version ?? 1 })),
 		api_calls: report.api_calls,
 		inputs: report.inputs,
 		generation: reportState(location, now),

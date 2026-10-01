@@ -3,22 +3,18 @@ import { gapInsights } from '../../../src/gbp/report/insights';
 
 const NOW = new Date('2026-09-26T12:00:00Z');
 
-const row = (placeId: string, isSelf: boolean, facts: Partial<CompetitorRow>, ranks: number[] | null = null): CompetitorRow => {
-	const mapList = ranks ? ranks.map((r, i) => ({ keyword: `k${i}`, results: [{ rank: r, place_id: placeId, is_self: isSelf }] })) : [];
-	return scoreRow(
-		{ place_id: placeId, is_self: isSelf, source: isSelf ? 'self' : 'tracking', ...EMPTY_FACTS, has_hours: true, has_website: true, has_phone: true, fetched_at: NOW, stale: false, error: null, ...facts },
-		mapList,
-	);
-};
+const row = (placeId: string, isSelf: boolean, facts: Partial<CompetitorRow>): CompetitorRow =>
+	scoreRow({ place_id: placeId, is_self: isSelf, source: isSelf ? 'self' : 'tracking', ...EMPTY_FACTS, has_hours: true, has_website: true, has_phone: true, fetched_at: NOW, stale: false, error: null, ...facts });
 
 describe('gapInsights', () => {
-	it('review, rating, basics, rank and category gaps, highest impact first, max 5', () => {
-		const self = row('S', true, { name: 'Me', rating: 4.1, user_rating_count: 20, has_hours: false, has_website: false, primary_type: 'plumber', primary_type_label: 'Plumber' }, [12, 15]);
-		const a = row('A', false, { name: 'Alpha', rating: 4.8, user_rating_count: 300, primary_type: 'drainage_service', primary_type_label: 'Drainage service' }, [1, 2]);
-		const b = row('B', false, { name: 'Beta', rating: 4.5, user_rating_count: 60, primary_type: 'drainage_service', primary_type_label: 'Drainage service' }, [3, 4]);
+	it('review, rating, basics and category gaps, highest impact first, max 5; no rank gap since 2026-10-02', () => {
+		const self = row('S', true, { name: 'Me', rating: 4.1, user_rating_count: 20, has_hours: false, has_website: false, primary_type: 'plumber', primary_type_label: 'Plumber' });
+		const a = row('A', false, { name: 'Alpha', rating: 4.8, user_rating_count: 300, primary_type: 'drainage_service', primary_type_label: 'Drainage service' });
+		const b = row('B', false, { name: 'Beta', rating: 4.5, user_rating_count: 60, primary_type: 'drainage_service', primary_type_label: 'Drainage service' });
 		const insights = gapInsights([self, a, b]);
 		expect(insights.length).toBe(5);
-		expect(insights.map((i) => i.id)).toEqual(expect.arrayContaining(['review_gap', 'rating_gap', 'rank_gap']));
+		expect(insights.map((i) => i.id)).toEqual(expect.arrayContaining(['review_gap', 'rating_gap', 'missing_hours']));
+		expect(insights.map((i) => i.id)).not.toContain('rank_gap');
 		const impacts = insights.map((i) => i.impact);
 		expect([...impacts].sort((x, y) => y - x)).toEqual(impacts);
 		const review = insights.find((i) => i.id === 'review_gap');

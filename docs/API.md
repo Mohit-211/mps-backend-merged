@@ -1684,26 +1684,43 @@ Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
   "v4_enabled": true,
   "range": "28d",
   "gbp_score": {
-    "available": true, "score": 50, "grade": "D", "partial": false, "excluded_pillars": [],
+    "available": true, "version": 2, "score": 55, "grade": "C", "partial": false, "excluded_pillars": [],
+    "counts": { "pass": 12, "partial": 6, "fail": 3, "not_available": 1 },
     "pillars": [
-      { "id": "completeness", "weight": 25, "available": true, "earned": 18, "available_max": 25, "score": 18 },
-      { "id": "activity",     "weight": 20, "available": true, "earned": 3,  "available_max": 20, "score": 3 },
-      { "id": "reviews",      "weight": 25, "available": true, "earned": 16, "available_max": 25, "score": 16 },
-      { "id": "visibility",   "weight": 20, "available": true, "earned": 6,  "available_max": 20, "score": 6 },
-      { "id": "engagement",   "weight": 10, "available": true, "earned": 7,  "available_max": 10, "score": 7 }
+      { "id": "completeness", "weight": 25, "available": true, "earned": 18, "available_max": 25, "score": 18, "state": "partial", "counts": { "pass": 7, "partial": 2, "fail": 1, "not_available": 0 } },
+      { "id": "activity",     "weight": 20, "available": true, "earned": 3,  "available_max": 20, "score": 3,  "state": "partial", "counts": { "…": "…" } },
+      { "id": "reviews",      "weight": 25, "available": true, "earned": 16, "available_max": 25, "score": 16, "state": "partial", "counts": { "…": "…" } },
+      { "id": "performance",  "weight": 30, "available": true, "earned": 10, "available_max": 16, "score": 18.8, "state": "partial", "counts": { "…": "…" } }
     ],
     "checks": [
-      { "id": "verified", "pillar": "completeness", "label": "Profile verified", "status": "scored", "value": true, "points": 5, "max": 5,
-        "detail": "Verified: you can manage the profile.", "fix_hint": null },
-      { "id": "description", "pillar": "completeness", "label": "Description", "status": "scored", "value": 201, "points": 1, "max": 3,
-        "detail": "201 characters.", "fix_hint": "Write a description of at least 250 characters (services, area, what makes you different)." },
-      "… 24 more checks"
+      { "id": "verified", "pillar": "completeness", "label": "Profile verified", "status": "scored", "state": "pass", "value": true, "points": 5, "max": 5,
+        "detail": "Verified: you can manage the profile.", "fix_hint": null,
+        "why_it_matters": "Only a verified owner can edit the profile, reply to reviews and post. Unverified profiles also tend to show less on Maps." },
+      { "id": "description", "pillar": "completeness", "label": "Description", "status": "scored", "state": "partial", "value": 201, "points": 1, "max": 3,
+        "detail": "201 characters.", "fix_hint": "Write a description of at least 250 characters (services, area, what makes you different).",
+        "why_it_matters": "The description tells customers (and Google) what you do and where. …" },
+      "… 20 more checks"
     ],
     "top_fixes": [
-      { "id": "map_rank", "pillar": "visibility", "label": "Average map rank", "status": "scored", "value": 21.3, "points": 1, "max": 8,
-        "detail": "Average rank 21.3 across your keywords.", "fix_hint": "Improve relevance and prominence for your keywords (categories, reviews, posts)." },
+      { "id": "impressions_trend", "pillar": "performance", "label": "Impressions trend", "status": "scored", "state": "fail", "value": -0.12, "points": 0, "max": 6,
+        "detail": "-12 % vs the previous 28 days.", "fix_hint": "Grow visibility with regular posts, photos and reviews.", "why_it_matters": "…" },
       "… up to 5"
     ]
+  },
+  "profile": {
+    "available": true, "taken_at": "2026-09-26T17:21:36.539Z",
+    "title": "Maple Leaf Plumbing & Heating", "description": "Family-run plumbers in east Toronto …",
+    "primary_category": "Plumber", "additional_categories": ["Drainage service", "Water heater installation service"],
+    "regular_hours": [ { "open_day": "MONDAY", "open_time": "08:00", "close_day": "MONDAY", "close_time": "18:00" }, "…" ],
+    "special_hour_dates": ["2026-12-24", "2026-12-25"],
+    "primary_phone": "(416) 555-0142", "additional_phones": [], "website": "https://mapleleafplumbing.example",
+    "service_area": { "business_type": "CUSTOMER_AND_BUSINESS_LOCATION", "place_count": 3, "region_code": "CA" },
+    "labels": [], "open_status": "OPEN",
+    "attributes": [ { "name": "has_wheelchair_accessible_entrance", "value_type": "BOOL", "values": [true] }, "…" ],
+    "service_items": [ { "name": "Boiler repair", "description": "Same-day service", "kind": "structured", "price": { "currency": "CAD", "amount": 120 } },
+                       { "name": "Leak detection", "description": null, "kind": "free_form", "price": null } ],
+    "maps_uri": "https://maps.google.com/?cid=123", "new_review_uri": "https://search.google.com/local/writereview?placeid=ChIJ…",
+    "latlng": { "latitude": 43.6629, "longitude": -79.3347 }
   },
   "performance": {
     "available": true, "latest_date": "2026-09-23", "range": "28d", "days": 28, "start": "2026-08-27", "end": "2026-09-23",
@@ -1746,7 +1763,6 @@ Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
         "rating": 4.6, "user_rating_count": 64, "primary_type": "plumber", "primary_type_label": "Plumber",
         "has_hours": true, "has_website": true, "has_phone": true, "has_editorial_summary": null, "business_status": "OPERATIONAL",
         "fetched_at": "2026-09-26T17:25:36.832Z", "stale": false, "error": null,
-        "center_rank": { "avg": 9.3, "top3_rate": 0.33, "keywords_found": 2, "keywords": 3 },
         "public_score": { "score": 71, "flag": null, "parts": [ { "id": "rating", "points": 21, "max": 25, "available": true }, "…",
                           { "id": "editorial_summary", "points": 0, "max": 5, "available": false } ] } },
       { "place_id": "ChIJdemoDanforthDrainPros03", "is_self": false, "source": "tracking", "name": "Danforth Drain Pros",
@@ -1755,12 +1771,15 @@ Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
     ],
     "insights": [
       { "id": "review_gap", "impact": 0.71, "place_id": "ChIJXbrc…", "message": "Toronto Plumbing sJ_O has 167 reviews; you have 64 (2.6× more). Ask every happy customer for a review." },
-      { "id": "rank_gap", "impact": 0.55, "place_id": "ChIJdemoDanforthDrainPros03", "message": "Danforth Drain Pros ranks higher than you at your location (average 7.3 vs 9.3). Compare their categories, reviews and posts with yours." }
+      { "id": "missing_hours", "impact": 0.67, "place_id": null, "message": "67 % of your competitors show opening hours on Google; you don't. Add it to your profile." }
     ]
   },
   "sync": { "last_synced_at": "2026-09-26T17:21:36.539Z", "last_status": "done",
             "types": { "performance": { "status": "ok", "message": null }, "…": "…" } },
-  "score_history": [ { "generated_at": "2026-09-26T17:25:36.832Z", "gbp_score": 50, "grade": "D", "public_score": 71 } ],
+  "score_history": [
+    { "generated_at": "2026-09-01T03:02:00.000Z", "gbp_score": 50, "grade": "D", "public_score": 71, "version": 1 },
+    { "generated_at": "2026-10-02T03:02:00.000Z", "gbp_score": 55, "grade": "C", "public_score": 76, "version": 2 }
+  ],
   "api_calls": { "places_details": 5 },
   "inputs": { "rank_run_id": "6ab8…", "sync_id": "6ab8…", "snapshot_id": "6ab8…" },
   "generation": { "pending": false, "scheduled_for": null, "last_generated_at": "2026-09-26T17:25:36.832Z" }
@@ -1771,14 +1790,29 @@ Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
 | reason | When |
 |---|---|
-| `gbp_not_connected` | The location has no GBP binding (added via Places search). Every private section: `gbp_score`, `performance`, `keywords`, `reviews`, `media`, `posts`, `pending_google_edits`, `verification`, `sync`. The competitor comparison still works. |
+| `gbp_not_connected` | The location has no GBP binding (added via Places search). Every private section: `gbp_score`, `profile`, `performance`, `keywords`, `reviews`, `media`, `posts`, `pending_google_edits`, `verification`, `sync`. The competitor comparison still works. |
 | `v4_access_pending` | `reviews`, `media`, `posts` until Google approves v4 access (`GBP_V4_ENABLED=false`). The GBP Score then excludes the Activity and Reviews pillars: `partial: true`, `excluded_pillars: ["activity", "reviews"]`, rescaled to 100. |
 | `not_synced_yet` | Bound, but the first sync hasn't stored that data yet. |
 | `no_place_id` | `competitors` for a location without a place ID. |
 
-**GBP Score:** 5 pillars (completeness 25, activity 20, reviews 25, visibility 20, engagement 10); weights and thresholds in `src/gbp/scoring.config.ts`. A check is `scored` or `not_available`; a pillar with no available check is excluded and the rest rescaled. Grades: A ≥ 85, B ≥ 70, C ≥ 55, D ≥ 40, F.
+**No ranking data in the GBP report (version 2, Mohit, 2026-10-02).** Ranks are in the ranking pages and the Rank Tracker report only. The GBP Score, the Public Score, the competitor rows and the insights use no rank-run data (the latest map list only picks which nearby businesses to compare).
 
-**Public Score:** the same formula for the client and every competitor, from public data only (Place Details + center ranks from the latest rank run's map list). Rating 25, review count 20, center rank 20, center top-3 rate 10, public profile 25 (category, hours, website, phone, editorial summary: the last is `available: false` unless `COMPETITOR_DETAILS_ATMOSPHERE=true`). Closed businesses score 0 with a `flag`.
+**GBP Score (version 2):** 4 pillars, completeness 25, activity 20 (v4), reviews 25 (v4), **performance 30** (Google's own numbers: impressions trend 6, actions per 1,000 impressions 5, actions trend 5 points). Version 1 had visibility 20 (average map rank 8, top-3 rate 6, impressions trend 6) and engagement 10. Weights and thresholds in `src/gbp/scoring.config.ts`. A check without data is `not_available`; a pillar with no available check is excluded and the rest rescaled (`partial: true`). Grades: A ≥ 85, B ≥ 70, C ≥ 55, D ≥ 40, F.
+- **`state`** per check: `pass` (full points), `partial` (some), `fail` (0), `not_available` (no data, not scored). Per pillar: `pass` / `fail` when every scored check is, `partial` when mixed, `not_available` when excluded; plus `counts`. `gbp_score.counts` sums all checks. Build "healthy" / "needs work" on these, not on `points`.
+- **`why_it_matters`** per check: one or two sentences for the detail drawer.
+- **v4 off** (`v4_enabled: false`): Activity and Reviews are excluded, so the score is **Completeness + Performance** (55 of the 100 weights, rescaled to 100), `partial: true`.
+
+**`score_history`:** each entry has `version` (1 = with ranking data, before 2026-10-02; 2 = now). Draw a marker where it changes; don't compare scores across it (CHANGELOG `gbp_score_v2`). Production starts on a fresh database, so real customers only have version 2.
+
+**`profile`** (2026-10-02): the Business Profile as last synced (`taken_at`): title, description, categories, regular hours, special-hour dates, phones, website, service area, labels, open status, attributes (Google's attribute ids with their values), service items, `maps_uri`, `new_review_uri` (the "write a review" link), `latlng`. `{ available: false, reason }` as the other private sections. A report generated before this change has `not_synced_yet` until the next generation.
+
+**Public Score (version 2):** the same formula for the client and every competitor, from public Place Details only: rating 25, review count 20, public profile 25 (category, hours, website, phone, editorial summary), rescaled to 100. Closed businesses score 0 with a `flag`. Version 1 also had center rank 20 and center top-3 10.
+
+**Insights:** `review_gap`, `rating_gap`, `missing_hours`, `missing_website`, `missing_phone`, `category_mismatch`, `photos_gap`, `review_freshness` (`rank_gap` was removed on 2026-10-02).
+
+**Freshness:** after a manual GBP refresh (`POST /refresh { types: ["gbp"] }`) the sync runs, then the report regenerates about 2 minutes later (`REPORT_DEBOUNCE_SECONDS`, 120). Show `generation.pending` / `generation.scheduled_for` and the sync state (`GET /locations/:id/gbp/sync`) until `generated_at` changes.
+
+**Not supported** (don't build): duplicate listings, website signals beyond "website set", competitor citations / links / authority, Google Q&A.
 
 **Competitors:** the client, `tracking.competitors`, then the top 3 other businesses of the first keyword's map list (max 5 competitors). Place Details are fetched at most once per monthly cycle per business, or on a manual refresh (older than 24 h). A failed fetch keeps the previous facts with `stale: true` and `error`; without a Places key the section has `warning: "places_not_configured"`.
 
@@ -1790,7 +1824,7 @@ For an unbound location (trimmed):
 { "gbp_connected": false, "gbp_score": { "available": false, "reason": "gbp_not_connected" },
   "performance": { "available": false, "reason": "gbp_not_connected" }, "…": "…",
   "competitors": { "available": true, "rows": [ "… client and competitors with public_score …" ], "insights": [ "…" ] },
-  "score_history": [ { "generated_at": "…", "gbp_score": null, "grade": null, "public_score": 71 } ] }
+  "score_history": [ { "generated_at": "…", "gbp_score": null, "grade": null, "public_score": 71, "version": 2 } ] }
 ```
 
 ## Auth, organizations, locations and clients (Phase 8)
@@ -2145,8 +2179,8 @@ A report freezes stored data (the rank run, the GBP report, the profile snapshot
 | Type | Sections |
 |---|---|
 | `rank_tracker` | `summary`, `keywords`, `history` (last 12 runs), `grid` (heatmap per keyword), `movers`, `map_ranking` (12.5), `keyword_groups` (17: only when the location has groups) |
-| `gbp_audit` | `score`, `checks` (with top fixes), `performance` (`range` 28d/90d/12m), `keywords`, `profile` (with name/phone/website consistency), `verification`, `pending_edits`, `reviews_media_posts` (needs v4) |
-| `competitor_analysis` | `public_scores`, `table`, `ranks`, `insights` |
+| `gbp_audit` | `score`, `checks` (with top fixes), `performance` (`range` 28d/90d/12m), `keywords`, `profile` (with name/phone/website consistency), `verification`, `pending_edits`, `reviews_media_posts` (needs v4). **2026-10-02:** no ranking data; `score` has `version`, `counts` and a `state` + `counts` per pillar; `checks` have `state` and `why_it_matters`; `performance` has every metric (Maps / Search, mobile / desktop, calls, website clicks, directions, conversations and bookings when not 0) with its previous-period and last-year change, `by_surface`, `by_device`, and calls / website clicks / directions per day (the PDF draws a chart for each). |
+| `competitor_analysis` | `public_scores`, `table`, `insights`, `reviews` (12.5). The `ranks` section was removed on 2026-10-02 (no ranking data outside the Rank Tracker report). |
 | `citation` (Phase 16) | `score` (Citation Health, coverage, counts), `table` (every listing: directory, type, status, NAP issues, last checked), `nap_issues` (listed as vs should be), `changes` (the report's `range`) |
 | `full` | the report types it combines: `rank_tracker`, `gbp_audit`, `competitor_analysis`, `citation` (Phase 16) |
 

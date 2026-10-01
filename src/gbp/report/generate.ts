@@ -26,7 +26,8 @@ import {
 import { regionFromCountry } from '../../ranking/region';
 import { withDefaults } from '../../services/ranking/trackingSettings';
 import { updateSummaryFromReport } from '../../services/locations/summary';
-import { COMPETITOR_DETAILS_FIELDS, SCORE_HISTORY_MAX } from '../scoring.config';
+import { COMPETITOR_DETAILS_FIELDS, SCORE_HISTORY_MAX, SCORING_VERSION } from '../scoring.config';
+import { profileSection } from './profile';
 import { computeGbpScore } from '../score/gbpScore';
 import { HolidayCountry } from '../score/holidays';
 import { CompetitorRow, EMPTY_FACTS, MapListSection, centerSections, competitorSet, factsFromDetails, needsFetch, scoreRow } from './competitors';
@@ -35,7 +36,8 @@ import { keywordsSection } from './keywords';
 import { performanceSection, scorePerformance } from './performance';
 import { ReviewInput, reviewStats, reviewsSection } from './reviews';
 
-// GBP report generation (Phase 7c): reads only stored data (GBP sync output + the latest rank run),
+// GBP report generation (Phase 7c): reads only stored data (GBP sync output; the latest rank run only to pick
+// competitors, since 2026-10-02 no ranking data in the scores),
 // fetches Place Details for the competitor comparison under the freshness rule (competitors.ts),
 // and overwrites the location's single report document. Runs in the gbp-report job.
 
@@ -60,21 +62,11 @@ const countryOf = (location: ILocation): HolidayCountry | null => {
 	}
 };
 
+/** The latest rank run is read only to pick nearby businesses for the comparison (its map list), not for scores. */
 interface RunLean {
 	_id: Types.ObjectId;
-	overall?: Record<string, { overallAvgRank: number | null }>;
-	tracker?: { summary?: Record<string, { top3Rate: number | null }> }[];
 	mapList?: MapListSection[];
 }
-
-const ownRanking = (run: RunLean | null) => {
-	if (!run) return null;
-	const top3 = (run.tracker ?? []).map((t) => t.summary?.self?.top3Rate).filter((v): v is number => typeof v === 'number');
-	return {
-		overall_avg_rank: run.overall?.self?.overallAvgRank ?? null,
-		top3_rate: top3.length ? Math.round((top3.reduce((s, v) => s + v, 0) / top3.length) * 100) / 100 : null,
-	};
-};
 
 const DETAILS_FIELDS: PlaceDetailsField[] = [...COMPETITOR_DETAILS_FIELDS];
 
@@ -109,27 +101,27 @@ const buildCompetitors = async (
 		});
 		const due = needsFetch({ fetched_at: prevFetched }, freshness);
 		if (!due) {
-			rows.push(scoreRow(reuse(prev?.stale ?? false, prev?.error ?? null), mapList));
+			rows.push(scoreRow(reuse(prev?.stale ?? false, prev?.error ?? null))); 
 			continue;
 		}
 		if (warning === 'places_not_configured') {
-			rows.push(scoreRow(reuse(true, null), mapList));
+			rows.push(scoreRow(reuse(true, null))); 
 			continue;
 		}
 		try {
 			const result = await places.getPlaceDetails(ref.place_id, DETAILS_FIELDS);
 			calls += result.apiCalls;
-			rows.push(scoreRow({ ...base, ...factsFromDetails(result.details), fetched_at: now, stale: false, error: null }, mapList));
+			rows.push(scoreRow({ ...base, ...factsFromDetails(result.details), fetched_at: now, stale: false, error: null })); 
 		} catch (err) {
 			if (err instanceof PlacesConfigError) {
 				warning = 'places_not_configured';
-				rows.push(scoreRow(reuse(true, null), mapList));
+				rows.push(scoreRow(reuse(true, null))); 
 				continue;
 			}
 			if (err instanceof PlacesApiError) calls += err.apiCalls;
 			const message = err instanceof Error ? err.message : String(err);
 			logger.warn(`gbp-report: Place Details failed for a competitor of location ${String(location._id)}: ${message}`);
-			rows.push(scoreRow(reuse(true, message), mapList));
+			rows.push(scoreRow(reuse(true, message))); 
 		}
 	}
 	return { section: { available: true, generated_at: now, rows, insights: gapInsights(rows), warning }, calls };
@@ -153,7 +145,7 @@ const pickFacts = (row: CompetitorRow) => ({
 });
 
 /** Private (GBP-owner) sections: only for a bound location. */
-const privateSections = async (location: ILocation, now: Date, v4: boolean, ranking: ReturnType<typeof ownRanking>) => {
+const privateSections = async (location: ILocation, now: Date, v4: boolean) => {
 	const locationId = location._id;
 	const [snapshot, lastSync, metrics, keywordRows] = await Promise.all([
 		GbpProfileSnapshot.findOne({ location_id: locationId, is_latest: true }).sort({ taken_at: -1 }).lean<IGbpProfileSnapshot>(),
@@ -190,7 +182,6 @@ const privateSections = async (location: ILocation, now: Date, v4: boolean, rank
 				posts: v4 && snapshot?.posts ? snapshot.posts : null,
 				media: v4 && snapshot?.media ? snapshot.media : null,
 				reviews: stats,
-				ranking,
 				performance: scorePerformance(performance),
 			})
 		: notSynced;
@@ -202,6 +193,7 @@ const privateSections = async (location: ILocation, now: Date, v4: boolean, rank
 			performance: performance ?? notSynced,
 			keywords: keywords ?? notSynced,
 			gbp_score: gbpScore,
+			profile: snapshot ? (profileSection(snapshot) ?? notSynced) : notSynced,
 			reviews,
 			media,
 			posts,
@@ -237,11 +229,10 @@ export const generateGbpReport = async (locationId: string, trigger: ReportTrigg
 		GbpReport.findOne({ location_id: location._id }).lean<IGbpReport>(),
 	]);
 	const bound = Boolean(binding);
-	const ranking = ownRanking(run);
 	const mapList = centerSections(run?.mapList ?? []);
 
 	const notConnected = unavailable('gbp_not_connected');
-	const priv = bound ? await privateSections(location, now, v4, ranking) : null;
+	const priv = bound ? await privateSections(location, now, v4) : null;
 	const { section: competitors, calls } = await buildCompetitors(location, mapList, previous, deps.places ?? placesClient, now);
 
 	const gbpScore = priv ? priv.sections.gbp_score : notConnected;
@@ -251,6 +242,7 @@ export const generateGbpReport = async (locationId: string, trigger: ReportTrigg
 		gbp_score: gbpScore.available ? gbpScore.score : null,
 		grade: gbpScore.available ? gbpScore.grade : null,
 		public_score: selfRow?.public_score?.score ?? null,
+		version: SCORING_VERSION,
 	};
 	const data: GbpReportData = {
 		location_id: location._id as Types.ObjectId,
@@ -262,6 +254,7 @@ export const generateGbpReport = async (locationId: string, trigger: ReportTrigg
 		performance: priv?.sections.performance ?? notConnected,
 		keywords: priv?.sections.keywords ?? notConnected,
 		gbp_score: gbpScore,
+		profile: priv?.sections.profile ?? notConnected,
 		reviews: priv?.sections.reviews ?? notConnected,
 		media: priv?.sections.media ?? notConnected,
 		posts: priv?.sections.posts ?? notConnected,

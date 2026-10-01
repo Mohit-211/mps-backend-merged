@@ -3,6 +3,7 @@ import type { CompetitorRow } from '../gbp/report/competitors';
 import type { Insight } from '../gbp/report/insights';
 import type { KeywordsSection } from '../gbp/report/keywords';
 import type { PerformanceSection } from '../gbp/report/performance';
+import type { ProfileSection } from '../gbp/report/profile';
 import type { ReviewsSection } from '../gbp/report/reviews';
 import type { GbpScoreResult } from '../gbp/score/gbpScore';
 
@@ -51,6 +52,8 @@ export interface ScoreHistoryEntry {
 	gbp_score: number | null;
 	grade: string | null;
 	public_score: number | null;
+	/** SCORING_VERSION of both scores (2026-10-02); absent = 1 (with ranking data). Charts mark the change. */
+	version?: number;
 }
 
 export interface GbpReportData {
@@ -63,6 +66,8 @@ export interface GbpReportData {
 	performance: PerformanceSection | Unavailable;
 	keywords: KeywordsSection | Unavailable;
 	gbp_score: GbpScoreResult | Unavailable;
+	/** 2026-10-02: the Business Profile as last synced (private: bound locations only). */
+	profile?: ProfileSection | Unavailable;
 	reviews: ReviewsSection | Unavailable;
 	media: MediaSection | Unavailable;
 	posts: PostsSection | Unavailable;
@@ -87,6 +92,7 @@ const GbpReportSchema = new Schema<IGbpReport>(
 		performance: { type: Schema.Types.Mixed, default: null },
 		keywords: { type: Schema.Types.Mixed, default: null },
 		gbp_score: { type: Schema.Types.Mixed, default: null },
+		profile: { type: Schema.Types.Mixed, default: null },
 		reviews: { type: Schema.Types.Mixed, default: null },
 		media: { type: Schema.Types.Mixed, default: null },
 		posts: { type: Schema.Types.Mixed, default: null },

@@ -14,15 +14,20 @@ export interface MaxBand {
 	points: number;
 }
 
-export const PILLARS = ['completeness', 'activity', 'reviews', 'visibility', 'engagement'] as const;
+// Version 2 (Mohit, 2026-10-02): ranking left the GBP Score and the Public Score ("ranking data belongs in
+// the ranking report"). Visibility (map rank, top-3 rate, impressions trend) and Engagement merged into one
+// Performance pillar of Google's own numbers. score_history entries carry the version (CHANGELOG
+// `gbp_score_v2`).
+export const SCORING_VERSION = 2;
+
+export const PILLARS = ['completeness', 'activity', 'reviews', 'performance'] as const;
 export type PillarId = (typeof PILLARS)[number];
 
 export const PILLAR_WEIGHTS: Record<PillarId, number> = {
 	completeness: 25,
 	activity: 20,
 	reviews: 25,
-	visibility: 20,
-	engagement: 10,
+	performance: 30,
 };
 
 export const GRADES: { min: number; grade: 'A' | 'B' | 'C' | 'D' | 'F' }[] = [
@@ -68,16 +73,9 @@ export const GBP_SCORE = {
 		replyRate90d: { max: 5, bands: [{ min: 0.8, points: 5 }, { min: 0.5, points: 3 }, { min: 0.000001, points: 1 }] as MinBand[] },
 		medianReplyHours: { max: 3, bands: [{ max: 24, points: 3 }, { max: 48, points: 2 }, { max: 168, points: 1 }] as MaxBand[] },
 	},
-	visibility: {
-		overallAvgRank: {
-			max: 8,
-			bands: [{ max: 3, points: 8 }, { max: 5, points: 7 }, { max: 10, points: 5 }, { max: 20, points: 3 }, { max: 40, points: 1 }] as MaxBand[],
-		},
-		top3Rate: { max: 6, bands: [{ min: 0.6, points: 6 }, { min: 0.4, points: 4 }, { min: 0.2, points: 2 }, { min: 0.000001, points: 1 }] as MinBand[] },
+	performance: {
 		/** Impressions change (fraction) of the last 28 days vs the previous 28. */
 		impressionsTrend: { max: 6, bands: [{ min: 0.1, points: 6 }, { min: 0, points: 4 }, { min: -0.1, points: 2 }] as MinBand[] },
-	},
-	engagement: {
 		actionsPer1000: { max: 5, bands: [{ min: 50, points: 5 }, { min: 30, points: 4 }, { min: 15, points: 3 }, { min: 5, points: 1 }] as MinBand[] },
 		actionsTrend: { max: 5, bands: [{ min: 0.1, points: 5 }, { min: 0, points: 3 }, { min: -0.1, points: 1 }] as MinBand[] },
 	},
@@ -93,10 +91,6 @@ export const PUBLIC_SCORE = {
 		max: 20,
 		bands: [{ min: 200, points: 20 }, { min: 100, points: 16 }, { min: 50, points: 12 }, { min: 20, points: 8 }, { min: 5, points: 4 }, { min: 1, points: 2 }] as MinBand[],
 	},
-	/** Mean center rank across keywords; a keyword where the business isn't in the top 20 counts as 21. */
-	centerRank: { max: 20, missingRank: 21, bands: [{ max: 3, points: 20 }, { max: 5, points: 16 }, { max: 10, points: 11 }, { max: 20, points: 5 }] as MaxBand[] },
-	/** Share of keywords where the business is top 3 at the center, times this. */
-	centerTop3: { max: 10 },
 	/** Each public profile field present earns this. */
 	profileField: 5,
 	profileFields: ['primary_category', 'hours', 'website', 'phone', 'editorial_summary'] as const,

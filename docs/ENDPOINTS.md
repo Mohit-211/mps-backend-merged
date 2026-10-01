@@ -254,7 +254,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/locations/:locationId/gbp/report` | user + owner | The stored GBP report (`?range=28d\|90d\|12m`): GBP Score, performance, keywords, reviews/media/posts, competitor comparison with Public Scores and gap insights | 7c | live |
+| GET | `/api/v1/locations/:locationId/gbp/report` | user + owner | The stored GBP report (`?range=28d\|90d\|12m`): GBP Score (2026-10-02: version 2, no ranking data, states per check and pillar), profile, performance, keywords, reviews/media/posts, competitor comparison with Public Scores and gap insights | 7c, changed 2026-10-02 | live |
 
 ### GBP posting (legacy, rebuilt in Phase 9)
 
@@ -564,7 +564,7 @@ Generated in the `gbp-report` job about 2 minutes after a rank run or GBP sync f
 
 | # | Method | Path | Auth | Params | Returns |
 |---|---|---|---|---|---|
-| 28 | GET | `/locations/:locationId/gbp/report` | user, owner | query `range` (`28d` default, `90d`, `12m`) | `{ location_id, generated_at, trigger, gbp_connected, v4_enabled, range, gbp_score, performance, keywords, reviews, media, posts, pending_google_edits, verification, competitors: { rows (12.5: + `photo_count`, `photos_capped`, `reviews`, `recent_review_at`), insights, warning }, sync, score_history, api_calls, inputs, generation, attribution }` |
+| 28 | GET | `/locations/:locationId/gbp/report` | user, owner | query `range` (`28d` default, `90d`, `12m`) | `{ location_id, generated_at, trigger, gbp_connected, v4_enabled, range, gbp_score (2026-10-02: `version`, `counts`, pillars `completeness\|activity\|reviews\|performance` with `state` + `counts`, checks with `state` + `why_it_matters`), profile (2026-10-02), performance, keywords, reviews, media, posts, pending_google_edits, verification, competitors: { rows (12.5: + `photo_count`, `photos_capped`, `reviews`, `recent_review_at`; 2026-10-02: no `center_rank`), insights (no `rank_gap`), warning }, sync, score_history (+ `version`), api_calls, inputs, generation, attribution }` |
 
 **Notes:**
 - **#28:** **404** before the first report; **400** for another `range`. A section that can't be shown is `{ available: false, reason }`: `gbp_not_connected` (every private section of a location added via Places search; the competitor comparison still works), `v4_access_pending` (reviews, media, posts; the GBP Score then excludes those pillars with `partial: true`), `not_synced_yet`, `no_place_id`. Shapes and examples: [API.md](API.md#gbp-report-phase-7c).

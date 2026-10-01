@@ -4,10 +4,11 @@ const DAY_MS = 86_400_000;
 import { CompetitorRow } from './competitors';
 
 // Gap insights (Phase 7c), pure: rule-based sentences comparing the client with its competitors.
+// 2026-10-02: no rank_gap (ranking data stays in the ranking report).
 // Each rule yields an impact in 0–1; the top MAX_INSIGHTS are returned, highest impact first.
 
 export interface Insight {
-	id: 'review_gap' | 'rating_gap' | 'missing_hours' | 'missing_website' | 'missing_phone' | 'rank_gap' | 'category_mismatch' | 'photos_gap' | 'review_freshness';
+	id: 'review_gap' | 'rating_gap' | 'missing_hours' | 'missing_website' | 'missing_phone' | 'category_mismatch' | 'photos_gap' | 'review_freshness';
 	impact: number;
 	message: string;
 	/** The competitor the insight refers to, if one. */
@@ -60,23 +61,6 @@ export const gapInsights = (rows: CompetitorRow[]): Insight[] => {
 		const s = share(b.has);
 		if (b.missing && s >= 0.5) {
 			insights.push({ id: b.id, impact: clamp(b.weight * s + 0.2), message: `${Math.round(s * 100)} % of your competitors show ${b.what} on Google; you don't. Add it to your profile.`, place_id: null });
-		}
-	}
-
-	// Rank: a competitor out-ranks you at the center on at least half the keywords.
-	const myRank = self.center_rank;
-	if (myRank.keywords > 0 && myRank.avg !== null) {
-		const myAvg = myRank.avg;
-		const better = others
-			.filter((r) => r.center_rank.avg !== null && (r.center_rank.avg as number) < myAvg && r.center_rank.keywords_found >= myRank.keywords / 2)
-			.sort((a, b) => (a.center_rank.avg as number) - (b.center_rank.avg as number))[0];
-		if (better) {
-			insights.push({
-				id: 'rank_gap',
-				impact: clamp(0.5 + (myAvg - (better.center_rank.avg as number)) / 40),
-				message: `${label(better)} ranks higher than you at your location (average ${better.center_rank.avg} vs ${myAvg}). Compare their categories, reviews and posts with yours.`,
-				place_id: better.place_id,
-			});
 		}
 	}
 

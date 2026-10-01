@@ -37,7 +37,6 @@ const perfect = (over: Partial<GbpScoreInput> = {}): GbpScoreInput => ({
 	posts: { last_post_at: new Date(NOW.getTime() - 2 * DAY), last_90_days: 15 },
 	media: { owner_count: 40, latest_owner_upload: new Date(NOW.getTime() - 5 * DAY) },
 	reviews: { average_rating: 4.8, total: 150, new_30d: 6, new_90d: 15, reply_rate_90d: 0.9, median_reply_hours: 10 },
-	ranking: { overall_avg_rank: 2.4, top3_rate: 0.7 },
 	performance: { impressions_change: 0.15, actions_per_1000: 60, actions_per_1000_change: 0.2 },
 	...over,
 });
@@ -47,14 +46,17 @@ const check = (result: ReturnType<typeof computeGbpScore>, id: string) => result
 describe('computeGbpScore', () => {
 	it('a perfect profile scores 100 / A with every pillar', () => {
 		const r = computeGbpScore(perfect());
-		expect(r).toMatchObject({ score: 100, grade: 'A', partial: false, excluded_pillars: [], top_fixes: [] });
+		expect(r).toMatchObject({ version: 2, score: 100, grade: 'A', partial: false, excluded_pillars: [], top_fixes: [] });
+		// 2026-10-02: no ranking pillar; Google's own performance numbers carry 30.
 		expect(r.pillars.map((p) => [p.id, p.score])).toEqual([
 			['completeness', 25],
 			['activity', 20],
 			['reviews', 25],
-			['visibility', 20],
-			['engagement', 10],
+			['performance', 30],
 		]);
+		expect(r.checks.some((c) => c.id === 'map_rank' || c.id === 'top3_rate')).toBe(false);
+		expect(r.counts).toEqual({ pass: r.checks.length - r.counts.not_available, partial: 0, fail: 0, not_available: r.counts.not_available });
+		expect(r.pillars.every((p) => p.state === 'pass')).toBe(true);
 	});
 
 	it('v4 off: activity and reviews are excluded and the rest rescaled to 100 (partial)', () => {
@@ -62,10 +64,14 @@ describe('computeGbpScore', () => {
 		expect(r).toMatchObject({ score: 100, partial: true, excluded_pillars: ['activity', 'reviews'] });
 		expect(check(r, 'recent_post')?.status).toBe('not_available');
 
-		// Losing all of engagement (10 of the remaining 55) → 45/55 = 82.
+		// Performance keeps only the impressions trend (6 of 16 points → 11.3 of 30): (25 + 11.3) / 55 = 66.
 		const weak = computeGbpScore(perfect({ posts: null, media: null, reviews: null, performance: { impressions_change: 0.15, actions_per_1000: 1, actions_per_1000_change: -0.5 } }));
-		expect(weak.score).toBe(Math.round((45 / 55) * 100));
-		expect(weak.grade).toBe('B');
+		expect(weak.score).toBe(Math.round(((25 + 11.3) / 55) * 100));
+		expect(weak.grade).toBe('C');
+		// v4 off: the score is Completeness + Performance only.
+		expect(weak.pillars.filter((p) => p.available).map((p) => p.id)).toEqual(['completeness', 'performance']);
+		expect(weak.pillars.find((p) => p.id === 'performance')).toMatchObject({ state: 'partial', counts: { pass: 1, partial: 0, fail: 2, not_available: 0 } });
+		expect(weak.pillars.find((p) => p.id === 'reviews')).toMatchObject({ state: 'not_available' });
 	});
 
 	it('not_available checks inside a pillar are left out of that pillar', () => {
@@ -110,9 +116,24 @@ describe('computeGbpScore', () => {
 		expect(r.checks.filter((c) => c.pillar === 'completeness').every((c) => c.status === 'not_available')).toBe(true);
 	});
 
-	it('visibility and engagement without data are not_available', () => {
-		const r = computeGbpScore(perfect({ ranking: null, performance: null }));
-		expect(r.excluded_pillars).toEqual(['visibility', 'engagement']);
+	it('performance without data is not_available', () => {
+		const r = computeGbpScore(perfect({ performance: null }));
+		expect(r.excluded_pillars).toEqual(['performance']);
+	});
+
+	it('2026-10-02: each check has a state (pass / partial / fail / not_available) and why it matters', () => {
+		const r = computeGbpScore(perfect({ profile: profile({ description: 'short', website: null }), reviews: null }));
+		expect(check(r, 'description')).toMatchObject({ state: 'partial', points: 1, max: 3 });
+		expect(check(r, 'website')).toMatchObject({ state: 'fail', points: 0 });
+		expect(check(r, 'phone')).toMatchObject({ state: 'pass' });
+		expect(check(r, 'average_rating')).toMatchObject({ state: 'not_available', status: 'not_available' });
+		expect(r.checks.every((c) => typeof c.why_it_matters === 'string' && c.why_it_matters.length > 20)).toBe(true);
+		const completeness = r.pillars.find((p) => p.id === 'completeness');
+		expect(completeness?.state).toBe('partial');
+		expect(completeness?.counts).toMatchObject({ partial: 1, fail: 1 });
+		const total = r.counts.pass + r.counts.partial + r.counts.fail + r.counts.not_available;
+		expect(total).toBe(r.checks.length);
+		expect(r.counts.not_available).toBeGreaterThanOrEqual(6);
 	});
 
 	it('top fixes: lost points weighted by pillar share, at most 5, each with a hint', () => {
@@ -120,11 +141,11 @@ describe('computeGbpScore', () => {
 			perfect({
 				verification: { has_voice_of_merchant: false }, // completeness 5/25 of 25 → 5
 				posts: { last_post_at: null, last_90_days: 0 }, // activity 11/20 of 20 → 11
-				performance: { impressions_change: -0.5, actions_per_1000: 60, actions_per_1000_change: 0.2 }, // visibility 6/20 of 20 → 6
+				performance: { impressions_change: -0.5, actions_per_1000: 60, actions_per_1000_change: 0.2 }, // performance 6/16 of 30 → 11.25
 				profile: profile({ website: null }), // 2
 			}),
 		);
-		// recent_post and impressions_trend both lose 6 weighted points: ties sort by id.
+		// impressions_trend 11.25, recent_post 6, then posts_per_month and verified 5 each (ties sort by id), website 2.
 		expect(r.top_fixes.map((f) => f.id)).toEqual(['impressions_trend', 'recent_post', 'posts_per_month', 'verified', 'website']);
 		expect(r.top_fixes.every((f) => typeof f.fix_hint === 'string')).toBe(true);
 	});

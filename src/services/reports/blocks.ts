@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { FrozenBranding, ReportType, SnapshotLocation } from '../../models';
 import { bucket, displayRank } from '../../ranking/rankCell';
 import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
-import { Block, CitationReportData, CompetitorData, GbpAuditData, Part, RankTrackerData, ReportDocument, SnapshotData, Tone, isAvailable } from './types';
+import { AuditPerformanceTotals, Block, CitationReportData, CompetitorData, GbpAuditData, Part, RankTrackerData, ReportDocument, SnapshotData, Tone, isAvailable } from './types';
 
 // Reports center (Phase 12): turns frozen snapshot data into the document model (typed blocks). Pure.
 // The PDF renderer, the HTML share page, the in-app viewer (GET /reports/:id) and the email summary
@@ -152,6 +152,32 @@ const partBlocks = <T extends object>(title: string, part: Part<T> | undefined, 
 	return [{ kind: 'heading', level: 2, text: title }, ...body(part)];
 };
 
+const STATE_LABEL: Record<string, string> = { pass: 'Pass', partial: 'Partly', fail: 'Fail', not_available: 'n/a' };
+
+/** The audit's performance table (2026-10-02); conversations and bookings only when not 0. */
+const PERF_ROWS: { key: keyof AuditPerformanceTotals; label: string; hideZero?: boolean }[] = [
+	{ key: 'impressions', label: 'All impressions' },
+	{ key: 'maps', label: 'Impressions on Maps' },
+	{ key: 'search', label: 'Impressions on Search' },
+	{ key: 'mobile', label: 'Impressions on mobile' },
+	{ key: 'desktop', label: 'Impressions on desktop' },
+	{ key: 'actions', label: 'All actions' },
+	{ key: 'calls', label: 'Calls' },
+	{ key: 'website_clicks', label: 'Website clicks' },
+	{ key: 'direction_requests', label: 'Direction requests' },
+	{ key: 'conversations', label: 'Conversations', hideZero: true },
+	{ key: 'bookings', label: 'Bookings', hideZero: true },
+];
+
+const DAY_CHARTS: { key: 'impressions' | 'calls' | 'website_clicks' | 'direction_requests'; title: string }[] = [
+	{ key: 'impressions', title: 'Impressions per day' },
+	{ key: 'calls', title: 'Calls per day' },
+	{ key: 'website_clicks', title: 'Website clicks per day' },
+	{ key: 'direction_requests', title: 'Direction requests per day' },
+];
+
+const share = (part: number, total: number): string => (total > 0 ? `${Math.round((part / total) * 100)}%` : '-');
+
 export const gbpAuditBlocks = (d: GbpAuditData): Block[] => {
 	const out: Block[] = [];
 	out.push(
@@ -163,6 +189,11 @@ export const gbpAuditBlocks = (d: GbpAuditData): Block[] => {
 					...s.pillars.filter((p) => p.available).map((p) => ({ label: p.id.charAt(0).toUpperCase() + p.id.slice(1), value: `${fmtNum(p.score, 1)}/${p.weight}` })),
 				],
 			},
+			{
+				kind: 'paragraph',
+				text: `${s.counts.pass} checks passed, ${s.counts.partial} partly, ${s.counts.fail} failed${s.counts.not_available ? `, ${s.counts.not_available} not available` : ''}. Rankings are in the Rank Tracker report.`,
+				muted: true,
+			},
 			...(s.partial ? [{ kind: 'paragraph' as const, text: `Partial score: ${s.excluded_pillars.join(', ')} not available yet, so the other pillars are rescaled to 100.`, muted: true }] : []),
 		]),
 	);
@@ -171,8 +202,14 @@ export const gbpAuditBlocks = (d: GbpAuditData): Block[] => {
 			...(c.top_fixes.length ? [{ kind: 'heading' as const, level: 2 as const, text: 'Top fixes' }, { kind: 'list' as const, items: c.top_fixes.map((f) => (f.fix_hint ? `${f.label}: ${f.fix_hint}` : f.label)) }] : []),
 			{
 				kind: 'table',
-				columns: [{ label: 'Check', weight: 3 }, { label: 'Pillar', weight: 1.7 }, { label: 'Points', align: 'right' }, { label: 'Detail', weight: 4 }],
-				rows: c.checks.map((x) => [x.label, x.pillar.charAt(0).toUpperCase() + x.pillar.slice(1), x.status === 'scored' ? `${fmtNum(x.points, 1)}/${x.max}` : 'n/a', x.status === 'scored' ? x.detail : 'Not available yet']),
+				columns: [{ label: 'Check', weight: 3 }, { label: 'Pillar', weight: 1.7 }, { label: 'Result', weight: 1.2 }, { label: 'Points', align: 'right' }, { label: 'Detail', weight: 4 }],
+				rows: c.checks.map((x) => [
+					x.label,
+					x.pillar.charAt(0).toUpperCase() + x.pillar.slice(1),
+					STATE_LABEL[x.state] ?? x.state,
+					x.status === 'scored' ? `${fmtNum(x.points, 1)}/${x.max}` : 'n/a',
+					x.status === 'scored' ? x.detail : 'Not available yet',
+				]),
 			},
 		]),
 	);
@@ -189,20 +226,23 @@ export const gbpAuditBlocks = (d: GbpAuditData): Block[] => {
 			},
 			{
 				kind: 'table',
-				columns: [{ label: 'Metric', weight: 2 }, { label: 'Total', align: 'right' }, { label: 'vs last year', align: 'right' }],
-				rows: [
-					['Impressions on Maps', fmtNum(p.totals.maps), ''],
-					['Impressions on Search', fmtNum(p.totals.search), ''],
-					['Mobile / desktop', `${fmtNum(p.totals.mobile)} / ${fmtNum(p.totals.desktop)}`, ''],
-					['Calls', fmtNum(p.totals.calls), ''],
-					['Website clicks', fmtNum(p.totals.website_clicks), ''],
-					['Direction requests', fmtNum(p.totals.direction_requests), ''],
-					['All impressions', fmtNum(p.totals.impressions), fmtRelChange(p.last_year_change.impressions)],
-					['All actions', fmtNum(p.totals.actions), fmtRelChange(p.last_year_change.actions)],
+				columns: [{ label: 'Metric', weight: 2.2 }, { label: 'Total', align: 'right' }, { label: 'vs previous', align: 'right' }, { label: 'vs last year', align: 'right' }],
+				rows: PERF_ROWS.filter((m) => !m.hideZero || p.totals[m.key] > 0).map((m) => [
+					m.label,
+					fmtNum(p.totals[m.key]),
+					fmtRelChange(p.previous_change[m.key] ?? null),
+					fmtRelChange(p.last_year_change[m.key] ?? null),
+				]),
+			},
+			{
+				kind: 'kpis',
+				items: [
+					{ label: 'Maps / Search', value: `${share(p.by_surface.maps, p.by_surface.maps + p.by_surface.search)} / ${share(p.by_surface.search, p.by_surface.maps + p.by_surface.search)}`, sub: 'share of impressions' },
+					{ label: 'Mobile / desktop', value: `${share(p.by_device.mobile, p.by_device.mobile + p.by_device.desktop)} / ${share(p.by_device.desktop, p.by_device.mobile + p.by_device.desktop)}`, sub: 'share of impressions' },
 				],
 			},
 			...(p.by_day.length > 1
-				? [{ kind: 'line_chart' as const, title: 'Impressions per day', points: p.by_day.map((x) => ({ label: fmtDate(x.date), value: x.impressions })), lower_is_better: false }]
+				? DAY_CHARTS.map((c) => ({ kind: 'line_chart' as const, title: c.title, points: p.by_day.map((x) => ({ label: fmtDate(x.date), value: x[c.key] ?? null })), lower_is_better: false }))
 				: []),
 		]),
 	);
@@ -279,7 +319,7 @@ export const competitorBlocks = (d: CompetitorData): Block[] => {
 	const out: Block[] = [];
 	if (d.public_scores) {
 		out.push({ kind: 'heading', level: 2, text: 'Public Score' });
-		out.push({ kind: 'paragraph', text: 'The same score for every business, from public Google data and center ranks.', muted: true });
+		out.push({ kind: 'paragraph', text: 'The same score for every business, from public Google data: rating, reviews and profile.', muted: true });
 		out.push({
 			kind: 'table',
 			columns: [{ label: 'Business', weight: 4 }, { label: 'Public Score', align: 'right' }],
@@ -314,16 +354,6 @@ export const competitorBlocks = (d: CompetitorData): Block[] => {
 			highlight: d.table.map((r, i) => (r.is_self ? i : -1)).filter((i) => i >= 0),
 		});
 	}
-	if (d.ranks) {
-		out.push({ kind: 'heading', level: 2, text: 'Rankings' });
-		out.push({
-			kind: 'table',
-			columns: [{ label: 'Business', weight: 3 }, { label: 'Avg rank', align: 'right' }, { label: 'Top-3', align: 'right' }, { label: 'Center rank', align: 'right' }, { label: 'Center top-3', align: 'right' }],
-			rows: d.ranks.map((r) => [r.name + (r.is_self ? ' (you)' : ''), avgRank(r.overall_avg_rank), fmtPct(r.top3_rate), avgRank(r.center_avg), fmtPct(r.center_top3_rate)]),
-			highlight: d.ranks.map((r, i) => (r.is_self ? i : -1)).filter((i) => i >= 0),
-		});
-		out.push({ kind: 'paragraph', text: 'Average rank covers your tracked competitors only; center rank comes from the top 20 at your location.', muted: true });
-	}
 	if (d.insights) {
 		out.push({ kind: 'heading', level: 2, text: 'Insights' });
 		out.push(d.insights.length ? { kind: 'list', items: d.insights } : { kind: 'paragraph', text: 'No gaps found against these competitors.', muted: true });
@@ -344,7 +374,7 @@ export const competitorBlocks = (d: CompetitorData): Block[] => {
 			),
 		});
 	}
-	if (d.public_scores || d.table || d.ranks || d.reviews) out.push(attributionBlock());
+	if (d.public_scores || d.table || d.reviews) out.push(attributionBlock());
 	return out;
 };
 
