@@ -1,6 +1,7 @@
 import { GbpProfileSummary, GbpReportData, ReportRangeParam } from '../../../models';
 import { normaliseName, normalisePhone, normaliseWebsite } from '../../../utils/nap';
-import { GbpAuditData, Part, PartUnavailable } from '../types';
+import { AuditPerformanceTotals, GbpAuditData, Part, PartUnavailable } from '../types';
+import { CheckState, countStates } from '../../../gbp/score/gbpScore';
 
 // GBP Audit report data (Phase 12): copied from the location's stored GBP report (7c) and its latest
 // profile snapshot. Sections that need GBP v4 (reviews, media, posts) stay `unavailable` until that
@@ -22,6 +23,14 @@ export interface LocationForNap {
 }
 
 const off = (reason: string): PartUnavailable => ({ available: false, reason });
+
+/** Reports generated before 2026-10-02 have no check state: derive it the same way. */
+const stateOf = (c: { status: string; points: number; max: number }): CheckState =>
+	c.status !== 'scored' ? 'not_available' : c.points >= c.max ? 'pass' : c.points <= 0 ? 'fail' : 'partial';
+
+const TOTAL_KEYS: (keyof AuditPerformanceTotals)[] = ['impressions', 'maps', 'search', 'mobile', 'desktop', 'calls', 'website_clicks', 'direction_requests', 'conversations', 'bookings', 'actions'];
+const pickTotals = <T>(source: Record<keyof AuditPerformanceTotals, T>): Record<keyof AuditPerformanceTotals, T> =>
+	Object.fromEntries(TOTAL_KEYS.map((k) => [k, source[k]])) as Record<keyof AuditPerformanceTotals, T>;
 const pass = <T>(part: { available: boolean } | null | undefined, map: (p: never) => T): Part<T> => {
 	if (!part) return off('not_synced_yet');
 	if (!part.available) return off((part as unknown as PartUnavailable).reason);
@@ -59,13 +68,28 @@ export const buildGbpAuditData = (
 			score: s.score,
 			grade: s.grade,
 			partial: s.partial,
+			version: s.version ?? 1,
+			counts: s.counts ?? countStates(s.checks.map((c) => ({ state: c.state ?? stateOf(c) }))),
 			excluded_pillars: [...s.excluded_pillars],
-			pillars: s.pillars.map((p) => ({ id: p.id, weight: p.weight, score: p.score, available: p.available })),
+			pillars: s.pillars.map((p) => {
+				const counts = p.counts ?? countStates(s.checks.filter((c) => c.pillar === p.id).map((c) => ({ state: c.state ?? stateOf(c) })));
+				return { id: p.id, weight: p.weight, score: p.score, available: p.available, state: p.state ?? (p.available ? 'partial' : 'not_available'), counts };
+			}),
 		}));
 	}
 	if (want('checks')) {
 		data.checks = pass(score, (s: Extract<GbpReportData['gbp_score'], { available: true }>) => ({
-			checks: s.checks.map((c) => ({ label: c.label, pillar: c.pillar, status: c.status, points: c.points, max: c.max, detail: c.detail, fix_hint: c.fix_hint })),
+			checks: s.checks.map((c) => ({
+				label: c.label,
+				pillar: c.pillar,
+				status: c.status,
+				state: c.state ?? stateOf(c),
+				points: c.points,
+				max: c.max,
+				detail: c.detail,
+				fix_hint: c.fix_hint,
+				why_it_matters: c.why_it_matters ?? null,
+			})),
 			top_fixes: s.top_fixes.map((c) => ({ label: c.label, pillar: c.pillar, fix_hint: c.fix_hint })),
 		}));
 	}
@@ -77,22 +101,23 @@ export const buildGbpAuditData = (
 				start: r.start,
 				end: r.end,
 				days: r.days,
-				totals: {
-					impressions: r.totals.impressions,
-					maps: r.totals.maps,
-					search: r.totals.search,
-					mobile: r.totals.mobile,
-					desktop: r.totals.desktop,
-					calls: r.totals.calls,
-					website_clicks: r.totals.website_clicks,
-					direction_requests: r.totals.direction_requests,
-					actions: r.totals.actions,
-				},
-				previous_change: { impressions: r.previous_period.change.impressions, actions: r.previous_period.change.actions },
-				last_year_change: { impressions: r.same_period_last_year.change.impressions, actions: r.same_period_last_year.change.actions },
+				totals: pickTotals(r.totals),
+				previous_change: pickTotals(r.previous_period.change),
+				last_year_change: pickTotals(r.same_period_last_year.change),
+				by_surface: { ...r.by_surface },
+				by_device: { ...r.by_device },
 				actions_per_1000: r.actions_per_1000_impressions,
 				actions_per_1000_change: r.actions_per_1000_change,
-				by_day: r.by_day.map((d) => ({ date: d.date, impressions: d.impressions, actions: d.actions })),
+				by_day: r.by_day.map((d) => ({
+					date: d.date,
+					impressions: d.impressions,
+					maps: d.maps,
+					search: d.search,
+					actions: d.actions,
+					calls: d.calls,
+					website_clicks: d.website_clicks,
+					direction_requests: d.direction_requests,
+				})),
 			};
 		});
 	}

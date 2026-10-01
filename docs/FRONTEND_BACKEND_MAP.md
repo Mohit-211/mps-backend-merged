@@ -103,8 +103,8 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Screen | Backend | Status |
 |---|---|---|
 | Overview | `GET /locations/:id/gbp/report?range=28d\|90d\|12m`: `performance` (totals, previous period, same period last year, by day, by surface, by device, actions per 1,000), `keywords` (top, change, not tracked), `pending_google_edits`, `verification` | **available (7c)**. Locations without GBP: `{ available: false, reason: "gbp_not_connected" }`. |
-| Audit | GBP report `gbp_score` (score, grade, 5 pillars, checks, top 5 fixes, `partial` + `excluded_pillars`), `score_history` | **available (7c)**. Until v4 access, Activity and Reviews are excluded (`partial: true`). **Duplicates: not supported.** "Website signals" beyond "website set": not supported. |
-| Audit competitor analysis | GBP report `competitors` (Place Details + center ranks, Public Score, insights) | **available (7c)**, also for locations without GBP. Competitor citations, links, authority and photos: **not supported.** |
+| Audit | GBP report `gbp_score` (score, grade, 4 pillars, checks, top 5 fixes, `partial` + `excluded_pillars`), `profile`, `score_history` | **available (7c; version 2 on 2026-10-02)**: no ranking data (ranks belong to the ranking report); pillars completeness, activity, reviews, performance; `state` (pass / partial / fail / not_available) and `why_it_matters` per check, `state` + `counts` per pillar, `counts` overall; never invent "healthy". `profile`: everything the Business Profile shows (incl. `new_review_uri` for "ask for a review" links). `score_history[].version`: mark the break. Until v4 access, Activity and Reviews are excluded (`partial: true`: Completeness + Performance). **Duplicates, website signals beyond "website set", Q&A: not supported.** |
+| Audit competitor analysis | GBP report `competitors` (Place Details, Public Score, insights) | **available (7c)**, also for locations without GBP. **2026-10-02:** no rank data (Public Score = rating, reviews, profile). Competitor citations, links and authority: **not supported.** |
 | Reviews | GBP report `reviews` (v4: average, total, new 30/90 d, reply rate, median reply time, per month, distribution, unreplied) | **built (7c), needs Google v4 access**. Until then `{ available: false, reason: "v4_access_pending" }`. Demo data: `npm run seed:gbp-demo`. |
 | Review reply | – | **planned (Phase 9+)**, needs v4. AI reply drafting: not planned yet. |
 | Posts | legacy `/gbp/post/*` | **partial / legacy**: rebuilt in **Phase 9** (needs v4) |
@@ -123,9 +123,9 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Competitor overview | `GET /locations/:id/competitor-suggestions`, tracking competitors, GBP report `competitors` | **available (7c)**: suggestions, selection and the comparison (rating, reviews, center rank, category, hours, website, phone, Public Score). **Photos: not supported.** |
+| Competitor overview | `GET /locations/:id/competitor-suggestions`, tracking competitors, GBP report `competitors` | **available (7c)**: suggestions, selection and the comparison (rating, reviews, category, hours, website, phone, Public Score; 2026-10-02: no center rank, competitor ranks are on the ranking pages). **Photos: not supported.** |
 | Comparison | GBP report `competitors.rows` | available (7c). **12.5:** photos (`photo_count`, "10+" when `photos_capped`) and up to 5 recent Google reviews per business with the author (show the author name, link `author.uri`). Show `attribution`. |
-| Competitive gaps | GBP report `competitors.insights` (rule-based, max 5: review gap, rating gap, missing hours/website/phone, rank gap, category) | available (7c). **Citation gap: not supported.** |
+| Competitive gaps | GBP report `competitors.insights` (rule-based, max 5: review gap, rating gap, missing hours/website/phone, category, photos, review freshness; no rank gap since 2026-10-02) | available (7c). **Citation gap: not supported.** |
 
 ## Reports
 

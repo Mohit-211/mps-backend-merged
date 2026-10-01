@@ -84,10 +84,16 @@ describe('generateGbpReport', () => {
 			['map_list', 'ChIJdemoFillerAAAA'],
 			['map_list', 'ChIJdemoFillerBBBB'],
 		]);
-		expect(r.competitors.rows[0]).toMatchObject({ is_self: true, center_rank: { avg: 3, keywords_found: 2 } });
+		// 2026-10-02: no ranking data in the GBP report (the map list only picks the competitors).
+		expect(r.competitors.rows[0]).toMatchObject({ is_self: true });
+		expect(r.competitors.rows[0]).not.toHaveProperty('center_rank');
+		expect(r.gbp_score).toMatchObject({ version: 2, counts: expect.any(Object) });
+		if (r.gbp_score.available) expect(r.gbp_score.pillars.map((p) => p.id)).toEqual(['completeness', 'activity', 'reviews', 'performance']);
+		expect(r.profile).toMatchObject({ available: true, taken_at: expect.any(Date), title: expect.any(String), attributes: expect.any(Array), service_items: expect.any(Array) });
 		expect(r.competitors.rows.every((row) => row.public_score !== null)).toBe(true);
 		expect(r.competitors.insights.length).toBeGreaterThan(0);
 		expect(r.score_history).toHaveLength(1);
+		expect(r.score_history[0]).toMatchObject({ version: 2 });
 		expect((await Location.findById(id).lean())?.gbp_report?.last_generated_at).toEqual(NOW);
 	});
 

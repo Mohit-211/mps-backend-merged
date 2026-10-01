@@ -10,6 +10,7 @@ import { renderPdf } from '../../../src/services/reports/render/pdf';
 import { pdfFilename, resolveSections } from '../../../src/services/reports/report.service';
 import { buildCompetitorData } from '../../../src/services/reports/sections/competitors';
 import { buildGbpAuditData, napCheck } from '../../../src/services/reports/sections/gbpAudit';
+import { performanceSection } from '../../../src/gbp/report/performance';
 import { RunForReport, buildRankTrackerData } from '../../../src/services/reports/sections/rankTracker';
 import { createStorage } from '../../../src/services/reports/storage';
 import { Block, GbpAuditData, RankTrackerData } from '../../../src/services/reports/types';
@@ -133,23 +134,56 @@ describe('GBP audit data and blocks', () => {
 		const nap = blocks.filter((b) => b.kind === 'table').find((b) => (b as Extract<Block, { kind: 'table' }>).columns[1]?.label === 'In MyPageSEO') as Extract<Block, { kind: 'table' }>;
 		expect(nap.highlight).toEqual([0]);
 		expect(blocks.some((b) => b.kind === 'paragraph' && b.text.startsWith('Partial score'))).toBe(true);
+		// A report generated before 2026-10-02 (no state on checks) still gets states and counts.
+		expect(d.checks).toMatchObject({ checks: [{ state: 'pass', why_it_matters: null }] });
+		expect(d.score).toMatchObject({ version: 1, counts: { pass: 1, partial: 0, fail: 0, not_available: 0 } });
+	});
+
+	it('2026-10-02: performance has every metric with previous / last-year changes, surface and device, and per-day calls, clicks and directions', () => {
+		const rows: { date: string; metric: string; value: number }[] = [];
+		const start = Date.UTC(2025, 6, 1);
+		for (let i = 0; i < 460; i++) {
+			const date = new Date(start + i * 86_400_000).toISOString().slice(0, 10);
+			rows.push(
+				{ date, metric: 'BUSINESS_IMPRESSIONS_MOBILE_MAPS', value: 30 },
+				{ date, metric: 'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH', value: 10 },
+				{ date, metric: 'CALL_CLICKS', value: 2 },
+				{ date, metric: 'WEBSITE_CLICKS', value: 1 },
+				{ date, metric: 'BUSINESS_DIRECTION_REQUESTS', value: i % 2 },
+			);
+		}
+		const performance = performanceSection(rows);
+		const d = buildGbpAuditData(gbpReport({ performance } as never), profile, { name: null, mobile: null, website_URL: null }, '28d', ['performance']);
+		if (!d.performance || !('totals' in d.performance)) throw new Error('performance missing');
+		const p = d.performance;
+		expect(p.totals).toMatchObject({ impressions: 28 * 40, maps: 28 * 30, search: 28 * 10, mobile: 28 * 30, desktop: 28 * 10, calls: 56, website_clicks: 28, conversations: 0, bookings: 0 });
+		expect(p.previous_change).toMatchObject({ calls: 0, website_clicks: 0, impressions: 0 });
+		expect(Object.keys(p.last_year_change)).toEqual(expect.arrayContaining(['calls', 'website_clicks', 'direction_requests', 'maps', 'search']));
+		expect(p.by_surface).toEqual({ maps: 28 * 30, search: 28 * 10 });
+		expect(p.by_day[0]).toMatchObject({ calls: 2, website_clicks: 1, maps: 30, search: 10 });
+		const blocks = gbpAuditBlocks(d);
+		const table = blocks.find((b) => b.kind === 'table') as Extract<Block, { kind: 'table' }>;
+		expect(table.columns.map((c) => c.label)).toEqual(['Metric', 'Total', 'vs previous', 'vs last year']);
+		expect(table.rows.map((r) => r[0])).not.toContain('Conversations'); // 0: hidden
+		const charts = blocks.filter((b) => b.kind === 'line_chart').map((b) => (b as { title: string }).title);
+		expect(charts).toEqual(['Impressions per day', 'Calls per day', 'Website clicks per day', 'Direction requests per day']);
 	});
 });
 
 describe('competitor data', () => {
-	it('names only (no place ids), public scores sorted, ranks joined by target key', () => {
+	it('names only (no place ids), public scores sorted; no ranks section since 2026-10-02', () => {
 		const row = (name: string, place_id: string, is_self: boolean, score: number) => ({
 			name, place_id, is_self, source: is_self ? 'self' : 'tracking', rating: 4.5, user_rating_count: 10, primary_type: 'plumber', primary_type_label: 'Plumber',
 			has_hours: true, has_website: !is_self, has_phone: true, has_editorial_summary: null, business_status: 'OPERATIONAL', fetched_at: new Date(), stale: false, error: null,
-			center_rank: { avg: 3, top3_rate: 0.5, keywords_found: 1, keywords: 1 }, public_score: { score, parts: [], flag: null },
+			public_score: { score, parts: [], flag: null },
 		});
 		const d = buildCompetitorData(
 			{ available: true, generated_at: new Date(), rows: [row('Me', 'P-self', true, 60), row('Rival', 'P-rival', false, 80)] as never, insights: [{ id: 'review_gap', impact: 1, message: 'Rival has more reviews', place_id: 'P-rival' }], warning: null },
-			{ targets: [{ key: 'self', place_id: 'P-self' }, { key: 'competitor_1', place_id: 'P-rival' }], overall: { self: { overallAvgRank: 9, change: null }, competitor_1: { overallAvgRank: 4, change: null } }, tracker: [] } as never,
 			['public_scores', 'table', 'ranks', 'insights'],
 		);
 		expect(d.public_scores?.map((r) => r.name)).toEqual(['Rival', 'Me']);
-		expect(d.ranks?.map((r) => r.overall_avg_rank)).toEqual([9, 4]);
+		expect(d).not.toHaveProperty('ranks');
+		expect(JSON.stringify(d)).not.toContain('center_rank');
 		expect(d.insights).toEqual(['Rival has more reviews']);
 		expect(JSON.stringify(d)).not.toContain('P-rival');
 	});
@@ -281,11 +315,11 @@ describe('Phase 12.5 report content: Map Ranking across the area, reviews, Googl
 		const row = (name: string, isSelf: boolean, photos: number) => ({
 			name, place_id: `id-${name}`, is_self: isSelf, source: isSelf ? 'self' : 'tracking', rating: 4.5, user_rating_count: 20, primary_type: 'plumber', primary_type_label: 'Plumber',
 			has_hours: true, has_website: true, has_phone: true, has_editorial_summary: true, business_status: 'OPERATIONAL', fetched_at: new Date(), stale: false, error: null,
-			center_rank: { avg: 3, top3_rate: 0.5, keywords_found: 1, keywords: 1 }, public_score: { score: 70, parts: [], flag: null },
+			public_score: { score: 70, parts: [], flag: null },
 			photo_count: photos, photos_capped: photos >= 10, recent_review_at: null,
 			reviews: [1, 2, 3].map((n) => ({ rating: 5, text: `Review ${n} of ${name}`, publish_time: new Date(Date.UTC(2026, 8, 30 - n)), relative_time: `${n} days ago`, author: { name: `Author ${n}`, uri: `https://maps.test/a${n}` } })),
 		});
-		const data = buildCompetitorData({ available: true, generated_at: new Date(), rows: [row('Me', true, 4), row('Rival', false, 10)] as never, insights: [], warning: null }, null, ['table', 'reviews']);
+		const data = buildCompetitorData({ available: true, generated_at: new Date(), rows: [row('Me', true, 4), row('Rival', false, 10)] as never, insights: [], warning: null }, ['table', 'reviews']);
 		expect(data.table?.map((r) => r.photos)).toEqual([4, 10]);
 		expect(data.reviews?.[1].items.map((i) => i.author)).toEqual(['Author 1', 'Author 2']); // newest 2
 		const doc = buildDocument({ type: 'competitor_analysis', location: LOCATION, branding: BRAND, data: { competitor_analysis: data }, generated_at: new Date('2026-09-30T00:00:00Z') });

@@ -51,26 +51,59 @@ export interface RankTrackerData {
 
 // ---- GBP Audit ----
 
+export interface AuditStateCounts {
+	pass: number;
+	partial: number;
+	fail: number;
+	not_available: number;
+}
+
+export interface AuditPerformanceTotals {
+	impressions: number;
+	maps: number;
+	search: number;
+	mobile: number;
+	desktop: number;
+	calls: number;
+	website_clicks: number;
+	direction_requests: number;
+	conversations: number;
+	bookings: number;
+	actions: number;
+}
+
 export interface GbpAuditData {
 	available: true;
 	generated_at: Date;
 	range: ReportRangeParam;
 	v4_enabled: boolean;
-	score?: Part<{ score: number; grade: string; partial: boolean; excluded_pillars: string[]; pillars: { id: string; weight: number; score: number | null; available: boolean }[] }>;
+	score?: Part<{
+		score: number;
+		grade: string;
+		partial: boolean;
+		/** 2026-10-02: scoring version (2: no ranking data) and pass / partial / fail / not_available counts. */
+		version: number;
+		counts: AuditStateCounts;
+		excluded_pillars: string[];
+		pillars: { id: string; weight: number; score: number | null; available: boolean; state: string; counts: AuditStateCounts }[];
+	}>;
 	checks?: Part<{
-		checks: { label: string; pillar: string; status: string; points: number; max: number; detail: string; fix_hint: string | null }[];
+		checks: { label: string; pillar: string; status: string; state: string; points: number; max: number; detail: string; fix_hint: string | null; why_it_matters: string | null }[];
 		top_fixes: { label: string; pillar: string; fix_hint: string | null }[];
 	}>;
 	performance?: Part<{
 		start: string;
 		end: string;
 		days: number;
-		totals: { impressions: number; maps: number; search: number; mobile: number; desktop: number; calls: number; website_clicks: number; direction_requests: number; actions: number };
-		previous_change: { impressions: number | null; actions: number | null };
-		last_year_change: { impressions: number | null; actions: number | null };
+		totals: AuditPerformanceTotals;
+		/** 2026-10-02: every metric's change vs the previous period and the same period last year (fractions). */
+		previous_change: Record<keyof AuditPerformanceTotals, number | null>;
+		last_year_change: Record<keyof AuditPerformanceTotals, number | null>;
+		by_surface: { maps: number; search: number };
+		by_device: { mobile: number; desktop: number };
 		actions_per_1000: number | null;
 		actions_per_1000_change: number | null;
-		by_day: { date: string; impressions: number; actions: number }[];
+		by_day: { date: string; impressions: number; maps: number; search: number; actions: number; calls: number; website_clicks: number; direction_requests: number }[];
 	}>;
 	keywords?: Part<{ latest_month: string; top: { keyword: string; value: number | null; threshold: number | null; change: number | null; tracked: boolean }[] }>;
 	profile?: Part<{
@@ -112,7 +145,6 @@ export interface CompetitorData {
 		photos?: number | null;
 		photos_capped?: boolean;
 	}[];
-	ranks?: { name: string; is_self: boolean; overall_avg_rank: number | null; top3_rate: number | null; center_avg: number | null; center_top3_rate: number | null }[];
 	insights?: string[];
 	/** Phase 12.5: up to 2 recent Google reviews per business, with the author attribution. */
 	reviews?: { name: string; is_self: boolean; items: { rating: number | null; text: string | null; when: string | null; author: string | null; author_uri: string | null }[] }[];

@@ -1,26 +1,40 @@
 import { GbpProfileSummary } from '../../models/gbpData.model';
 import { ReviewStats } from '../report/reviews';
-import { GBP_SCORE, PILLARS, PILLAR_WEIGHTS, PillarId, TOP_FIXES, gradeFor, maxBand, minBand } from '../scoring.config';
+import { GBP_SCORE, PILLARS, PILLAR_WEIGHTS, PillarId, SCORING_VERSION, TOP_FIXES, gradeFor, maxBand, minBand } from '../scoring.config';
+import { WHY_IT_MATTERS } from './checkInfo';
 import { HolidayCountry, upcomingHolidays } from './holidays';
 
-// GBP Score (Phase 7c): the client's private 0–100 score over 5 pillars. Pure.
+// GBP Score (Phase 7c; version 2 since 2026-10-02): the client's private 0–100 score over 4 pillars
+// (completeness, activity, reviews, performance; no ranking data). Pure.
 // A check whose data doesn't exist is `not_available` and left out; a pillar with no available
 // check is excluded, and the remaining pillars are rescaled to 100 (`partial: true`).
 
 const DAY_MS = 86_400_000;
 
 export type CheckStatus = 'scored' | 'not_available';
+/** 2026-10-02: pass = full points, fail = 0, partial = between, not_available = no data (not scored). */
+export type CheckState = 'pass' | 'partial' | 'fail' | 'not_available';
+/** Pillar: pass / fail when every scored check is; partial when mixed; not_available when excluded. */
+export type PillarState = CheckState;
+export interface StateCounts {
+	pass: number;
+	partial: number;
+	fail: number;
+	not_available: number;
+}
 
 export interface ScoreCheck {
 	id: string;
 	pillar: PillarId;
 	label: string;
 	status: CheckStatus;
+	state: CheckState;
 	value: number | string | boolean | null;
 	points: number;
 	max: number;
 	detail: string;
 	fix_hint: string | null;
+	why_it_matters: string | null;
 }
 
 export interface PillarResult {
@@ -32,10 +46,14 @@ export interface PillarResult {
 	available_max: number;
 	/** The pillar's share of its weight (earned / available_max × weight), 1 decimal; null if excluded. */
 	score: number | null;
+	state: PillarState;
+	counts: StateCounts;
 }
 
 export interface GbpScoreResult {
 	available: true;
+	/** SCORING_VERSION the score was computed with (2: no ranking data). */
+	version: number;
 	score: number;
 	grade: ReturnType<typeof gradeFor>;
 	partial: boolean;
@@ -43,6 +61,7 @@ export interface GbpScoreResult {
 	pillars: PillarResult[];
 	checks: ScoreCheck[];
 	top_fixes: ScoreCheck[];
+	counts: StateCounts;
 }
 
 export interface GbpScoreInput {
@@ -56,8 +75,6 @@ export interface GbpScoreInput {
 	posts: { last_post_at: Date | null; last_90_days: number } | null;
 	media: { owner_count: number; latest_owner_upload: Date | null } | null;
 	reviews: ReviewStats | null;
-	/** From the latest done/partial rank run (the client's own target). */
-	ranking: { overall_avg_rank: number | null; top3_rate: number | null } | null;
 	/** From the last 28 days of performance; changes are fractions (0.1 = +10 %), null without enough coverage. */
 	performance: { impressions_change: number | null; actions_per_1000: number | null; actions_per_1000_change: number | null } | null;
 }
@@ -70,11 +87,13 @@ const scored = (pillar: PillarId, id: string, label: string, points: number, max
 	pillar,
 	label,
 	status: 'scored',
+	state: points >= max ? 'pass' : points <= 0 ? 'fail' : 'partial',
 	value,
 	points,
 	max,
 	detail,
 	fix_hint: points < max ? fix : null,
+	why_it_matters: WHY_IT_MATTERS[id] ?? null,
 });
 
 const notAvailable = (pillar: PillarId, id: string, label: string, max: number, detail: string): ScoreCheck => ({
@@ -82,12 +101,28 @@ const notAvailable = (pillar: PillarId, id: string, label: string, max: number, 
 	pillar,
 	label,
 	status: 'not_available',
+	state: 'not_available',
 	value: null,
 	points: 0,
 	max,
 	detail,
 	fix_hint: null,
+	why_it_matters: WHY_IT_MATTERS[id] ?? null,
 });
+
+export const countStates = (checks: Pick<ScoreCheck, 'state'>[]): StateCounts => {
+	const counts: StateCounts = { pass: 0, partial: 0, fail: 0, not_available: 0 };
+	for (const c of checks) counts[c.state] += 1;
+	return counts;
+};
+
+const pillarState = (counts: StateCounts): PillarState => {
+	const scored = counts.pass + counts.partial + counts.fail;
+	if (scored === 0) return 'not_available';
+	if (counts.pass === scored) return 'pass';
+	if (counts.fail === scored) return 'fail';
+	return 'partial';
+};
 
 const completenessChecks = (input: GbpScoreInput): ScoreCheck[] => {
 	const c = GBP_SCORE.completeness;
@@ -218,45 +253,45 @@ const reviewChecks = (input: GbpScoreInput): ScoreCheck[] => {
 	return checks;
 };
 
-const visibilityChecks = (input: GbpScoreInput): ScoreCheck[] => {
-	const v = GBP_SCORE.visibility;
-	const p: PillarId = 'visibility';
-	const checks: ScoreCheck[] = [];
-	const rank = input.ranking?.overall_avg_rank ?? null;
-	if (rank === null) checks.push(notAvailable(p, 'map_rank', 'Average map rank', v.overallAvgRank.max, 'No completed rank run yet.'));
-	else checks.push(scored(p, 'map_rank', 'Average map rank', maxBand(rank, v.overallAvgRank.bands), v.overallAvgRank.max, rank, `Average rank ${rank} across your keywords.`, 'Improve relevance and prominence for your keywords (categories, reviews, posts).'));
-	const top3 = input.ranking?.top3_rate ?? null;
-	if (top3 === null) checks.push(notAvailable(p, 'top3_rate', 'Top-3 rate', v.top3Rate.max, 'No completed rank run yet.'));
-	else checks.push(scored(p, 'top3_rate', 'Top-3 rate', minBand(top3, v.top3Rate.bands), v.top3Rate.max, top3, `In the top 3 at ${Math.round(top3 * 100)} % of points.`, 'Target the keywords where you are just outside the top 3.'));
+/** Performance (version 2): Google's own numbers only (impressions trend, actions per 1,000, actions trend). */
+const performanceChecks = (input: GbpScoreInput): ScoreCheck[] => {
+	const g = GBP_SCORE.performance;
+	const p: PillarId = 'performance';
+	const noData = 'Not enough performance data yet.';
 	const trend = input.performance?.impressions_change ?? null;
-	if (trend === null) checks.push(notAvailable(p, 'impressions_trend', 'Impressions trend', v.impressionsTrend.max, 'Not enough performance data yet.'));
-	else checks.push(scored(p, 'impressions_trend', 'Impressions trend', minBand(trend, v.impressionsTrend.bands), v.impressionsTrend.max, trend, `${pct(trend)} vs the previous 28 days.`, 'Grow visibility with regular posts, photos and reviews.'));
-	return checks;
-};
-
-const engagementChecks = (input: GbpScoreInput): ScoreCheck[] => {
-	const e = GBP_SCORE.engagement;
-	const p: PillarId = 'engagement';
 	const rate = input.performance?.actions_per_1000 ?? null;
 	const change = input.performance?.actions_per_1000_change ?? null;
 	return [
+		trend === null
+			? notAvailable(p, 'impressions_trend', 'Impressions trend', g.impressionsTrend.max, noData)
+			: scored(p, 'impressions_trend', 'Impressions trend', minBand(trend, g.impressionsTrend.bands), g.impressionsTrend.max, trend, `${pct(trend)} vs the previous 28 days.`, 'Grow visibility with regular posts, photos and reviews.'),
 		rate === null
-			? notAvailable(p, 'actions_per_1000', 'Actions per 1,000 impressions', e.actionsPer1000.max, 'Not enough performance data yet.')
-			: scored(p, 'actions_per_1000', 'Actions per 1,000 impressions', minBand(rate, e.actionsPer1000.bands), e.actionsPer1000.max, rate, `${rate} calls, clicks and direction requests per 1,000 impressions.`, 'Make calls and bookings easy: accurate phone, website, hours and a clear description.'),
+			? notAvailable(p, 'actions_per_1000', 'Actions per 1,000 impressions', g.actionsPer1000.max, noData)
+			: scored(p, 'actions_per_1000', 'Actions per 1,000 impressions', minBand(rate, g.actionsPer1000.bands), g.actionsPer1000.max, rate, `${rate} calls, clicks and direction requests per 1,000 impressions.`, 'Make calls and bookings easy: accurate phone, website, hours and a clear description.'),
 		change === null
-			? notAvailable(p, 'actions_trend', 'Engagement trend', e.actionsTrend.max, 'Not enough performance data yet.')
-			: scored(p, 'actions_trend', 'Engagement trend', minBand(change, e.actionsTrend.bands), e.actionsTrend.max, change, `${pct(change)} vs the previous 28 days.`, 'Refresh photos and posts to turn more views into actions.'),
+			? notAvailable(p, 'actions_trend', 'Engagement trend', g.actionsTrend.max, noData)
+			: scored(p, 'actions_trend', 'Engagement trend', minBand(change, g.actionsTrend.bands), g.actionsTrend.max, change, `${pct(change)} vs the previous 28 days.`, 'Refresh photos and posts to turn more views into actions.'),
 	];
 };
 
 export const computeGbpScore = (input: GbpScoreInput): GbpScoreResult => {
-	const checks = [...completenessChecks(input), ...activityChecks(input), ...reviewChecks(input), ...visibilityChecks(input), ...engagementChecks(input)];
+	const checks = [...completenessChecks(input), ...activityChecks(input), ...reviewChecks(input), ...performanceChecks(input)];
 	const pillars: PillarResult[] = PILLARS.map((id) => {
 		const available = checks.filter((c) => c.pillar === id && c.status === 'scored');
 		const availableMax = available.reduce((s, c) => s + c.max, 0);
 		const earned = available.reduce((s, c) => s + c.points, 0);
 		const weight = PILLAR_WEIGHTS[id];
-		return { id, weight, available: availableMax > 0, earned, available_max: availableMax, score: availableMax > 0 ? round1((earned / availableMax) * weight) : null };
+		const counts = countStates(checks.filter((c) => c.pillar === id));
+		return {
+			id,
+			weight,
+			available: availableMax > 0,
+			earned,
+			available_max: availableMax,
+			score: availableMax > 0 ? round1((earned / availableMax) * weight) : null,
+			state: pillarState(counts),
+			counts,
+		};
 	});
 	const included = pillars.filter((p) => p.available);
 	const includedWeight = included.reduce((s, p) => s + p.weight, 0);
@@ -273,6 +308,7 @@ export const computeGbpScore = (input: GbpScoreInput): GbpScoreResult => {
 		.slice(0, TOP_FIXES);
 	return {
 		available: true,
+		version: SCORING_VERSION,
 		score,
 		grade: gradeFor(score),
 		partial: excluded.length > 0,
@@ -280,5 +316,6 @@ export const computeGbpScore = (input: GbpScoreInput): GbpScoreResult => {
 		pillars,
 		checks,
 		top_fixes: topFixes,
+		counts: countStates(checks),
 	};
 };

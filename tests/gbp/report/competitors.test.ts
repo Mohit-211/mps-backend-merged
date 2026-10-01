@@ -1,4 +1,4 @@
-import { CompetitorRow, EMPTY_FACTS, MapListSection, centerRanksFor, competitorSet, factsFromDetails, needsFetch, scoreRow } from '../../../src/gbp/report/competitors';
+import { CompetitorRow, EMPTY_FACTS, MapListSection, competitorSet, factsFromDetails, needsFetch, scoreRow } from '../../../src/gbp/report/competitors';
 
 const NOW = new Date('2026-09-26T12:00:00Z');
 const H = 3_600_000;
@@ -37,14 +37,6 @@ describe('competitorSet', () => {
 
 	it('works without a map list', () => {
 		expect(competitorSet('SELF', [], [])).toEqual([{ place_id: 'SELF', source: 'self' }]);
-	});
-});
-
-describe('centerRanksFor', () => {
-	it('matches the client by is_self (moved place IDs) and competitors by place_id', () => {
-		expect(centerRanksFor('SELF', true, mapList)).toEqual([2, null]);
-		expect(centerRanksFor('B', false, mapList)).toEqual([3, 1]);
-		expect(centerRanksFor('Z', false, mapList)).toEqual([null, null]);
 	});
 });
 
@@ -89,11 +81,11 @@ describe('rows', () => {
 		expect(factsFromDetails({ displayName: 'X' })).toMatchObject({ photo_count: 0, photos_capped: false, reviews: [], recent_review_at: null, has_editorial_summary: false });
 	});
 
-	it('a never-fetched row has no public score; a fetched one is scored with its center ranks', () => {
-		const empty = scoreRow({ place_id: 'B', is_self: false, source: 'tracking', ...EMPTY_FACTS, fetched_at: null, stale: true, error: 'x' }, mapList);
+	it('a never-fetched row has no public score; a fetched one is scored (no rank data in the row since 2026-10-02)', () => {
+		const empty = scoreRow({ place_id: 'B', is_self: false, source: 'tracking', ...EMPTY_FACTS, fetched_at: null, stale: true, error: 'x' });
 		expect(empty.public_score).toBeNull();
-		expect(empty.center_rank).toMatchObject({ avg: 2, keywords_found: 2 });
-		const row: CompetitorRow = scoreRow({ place_id: 'B', is_self: false, source: 'tracking', ...EMPTY_FACTS, rating: 4.8, user_rating_count: 250, fetched_at: NOW, stale: false, error: null }, mapList);
+		expect(empty).not.toHaveProperty('center_rank');
+		const row: CompetitorRow = scoreRow({ place_id: 'B', is_self: false, source: 'tracking', ...EMPTY_FACTS, rating: 4.8, user_rating_count: 250, fetched_at: NOW, stale: false, error: null });
 		expect(row.public_score?.score).toBeGreaterThan(0);
 	});
 });

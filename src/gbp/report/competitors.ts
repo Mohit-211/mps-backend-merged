@@ -1,9 +1,10 @@
 import { PlaceDetails } from '../../clients/types/places';
 import { MAP_LIST_COMPETITORS, MAX_COMPETITORS, MAX_STORED_REVIEWS, PHOTO_COUNT_CAP } from '../scoring.config';
-import { CenterRank, PublicScore, centerRank, computePublicScore } from '../score/publicScore';
+import { PublicScore, computePublicScore } from '../score/publicScore';
 
 // Competitor comparison (Phase 7c), pure parts: which businesses to compare, when a business's
-// Place Details must be fetched again, and the table rows.
+// Place Details must be fetched again, and the table rows. The latest map list only picks which nearby
+// businesses to compare; since 2026-10-02 the rows carry no rank data (ranking report only).
 
 const DAY_MS = 86_400_000;
 
@@ -61,7 +62,6 @@ export interface CompetitorRow extends PlaceFacts {
 	/** True when the last fetch failed and older facts (if any) are shown. */
 	stale: boolean;
 	error: string | null;
-	center_rank: CenterRank;
 	public_score: PublicScore | null;
 }
 
@@ -91,10 +91,6 @@ export const competitorSet = (selfPlaceId: string | null, tracking: string[], ma
 	}
 	return out;
 };
-
-/** Center rank per map-list keyword (null when not in the top 20). The client is matched by is_self. */
-export const centerRanksFor = (placeId: string, isSelf: boolean, mapList: MapListSection[]): (number | null)[] =>
-	centerSections(mapList).map((section) => section.results.find((r) => (isSelf ? r.is_self : r.place_id === placeId))?.rank ?? null);
 
 export interface FreshnessInput {
 	now: Date;
@@ -159,12 +155,10 @@ export const EMPTY_FACTS: PlaceFacts = {
 	recent_review_at: null,
 };
 
-/** Adds the center ranks and the Public Score to a row (null score while never fetched). */
-export const scoreRow = (row: Omit<CompetitorRow, 'center_rank' | 'public_score'>, mapList: MapListSection[]): CompetitorRow => {
-	const ranks = centerRanksFor(row.place_id, row.is_self, mapList);
+/** Adds the Public Score to a row (null while never fetched). 2026-10-02: no ranking data in the row. */
+export const scoreRow = (row: Omit<CompetitorRow, 'public_score'>): CompetitorRow => {
 	return {
 		...row,
-		center_rank: centerRank(ranks),
 		public_score: row.fetched_at
 			? computePublicScore({
 					rating: row.rating,
@@ -175,7 +169,6 @@ export const scoreRow = (row: Omit<CompetitorRow, 'center_rank' | 'public_score'
 					has_phone: row.has_phone,
 					has_editorial_summary: row.has_editorial_summary,
 					business_status: row.business_status,
-					center_ranks: ranks,
 				})
 			: null,
 	};

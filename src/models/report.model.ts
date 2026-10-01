@@ -11,7 +11,7 @@ export type ReportType = (typeof REPORT_TYPES)[number];
 export const REPORT_SECTIONS = {
 	rank_tracker: ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking', 'keyword_groups'],
 	gbp_audit: ['score', 'checks', 'performance', 'keywords', 'profile', 'verification', 'pending_edits', 'reviews_media_posts'],
-	competitor_analysis: ['public_scores', 'table', 'ranks', 'insights', 'reviews'],
+	competitor_analysis: ['public_scores', 'table', 'insights', 'reviews'],
 	// Phase 16: the Citation Report (and the Citations part of the Full report).
 	citation: ['score', 'table', 'nap_issues', 'changes'],
 	full: ['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation'],
