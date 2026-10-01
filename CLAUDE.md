@@ -39,7 +39,7 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | **17** | **Ranking extras** (pulled forward 2026-10-01 for the real ranking pages): grids 3–13 by radius (≤ 15 km), map pins for Map Ranking, keyword change across edits, keyword groups, keyword history, competitor names (max 5), report run dates. Spec §12i; plan `docs/plans/phase-17-ranking-extras.md` | **built, awaiting merge** | `claude/phase-17-ranking-extras` | – |
 | – | **AI GBP posts**: AI text + images, publishing schedules, optional approval, calendar (needs GBP v4; extends 9). Groundwork: `docs/plans/upcoming-features.md` §A | planned, spec pending | – | – |
 | – | **AI visibility**: presence in AI assistants' answers (ChatGPT, Gemini, Perplexity, Claude) over time, score, competitor comparison. §B | planned, spec pending | – | – |
-| – | **Review management**: review sync, AI analysis, AI reply suggestions and auto-reply with rules / approval (needs GBP v4). §C | planned, spec pending | – | – |
+| **18** | **Reputation: review management + shared OpenAI layer** (2026-10-02): reviews refresh (button + monthly), deterministic flags, AI reply drafts for 4–5 stars, explicit send, AI analysis, appeal drafts (manual submission: Google has no report API), review stats on the dashboard, insights. AI spends MyPageSEO tokens. Auto-reply later. Spec §12j; plan `docs/plans/phase-18-reviews.md` | **in progress** | `claude/phase-18-reviews` | – |
 | – | **White-label hosting**: agency-branded reports on a separate generic domain, no MyPageSEO branding. §D | planned, spec pending | – | – |
 | 9b | Cleanup (ARCHITECTURE.md, final docs pass; Swagger was removed in 13b) | ongoing | – | – |
 
@@ -972,6 +972,23 @@ Branch `claude/phase-17-ranking-extras` from `master`. Requested by the frontend
 - **History:** `src/services/ranking/keywordHistory.ts`, `GET /locations/:id/keyword-history`; `GET /rank-runs` adds `targets`.
 - **Competitors:** `src/services/ranking/competitorInfo.ts`, `tracking.competitor_info`, `competitors` on `GET/PUT /tracking`, `targets[].name` on runs, reasons `too_many_competitors`, `own_place_id`, `invalid_place_id`.
 - **Reports:** `Report.params.run_at`, `run_at` on report views.
+
+**Gate.**
+
+## 12j. PHASE 18 — Reputation: review management + shared OpenAI layer (2026-10-02)
+
+Branch `claude/phase-18-reviews` from `master`. Plan approved by Mohit: **`docs/plans/phase-18-reviews.md`** (his "Review Management AI" PDF is the background; it is guidance, not a contract). Covers the roadmap's "Review management" item and the review half of Phase 9 (posting stays Phase 9).
+
+**Governing rule:** deterministic software first; AI only on an explicit user action. Never spend Google quota or OpenAI credits in the background; never send every review to AI; never re-run an AI task whose inputs didn't change; never report or publish automatically.
+
+**Decisions (Mohit, 2026-10-02):**
+- AI actions spend **MyPageSEO tokens** (existing ledger; costs admin-set per plan: `BillingPlan.ai_token_costs`), refunded when the AI call fails; a server-wide daily $ cap (`AI_DAILY_BUDGET_USD`) as a safety net.
+- Model **`gpt-5-nano`** by default (`OPENAI_MODEL`), minimal reasoning, structured JSON outputs, small inputs.
+- AI reply suggestions **only for 4–5 star** reviews (not replied, not flagged suspicious); 1–3 star replies are written by the user. Sending is always an explicit action.
+- **Auto-reply: later.**
+- Reviews refresh: **Refresh Reviews button** (incremental, newest first, once per 15 min per location, free) **plus** the monthly `gbp-sync`.
+- **No Google API exists to report or appeal a review** (v4 reviews has list / get / updateReply / deleteReply only, verified 2026-10-02): the appeal feature is an AI-drafted text + a link to Google's Reviews Management Tool; the user submits it and records the outcome.
+- Flags use "Suspicious indicators" wording, never "fake".
 
 **Gate.**
 
