@@ -22,7 +22,7 @@ The demo data comes from an offline client, so it needs no API key.
 | 404 | Someone else's location, or a deleted or inactive one |
 | 400 | Malformed `locationId` |
 
-**Envelope:** every response is `{ success, status, message, data }`. For errors, `data` is `""`, except for the 422 on `POST rank-runs`.
+**Envelope:** every response is `{ success, status, message, data }`. For errors, `data` carries the machine-readable details when there are any: `{ "reason": "…", …extra fields }` (e.g. `{ "reason": "location_payment_required", "quote": {…} }`). Build UI states on `data.reason`, never on `message`. Errors without a reason (plain validation failures, unknown routes, 500s) have `data: ""`.
 
 **Targets** are keyed `self` (the client) and `competitor_1`…`competitor_5`, in the order of `tracking.competitors`. The mapping for a run is in `targets`.
 
