@@ -47,8 +47,9 @@ The demo data comes from an offline client, so it needs no API key.
 **Run status:** `queued` → `running` → `done` | `partial` (some searches failed) | `failed`. Only `done` and `partial` runs have reports.
 
 **Page endpoints** (`rank-tracker`, `grid`, `map-ranking`) show the **latest done or partial run**. Pass `?runId=` to view an older one.
-- 404 `"No completed run yet"` before the first run finishes.
-- 409 when `runId` points to a run that is not done or partial.
+- **404** `{ "reason": "no_completed_run" }` before the first run finishes (show "Your first ranking run is in progress"; a location that isn't yours is a 404 **without** a reason).
+- **404** `{ "reason": "run_not_found" }` for an unknown `runId`; **409** `{ "reason": "run_not_finished", "status": "queued" | "running" | "failed" }` for a run that is not done or partial.
+- **404** `{ "reason": "keyword_not_in_run" }` for a `keyword` the run doesn't have; map-ranking: **404** `{ "reason": "point_not_in_run", "available": ["C", …] }`.
 
 **`RunMeta`** (the `run` field on page responses): `{ run_id, run_at, status, keywords_version, center: { lat, lng }, config: { grid_size, spacing_km, tracker_offset_km, radius_m, store_place_names } }`.
 
