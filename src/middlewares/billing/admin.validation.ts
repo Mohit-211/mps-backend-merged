@@ -26,6 +26,13 @@ const planFields = {
 	max_locations: Joi.number().integer().min(1).max(10000).allow(null),
 	trial: Joi.object({ days: Joi.number().integer().min(0).max(90), locations: Joi.number().integer().min(0).max(100), users: Joi.number().integer().min(1).max(100), tokens: Joi.number().integer().min(0).max(10000) }),
 	tokens_per_refresh: Joi.object({ rankings: Joi.number().integer().min(0).max(100), gbp: Joi.number().integer().min(0).max(100) }),
+	// Phase 18: tokens per AI action.
+	ai_token_costs: Joi.object({
+		reply_drafts_per_10: Joi.number().integer().min(0).max(100),
+		analysis_per_10: Joi.number().integer().min(0).max(100),
+		appeal: Joi.number().integer().min(0).max(100),
+		insights: Joi.number().integer().min(0).max(100),
+	}),
 	monthly_token_grant: Joi.number().integer().min(0).max(100000),
 	token_pack_discount_percent: Joi.number().min(0).max(100),
 	token_pack_prices: Joi.array().items(Joi.object({ pack_id: objectId.required(), currency: Joi.string().valid(...CURRENCIES).required(), price: money.required() })).max(100),

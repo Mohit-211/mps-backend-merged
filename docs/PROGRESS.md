@@ -1317,3 +1317,27 @@ Branch `claude/phase-17-ranking-extras` from `master` (`85ef65d`). Pulled forwar
 git checkout master && git merge --no-ff claude/phase-17-ranking-extras -m "Merge Phase 17: ranking extras (grids by radius, map pins, change across edits, keyword groups, history, competitor names)"
 git push origin master claude/phase-17-ranking-extras
 ```
+
+## Phase 18: Reputation, review management + shared OpenAI layer (2026-10-02)
+
+Branch `claude/phase-18-reviews` from `master` (`6230c80`). Spec CLAUDE.md §12j; plan [plans/phase-18-reviews.md](plans/phase-18-reviews.md). Background: Mohit's "Review Management AI" PDF (guidance), GBP v4 granted the same day.
+
+**Decisions (Mohit):** AI spends MyPageSEO tokens; `gpt-5-nano`; AI reply drafts only for 4-5 stars; Refresh Reviews button + monthly sync; auto-reply later. **Verified:** Google's v4 reviews API has list / get / updateReply / deleteReply only, no report or appeal API, so appeals are drafted for manual submission.
+
+**What changed:**
+- **Shared AI layer:** `openaiClient` (Responses API, strict JSON, `store: false`), `aiService.runAiTask` (configured check → daily budget → token spend → call → ledger; refund on failure), `AiCall` / `AiBudgetDay`, OpenAI prices.
+- **Billing:** `ai_token_costs` per plan (defaults 1 / 10 drafts, 1 / 10 analyses, 1 appeal, 2 insights), shown in `GET /billing`, editable by admins.
+- **Reviews:** one store for sync and refresh (fingerprints, system flags, reply state from Google), stats on `Location.summary.reputation`, 13 endpoints (#159–#171): list, summary, refresh, drafts, save / delete draft, send, delete reply, analyze, appeal draft, report status, insights. Dashboard `reviews` block + two recommended actions.
+- **Endpoints:** 233 → 246.
+
+**Checks:** build 0 errors; both tsc configs 0; lint 40 (legacy only); tests **107 suites, 974** with the docs test passing after the ENDPOINTS update; `check:endpoints` passes.
+
+**API calls:** none to OpenAI (no key yet; all tests use fakes). Research only: OpenAI's pricing page and Google's v4 reviews reference.
+
+**Open:** an OpenAI key in the server's `.env` (and locally for a live check: one draft batch of 2 reviews + one analysis, under $0.01, when Mohit says so). Auto-reply is the next small step when wanted.
+
+**Merge and push (run by Mohit):**
+```bash
+git checkout master && git merge --no-ff claude/phase-18-reviews -m "Merge Phase 18: Reputation (review management) + shared OpenAI layer"
+git push origin master claude/phase-18-reviews
+```

@@ -8,6 +8,7 @@ import contactUsRoutes from './contactUs.route';
 import locationRoute from './location.route';
 import rankingRoute from './ranking.route';
 import citationsRoute from './citations.route';
+import reviewsRoute from './reviews.route';
 import onboardingRoute from './onboarding.route';
 import placesRoute from './places.route';
 import businessCategoryRoute from './businessCategory.route';
@@ -64,6 +65,11 @@ const commonRoutes = [
 		// Citations (Phase 16): /locations/:locationId/citations[/changes], read-only.
 		path: '/locations',
 		route: citationsRoute,
+	},
+	{
+		// Review management (Phase 18): /locations/:locationId/reviews/*
+		path: '/locations',
+		route: reviewsRoute,
 	},
 	{
 		// Phase 8: signup / verify / login / password reset for the rebuilt app

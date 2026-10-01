@@ -1,7 +1,7 @@
 import httpStatus from 'http-status';
 import { Types } from 'mongoose';
 import config from '../../configs/config';
-import { BillingMethod, currencyFor, Currency } from '../../billing/constants';
+import { AI_TOKEN_COST_DEFAULTS, BillingMethod, currencyFor, Currency } from '../../billing/constants';
 import { monthlyLines, priceAt } from '../../billing/pricing';
 import {
 	AuditLog,
@@ -49,6 +49,7 @@ export const planView = (p: IBillingPlan) => ({
 	max_locations: p.max_locations,
 	trial: p.trial,
 	tokens_per_refresh: p.tokens_per_refresh,
+	ai_token_costs: { ...AI_TOKEN_COST_DEFAULTS, ...(p.ai_token_costs ?? {}) },
 	monthly_token_grant: p.monthly_token_grant,
 	token_pack_discount_percent: p.token_pack_discount_percent,
 	token_pack_prices: (p.token_pack_prices ?? []).map((x) => ({ pack_id: String(x.pack_id), currency: x.currency, price: x.price })),
@@ -77,7 +78,7 @@ const loadPlan = async (planId: string) => {
 
 export const getPlan = async (planId: string) => planView(await loadPlan(planId));
 
-export type PlanSettings = Partial<Pick<IBillingPlan, 'name' | 'entitlements' | 'users_per_location' | 'max_locations' | 'trial' | 'tokens_per_refresh' | 'monthly_token_grant' | 'token_pack_discount_percent' | 'is_active'>> & {
+export type PlanSettings = Partial<Pick<IBillingPlan, 'name' | 'entitlements' | 'users_per_location' | 'max_locations' | 'trial' | 'tokens_per_refresh' | 'ai_token_costs' | 'monthly_token_grant' | 'token_pack_discount_percent' | 'is_active'>> & {
 	token_pack_prices?: { pack_id: string; currency: Currency; price: number }[];
 };
 
@@ -88,7 +89,7 @@ export const updatePlan = async (actor: AuditActor, planId: string, input: PlanS
 	const set: Record<string, unknown> = {};
 	for (const [k, v] of Object.entries(input)) {
 		if (v === undefined) continue;
-		if (k === 'entitlements' || k === 'trial' || k === 'tokens_per_refresh') {
+		if (k === 'entitlements' || k === 'trial' || k === 'tokens_per_refresh' || k === 'ai_token_costs') {
 			for (const [sub, val] of Object.entries(v as Record<string, unknown>)) set[`${k}.${sub}`] = val;
 		} else if (k === 'token_pack_prices') {
 			set[k] = (v as PlanSettings['token_pack_prices'])?.map((x) => ({ pack_id: new Types.ObjectId(x.pack_id), currency: x.currency, price: x.price }));
@@ -153,6 +154,7 @@ export const createCustomPlan = async (actor: AuditActor, organizationId: string
 			max_locations: settings.max_locations === undefined ? base.max_locations : settings.max_locations,
 			trial: { ...base.trial, ...(settings.trial ?? {}) },
 			tokens_per_refresh: { ...base.tokens_per_refresh, ...(settings.tokens_per_refresh ?? {}) },
+			ai_token_costs: { ...AI_TOKEN_COST_DEFAULTS, ...(base.ai_token_costs ?? {}), ...(settings.ai_token_costs ?? {}) },
 			monthly_token_grant: settings.monthly_token_grant ?? 0,
 			token_pack_discount_percent: settings.token_pack_discount_percent ?? 0,
 			token_pack_prices: (packPrices ?? []).map((x) => ({ pack_id: new Types.ObjectId(x.pack_id), currency: x.currency, price: x.price })),

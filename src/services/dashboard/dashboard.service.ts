@@ -92,6 +92,36 @@ const reviewsBlock = (items: Item[]) => {
 		const total = count(list);
 		return total > 0 ? round(list.reduce((s, i) => s + (i.summary.rating ?? 0) * (i.summary.review_count ?? 0), 0) / total, 1) : mean(list.map((i) => i.summary.rating));
 	};
+	// Phase 18: review management numbers (MongoDB counts kept on each location after every refresh / sync / reply).
+	const managed = items.filter((i) => i.summary.reputation);
+	if (managed.length) {
+		const sum = (k: 'total' | 'new_this_month' | 'positive' | 'negative' | 'unreplied' | 'awaiting_attention' | 'flagged' | 'suspicious' | 'drafts_pending' | 'replies_sent_this_month') =>
+			managed.reduce((s, i) => s + (i.summary.reputation?.[k] ?? 0), 0);
+		const total = sum('total');
+		const rated = managed.filter((i) => typeof i.summary.reputation?.average_rating === 'number');
+		const weightedAvg = total > 0 ? round(rated.reduce((s, i) => s + (i.summary.reputation?.average_rating ?? 0) * (i.summary.reputation?.total ?? 0), 0) / total, 1) : null;
+		return {
+			available: true as const,
+			rating: weightedAvg,
+			count: total,
+			unreplied: sum('unreplied'),
+			new_this_month: sum('new_this_month'),
+			positive: sum('positive'),
+			negative: sum('negative'),
+			awaiting_attention: sum('awaiting_attention'),
+			flagged: sum('flagged'),
+			suspicious: sum('suspicious'),
+			drafts_pending: sum('drafts_pending'),
+			replies_sent_this_month: sum('replies_sent_this_month'),
+			last_review_at: managed.map((i) => i.summary.reputation?.last_review_at ?? null).filter((d): d is Date => Boolean(d)).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null,
+			/** Locations with reviews waiting for a reply or a look (most first, max 10). */
+			needs_attention: managed
+				.filter((i) => (i.summary.reputation?.awaiting_attention ?? 0) > 0)
+				.sort((a, b) => (b.summary.reputation?.awaiting_attention ?? 0) - (a.summary.reputation?.awaiting_attention ?? 0))
+				.slice(0, 10)
+				.map((i) => ({ location_id: i.location_id, name: i.name, awaiting_attention: i.summary.reputation?.awaiting_attention ?? 0, suspicious: i.summary.reputation?.suspicious ?? 0 })),
+		};
+	}
 	if (withReviews.length) {
 		return { available: true as const, rating: weighted(withReviews), count: count(withReviews), unreplied: withReviews.reduce((s, i) => s + (i.summary.unreplied ?? 0), 0) };
 	}
@@ -230,6 +260,10 @@ const tableOf = (items: Item[], query: DashboardQuery) => {
 			visibility: { avg_rank: i.summary.overall_avg_rank ?? null, change: i.summary.overall_change ?? null, top3_rate: i.summary.top3_rate ?? null },
 			gbp: typeof i.summary.gbp_score === 'number' ? { score: i.summary.gbp_score, grade: i.summary.gbp_grade ?? null, change: i.summary.gbp_score_change ?? null } : null,
 			citations: typeof i.summary.citation_score === 'number' ? { score: i.summary.citation_score, grade: i.summary.citation_grade ?? null, nap_wrong: i.summary.citation_counts?.nap_wrong ?? 0 } : null,
+			// Phase 18
+			reviews: i.summary.reputation
+				? { rating: i.summary.reputation.average_rating, total: i.summary.reputation.total, awaiting_attention: i.summary.reputation.awaiting_attention, suspicious: i.summary.reputation.suspicious }
+				: null,
 		})),
 		page,
 		limit,

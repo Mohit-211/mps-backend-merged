@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import config from '../configs/config';
 import logger from '../configs/logger';
+import { storeReviews } from '../services/reviews/store';
 import {
 	ConnectionRef,
 	DAILY_METRICS,
@@ -16,7 +17,6 @@ import {
 	GbpKeywordMonthly,
 	GbpMetricDaily,
 	GbpProfileSnapshot,
-	GbpReview,
 	GbpSync,
 	GbpSyncType,
 	GbpTypeResult,
@@ -242,12 +242,8 @@ export const executeGbpSync = async (syncId: string, deps: SyncExecutorDeps = {}
 				const list = await client.listReviews(conn, accountName, locationName);
 				const at = now();
 				const docs = list.items.map((r) => mapReview(r, locationId, at)).filter((d): d is NonNullable<typeof d> => d !== null);
-				if (docs.length > 0) {
-					await GbpReview.bulkWrite(
-						docs.map((d) => ({ updateOne: { filter: { review_name: d.review_name }, update: { $set: d }, upsert: true } })),
-						{ ordered: false },
-					);
-				}
+				// Phase 18: the shared store (fingerprints, system flags, reply state); no AI.
+				await storeReviews(locationId, docs, at);
 				snapshot.reviews_summary = { average_rating: list.averageRating, total: list.totalReviewCount };
 				return { rows: docs.length, range: null };
 			});

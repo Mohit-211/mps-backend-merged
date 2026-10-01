@@ -4618,6 +4618,587 @@
 			]
 		},
 		{
+			"name": "Reviews (Phase 18)",
+			"item": [
+				{
+					"name": "GET /locations/:locationId/reviews",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "Reviews of the location (filters: rating, replied, reply_state, flagged, has_draft, search; sort; pages). No AI\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET /locations/:locationId/reviews/summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/summary",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								"summary"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "Review stats (total, average, new this month, 4-5 / 1-3 counts, unreplied, awaiting attention, flagged, drafts pending, replies sent this month), last refresh, AI status and token costs. No AI\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST /locations/:locationId/reviews/refresh",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/refresh",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								"refresh"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "Refresh Reviews: fetch new / updated reviews from Google (newest first, stops at known ones; once per 15 min). No AI\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST /locations/:locationId/reviews/drafts",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/drafts",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								"drafts"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "AI reply drafts for selected 4-5 star reviews (tokens per started 10; cached drafts free)\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"review_ids\": [\n    \"{{reviewId}}\"\n  ],\n  \"regenerate\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "POST /locations/:locationId/reviews/send",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/send",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								"send"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "Publish the selected reviews' drafts as replies on Google\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"review_ids\": [\n    \"{{reviewId}}\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "POST /locations/:locationId/reviews/analyze",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/analyze",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								"analyze"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "AI analysis of selected reviews: sentiment, severity, suspicious indicators, recommended action (tokens per started 10; cached)\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"review_ids\": [\n    \"{{reviewId}}\"\n  ],\n  \"regenerate\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "GET /locations/:locationId/reviews/insights",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/insights",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								"insights"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "The stored review insights (themes, praise, complaints, observations)\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST /locations/:locationId/reviews/insights",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/insights",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								"insights"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								}
+							]
+						},
+						"description": "Generate review insights with AI (condensed data; tokens)\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "PUT /locations/:locationId/reviews/:reviewId/draft",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/:reviewId/draft",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								":reviewId",
+								"draft"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								},
+								{
+									"key": "reviewId",
+									"value": "{{reviewId}}"
+								}
+							]
+						},
+						"description": "Save a reply draft (written or edited by the user; any rating)\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"text\": \"Thanks so much, glad we could help!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "DELETE /locations/:locationId/reviews/:reviewId/draft",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/:reviewId/draft",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								":reviewId",
+								"draft"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								},
+								{
+									"key": "reviewId",
+									"value": "{{reviewId}}"
+								}
+							]
+						},
+						"description": "Delete a reply draft\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "DELETE /locations/:locationId/reviews/:reviewId/reply",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/:reviewId/reply",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								":reviewId",
+								"reply"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								},
+								{
+									"key": "reviewId",
+									"value": "{{reviewId}}"
+								}
+							]
+						},
+						"description": "Remove the published reply from Google\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST /locations/:locationId/reviews/:reviewId/appeal-draft",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/:reviewId/appeal-draft",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								":reviewId",
+								"appeal-draft"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								},
+								{
+									"key": "reviewId",
+									"value": "{{reviewId}}"
+								}
+							]
+						},
+						"description": "AI draft of a removal report for a flagged or 1-3 star review, with Google's report link (no Google report API exists)\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"regenerate\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "PATCH /locations/:locationId/reviews/:reviewId/report-status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/locations/:locationId/reviews/:reviewId/report-status",
+							"host": [
+								"{{baseUrl}}/api/v1"
+							],
+							"path": [
+								"locations",
+								":locationId",
+								"reviews",
+								":reviewId",
+								"report-status"
+							],
+							"variable": [
+								{
+									"key": "locationId",
+									"value": "{{locationId}}"
+								},
+								{
+									"key": "reviewId",
+									"value": "{{reviewId}}"
+								}
+							]
+						},
+						"description": "Record what happened with a report on Google\n\n**Auth:** user + owner · **Phase:** 18 · **Status:** live",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"reported\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					}
+				}
+			]
+		},
+		{
 			"name": "GBP posting (legacy, rebuilt in Phase 9)",
 			"item": [
 				{

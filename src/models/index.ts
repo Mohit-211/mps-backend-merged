@@ -73,3 +73,5 @@ export * from "./supportTicket.model";
 
 // Google connect picks (2026-10-01)
 export * from "./gbpPick.model";
+export * from "./aiCall.model";
+export * from "./reviewInsight.model";

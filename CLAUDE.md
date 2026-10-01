@@ -36,10 +36,10 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | – | **M5 Launch-ready** = 12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 done, the pre-launch live validation (Dallas + formal `calibrate:score`), plus the Google approvals (GBP API access, v4, app verification). Phase 16 is in M5 because the Citation Report is one of the four mandatory reports and the admin team needs time to build the directory list (Mohit, 2026-09-27). | – | – | M5 |
 | 9 | GBP reviews & posting (incl. AI review replies) | planned (v4 access granted 2026-10-02) | – | – |
 | 15 | Notifications & automations | planned | – | – |
-| **17** | **Ranking extras** (pulled forward 2026-10-01 for the real ranking pages): grids 3–13 by radius (≤ 15 km), map pins for Map Ranking, keyword change across edits, keyword groups, keyword history, competitor names (max 5), report run dates. Spec §12i; plan `docs/plans/phase-17-ranking-extras.md` | **built, awaiting merge** | `claude/phase-17-ranking-extras` | – |
+| **17** | **Ranking extras** (pulled forward 2026-10-01 for the real ranking pages): grids 3–13 by radius (≤ 15 km), map pins for Map Ranking, keyword change across edits, keyword groups, keyword history, competitor names (max 5), report run dates. Spec §12i; plan `docs/plans/phase-17-ranking-extras.md` | done (merged `5bde3c0`, pushed) | `claude/phase-17-ranking-extras` | – |
 | – | **AI GBP posts**: AI text + images, publishing schedules, optional approval, calendar (needs GBP v4; extends 9). Groundwork: `docs/plans/upcoming-features.md` §A | planned, spec pending | – | – |
 | – | **AI visibility**: presence in AI assistants' answers (ChatGPT, Gemini, Perplexity, Claude) over time, score, competitor comparison. §B | planned, spec pending | – | – |
-| **18** | **Reputation: review management + shared OpenAI layer** (2026-10-02): reviews refresh (button + monthly), deterministic flags, AI reply drafts for 4–5 stars, explicit send, AI analysis, appeal drafts (manual submission: Google has no report API), review stats on the dashboard, insights. AI spends MyPageSEO tokens. Auto-reply later. Spec §12j; plan `docs/plans/phase-18-reviews.md` | **in progress** | `claude/phase-18-reviews` | – |
+| **18** | **Reputation: review management + shared OpenAI layer** (2026-10-02): reviews refresh (button + monthly), deterministic flags, AI reply drafts for 4–5 stars, explicit send, AI analysis, appeal drafts (manual submission: Google has no report API), review stats on the dashboard, insights. AI spends MyPageSEO tokens. Auto-reply later. Spec §12j; plan `docs/plans/phase-18-reviews.md` | **built, awaiting merge** | `claude/phase-18-reviews` | – |
 | – | **White-label hosting**: agency-branded reports on a separate generic domain, no MyPageSEO branding. §D | planned, spec pending | – | – |
 | 9b | Cleanup (ARCHITECTURE.md, final docs pass; Swagger was removed in 13b) | ongoing | – | – |
 
@@ -989,6 +989,12 @@ Branch `claude/phase-18-reviews` from `master`. Plan approved by Mohit: **`docs/
 - Reviews refresh: **Refresh Reviews button** (incremental, newest first, once per 15 min per location, free) **plus** the monthly `gbp-sync`.
 - **No Google API exists to report or appeal a review** (v4 reviews has list / get / updateReply / deleteReply only, verified 2026-10-02): the appeal feature is an AI-drafted text + a link to Google's Reviews Management Tool; the user submits it and records the outcome.
 - Flags use "Suspicious indicators" wording, never "fake".
+
+**As built (2026-10-02):**
+- **AI layer:** `src/clients/openaiClient.ts` (Responses API, strict JSON schema, `store: false`, 60 s timeout, 1 retry), `src/services/ai/ai.service.ts` (`runAiTask`: config check, daily budget `AiBudgetDay`, token spend + refund, `AiCall` ledger), `OPENAI_PRICES` + `openaiCostUsd` in `src/configs/pricing.ts`. Config `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_REASONING_EFFORT`, `AI_DAILY_BUDGET_USD`, `AI_MAX_REVIEWS_PER_REQUEST`, `REVIEWS_REFRESH_MIN_MINUTES`. Later AI features call `runAiTask` with their own task id.
+- **Billing:** `BillingPlan.ai_token_costs` (`AI_TOKEN_COST_DEFAULTS`: reply drafts 1 / 10, analysis 1 / 10, appeal 1, insights 2), entitlement `tokens.ai_costs`, `GET /billing` → `tokens.ai_costs`.
+- **Reviews:** pure `src/reviews/{flags,eligibility}.ts`; `src/services/reviews/{store,stats,prompts,reviews.service}.ts`; `GbpReview` gains fingerprint, flags, flag_level, reply_state, draft, analysis, appeal, report_status; `Location.reviews_refreshed_at`, `summary.reputation`; `ReviewInsight` (`review_insights`). `gbpClient.listReviewsSince / updateReply / deleteReply`. The monthly `gbp-sync` uses the same store.
+- **API:** 13 routes under `/locations/:id/reviews` (#159–#171); dashboard `reviews` block + actions `reviews:attention`, `reviews:suspicious`.
 
 **Gate.**
 
