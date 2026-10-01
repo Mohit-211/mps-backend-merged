@@ -63,7 +63,10 @@ export interface MapListSectionDoc {
 
 export interface OverallDoc {
 	overallAvgRank: number | null;
+	/** Phase 17: over the keywords both runs measured (absent on older runs). */
 	change: number | null;
+	comparable_keywords?: number;
+	keywords_total?: number;
 }
 
 export interface RunErrorDoc {
@@ -291,7 +294,7 @@ const rankRunSchema = new Schema<IRankRun>(
 		overall: {
 			type: Map,
 			of: new Schema<OverallDoc>(
-				{ overallAvgRank: { type: Number, default: null }, change: { type: Number, default: null } },
+				{ overallAvgRank: { type: Number, default: null }, change: { type: Number, default: null }, comparable_keywords: Number, keywords_total: Number },
 				{ _id: false },
 			),
 			default: {},

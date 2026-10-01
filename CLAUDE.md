@@ -222,7 +222,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - **foundRate**: share of non-error cells with status `ok`. 2 decimals.
 - **top3Rate**: share of non-error cells with rank ≤ 3. 2 decimals.
 - **overallAvgRank**: mean of keyword avgRanks (unweighted). 1 decimal.
-- **Change vs previous run**: only computed when both runs have the **identical keyword set** (same `keywords_version`). Otherwise every change is `null`.
+- **Change vs previous run** (Phase 17, Mohit 2026-10-01; before: only with an identical keyword set): the previous run is the location's latest `done`/`partial` run, **whatever its `keywords_version`**. A keyword is compared when both runs have it (normalised); a new keyword has `change: null`. Targets are matched by `place_id`, so a competitor slot that now holds another business is not compared.
   - **Per cell** (one target at one point, `cellChange`):
     - Both `ok`: `change = previous - current` (positive = improved), labelled `improved`, `declined` or `unchanged`.
     - `not_found → ok`: label `entered_top_60`, no numeric change.
@@ -233,7 +233,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
     - `foundRate` went from > 0 to 0: label `dropped_out_of_top_60`, no numeric change.
     - Otherwise `change = previous avgRank - current avgRank` (1 decimal), labelled `improved`, `declined` or `unchanged`.
     - Either summary all-`error` (`avgRank` null), or no comparable previous run: `change = null`, no label.
-  - **Overall**: `change = previous overallAvgRank - current overallAvgRank` (1 decimal), or `null`.
+  - **Overall**: over the **shared keywords only** (avgRank known in both runs): mean of their previous avgRanks − mean of their current avgRanks (1 decimal), or `null` when none. `overall[target]` also carries `comparable_keywords` (how many were compared) and `keywords_total`. `overallAvgRank` itself stays the mean over all current keywords.
 - **Rank buckets (for UI)**: 1–3 `pack`, 4–10 `visible`, 11–20 `low`, 21–60 `invisible`, 60+ `not_found`, `error`.
 
 ### Sample points
@@ -244,7 +244,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 
 ### Keywords
 - Fixed per location: `location.tracking.keywords` (max **20**, trimmed, lowercased for comparison, de-duplicated, original casing kept for display).
-- Editing keywords increments `keywords_version` and sets `keywords_updated_at`. Change calculations never compare across versions.
+- Editing keywords increments `keywords_version` and sets `keywords_updated_at`. Since Phase 17 changes are compared across versions on the shared keywords (see Ranking above); `keywords_version` still marks the edit for charts. Edited keywords count from the next run (monthly or manual) and the reports made from it.
 
 ### Refresh cadence (Mohit, 2026-09-26)
 - `location.tracking.frequency`: **`auto_monthly`** (default) | **`manual_only`**. This replaces `weekly | monthly | manual`; existing values are migrated (`weekly`/`monthly` → `auto_monthly`, `manual` → `manual_only`).

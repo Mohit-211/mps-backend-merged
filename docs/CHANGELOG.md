@@ -11,6 +11,13 @@ Changes that shift numbers users see over time: ranks, averages, the GBP Score o
 
 For the frontend: use the `key` as the marker id and the effective date as its position.
 
+## 2026-10-01: Phase 17 (branch `claude/phase-17-ranking-extras`)
+
+| Key | What changed | Effect on history charts |
+|---|---|---|
+| `change_across_keyword_edits` | **Changes survive keyword edits.** The previous run is the latest finished run whatever its `keywords_version`; a keyword is compared when both runs have it, and the overall change uses only those shared keywords (`comparable_keywords`, `keywords_total` on `overall`). Competitors are matched by place. Before: every change was `null` after an edit. | No shift in ranks or averages. Change values now appear on the first run after an edit where they used to be `null`. `overallAvgRank` still averages all current keywords, so an edit can move it: mark runs whose `keywords_version` differs from the previous run's. |
+| `grid_radius_default` | New locations default to a **7×7 grid reaching 8 km** (was 5×5 at 1 km apart, 2 km out), and the Rank Tracker / Map Ranking points sit at **radius ÷ 2** (was 1.5 km). Grid sizes up to 13×13. | Only when a location's grid changes. A wider grid usually means more `not_found` points at the edge, so grid averages rise (worse) and found rates fall; Rank Tracker averages shift with the new N/S/E/W distance. Mark the first run whose `config.radius_km` / `config.grid_size` differs from the previous run's. |
+
 ## 2026-09-27: Phase 12.5 (merged `c5aee43`, follow-ups `ef85421` and `7e0eb9c`)
 
 | Key | What changed | Effect on history charts |

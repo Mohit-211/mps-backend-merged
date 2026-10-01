@@ -237,7 +237,7 @@ describe('rank runs and reports', () => {
 			point: { label: 'C' },
 			byTarget: { self: { rank: 4, status: 'ok', bucket: 'visible', display: '4' } },
 		});
-		expect(data.overall.self).toEqual({ overallAvgRank: 4, change: null });
+		expect(data.overall.self).toEqual({ overallAvgRank: 4, change: null, comparable_keywords: 0, keywords_total: 2 });
 		expect(data.trend).toHaveLength(1);
 	});
 

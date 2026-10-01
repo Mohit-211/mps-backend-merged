@@ -24,6 +24,7 @@ export {
 	keywordChange,
 	overallAvgRank,
 	overallChange,
+	sharedOverallChange,
 	round1,
 	round2,
 	summarise,

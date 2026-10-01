@@ -41,7 +41,9 @@ The demo data comes from an offline client, so it needs no API key.
 
 **Change** is `previous − current`, so a positive number means improved.
 - `changeLabel` is one of: `improved`, `declined`, `unchanged`, `entered_top_60` or `dropped_out_of_top_60`. For the two "top 60" labels, `change` is `null`.
-- Change is `null` when there is no earlier run with the same `keywords_version`, for example after the keywords were edited.
+- **Across keyword edits (Phase 17):** the previous run is the latest finished one, whatever its `keywords_version`. A keyword is compared when both runs have it; a newly added keyword has `change: null`. Competitors are matched by place, so a replaced competitor has no change.
+- **Overall:** `overall[target].change` compares only the keywords both runs measured; `comparable_keywords` says how many (`keywords_total` = the run's keywords). Show e.g. "+2.1 (on 3 of 5 keywords)" when they differ, and no change when `comparable_keywords` is 0.
+- Edited keywords appear from the next run (monthly or a manual refresh), and in reports generated from that run.
 - At keyword level, `entered_top_60` means the business was not found at any point last run and is found somewhere now; `dropped_out_of_top_60` is the reverse (CLAUDE.md §4).
 
 **Run status:** `queued` → `running` → `done` | `partial` (some searches failed) | `failed`. Only `done` and `partial` runs have reports.
@@ -148,7 +150,7 @@ Partial update: only the fields you send change.
 
 **Rules**
 - **`keywords`:** 1 to `RANK_MAX_KEYWORDS` (20) entries of 2–80 characters each. They are trimmed and de-duplicated case-insensitively, and the first spelling is kept.
-- **`keywords_version`:** goes up **only when the set of keywords changes**. Reordering or re-casing does not bump it. Changes are never compared across versions.
+- **`keywords_version`:** goes up **only when the set of keywords changes**. Reordering or re-casing does not bump it. Changes are still compared on the keywords both runs share (Phase 17).
 - **`competitors`:** up to 5 Google place IDs, never the location's own `place_id`.
 - **`grid`** (Phase 17): `size` 3, 5, 7, 9, 11 or 13, plus **either** `radius_km` (center to edge, 0.5–15) **or** `spacing_km` (between neighbouring points, 0.1–15). The other is derived (spacing = radius ÷ ((size − 1) / 2)) and both must stay in range, so a 13×13 needs a radius of at least 0.6 km. The response carries all three. New locations start at `{ size: 7, radius_km: 8 }` (about 5 miles). The Rank Tracker and Map Ranking points sit halfway to the edge (radius ÷ 2, at least 0.5 km); the search bias around each point stays 5 km. Error: **400** `{ "reason": "invalid_grid" }`.
 - **Cost of a bigger grid:** grid searches use the free IDs-only SKU, so a bigger grid costs run time, not money: at 20 keywords and 3 samples, about 32 min for 9×9, 47 min for 11×11 and 65 min for 13×13. `over_cap: true` means a run with these settings would be refused (422); check it with `GET /tracking/estimate` before saving.
@@ -481,15 +483,21 @@ Run history, newest first, with each run's overall average per target. The defau
         "overall": {
           "self": {
             "overallAvgRank": 21.3,
-            "change": 12.6
+            "change": 12.6,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           },
           "competitor_1": {
             "overallAvgRank": 22,
-            "change": -0.7
+            "change": -0.7,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           },
           "competitor_2": {
             "overallAvgRank": 10,
-            "change": 0
+            "change": 0,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           }
         }
       },
@@ -502,15 +510,21 @@ Run history, newest first, with each run's overall average per target. The defau
         "overall": {
           "self": {
             "overallAvgRank": 33.9,
-            "change": -11
+            "change": -11,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           },
           "competitor_1": {
             "overallAvgRank": 21.3,
-            "change": 5.7
+            "change": 5.7,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           },
           "competitor_2": {
             "overallAvgRank": 10,
-            "change": 0.3
+            "change": 0.3,
+            "comparable_keywords": 3,
+            "keywords_total": 3
           }
         }
       },
@@ -523,15 +537,21 @@ Run history, newest first, with each run's overall average per target. The defau
         "overall": {
           "self": {
             "overallAvgRank": 22.9,
-            "change": null
+            "change": null,
+            "comparable_keywords": 0,
+            "keywords_total": 3
           },
           "competitor_1": {
             "overallAvgRank": 27,
-            "change": null
+            "change": null,
+            "comparable_keywords": 0,
+            "keywords_total": 3
           },
           "competitor_2": {
             "overallAvgRank": 10.3,
-            "change": null
+            "change": null,
+            "comparable_keywords": 0,
+            "keywords_total": 3
           }
         }
       }
@@ -760,15 +780,21 @@ For each keyword: a summary per target (average rank, found rate, top-3 rate, ch
     "overall": {
       "self": {
         "overallAvgRank": 21.3,
-        "change": 12.6
+        "change": 12.6,
+        "comparable_keywords": 3,
+        "keywords_total": 3
       },
       "competitor_1": {
         "overallAvgRank": 22,
-        "change": -0.7
+        "change": -0.7,
+        "comparable_keywords": 3,
+        "keywords_total": 3
       },
       "competitor_2": {
         "overallAvgRank": 10,
-        "change": 0
+        "change": 0,
+        "comparable_keywords": 3,
+        "keywords_total": 3
       }
     },
     "trend": [
