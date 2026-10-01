@@ -60,6 +60,20 @@ describe('gbpClient sync reads', () => {
 		expect(new URL(fake.requests[1].url).searchParams.get('pageToken')).toBe('kw-page-2');
 	});
 
+	it('attribute names (2026-10-02): GET /v1/attributes?parent=locations/L&languageCode=en, paged', async () => {
+		const { client, fake } = setup([
+			{ status: 200, body: { attributeMetadata: [{ parent: 'attributes/a', displayName: 'A' }], nextPageToken: 'p2' } },
+			{ status: 200, fixture: 'gbp/attribute_metadata' },
+		]);
+		const items = await client.getAttributeMetadata(CONN, LOC);
+		expect(items).toHaveLength(4);
+		const first = new URL(fake.requests[0].url);
+		expect(first.origin + first.pathname).toBe('https://mybusinessbusinessinformation.googleapis.com/v1/attributes');
+		expect(first.searchParams.get('parent')).toBe(LOC);
+		expect(first.searchParams.get('languageCode')).toBe('en');
+		expect(new URL(fake.requests[1].url).searchParams.get('pageToken')).toBe('p2');
+	});
+
 	it('profile, attributes, Google edits and verification URLs', async () => {
 		const { client, fake } = setup([
 			{ status: 200, fixture: 'gbp/location_full' },

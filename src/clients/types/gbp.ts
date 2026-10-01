@@ -122,6 +122,19 @@ export interface RawAttributes {
 	attributes?: { name?: string; valueType?: string; values?: unknown[]; repeatedEnumValue?: { setValues?: string[] }; uriValues?: { uri?: string }[] }[];
 }
 
+/** GET /v1/attributes?parent=locations/L: Google's names for the attributes a location can have (2026-10-02). */
+export interface RawAttributeMetadataPage {
+	attributeMetadata?: {
+		parent?: string;
+		valueType?: string;
+		displayName?: string;
+		groupDisplayName?: string;
+		deprecated?: boolean;
+		valueMetadata?: { value?: unknown; displayName?: string }[];
+	}[];
+	nextPageToken?: string;
+}
+
 export interface RawGoogleUpdated {
 	location?: Record<string, unknown>;
 	diffMask?: string;

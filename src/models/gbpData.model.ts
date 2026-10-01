@@ -91,7 +91,8 @@ export interface IGbpProfileSnapshot extends Document {
 	profile: GbpProfileSummary | null;
 	/** The Business Information location as returned (the owner's own data), for 7c scoring. */
 	raw_location: Record<string, unknown> | null;
-	attributes: { name: string; value_type: string | null; values: unknown[] }[] | null;
+	/** display_name, group and value_labels (Google's English names) since 2026-10-02; null when the names couldn't be read. */
+	attributes: { name: string; value_type: string | null; values: unknown[]; display_name?: string | null; group?: string | null; value_labels?: string[] | null }[] | null;
 	pending_google_edits: { has_pending: boolean; diff_fields: string[]; pending_fields: string[] } | null;
 	verification: { has_voice_of_merchant: boolean; has_business_authority: boolean; state: string | null; guidance: string | null } | null;
 	media: {

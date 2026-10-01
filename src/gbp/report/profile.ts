@@ -26,8 +26,11 @@ export interface ProfileSection {
 	service_area: { business_type: string | null; place_count: number; region_code: string | null };
 	labels: string[];
 	open_status: string | null;
-	/** Attribute ids as Google names them (e.g. "has_wheelchair_accessible_entrance") with their values. */
-	attributes: { name: string; value_type: string | null; values: unknown[] }[];
+	/**
+	 * Attribute ids (e.g. "has_wheelchair_accessible_entrance") with their values, and since 2026-10-02 Google's
+	 * English `display_name`, `group` and `value_labels` (null when Google's names couldn't be read).
+	 */
+	attributes: { name: string; value_type: string | null; values: unknown[]; display_name: string | null; group: string | null; value_labels: string[] | null }[];
 	service_items: ProfileServiceItem[];
 	maps_uri: string | null;
 	/** Google's "write a review" link: for "ask for a review" buttons. */
@@ -93,7 +96,14 @@ export const profileSection = (snapshot: Pick<IGbpProfileSnapshot, 'taken_at' | 
 		service_area: { ...p.service_area },
 		labels: [...p.labels],
 		open_status: p.open_status,
-		attributes: (snapshot.attributes ?? []).map((a) => ({ name: a.name, value_type: a.value_type, values: [...(a.values ?? [])] })),
+		attributes: (snapshot.attributes ?? []).map((a) => ({
+			name: a.name,
+			value_type: a.value_type,
+			values: [...(a.values ?? [])],
+			display_name: a.display_name ?? null,
+			group: a.group ?? null,
+			value_labels: a.value_labels ? [...a.value_labels] : null,
+		})),
 		service_items: mapServiceItems(snapshot.raw_location?.serviceItems),
 		maps_uri: p.maps_uri,
 		new_review_uri: p.new_review_uri,

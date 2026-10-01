@@ -58,7 +58,7 @@ describe('refresh routes', () => {
 		const res = await request(app).post(`/api/v1/locations/${id}/refresh`).set(auth(token)).send({});
 		expect(res.status).toBe(202);
 		expect(res.body.data.rankings).toMatchObject({ status: 'queued', existing: false });
-		expect(res.body.data.gbp).toMatchObject({ status: 'queued', existing: false, estimated_calls: 12 });
+		expect(res.body.data.gbp).toMatchObject({ status: 'queued', existing: false, estimated_calls: 13 });
 		expect(res.body.data.rankings.next_allowed_at).toBeTruthy();
 		expect(scheduleMock.mock.calls.map((c) => (c as unknown[])[1]).sort()).toEqual(['gbp-sync', 'rank-run']);
 
