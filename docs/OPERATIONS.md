@@ -113,7 +113,7 @@ Every email goes through one service (`src/services/common/email.service.ts`, `d
 **Ranking at full quality** (Mohit, 2026-09-27: quality over cost):
 - Every search fetches all pages (up to 60 results) at every point; each point's full ordered list is stored (`rank_result_lists`, one document per run and keyword).
 - **Samples: 3 per point, 60 s apart** (`RANK_SAMPLES_PER_POINT=3`, `RANK_SAMPLE_SPACING_SEC=60`; decided by Mohit on 2026-09-27 from the variance test, see `docs/calibration/variance-2026-09-27.md`). The point's rank is the median of its samples.
-- **Map Ranking at 5 points** (`MAP_RANKING_POINTS=all`, decided 2026-09-27): the named top 20 (Pro SKU) at the center and N/S/E/W.
+- **Map Ranking at 5 points** (`MAP_RANKING_POINTS=all`, decided 2026-09-27): the named top 20 (Pro SKU) at the center and N/S/E/W. Phase 17 adds `places.formattedAddress` and `places.location` to that mask for the map pins; both are Text Search Pro fields (Google's SKU list, checked 2026-10-01), so the price per call is unchanged.
 - Competitor Place Details include reviews (up to 5), photos (count) and editorial summary: Enterprise + Atmosphere SKU.
 
 **Limits and quota.**

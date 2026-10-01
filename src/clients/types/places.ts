@@ -35,6 +35,10 @@ export interface PlaceIdEntry {
 
 export interface NamedPlaceEntry extends PlaceIdEntry {
 	name: string | null;
+	/** Phase 17 (map pins): same Pro SKU as the name. Absent from older fakes and fixtures. */
+	address?: string | null;
+	lat?: number | null;
+	lng?: number | null;
 }
 
 export interface SearchTextIdsResult {
@@ -162,6 +166,7 @@ export interface RawPlace {
 	movedPlaceId?: string;
 	displayName?: RawLocalizedText;
 	formattedAddress?: string;
+	location?: { latitude?: number; longitude?: number };
 	rating?: number;
 	userRatingCount?: number;
 }

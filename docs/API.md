@@ -995,6 +995,8 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
   - `?resolveNames=true` looks the names up live, costing up to 20 Place Details calls per request, and needs the API key (503 without it).
   - This mode is pending a ToS decision (see STATUS.md).
 
+**Map pins (Phase 17):** each result has `address`, `lat` and `lng`, so the page can show the 20 businesses on a map (the client's pin from `is_self`, competitors' from `target_key`). They come from the same Map Ranking search (Text Search Pro fields, no extra cost) and are stored under the same `STORE_PLACE_NAMES` switch as the names. Runs before Phase 17 answer `null` for all three: hide the map for them.
+
 ```json
 {
   "success": true,
@@ -1013,7 +1015,8 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
       "config": {
         "grid_size": 5,
         "spacing_km": 1,
-        "tracker_offset_km": 1.5,
+        "radius_km": 2,
+        "tracker_offset_km": 1,
         "radius_m": 5000,
         "store_place_names": true
       }
@@ -1027,6 +1030,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 1,
             "place_id": "ChIJmvIS6dRTiBdjvc1Fdgtdjzj",
             "name": "Riverdale Plumbing",
+            "address": "12 Riverdale Ave, Toronto, ON M4K 1C2, Canada",
+            "lat": 43.6668,
+            "lng": -79.3523,
             "is_self": false,
             "target_key": null
           },
@@ -1034,6 +1040,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 2,
             "place_id": "ChIJiJn_u4YaYyvyAlAYjjO_FuP",
             "name": "Leslieville Drain Service",
+            "address": "1020 Queen St E, Toronto, ON M4M 1K1, Canada",
+            "lat": 43.6614,
+            "lng": -79.3381,
             "is_self": false,
             "target_key": null
           },
@@ -1041,6 +1050,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 3,
             "place_id": "ChIJdemoMapleLeafPlumbing01",
             "name": "Maple Leaf Plumbing & Heating",
+            "address": "745 Gerrard St E, Toronto, ON M4M 1Y5, Canada",
+            "lat": 43.6629,
+            "lng": -79.3347,
             "is_self": true,
             "target_key": "self"
           },
@@ -1048,6 +1060,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 4,
             "place_id": "ChIJXbrc_yt-ajCkTaaEuMksJ_O",
             "name": "Junction Plumbers",
+            "address": "2958 Dundas St W, Toronto, ON M6P 1Z2, Canada",
+            "lat": 43.6655,
+            "lng": -79.4713,
             "is_self": false,
             "target_key": null
           },
@@ -1055,6 +1070,9 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
             "rank": 5,
             "place_id": "ChIJQIUbDcbRlCRTJKmRFzJsto3",
             "name": "Corktown Water Heaters",
+            "address": "455 King St E, Toronto, ON M5A 1L6, Canada",
+            "lat": 43.6542,
+            "lng": -79.3601,
             "is_self": false,
             "target_key": null
           },

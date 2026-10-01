@@ -264,6 +264,10 @@ describe('rank runs and reports', () => {
 			rank: 4,
 			place_id: SELF_PLACE_ID,
 			name: 'Maple Leaf Plumbing & Heating',
+			// Phase 17 map pins
+			address: '103 Demo Street',
+			lat: expect.any(Number),
+			lng: expect.any(Number),
 			is_self: true,
 			target_key: 'self',
 		});
@@ -341,7 +345,7 @@ describe('names at view time (STORE_PLACE_NAMES=false)', () => {
 			await executeLatestQueued(new Date('2026-09-27T10:00:00Z'));
 			const plain = await request(app).get(base('/map-ranking')).set(auth(ownerToken));
 			expect(plain.body.data.names_stored).toBe(false);
-			expect(plain.body.data.keywords[0].results.every((r: { name: string | null }) => r.name === null)).toBe(true);
+			expect(plain.body.data.keywords[0].results.every((r: { name: string | null; address: string | null; lat: number | null }) => r.name === null && r.address === null && r.lat === null)).toBe(true);
 			const resolved = await request(app).get(base('/map-ranking?resolveNames=true')).set(auth(ownerToken));
 			expect(resolved.status).toBe(503);
 			expect(resolved.body.message).toMatch('GOOGLE_PLACE_API_KEY not set');

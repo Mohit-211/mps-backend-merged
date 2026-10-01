@@ -46,6 +46,10 @@ export interface MapListResultDoc {
 	rank: number;
 	place_id: string;
 	name: string | null;
+	/** Phase 17 map pins (absent on older runs). */
+	address?: string | null;
+	lat?: number | null;
+	lng?: number | null;
 	is_self: boolean;
 	target_key: string | null;
 }
@@ -273,6 +277,9 @@ const rankRunSchema = new Schema<IRankRun>(
 							rank: Number,
 							place_id: String,
 							name: { type: String, default: null },
+							address: { type: String, default: null },
+							lat: { type: Number, default: null },
+							lng: { type: Number, default: null },
 							is_self: Boolean,
 							target_key: { type: String, default: null },
 						},

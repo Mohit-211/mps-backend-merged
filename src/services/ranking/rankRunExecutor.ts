@@ -209,6 +209,10 @@ export const executeRankRun = async (runId: string, deps: ExecuteDeps = {}): Pro
 								rank: i + 1,
 								place_id: p.id,
 								name: run.config.store_place_names ? p.name : null,
+								// Phase 17 map pins: Places content, stored under the same switch as the names.
+								address: run.config.store_place_names ? (p.address ?? null) : null,
+								lat: run.config.store_place_names ? (p.lat ?? null) : null,
+								lng: run.config.store_place_names ? (p.lng ?? null) : null,
 								is_self: key === 'self',
 								target_key: key ?? null,
 							};

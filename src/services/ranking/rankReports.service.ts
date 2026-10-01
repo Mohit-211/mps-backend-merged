@@ -143,7 +143,7 @@ export const mapRankingView = async (
 		keywords: sections.map((section) => ({
 			keyword: section.keyword,
 			point: pointOf(section),
-			results: section.results.map((r) => ({ ...r, name: r.name ?? resolved?.[r.place_id] ?? null })),
+			results: section.results.map((r) => ({ ...r, name: r.name ?? resolved?.[r.place_id] ?? null, address: r.address ?? null, lat: r.lat ?? null, lng: r.lng ?? null })),
 		})),
 		attribution: GOOGLE_ATTRIBUTION,
 	};

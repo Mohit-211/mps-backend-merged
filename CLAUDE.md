@@ -378,7 +378,7 @@ Create typed, mockable clients. Each client: axios instance, timeout 15s, 1 retr
     - **Hard guard:** throw if the field mask for this function contains anything else (this keeps it on the free "Text Search Essentials (IDs Only)" SKU).
     - Body: `textQuery, regionCode, pageSize: 20, locationBias.circle{center{latitude,longitude},radius}, pageToken?`.
     - Paginates up to 3 pages (60 results). Accepts `stopWhenFound: string[]`: stop paging once all given place IDs are found.
-  - `searchTextWithNames(params)`: same endpoint, field mask `places.id,places.movedPlaceId,places.displayName,nextPageToken` (Pro SKU). Max 1 page (20 results). Used only for Map Ranking.
+  - `searchTextWithNames(params)`: same endpoint, field mask `places.id,places.movedPlaceId,places.displayName,nextPageToken` (Pro SKU; Phase 17 adds `places.formattedAddress,places.location` for map pins, also Pro). Max 1 page (20 results). Used only for Map Ranking.
   - `getPlaceDetails(placeId, fields[])` → GET `https://places.googleapis.com/v1/places/{placeId}` with `X-Goog-FieldMask` (no `places.` prefix). Used for center resolution and competitor comparison.
 - `src/clients/gbpClient.ts`: **deferred to Phase 6** (see §10).
 

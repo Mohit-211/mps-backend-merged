@@ -44,8 +44,12 @@ export const MAX_PAGES = 3;
 /** The only fields allowed for searchTextIds: keeps it on the free "Text Search Essentials (IDs Only)" SKU. */
 export const IDS_ONLY_FIELDS: readonly string[] = ['places.id', 'places.movedPlaceId', 'nextPageToken'];
 export const IDS_ONLY_FIELD_MASK = IDS_ONLY_FIELDS.join(',');
-/** Adds displayName, which bills the call as Text Search Pro. Used only for Map Ranking. */
-export const WITH_NAMES_FIELD_MASK = 'places.id,places.movedPlaceId,places.displayName,nextPageToken';
+/**
+ * Adds displayName, which bills the call as Text Search Pro. Used only for Map Ranking. Phase 17 adds the map
+ * pins: formattedAddress and location are Text Search Pro fields too (checked against Google's SKU list,
+ * 2026-10-01), so the call costs the same.
+ */
+export const WITH_NAMES_FIELD_MASK = 'places.id,places.movedPlaceId,places.displayName,places.formattedAddress,places.location,nextPageToken';
 /** Competitor suggestions: rating + userRatingCount bill the call as Text Search Enterprise. 1 page. */
 export const SUGGESTIONS_FIELD_MASK =
 	'places.id,places.movedPlaceId,places.displayName,places.formattedAddress,places.rating,places.userRatingCount';
@@ -313,7 +317,15 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 			const places: NamedPlaceEntry[] = [];
 			for (const raw of data.places ?? []) {
 				const entry = toEntry(raw);
-				if (entry) places.push({ ...entry, name: raw.displayName?.text ?? null });
+				if (entry) {
+					places.push({
+						...entry,
+						name: raw.displayName?.text ?? null,
+						address: raw.formattedAddress ?? null,
+						lat: Number.isFinite(raw.location?.latitude) ? (raw.location?.latitude as number) : null,
+						lng: Number.isFinite(raw.location?.longitude) ? (raw.location?.longitude as number) : null,
+					});
+				}
 			}
 			return { places, apiCalls: attempts };
 		} catch (err) {
