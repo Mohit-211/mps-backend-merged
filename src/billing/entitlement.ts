@@ -1,4 +1,4 @@
-import { BillingMethod, EntitlementState, Feature, FEATURES, SubscriptionStatus } from './constants';
+import { AI_TOKEN_COST_DEFAULTS, AiTokenCosts, BillingMethod, EntitlementState, Feature, FEATURES, SubscriptionStatus } from './constants';
 import { userLimit } from './pricing';
 
 // Entitlement (Phase 13a), pure: what an organization may do right now, from its trial, subscription,
@@ -12,6 +12,7 @@ export interface EntitlementPlan {
 	max_locations: number | null;
 	trial: { days: number; locations: number; users: number; tokens: number };
 	tokens_per_refresh: { rankings: number; gbp: number };
+	ai_token_costs?: Partial<AiTokenCosts>;
 }
 
 export interface EntitlementSubscription {
@@ -41,7 +42,7 @@ export interface Entitlement {
 	features: Record<Feature, boolean>;
 	locations: { used: number; allowed: number; max: number | null };
 	users: { used: number; limit: number };
-	tokens: { balance: number; cost_per_refresh: { rankings: number; gbp: number } };
+	tokens: { balance: number; cost_per_refresh: { rankings: number; gbp: number }; ai_costs: AiTokenCosts };
 	trial_ends_at: Date | null;
 	current_period_end: Date | null;
 	grace_ends_at: Date | null;
@@ -55,7 +56,7 @@ export const entitlementFor = (i: EntitlementInput): Entitlement => {
 	const features = Object.fromEntries(FEATURES.map((f) => [f, i.plan.entitlements[f] !== false])) as Record<Feature, boolean>;
 	const base = {
 		features,
-		tokens: { balance: i.org.token_balance, cost_per_refresh: i.plan.tokens_per_refresh },
+		tokens: { balance: i.org.token_balance, cost_per_refresh: i.plan.tokens_per_refresh, ai_costs: { ...AI_TOKEN_COST_DEFAULTS, ...(i.plan.ai_token_costs ?? {}) } },
 		trial_ends_at: i.org.trial_ends_at,
 		current_period_end: i.subscription?.current_period_end ?? null,
 	};

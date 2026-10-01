@@ -394,6 +394,20 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 	};
 
 	/** Authenticated GET for a connection; on a 401, refreshes once and retries. */
+	/** An authorised write (Phase 18: review replies), with the same single 401 retry as authedGet. */
+	const authedWrite = async <T>(conn: ConnectionRef, label: string, method: 'PUT' | 'DELETE', url: string, data?: unknown): Promise<T> => {
+		const attempt = async (token: string): Promise<T> =>
+			(await send<T>(label, { method, url, headers: { Authorization: `Bearer ${token}`, ...(data === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(data === undefined ? {} : { data }) })).data;
+		try {
+			return await attempt(await getAccessToken(conn));
+		} catch (err) {
+			if (err instanceof GbpApiError && err.status === 401 && !(err instanceof GbpReauthRequiredError)) {
+				return attempt(await getAccessToken(conn, true));
+			}
+			throw err;
+		}
+	};
+
 	const authedGet = async <T>(conn: ConnectionRef, label: string, url: string): Promise<T> => {
 		const attempt = async (token: string): Promise<T> =>
 			(await send<T>(label, { method: 'GET', url, headers: { Authorization: `Bearer ${token}` } })).data;
@@ -582,6 +596,45 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		return { ...list, averageRating: list.first?.averageRating ?? null, totalReviewCount: list.first?.totalReviewCount ?? null };
 	};
 
+	/**
+	 * Phase 18, the Refresh Reviews button: reviews newest-updated first, stopping at the first page that reaches
+	 * `since` (the newest update already stored), so a refresh is usually 1 call. Without `since`: every page.
+	 */
+	const listReviewsSince = async (conn: ConnectionRef, accountName: string, locationName: string, since: Date | null) => {
+		const items: RawReview[] = [];
+		let first: RawReviewsPage | null = null;
+		let pageToken: string | undefined;
+		let pages = 0;
+		let reachedKnown = false;
+		do {
+			const data = await authedGet<RawReviewsPage>(
+				conn,
+				'v4.reviews.since',
+				withQuery(`${v4Location(accountName, locationName)}/reviews`, { pageSize: '50', orderBy: 'updateTime desc', pageToken }),
+			);
+			first ??= data;
+			for (const r of data.reviews ?? []) {
+				const updated = r.updateTime ? new Date(r.updateTime) : null;
+				if (since && updated && updated.getTime() <= since.getTime()) reachedKnown = true;
+				else items.push(r);
+			}
+			pageToken = data.nextPageToken;
+			pages += 1;
+		} while (pageToken && !reachedKnown && pages < MAX_LIST_PAGES);
+		return { items, pages, averageRating: first?.averageRating ?? null, totalReviewCount: first?.totalReviewCount ?? null };
+	};
+
+	/** Phase 18: publishes (or replaces) the owner's reply. `reviewName` is the full v4 name accounts/A/locations/L/reviews/R. */
+	const updateReply = async (conn: ConnectionRef, reviewName: string, comment: string): Promise<{ comment: string | null; updateTime: string | null }> => {
+		const data = await authedWrite<{ comment?: string; updateTime?: string }>(conn, 'v4.reviews.updateReply', 'PUT', `${V4_URL}/${reviewName}/reply`, { comment });
+		return { comment: data?.comment ?? null, updateTime: data?.updateTime ?? null };
+	};
+
+	/** Phase 18: removes the owner's reply. */
+	const deleteReply = async (conn: ConnectionRef, reviewName: string): Promise<void> => {
+		await authedWrite<unknown>(conn, 'v4.reviews.deleteReply', 'DELETE', `${V4_URL}/${reviewName}/reply`);
+	};
+
 	/** v4 owner media (all pages) with totalMediaItemCount. */
 	const listMedia = async (conn: ConnectionRef, accountName: string, locationName: string) => {
 		const list = await v4List<RawMediaPage, RawMediaItem>(conn, 'v4.media', `${v4Location(accountName, locationName)}/media`, 100, (p) => p.mediaItems ?? []);
@@ -615,6 +668,9 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		getGoogleUpdated,
 		getVoiceOfMerchantState,
 		listReviews,
+		listReviewsSince,
+		updateReply,
+		deleteReply,
 		listMedia,
 		countCustomerMedia,
 		listLocalPosts,

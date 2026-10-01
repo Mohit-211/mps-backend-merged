@@ -119,6 +119,25 @@ export interface ILocationSummary {
   citation_counts?: Record<string, number> | null;
   citation_total?: number | null;
   citation_checked_at?: Date | null;
+  /** Phase 18 (reviews), written after each review refresh / sync / reply action: */
+  reputation?: ReputationSummary | null;
+}
+
+/** Review counts for the dashboard and the locations list (Phase 18). */
+export interface ReputationSummary {
+  total: number;
+  average_rating: number | null;
+  new_this_month: number;
+  positive: number;
+  negative: number;
+  unreplied: number;
+  awaiting_attention: number;
+  flagged: number;
+  suspicious: number;
+  drafts_pending: number;
+  replies_sent_this_month: number;
+  last_review_at: Date | null;
+  updated_at: Date;
 }
 
 /** Keyword movement of the latest rank run vs the previous one (Phase 11). */
@@ -181,6 +200,8 @@ export interface ILocation extends Document {
   gbp_connected?: boolean;
   /** 2026-10-01: set when the location's GBP was unbound (status gbp_disconnected); cleared on a new bind. */
   gbp_disconnected_at?: Date | null;
+  /** Phase 18: the last Refresh Reviews (button), for its 15-minute limit. */
+  reviews_refreshed_at?: Date | null;
   summary?: ILocationSummary;
   is_active: boolean;
   created_at: Date;
@@ -308,6 +329,7 @@ const locationSchema = new Schema<ILocation>(
     source: { type: String, enum: LOCATION_SOURCES, required: true },
     gbp_connected: { type: Boolean, default: false },
     gbp_disconnected_at: { type: Date, default: null },
+    reviews_refreshed_at: { type: Date, default: null },
     summary: {
       type: new Schema<ILocationSummary>(
         {
@@ -336,6 +358,7 @@ const locationSchema = new Schema<ILocation>(
           citation_counts: { type: Schema.Types.Mixed, default: null },
           citation_total: { type: Number, default: null },
           citation_checked_at: { type: Date, default: null },
+          reputation: { type: Schema.Types.Mixed, default: null },
         },
         { _id: false },
       ),

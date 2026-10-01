@@ -1,5 +1,5 @@
 import { Document, Model, Schema, Types, model } from 'mongoose';
-import { CURRENCIES, Currency, FEATURES, Feature, PLAN_KINDS, PlanKind } from '../billing/constants';
+import { AI_TOKEN_COST_DEFAULTS, AiTokenCosts, CURRENCIES, Currency, FEATURES, Feature, PLAN_KINDS, PlanKind } from '../billing/constants';
 
 // Billing plans (Phase 13a). One `standard` plan for everyone, and `custom` plans scoped to one
 // organization (enterprise). Monthly = first_location_price + (n − 1) × additional_location_price.
@@ -32,6 +32,8 @@ export interface IBillingPlan extends Document {
 	max_locations: number | null;
 	trial: PlanTrial;
 	tokens_per_refresh: { rankings: number; gbp: number };
+	/** Phase 18: tokens per AI action (defaults AI_TOKEN_COST_DEFAULTS). */
+	ai_token_costs?: AiTokenCosts;
 	monthly_token_grant: number;
 	token_pack_discount_percent: number;
 	/** Custom per-pack prices: { pack_id, currency, price }. */
@@ -61,6 +63,12 @@ const BillingPlanSchema = new Schema<IBillingPlan>(
 		tokens_per_refresh: {
 			rankings: { type: Number, min: 0, default: 1 },
 			gbp: { type: Number, min: 0, default: 1 },
+		},
+		ai_token_costs: {
+			reply_drafts_per_10: { type: Number, min: 0, default: AI_TOKEN_COST_DEFAULTS.reply_drafts_per_10 },
+			analysis_per_10: { type: Number, min: 0, default: AI_TOKEN_COST_DEFAULTS.analysis_per_10 },
+			appeal: { type: Number, min: 0, default: AI_TOKEN_COST_DEFAULTS.appeal },
+			insights: { type: Number, min: 0, default: AI_TOKEN_COST_DEFAULTS.insights },
 		},
 		monthly_token_grant: { type: Number, min: 0, default: 0 },
 		token_pack_discount_percent: { type: Number, min: 0, max: 100, default: 0 },

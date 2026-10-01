@@ -32,6 +32,18 @@ export type OrderPurpose = (typeof ORDER_PURPOSES)[number];
 export const ORDER_STATUSES = ['created', 'approved', 'captured', 'failed', 'expired'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/**
+ * Phase 18: MyPageSEO tokens per AI action (admin-set per plan; these are the defaults). Reply drafts and
+ * analysis are charged per started batch of 10 reviews; cached results cost nothing.
+ */
+export interface AiTokenCosts {
+	reply_drafts_per_10: number;
+	analysis_per_10: number;
+	appeal: number;
+	insights: number;
+}
+export const AI_TOKEN_COST_DEFAULTS: AiTokenCosts = { reply_drafts_per_10: 1, analysis_per_10: 1, appeal: 1, insights: 2 };
+
 export const LEDGER_TYPES = ['purchase', 'spend', 'refund', 'grant', 'monthly_grant', 'adjustment', 'expiry'] as const;
 export type LedgerType = (typeof LEDGER_TYPES)[number];
 

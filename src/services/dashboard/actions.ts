@@ -15,7 +15,7 @@ export interface ActionLocation {
 
 export interface RecommendedAction {
 	id: string;
-	source: 'gbp' | 'ranking' | 'setup' | 'connection' | 'citations';
+	source: 'gbp' | 'ranking' | 'setup' | 'connection' | 'citations' | 'reviews';
 	location_id: string;
 	location_name: string;
 	title: string;
@@ -61,6 +61,15 @@ export const candidateActions = (l: ActionLocation): RecommendedAction[] => {
 	const notFound = s.citation_counts?.not_found ?? 0;
 	if (notFound > 0) {
 		out.push({ ...base, id: 'citations:not_found', source: 'citations', title: `Not listed on ${notFound} director${notFound === 1 ? 'y' : 'ies'}`, detail: 'Getting listed on the missing directories adds citations Google can use to confirm the business.', impact: clamp(notFound / 20) });
+	}
+	// Phase 18: reviews waiting for a reply or a look, and suspicious ones.
+	const waiting = s.reputation?.awaiting_attention ?? 0;
+	if (waiting > 0) {
+		out.push({ ...base, id: 'reviews:attention', source: 'reviews', title: `${waiting} review${waiting === 1 ? '' : 's'} need${waiting === 1 ? 's' : ''} a reply or a look`, detail: 'Unanswered low ratings and flagged reviews. Replying quickly shows customers you care.', impact: clamp(0.4 + 0.05 * waiting) });
+	}
+	const suspicious = s.reputation?.suspicious ?? 0;
+	if (suspicious > 0) {
+		out.push({ ...base, id: 'reviews:suspicious', source: 'reviews', title: `${suspicious} review${suspicious === 1 ? ' shows' : 's show'} suspicious indicators`, detail: 'Check them and, where a Google policy is broken, report them from the Reviews page.', impact: clamp(0.35 + 0.05 * suspicious) });
 	}
 	return out;
 };

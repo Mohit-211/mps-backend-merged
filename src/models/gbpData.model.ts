@@ -1,3 +1,4 @@
+import type { FlagLevel, ReviewFlag } from '../reviews/flags';
 import { Document, Model, Schema, Types, model } from 'mongoose';
 
 // Stored GBP data (Phase 7b). Pages and the 7c report read these; nothing calls Google on a page view.
@@ -141,6 +142,58 @@ export interface IGbpReview extends Document {
 	/** Display name only: no reviewer photo or profile URL is stored. */
 	reviewer: { display_name: string | null; is_anonymous: boolean };
 	synced_at: Date;
+	// ---- Phase 18: review management ----
+	/** When MyPageSEO first stored the review. */
+	first_seen_at: Date | null;
+	/** Hash of the normalised text (null for short or empty texts): duplicate detection. */
+	fingerprint: string | null;
+	flags: ReviewFlag[];
+	flag_level: FlagLevel;
+	/** none = no reply, draft = a draft is waiting, sent = a reply is on Google, failed = the last send failed. */
+	reply_state: ReviewReplyState;
+	sent_at: Date | null;
+	sent_by: Types.ObjectId | null;
+	send_error: string | null;
+	draft: ReviewDraft | null;
+	analysis: ReviewAnalysis | null;
+	appeal: ReviewAppeal | null;
+	/** Set by the user after acting on Google (there is no report API). */
+	report_status: ReviewReportStatus;
+	report_status_at: Date | null;
+}
+
+export const REVIEW_REPLY_STATES = ['none', 'draft', 'sent', 'failed'] as const;
+export type ReviewReplyState = (typeof REVIEW_REPLY_STATES)[number];
+export const REVIEW_REPORT_STATUSES = ['not_reported', 'reported', 'appeal_submitted', 'removed', 'kept'] as const;
+export type ReviewReportStatus = (typeof REVIEW_REPORT_STATUSES)[number];
+
+export interface ReviewDraft {
+	text: string;
+	source: 'ai' | 'user';
+	ai_model: string | null;
+	generated_at: Date;
+	/** Hash of what the draft was made from (rating + text): a changed review makes the draft stale. */
+	input_hash: string;
+	edited: boolean;
+}
+
+export interface ReviewAnalysis {
+	sentiment: 'positive' | 'neutral' | 'negative' | 'mixed';
+	severity: 'low' | 'medium' | 'high';
+	suspicious_indicators: string[];
+	summary: string;
+	recommended_action: string;
+	ai_model: string;
+	analyzed_at: Date;
+	input_hash: string;
+}
+
+export interface ReviewAppeal {
+	text: string;
+	policy_reason: string;
+	ai_model: string;
+	generated_at: Date;
+	input_hash: string;
 }
 
 const GbpReviewSchema = new Schema<IGbpReview>(
@@ -157,10 +210,25 @@ const GbpReviewSchema = new Schema<IGbpReview>(
 			is_anonymous: { type: Boolean, default: false },
 		},
 		synced_at: { type: Date, required: true },
+		first_seen_at: { type: Date, default: null },
+		fingerprint: { type: String, default: null },
+		flags: { type: [{ _id: false, code: String, source: String, detail: { type: String, default: null } }], default: [] },
+		flag_level: { type: String, enum: ['none', 'attention', 'suspicious'], default: 'none' },
+		reply_state: { type: String, enum: REVIEW_REPLY_STATES, default: 'none' },
+		sent_at: { type: Date, default: null },
+		sent_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+		send_error: { type: String, default: null },
+		draft: { type: Schema.Types.Mixed, default: null },
+		analysis: { type: Schema.Types.Mixed, default: null },
+		appeal: { type: Schema.Types.Mixed, default: null },
+		report_status: { type: String, enum: REVIEW_REPORT_STATUSES, default: 'not_reported' },
+		report_status_at: { type: Date, default: null },
 	},
-	{ collection: 'gbp_reviews' },
+	{ collection: 'gbp_reviews', minimize: false },
 );
 GbpReviewSchema.index({ review_name: 1 }, { unique: true });
 GbpReviewSchema.index({ location_id: 1, create_time: -1 });
+GbpReviewSchema.index({ location_id: 1, reply_state: 1 });
+GbpReviewSchema.index({ location_id: 1, flag_level: 1 });
 
 export const GbpReview: Model<IGbpReview> = model<IGbpReview>('GbpReview', GbpReviewSchema);

@@ -67,11 +67,11 @@ Reads, billing, support and GBP connect / bind stay open.
 - `POST /reports`
 - the white-label branding writes
 
-## Summary (2026-10-01)
+## Summary (2026-10-02)
 
-**233 endpoints:** 232 live, 1 dev-only.
-- **By origin:** 198 rebuilt or new, 35 legacy.
-- **By auth:** 105 user, 92 platform admin (each with a permission), 36 none.
+**246 endpoints:** 245 live, 1 dev-only.
+- **By origin:** 211 rebuilt or new, 35 legacy.
+- **By auth:** 118 user, 92 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -255,6 +255,26 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
 | GET | `/api/v1/locations/:locationId/gbp/report` | user + owner | The stored GBP report (`?range=28d\|90d\|12m`): GBP Score (2026-10-02: version 2, no ranking data, states per check and pillar), profile, performance, keywords, reviews/media/posts, competitor comparison with Public Scores and gap insights | 7c, changed 2026-10-02 | live |
+
+### Reviews (Phase 18)
+
+Read routes for every member (client_user: its clients' locations); changes need owner / member (403 `read_only`). Nothing runs in the background: Google is called only on refresh / send / delete reply, OpenAI only on drafts / analyze / appeal-draft / insights. All need the `gbp_report` feature; Google and AI routes also `requireBilling`.
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/locations/:locationId/reviews` | user + owner | Reviews of the location (filters: rating, replied, reply_state, flagged, has_draft, search; sort; pages). No AI | 18 | live |
+| GET | `/api/v1/locations/:locationId/reviews/summary` | user + owner | Review stats (total, average, new this month, 4-5 / 1-3 counts, unreplied, awaiting attention, flagged, drafts pending, replies sent this month), last refresh, AI status and token costs. No AI | 18 | live |
+| POST | `/api/v1/locations/:locationId/reviews/refresh` | user + owner | Refresh Reviews: fetch new / updated reviews from Google (newest first, stops at known ones; once per 15 min). No AI | 18 | live |
+| POST | `/api/v1/locations/:locationId/reviews/drafts` | user + owner | AI reply drafts for selected 4-5 star reviews (tokens per started 10; cached drafts free) | 18 | live |
+| POST | `/api/v1/locations/:locationId/reviews/send` | user + owner | Publish the selected reviews' drafts as replies on Google | 18 | live |
+| POST | `/api/v1/locations/:locationId/reviews/analyze` | user + owner | AI analysis of selected reviews: sentiment, severity, suspicious indicators, recommended action (tokens per started 10; cached) | 18 | live |
+| GET | `/api/v1/locations/:locationId/reviews/insights` | user + owner | The stored review insights (themes, praise, complaints, observations) | 18 | live |
+| POST | `/api/v1/locations/:locationId/reviews/insights` | user + owner | Generate review insights with AI (condensed data; tokens) | 18 | live |
+| PUT | `/api/v1/locations/:locationId/reviews/:reviewId/draft` | user + owner | Save a reply draft (written or edited by the user; any rating) | 18 | live |
+| DELETE | `/api/v1/locations/:locationId/reviews/:reviewId/draft` | user + owner | Delete a reply draft | 18 | live |
+| DELETE | `/api/v1/locations/:locationId/reviews/:reviewId/reply` | user + owner | Remove the published reply from Google | 18 | live |
+| POST | `/api/v1/locations/:locationId/reviews/:reviewId/appeal-draft` | user + owner | AI draft of a removal report for a flagged or 1-3 star review, with Google's report link (no Google report API exists) | 18 | live |
+| PATCH | `/api/v1/locations/:locationId/reviews/:reviewId/report-status` | user + owner | Record what happened with a report on Google | 18 | live |
 
 ### GBP posting (legacy, rebuilt in Phase 9)
 
@@ -709,7 +729,7 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
-| 107 | GET | `/billing` | user + org | – | `{ state, read_only, trial_ends_at, grace_ends_at, currency, plan: { id, name, kind, max_locations, users_per_location }, prices: { current: { first_location, additional_location } \| null, upcoming }, subscription \| null, next_renewal: { date, quantity, amount, fixed } \| null, locations: { active, allowed, max }, users: { used, limit }, tokens: { balance, cost_per_refresh, monthly_grant, last_grant_at, next_grant_at (2026-10-01) }, billing_details, online_payments }` |
+| 107 | GET | `/billing` | user + org | – | `{ state, read_only, trial_ends_at, grace_ends_at, currency, plan: { id, name, kind, max_locations, users_per_location }, prices: { current: { first_location, additional_location } \| null, upcoming }, subscription \| null, next_renewal: { date, quantity, amount, fixed } \| null, locations: { active, allowed, max }, users: { used, limit }, tokens: { balance, cost_per_refresh, ai_costs (18), monthly_grant, last_grant_at, next_grant_at (2026-10-01) }, billing_details, online_payments }` |
 | 108 | POST | `/billing/checkout` | user + org (owner) | `{ quantity? }` (1 to the plan's cap, at least the active locations; 13c) | **201** `{ subscription_id, approve_url, quantity, currency, monthly_amount, starts_at }`; **409** `price_not_set`, `already_subscribed`, `manual_billing`; **403** `enterprise_required` (quantity above the cap); **400** `quantity_below_active`; **503** `billing_not_configured` |
 | 109 | POST | `/billing/sync` | user + org (owner) | – | #107 |
 | 110 | POST | `/billing/cancel` | user + org (owner) | `{ reason? }` | #107; **409** `no_subscription`, `manual_billing` |
@@ -731,7 +751,7 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 |---|---|---|---|---|---|
 | 122 | GET | `/admin/billing/plans` | admin (`billing.read`) | `kind, organization_id` | `[plan]`: `{ id, name, kind, organization_id, entitlements, users_per_location, max_locations, trial, tokens_per_refresh, monthly_token_grant, token_pack_discount_percent, token_pack_prices, prices: [{ currency, first_location_price, additional_location_price, effective_from, set_by, set_at }], is_active }` |
 | 123 | GET | `/admin/billing/plans/:planId` | admin (`billing.read`) | – | plan; **404** `not_found` |
-| 124 | PATCH | `/admin/billing/plans/:planId` | admin (`billing.manage`) | any of `{ name, entitlements: { <feature>: bool }, users_per_location, max_locations (null = no cap, custom only), trial: { days, locations, users, tokens }, tokens_per_refresh: { rankings, gbp }, monthly_token_grant, token_pack_discount_percent, token_pack_prices: [{ pack_id, currency, price }], is_active }` | plan; **400** `invalid_plan` (standard: no cap removal, no deactivation) |
+| 124 | PATCH | `/admin/billing/plans/:planId` | admin (`billing.manage`) | any of `{ name, entitlements: { <feature>: bool }, users_per_location, max_locations (null = no cap, custom only), trial: { days, locations, users, tokens }, tokens_per_refresh: { rankings, gbp }, ai_token_costs: { reply_drafts_per_10, analysis_per_10, appeal, insights } (18), monthly_token_grant, token_pack_discount_percent, token_pack_prices: [{ pack_id, currency, price }], is_active }` | plan; **400** `invalid_plan` (standard: no cap removal, no deactivation) |
 | 125 | POST | `/admin/billing/plans/:planId/prices` | admin (`billing.manage`) | `{ currency (USD\|CAD), first_location_price, additional_location_price, effective_from }` | **201** plan (same currency + date replaces); **400** `effective_from_in_past` |
 | 126 | GET | `/admin/billing/organizations/:organizationId` | admin (`billing.read`) | – | `{ organization: { id, name, type, country, plan_id, billing_method, trial_ends_at, suspended_at }, billing: <GET /billing>, subscriptions, invoices, audit }` |
 | 127 | POST | `/admin/billing/organizations/:organizationId/custom-plan` | admin (`billing.manage`) | plan fields of #124 + `billing_method?` | **201** plan (copied from the standard plan, prices empty: add them with #125); **409** `custom_plan_exists` |
@@ -756,6 +776,24 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | 147 | POST | `/admin/billing/coupons` | admin (`billing.manage`) | `{ code, discount_type: percent\|fixed, value, pack_ids?, max_redemptions?, expires_at?, is_active?, note? }` | **201** coupon; **409** `code_taken` |
 | 148 | PATCH | `/admin/billing/coupons/:couponId` | admin (`billing.manage`) | any field of #146 except `code` | coupon |
 | 151 | GET | `/admin/billing/audit` | admin (`billing.read`) | `organization_id, action, page, limit` | `{ entries: [{ id, action, organization_id, target, before, after, note, by: { admin_id, name }, at }], page, limit, total }` |
+
+### Reviews (Phase 18)
+
+| # | Method | Path | Auth | Input | Returns |
+|---|---|---|---|---|---|
+| 159 | GET | `/locations/:locationId/reviews` | user, owner | query `rating` (1-5 or `4,5`), `replied`, `reply_state` (none\|draft\|sent\|failed), `flagged` (any\|suspicious\|attention\|none), `has_draft`, `search`, `sort` (newest\|oldest\|rating_asc\|rating_desc), `page`, `limit` (≤ 100) | `{ reviews: [review], page, limit, total, attribution }`; review = `{ review_id, rating, comment, reviewer, create_time, reply, reply_state, draft, flags, flag_level, analysis, appeal, report_status, ai_reply_eligible, ai_reply_skip_reason, appeal_eligible, … }` |
+| 160 | GET | `/locations/:locationId/reviews/summary` | user, owner | – | `{ stats: { total, average_rating, new_this_month, positive, negative, unreplied, awaiting_attention, flagged, suspicious, drafts_pending, replies_sent_this_month, last_review_at }, last_synced_at, last_refreshed_at, next_refresh_allowed_at, v4_enabled, gbp_connected, ai: { configured, paused_today, token_costs, token_balance } }` |
+| 161 | POST | `/locations/:locationId/reviews/refresh` | user, owner (write) | – | `{ refreshed_at, google_calls, new_reviews, updated_reviews, stats }`; **429** `rate_limited` + `next_allowed_at`; **400** `gbp_not_connected`, `v4_access_pending` |
+| 162 | POST | `/locations/:locationId/reviews/drafts` | user, owner (write) | `{ review_ids: [≤ 20], regenerate? }` | `{ drafts: [review], generated, reused, skipped: [{ review_id, reason: rating_not_eligible\|already_replied\|flagged\|no_rating\|not_found }], tokens_spent }`; **402** `insufficient_tokens`; **503** `ai_not_configured` / `ai_budget_reached`; **502** `ai_failed` (refunded) |
+| 163 | POST | `/locations/:locationId/reviews/send` | user, owner (write) | `{ review_ids: [≤ 50] }` | `{ results: [{ review_id, status: sent\|failed\|skipped, reason }], sent, failed }` |
+| 164 | POST | `/locations/:locationId/reviews/analyze` | user, owner (write) | `{ review_ids: [≤ 20], regenerate? }` | `{ reviews: [review], analyzed, reused, skipped, tokens_spent }`; errors as #162 |
+| 165 | GET | `/locations/:locationId/reviews/insights` | user, owner | – | `{ generated_at, ai_model, basis, insight: { themes, praise, complaints, observations } }`; **404** `no_insights` |
+| 166 | POST | `/locations/:locationId/reviews/insights` | user, owner (write) | – | **201** `{ generated_at, ai_model, basis, insight, tokens_spent }`; **400** `no_reviews`; errors as #162 |
+| 167 | PUT | `/locations/:locationId/reviews/:reviewId/draft` | user, owner (write) | `{ text: 1-4000 }` | review; **404** `review_not_found` |
+| 168 | DELETE | `/locations/:locationId/reviews/:reviewId/draft` | user, owner (write) | – | `{ deleted, review_id }` |
+| 169 | DELETE | `/locations/:locationId/reviews/:reviewId/reply` | user, owner (write) | – | `{ deleted, review_id }`; **400** `no_reply` |
+| 170 | POST | `/locations/:locationId/reviews/:reviewId/appeal-draft` | user, owner (write) | `{ regenerate? }` | `{ review, appeal: { text, policy_reason, generated_at, stale }, report_url, tokens_spent }`; **400** `not_eligible`; errors as #162 |
+| 171 | PATCH | `/locations/:locationId/reviews/:reviewId/report-status` | user, owner (write) | `{ status: not_reported\|reported\|appeal_submitted\|removed\|kept }` | review |
 
 ## Removed endpoints
 

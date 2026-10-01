@@ -10,7 +10,7 @@ const MAX_ERROR_MESSAGE_LENGTH = 300;
 const MAX_RETRY_AFTER_MS = 5000;
 
 export interface HttpRequest {
-	method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+	method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 	url: string;
 	headers: Record<string, string>;
 	data?: unknown;

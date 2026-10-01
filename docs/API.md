@@ -2848,3 +2848,130 @@ Team replies appear as `{ "kind": "team", "name": "MyPageSEO team" }`; internal 
 - `PATCH …/:ticketId { status?, priority?: low|normal|high, assigned_to?: <admin id> | null }`.
 
 **Emails:** a new ticket and customer replies go to `SUPPORT_EMAIL`; team replies go to the customer with a link to `FRONTEND_URL/support/<id>`. Sent or logged per `EMAIL_TRANSPORT` (OPERATIONS.md "Email").
+
+---
+
+## Reviews and AI (Phase 18)
+
+All paths are under `/api/v1/locations/:locationId/reviews`. **Deterministic first, AI only when the user asks**: lists, stats, flags, refresh and sending never use AI; drafts, analysis, appeal drafts and insights call OpenAI (model `gpt-5-nano` by default) and spend MyPageSEO tokens. Nothing runs in the background. Reviews need a GBP binding and v4 access; the monthly GBP sync also keeps them current.
+
+**Flow on the Reviews page:** `GET summary` + `GET reviews` → `POST refresh` (button) → tick reviews → `POST drafts` (4-5 stars) or `POST analyze` → edit with `PUT :reviewId/draft` → `POST send`. Low ratings: the user writes the reply (`PUT :reviewId/draft`); a flagged or 1-3 star review can get an AI removal-report draft (`POST :reviewId/appeal-draft`) to paste into Google's tool.
+
+### The review object
+
+```json
+{
+  "review_id": "6abf0c…", "rating": 2, "comment": "They overcharged me for a simple drain clean.",
+  "reviewer": { "display_name": "Sam Lee", "is_anonymous": false },
+  "create_time": "2026-09-28T10:00:00.000Z", "update_time": "2026-09-28T10:00:00.000Z",
+  "reply": null, "reply_state": "draft", "sent_at": null, "send_error": null,
+  "draft": { "text": "Hi Sam, sorry the price felt high…", "source": "user", "edited": false, "generated_at": "…", "stale": false },
+  "flags": [ { "code": "ai_serious", "source": "ai", "label": "AI analysis: serious complaint", "detail": "Price complaint" } ],
+  "flag_level": "attention",
+  "analysis": { "sentiment": "negative", "severity": "high", "suspicious_indicators": [], "summary": "Price complaint", "recommended_action": "Reply publicly and offer to talk.", "analyzed_at": "…", "stale": false },
+  "appeal": null, "report_status": "not_reported",
+  "ai_reply_eligible": false, "ai_reply_skip_reason": "rating_not_eligible", "appeal_eligible": true,
+  "first_seen_at": "…"
+}
+```
+
+- `reply_state`: `none` (no reply), `draft` (a draft waits), `sent` (a reply is on Google, from us or from elsewhere), `failed` (the last send failed: `send_error`).
+- `flag_level`: `none`, `attention` (a human should look) or `suspicious` (possible Google policy issue). Show "Suspicious indicators", never "fake". System flag codes: `link`, `contact_info`, `promotional`, `duplicate_text`, `profanity`, `low_rating_burst` (suspicious); `repeat_reviewer`, `empty_low_rating`, `rating_text_mismatch` (attention). AI flags after an analysis: `ai_suspicious`, `ai_serious`. Each flag has a `label` to show.
+- `stale: true` on a draft, analysis or appeal: the review changed since it was made.
+- `ai_reply_eligible`: AI drafts only for 4-5 stars, without a reply, not suspicious; otherwise `ai_reply_skip_reason`.
+
+### `GET /reviews/summary` (no AI)
+
+```json
+{
+  "stats": { "total": 64, "average_rating": 4.6, "new_this_month": 3, "positive": 55, "negative": 9, "unreplied": 12,
+             "awaiting_attention": 4, "flagged": 3, "suspicious": 1, "drafts_pending": 2, "replies_sent_this_month": 5,
+             "last_review_at": "2026-09-30T10:00:00.000Z", "updated_at": "…" },
+  "last_synced_at": "…", "last_refreshed_at": "2026-10-02T12:00:00.000Z", "next_refresh_allowed_at": "2026-10-02T12:15:00.000Z",
+  "v4_enabled": true, "gbp_connected": true,
+  "ai": { "configured": true, "paused_today": false, "token_costs": { "reply_drafts_per_10": 1, "analysis_per_10": 1, "appeal": 1, "insights": 2 }, "token_balance": 12 }
+}
+```
+
+`awaiting_attention` = unreplied 1-3 star or flagged reviews. Show "Last synced" and the **Refresh Reviews** button from `last_refreshed_at` / `next_refresh_allowed_at`. Hide AI buttons when `ai.configured` is false; show the token cost on each AI button.
+
+### `GET /reviews` (no AI)
+
+Query: `rating=5` or `rating=4,5`, `replied=true|false`, `reply_state`, `flagged=any|suspicious|attention|none`, `has_draft=true|false`, `search`, `sort=newest|oldest|rating_asc|rating_desc`, `page`, `limit` (≤ 100). → `{ reviews: [review], page, limit, total, attribution }`.
+
+### `POST /reviews/refresh` (Google, no AI)
+
+Fetches new and updated reviews newest first and stops at the first one already stored, so it is usually one free Google call. Once per 15 minutes per location (`REVIEWS_REFRESH_MIN_MINUTES`).
+
+```json
+{ "refreshed_at": "…", "google_calls": 1, "new_reviews": 2, "updated_reviews": 0, "stats": { "total": 66, "…": "…" } }
+```
+
+**429** `{ reason: "rate_limited", next_allowed_at }`; **400** `gbp_not_connected`, `v4_access_pending`.
+
+### `POST /reviews/drafts` (AI)
+
+`{ "review_ids": ["…"], "regenerate": false }` (1-20 ids). Only eligible 4-5 star reviews go to the AI, in batches of 10 (one request each). Drafts that exist for the same review text are returned free; a draft the user wrote or edited is never replaced unless `regenerate: true`.
+
+```json
+{ "drafts": [ { "review_id": "…", "reply_state": "draft", "draft": { "text": "Thanks Ann, glad the boiler's working again…", "source": "ai", "stale": false }, "…": "…" } ],
+  "generated": 2, "reused": 0, "skipped": [ { "review_id": "…", "reason": "rating_not_eligible" } ], "tokens_spent": 1 }
+```
+
+What the AI sees: the business name, category and city, up to 8 tracked keywords (used only if they fit), each review's rating and text, and the reviewer's **first name** only.
+
+### `PUT /reviews/:reviewId/draft`, `DELETE /reviews/:reviewId/draft`
+
+`{ "text": "…" }` (1-4000 characters): save a reply written or edited by the user, for any rating. → the review.
+
+### `POST /reviews/send`
+
+`{ "review_ids": ["…"] }` (≤ 50). Publishes each review's draft on Google (replaces an existing reply). No AI.
+
+```json
+{ "results": [ { "review_id": "…", "status": "sent", "reason": null }, { "review_id": "…", "status": "skipped", "reason": "no_draft" } ], "sent": 1, "failed": 0 }
+```
+
+A failed send sets `reply_state: "failed"` and `send_error`; fix and send again. `DELETE /reviews/:reviewId/reply` removes a published reply (**400** `no_reply`).
+
+### `POST /reviews/analyze` (AI)
+
+`{ "review_ids": ["…"], "regenerate": false }`: sentiment, severity, suspicious indicators, a one-line summary and a recommended action per review; cached until the review changes. Adds `ai_suspicious` (indicators found) and `ai_serious` (high severity) flags. Reviews without text are skipped (`no_text`). Never reports anything to Google. → `{ reviews, analyzed, reused, skipped, tokens_spent }`.
+
+### `POST /reviews/:reviewId/appeal-draft` (AI)
+
+**Google has no API to report or appeal a review** (v4 offers list / get / reply only). This drafts the text; the user submits it in Google's Reviews Management Tool (`report_url`) and records the outcome.
+
+```json
+{ "review": { "…": "…" },
+  "appeal": { "text": "This review promotes another business's website (www.…) and does not describe an experience with ours…", "policy_reason": "spam", "generated_at": "…", "stale": false },
+  "report_url": "https://support.google.com/business/workflow/16726127", "tokens_spent": 1 }
+```
+
+`policy_reason`: `spam`, `off_topic`, `conflict_of_interest`, `offensive`, `harassment`, `hate_speech`, `personal_information`, `restricted_content` or `none_applies` (the text then says the review probably doesn't break a policy and a public reply is better). Only for flagged or 1-3 star reviews (**400** `not_eligible`). Cached until the review changes.
+
+`PATCH /reviews/:reviewId/report-status { "status": "reported" | "appeal_submitted" | "removed" | "kept" | "not_reported" }` records it.
+
+### `POST /reviews/insights` (AI), `GET /reviews/insights`
+
+Sends monthly counts per rating and at most 60 recent review texts cut to 300 characters; the result is stored and served by `GET` until regenerated (**404** `no_insights` before the first).
+
+```json
+{ "generated_at": "…", "ai_model": "gpt-5-nano",
+  "basis": { "reviews_total": 64, "reviews_sent": 60, "from": "…", "to": "…" },
+  "insight": { "themes": [ { "theme": "price", "mentions": 6, "sentiment": "mixed" } ], "praise": ["Tidy work"], "complaints": ["Prices feel high for small jobs"], "observations": ["Ratings dipped in August"] },
+  "tokens_spent": 2 }
+```
+
+### AI errors (every AI route)
+
+| Status | `reason` | Meaning |
+|---|---|---|
+| 402 | `insufficient_tokens` (+ `balance`, `cost`) | Not enough MyPageSEO tokens; link to buying tokens |
+| 503 | `ai_not_configured` | No OpenAI key on the server |
+| 503 | `ai_budget_reached` | The server-wide daily AI budget is used up; try tomorrow |
+| 502 | `ai_failed` | OpenAI didn't answer; the tokens were refunded |
+
+**Token costs** are set per plan by MyPageSEO admins (`PATCH /admin/billing/plans/:planId { ai_token_costs }`) and shown in `GET /billing` → `tokens.ai_costs` and in the reviews summary. Defaults: reply drafts 1 per started batch of 10 reviews, analysis 1 per started 10, appeal draft 1, insights 2. Reused results cost nothing.
+
+**Dashboard (Phase 18):** `GET /dashboard` → `reviews` adds `new_this_month`, `positive`, `negative`, `awaiting_attention`, `flagged`, `suspicious`, `drafts_pending`, `replies_sent_this_month`, `last_review_at` and `needs_attention: [{ location_id, name, awaiting_attention, suspicious }]` once reviews are stored; agency table rows get `reviews: { rating, total, awaiting_attention, suspicious }`; recommended actions `reviews:attention` and `reviews:suspicious`.

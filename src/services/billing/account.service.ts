@@ -1,6 +1,6 @@
 import httpStatus from 'http-status';
 import { Types } from 'mongoose';
-import { currencyFor, Currency } from '../../billing/constants';
+import { AI_TOKEN_COST_DEFAULTS, currencyFor, Currency } from '../../billing/constants';
 import { monthlyAmount, priceAt } from '../../billing/pricing';
 import { IBillingPlan, IInvoice, ITokenLedger, Invoice, Location, Organization, OrganizationBillingDetails, TokenLedger } from '../../models';
 import { apiErrorWithData } from '../../utils';
@@ -76,6 +76,8 @@ export const billingOverview = async (organizationId: Id, at: Date = new Date())
 		tokens: {
 			balance: e.tokens.balance,
 			cost_per_refresh: e.tokens.cost_per_refresh,
+			// Phase 18: tokens per AI action.
+			ai_costs: e.tokens.ai_costs,
 			monthly_grant: monthlyGrant,
 			last_grant_at: lastGrant?.at ?? null,
 			next_grant_at: grantActive ? (s?.current_period_end ?? null) : null,
@@ -96,6 +98,7 @@ export const publicPricing = async (country: string, at: Date = new Date()) => {
 		users_per_location: plan.users_per_location,
 		trial: { days: plan.trial.days, locations: plan.trial.locations, users: plan.trial.users },
 		tokens_per_refresh: plan.tokens_per_refresh,
+		ai_token_costs: { ...AI_TOKEN_COST_DEFAULTS, ...(plan.ai_token_costs ?? {}) },
 		token_packs: packsFor(await activePacks(), plan, currency).map(({ id, name, tokens, price, currency: c }) => ({ id, name, tokens, price, currency: c })),
 	};
 };

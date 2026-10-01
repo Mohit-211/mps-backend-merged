@@ -108,6 +108,30 @@ Every email goes through one service (`src/services/common/email.service.ts`, `d
 - **Email:** From is `EMAIL_FROM` with the branding's sender name; Reply-To from branding. PDFs above `REPORT_EMAIL_MAX_ATTACHMENT_MB` (10) are sent as a 30-day share link. Sent or logged per `EMAIL_TRANSPORT` (see "Email").
 - **Share links:** `SHARE_BASE_URL` (else `API_BASE_URL`) + `/r/<token>`, served by this app outside `/api/v1`. If nginx only proxies `/api`, add a location for `/r/`. The request log redacts the token.
 
+## AI (OpenAI) and review management (Phase 18)
+
+**Rule:** AI only on an explicit user action; nothing in the background. Every call goes through `src/services/ai/ai.service.ts` (`runAiTask`): the organization pays MyPageSEO tokens first (refunded if OpenAI fails), a server-wide daily budget caps spend, and each request is logged in `ai_calls` (counts and estimated USD only; no prompts or review text).
+
+**Setup (Mohit):**
+1. Create an OpenAI API key for a project with a **monthly budget limit** set in OpenAI's dashboard (the hard stop, on top of ours).
+2. Put it in the server's `.env` as `OPENAI_API_KEY=` (never commit it), plus `OPENAI_MODEL=gpt-5-nano`, `OPENAI_REASONING_EFFORT=minimal`, `AI_DAILY_BUDGET_USD=5` (our daily safety net; `0` turns AI off), `AI_MAX_REVIEWS_PER_REQUEST=20`, `REVIEWS_REFRESH_MIN_MINUTES=15`. Restart with `pm2 restart all --update-env`.
+3. Without a key every AI route answers 503 `ai_not_configured`; the rest of review management works.
+
+**Model and cost (OpenAI's pricing page, 2026-10-02, per 1M tokens):** `gpt-5-nano` $0.05 input / $0.005 cached / $0.40 output (default; `gpt-5-mini` $0.25 / $2.00 for better writing). Prices live in `src/configs/pricing.ts` (`OPENAI_PRICES`); an unknown model is costed at the gpt-5-mini rate so the daily budget errs safe.
+
+| Action | Per request | Approx. cost (gpt-5-nano) | MyPageSEO tokens (default) |
+|---|---|---|---|
+| Reply drafts | up to 10 reviews | ≈ 1,500 in + 1,000 out ≈ **$0.0005** | 1 per started 10 |
+| Analysis | up to 10 reviews | ≈ $0.0005 | 1 per started 10 |
+| Appeal draft | 1 review | ≈ $0.0002 | 1 |
+| Insights | 60 excerpts × 300 chars + counts | ≈ 15,000 in + 800 out ≈ **$0.001** | 2 |
+
+A reused result (same review text) costs nothing. Token costs per plan: `PATCH /admin/billing/plans/:planId { ai_token_costs }`.
+
+**Google calls for reviews:** the Refresh Reviews button lists newest-updated first and stops at known reviews (usually 1 call; once per 15 min per location). Sending a reply is 1 call (`updateReply`), deleting one 1 call. The monthly GBP sync still fetches all reviews. All are free (quota only).
+
+**Watching spend:** `db.ai_calls.aggregate([{ $group: { _id: '$task', usd: { $sum: '$cost_usd' }, calls: { $sum: 1 } } }])`; today's total is in `ai_budget_days`.
+
 ## Ranking quality, Google API usage and cost (Phase 12.5)
 
 **Ranking at full quality** (Mohit, 2026-09-27: quality over cost):

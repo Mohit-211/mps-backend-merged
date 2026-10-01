@@ -50,3 +50,31 @@ export const loadPricing = (file: string | undefined = process.env.PRICING_FILE)
 		source: file,
 	};
 };
+
+// ---- OpenAI (Phase 18) ----
+
+/** USD per 1M tokens (OpenAI's pricing page, checked 2026-10-02). */
+export interface OpenaiPrice {
+	input: number;
+	cached_input: number;
+	output: number;
+}
+
+export const OPENAI_PRICES: Record<string, OpenaiPrice> = {
+	'gpt-5-nano': { input: 0.05, cached_input: 0.005, output: 0.4 },
+	'gpt-5-mini': { input: 0.25, cached_input: 0.025, output: 2 },
+	'gpt-4.1-nano': { input: 0.1, cached_input: 0.025, output: 0.4 },
+	'gpt-4.1-mini': { input: 0.4, cached_input: 0.1, output: 1.6 },
+	'gpt-4o-mini': { input: 0.15, cached_input: 0.075, output: 0.6 },
+};
+
+/** An unknown model is costed at the gpt-5-mini rate, so the daily budget errs on the safe side. */
+const FALLBACK_OPENAI_PRICE = OPENAI_PRICES['gpt-5-mini'];
+
+/** Estimated USD of one request (reasoning tokens are billed as output and included in output_tokens). */
+export const openaiCostUsd = (modelName: string, usage: { input_tokens: number; cached_input_tokens: number; output_tokens: number }): number => {
+	const key = Object.keys(OPENAI_PRICES).find((m) => modelName === m || modelName.startsWith(`${m}-`));
+	const p = key ? OPENAI_PRICES[key] : FALLBACK_OPENAI_PRICE;
+	const uncached = Math.max(0, usage.input_tokens - usage.cached_input_tokens);
+	return (uncached * p.input + usage.cached_input_tokens * p.cached_input + usage.output_tokens * p.output) / 1_000_000;
+};

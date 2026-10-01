@@ -57,6 +57,13 @@ const envVarsSchema = Joi.object({
 	REFRESH_MIN_INTERVAL_HOURS: Joi.number().min(0).default(24).description('Manual refresh: minimum hours between refreshes per location per type'),
 	REFRESH_LOCAL_HOUR: Joi.number().integer().min(0).max(23).default(3).description('Local hour of the monthly automatic refresh'),
 	GBP_V4_ENABLED: Joi.boolean().default(false).description('Google My Business v4 (reviews, media, posts) access approved'),
+	// Phase 18: the shared OpenAI layer (only on explicit user actions; tokens are spent per action).
+	OPENAI_API_KEY: Joi.string().allow('').default('').description('OpenAI API key; empty = AI actions answer 503 ai_not_configured'),
+	OPENAI_MODEL: Joi.string().default('gpt-5-nano'),
+	OPENAI_REASONING_EFFORT: Joi.string().valid('none', 'minimal', 'low', 'medium').default('minimal').description("'none' omits the reasoning setting (for non-reasoning models)"),
+	AI_DAILY_BUDGET_USD: Joi.number().min(0).default(5).description('Server-wide safety net: estimated OpenAI spend per UTC day; 0 = AI off'),
+	AI_MAX_REVIEWS_PER_REQUEST: Joi.number().integer().min(1).max(50).default(20),
+	REVIEWS_REFRESH_MIN_MINUTES: Joi.number().integer().min(1).max(1440).default(15),
 	GBP_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(18),
 	GBP_ROLLING_DAYS: Joi.number().integer().min(7).max(90).default(40),
 	GBP_KEYWORD_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(6),
@@ -218,6 +225,19 @@ interface Config {
 		keywordRollingMonths: number;
 	};
 
+	ai: {
+		openaiApiKey: string;
+		model: string;
+		reasoningEffort: 'none' | 'minimal' | 'low' | 'medium';
+		dailyBudgetUsd: number;
+		maxReviewsPerRequest: number;
+	};
+
+	reviews: {
+		/** Refresh Reviews button: minimum minutes between refreshes per location. */
+		refreshMinMinutes: number;
+	};
+
 	refresh: {
 		/** Manual refresh: minimum hours between refreshes per location per type. */
 		minIntervalHours: number;
@@ -377,6 +397,18 @@ const config: Config = {
 		rollingDays: envVars.GBP_ROLLING_DAYS,
 		keywordBackfillMonths: envVars.GBP_KEYWORD_BACKFILL_MONTHS,
 		keywordRollingMonths: envVars.GBP_KEYWORD_ROLLING_MONTHS,
+	},
+
+	ai: {
+		openaiApiKey: envVars.OPENAI_API_KEY,
+		model: envVars.OPENAI_MODEL,
+		reasoningEffort: envVars.OPENAI_REASONING_EFFORT,
+		dailyBudgetUsd: envVars.AI_DAILY_BUDGET_USD,
+		maxReviewsPerRequest: envVars.AI_MAX_REVIEWS_PER_REQUEST,
+	},
+
+	reviews: {
+		refreshMinMinutes: envVars.REVIEWS_REFRESH_MIN_MINUTES,
 	},
 
 	refresh: {
