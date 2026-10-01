@@ -1,5 +1,6 @@
 import Joi from 'joi';
 import httpStatus from 'http-status';
+import { SESSION_TOKEN_PATTERN } from '../../clients/placesClient';
 import { findLocationForUser } from '../../services/org/access';
 import { catchAsync, pick, responseWrapper } from '../../utils';
 
@@ -54,10 +55,40 @@ export const validatePlacesSearch = catchAsync(async (req, res, next) => {
 });
 
 /** PUT /locations/:locationId/center { query }: a city or ZIP / postal code, 2–100 characters. */
+// { query } (a text search) or, from the picker (2026-10-01), { place_id, session? }.
 export const validateCenter = catchAsync(async (req, res, next) => {
-	const { value, error } = Joi.object({ query: Joi.string().trim().min(2).max(100).required() }).validate(pick(req.body, ['query']));
+	const { value, error } = Joi.object({
+		query: Joi.string().trim().min(2).max(100),
+		place_id: Joi.string().trim().pattern(/^[A-Za-z0-9_-]{10,255}$/),
+		session: Joi.string().pattern(SESSION_TOKEN_PATTERN),
+	})
+		.xor('query', 'place_id')
+		.with('session', 'place_id')
+		.validate(pick(req.body, ['query', 'place_id', 'session']));
 	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
-	res.locals.centerQuery = value.query;
+	res.locals.centerQuery = value.query ?? null;
+	res.locals.centerPlace = value.place_id ? { place_id: value.place_id as string, session: (value.session as string | undefined) ?? undefined } : null;
+	next();
+});
+
+// GET /places/autocomplete (2026-10-01): the setup-center picker. The country is the location's
+// (?locationId=), else ?country=, else the organization's.
+export const validateAutocomplete = catchAsync(async (req, res, next) => {
+	const { value, error } = Joi.object({
+		q: Joi.string().trim().min(1).max(100).required(),
+		session: Joi.string().pattern(SESSION_TOKEN_PATTERN).required(),
+		country: Joi.string().valid('US', 'CA', 'us', 'ca'),
+		locationId: Joi.string().hex().length(24),
+	}).validate(pick(req.query, ['q', 'session', 'country', 'locationId']));
+	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
+	let country: string | null = value.country ? String(value.country).toUpperCase() : null;
+	if (value.locationId) {
+		const user = req.body?.user as { _id?: unknown } | undefined;
+		const access = await findLocationForUser(String(user?._id), value.locationId, { write: true });
+		if (!access) return responseWrapper(res, '', 'Location not found', httpStatus.NOT_FOUND);
+		country = access.location.country ?? country;
+	}
+	res.locals.autocomplete = { q: value.q as string, session: value.session as string, country };
 	next();
 });
 

@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import config from '../../configs/config';
 import logger from '../../configs/logger';
-import { bindingService } from '../../services/gbp/binding.service';
 import { gbpOAuthService } from '../../services/gbp/oauth.service';
+import { disconnectAccount } from '../../services/gbp/disconnect.service';
 import { ApiError, catchAsync, responseWrapper } from '../../utils';
 
 // Google connect (Phases 6–7a; moved from /user/auth/google/gbp/* to /gbp/connect/* in 13b).
@@ -62,5 +62,5 @@ export const callback = catchAsync(async (req, res) => {
 
 /** Disconnect one Google account (google_sub; optional with a single connection): revoke, unbind its profiles, delete its tokens. */
 export const disconnect = catchAsync(async (req, res) =>
-	responseWrapper(res, await bindingService.disconnect(userIdOf(req), str(req.body.google_sub)), 'Google account disconnected.'),
+	responseWrapper(res, await disconnectAccount(userIdOf(req), str(req.body.google_sub)), 'Google account disconnected; its locations were removed.'),
 );

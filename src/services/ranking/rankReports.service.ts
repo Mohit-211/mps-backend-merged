@@ -35,7 +35,8 @@ export const runMeta = (run: LeanRun) => ({
 	run_at: run.run_at,
 	status: run.status,
 	keywords_version: run.keywords_version,
-	center: run.center,
+	// 2026-10-01: source ('place' | 'manual') and label frozen with the run (null on older runs).
+	center: run.center ? { ...run.center, source: run.center_kind ?? null, label: run.center_label ?? null } : null,
 	config: run.config,
 });
 

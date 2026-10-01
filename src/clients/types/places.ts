@@ -152,6 +152,42 @@ export interface PlacesCallStats {
 	/** Text Search Enterprise (rating / userRatingCount): competitor suggestions only. */
 	enterprise: number;
 	details: number;
+	/** Autocomplete (New) requests (2026-10-01: city / ZIP center picker). */
+	autocomplete: number;
+}
+
+export interface AutocompleteParams {
+	input: string;
+	/** Two-letter region codes the suggestions are limited to ("us", "ca"). */
+	regionCodes: string[];
+	/** Groups the keystrokes with the Place Details call that ends the session (one billing session). */
+	sessionToken: string;
+	/** Primary types (Google's type collections allowed, e.g. "(regions)"). */
+	includedPrimaryTypes?: string[];
+}
+
+export interface AutocompleteSuggestion {
+	place_id: string;
+	description: string;
+	main_text: string | null;
+	secondary_text: string | null;
+	types: string[];
+}
+
+export interface AutocompleteResult {
+	suggestions: AutocompleteSuggestion[];
+	apiCalls: number;
+}
+
+export interface RawAutocompleteResponse {
+	suggestions?: {
+		placePrediction?: {
+			placeId?: string;
+			text?: { text?: string };
+			structuredFormat?: { mainText?: { text?: string }; secondaryText?: { text?: string } };
+			types?: string[];
+		};
+	}[];
 }
 
 // ---- Raw API shapes (boundary only) ----

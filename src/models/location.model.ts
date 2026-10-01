@@ -179,6 +179,8 @@ export interface ILocation extends Document {
   organization_id?: mongoose.Types.ObjectId;
   source?: LocationSource;
   gbp_connected?: boolean;
+  /** 2026-10-01: set when the location's GBP was unbound (status gbp_disconnected); cleared on a new bind. */
+  gbp_disconnected_at?: Date | null;
   summary?: ILocationSummary;
   is_active: boolean;
   created_at: Date;
@@ -305,6 +307,7 @@ const locationSchema = new Schema<ILocation>(
     organization_id: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
     source: { type: String, enum: LOCATION_SOURCES, required: true },
     gbp_connected: { type: Boolean, default: false },
+    gbp_disconnected_at: { type: Date, default: null },
     summary: {
       type: new Schema<ILocationSummary>(
         {

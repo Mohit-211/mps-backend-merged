@@ -84,6 +84,53 @@ describe('manual center (city / ZIP)', () => {
 	});
 });
 
+describe('center picker (2026-10-01): autocomplete + place_id', () => {
+	const setupPicker = () => {
+		const calls: unknown[] = [];
+		const reserved: number[] = [];
+		const limited: string[] = [];
+		const service = createCenterService({
+			places: {
+				searchTextIds: async () => {
+					throw new Error('no text search on the picker path');
+				},
+				autocomplete: async (params) => {
+					calls.push(params);
+					return { suggestions: [{ place_id: 'ChIJtampaCity000000001', description: 'Tampa, FL, USA', main_text: 'Tampa', secondary_text: 'FL, USA', types: ['locality'] }], apiCalls: 1 };
+				},
+				getPlaceDetails: async (id, fields, options) => {
+					calls.push({ id, fields, options });
+					return { details: { id, location: { latitude: 27.9506, longitude: -82.4572 }, formattedAddress: 'Tampa, FL, USA' }, apiCalls: 1 };
+				},
+			},
+			usage: { reserve: async (_u, n) => void reserved.push(n) },
+			rateLimit: async (userId) => void limited.push(userId),
+		});
+		return { service, calls, reserved, limited };
+	};
+
+	it('autocomplete: regions and postal codes in the country, the session token passed on, rate-limited, not charged', async () => {
+		const { service, calls, reserved, limited } = setupPicker();
+		const result = await service.autocomplete('u1', 'tam', 'US', 'b7f3c1d2-9a4e-4c1b-8e2f-0a1b2c3d4e5f');
+		expect(result.suggestions[0]).toMatchObject({ place_id: 'ChIJtampaCity000000001', description: 'Tampa, FL, USA' });
+		expect(calls).toEqual([{ input: 'tam', regionCodes: ['us'], sessionToken: 'b7f3c1d2-9a4e-4c1b-8e2f-0a1b2c3d4e5f', includedPrimaryTypes: ['(regions)'] }]);
+		expect(limited).toEqual(['u1']);
+		expect(reserved).toEqual([]);
+		await expect(service.autocomplete('u1', 'lon', 'GB', 'b7f3c1d2-9a4e')).rejects.toMatchObject({ statusCode: 400 });
+	});
+
+	it('PUT center { place_id, session }: 1 Details call (location + formattedAddress) ending the session, counted once, saved as manual', async () => {
+		const { user } = await createUser('p@test.dev');
+		const location = await createLocation(user._id as Types.ObjectId, { lat: null, lng: null, country: 'US' });
+		const { service, calls, reserved } = setupPicker();
+		const result = await service.setCenterFromPlace(location, user._id, 'ChIJtampaCity000000001', 'b7f3c1d2-9a4e-4c1b-8e2f-0a1b2c3d4e5f');
+		expect(calls).toEqual([{ id: 'ChIJtampaCity000000001', fields: ['location', 'formattedAddress'], options: { sessionToken: 'b7f3c1d2-9a4e-4c1b-8e2f-0a1b2c3d4e5f' } }]);
+		expect(reserved).toEqual([1]);
+		expect(result).toMatchObject({ lat: 27.9506, lng: -82.4572, center_source: 'manual', center_label: 'Tampa, FL, USA', api_calls: 1 });
+		expect(await Location.findById(location._id).lean()).toMatchObject({ center_source: 'manual', center_label: 'Tampa, FL, USA' });
+	});
+});
+
 describe('service-area onboarding: profile → center → keywords → competitors → complete', () => {
 	it('adds the center step, blocks completion without it, then completes', async () => {
 		const tokens = createTokenStore(createTokenCrypto('c3'.repeat(32)));

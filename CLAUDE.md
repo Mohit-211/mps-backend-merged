@@ -65,6 +65,8 @@ MyPageSEO is a **Local SEO management platform** for US and Canadian **businesse
   - `source: "gbp" | "places_search"`, `gbp_connected: boolean`.
   - A (b) location may bind its GBP later, matched by `place_id`; a differing `place_id` is refused.
   - Without GBP: rankings and the public competitor comparison work, and private GBP sections return `{ available: false, reason: "gbp_not_connected" }`.
+  - **Disconnecting a Google account deletes the locations bound through it** (soft delete); unbinding one location keeps it with status `gbp_disconnected` (Mohit, 2026-10-01).
+  - A service-area business picks its ranking center with the city / ZIP picker (`GET /places/autocomplete` → `PUT /locations/:id/center { place_id, session }`); every location and run exposes `center { source: place|manual, label }` (2026-10-01).
   - The same `place_id` can't be added twice in one organization.
 - **Data cadence:** a monthly automatic refresh per location (rank run → GBP sync if bound → GBP report), staggered on the day of the month the location finished setup (clamped to 28) at about 03:00 local time. A manual refresh (`POST /locations/:id/refresh`) is allowed once per 24 h per type. `tracking.frequency` is `auto_monthly | manual_only`.
 

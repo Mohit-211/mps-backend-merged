@@ -45,7 +45,20 @@ export const searchPlaces = catchAsync(async (req, res) => {
 });
 
 export const setCenter = catchAsync(async (req, res) => {
-	const result = await centerService.setCenter(res.locals.location as ILocation, res.locals.userId as string, res.locals.centerQuery as string);
+	const location = res.locals.location as ILocation;
+	const userId = res.locals.userId as string;
+	const picked = res.locals.centerPlace as { place_id: string; session?: string } | null;
+	const result = picked
+		? await centerService.setCenterFromPlace(location, userId, picked.place_id, picked.session)
+		: await centerService.setCenter(location, userId, res.locals.centerQuery as string);
 	return responseWrapper(res, result, 'Business center saved.');
+});
+
+// 2026-10-01: the setup-center picker (cities, regions, postal codes).
+export const autocompletePlaces = catchAsync(async (req, res) => {
+	const q = res.locals.autocomplete as { q: string; session: string; country: string | null };
+	const country = q.country ?? orgOf(res).organization.country;
+	const result = await centerService.autocomplete(res.locals.userId as string, q.q, country, q.session);
+	return responseWrapper(res, { ...result, attribution: GOOGLE_ATTRIBUTION });
 });
 

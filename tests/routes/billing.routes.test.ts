@@ -86,6 +86,8 @@ describe('checkout and the subscription lifecycle', () => {
 		let res = await request(app).get('/api/v1/billing').set(bearer(token));
 		expect(res.status).toBe(200);
 		expect(res.body.data).toMatchObject({ state: 'trialing', currency: 'CAD', prices: { current: null }, subscription: null, locations: { active: 2 } });
+		// 2026-10-01: the token bar's monthly grant (none on the standard plan; next only with a paid period).
+		expect(res.body.data.tokens).toMatchObject({ monthly_grant: 0, last_grant_at: null, next_grant_at: null });
 
 		res = await request(app).post('/api/v1/billing/checkout').set(bearer(token));
 		expect(res.status).toBe(409);

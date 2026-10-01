@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import httpStatus from 'http-status';
 import logger from '../../configs/logger';
 import { tokenTypes } from '../../configs/constantTypes';
-import { GbpPick, IGbpPick, Location } from '../../models';
+import { GbpPick, IGbpPick, Location, UserGBP } from '../../models';
 import { ApiError, apiErrorWithData } from '../../utils';
 import { OrgContext } from '../org/context';
 import { canWrite, readOnly } from '../org/access';
@@ -66,6 +66,13 @@ export const createPicksService = (deps: PicksDeps = {}) => {
 	const connections = async (ctx: OrgContext) => {
 		const list = await tokens.listConnections(ctx.userId, tokenTypes.GBP);
 		const picks = await GbpPick.find({ organization_id: ctx.organization._id, user_id: ctx.userId }).select({ google_sub: 1, location_id: 1 }).lean<IGbpPick[]>();
+		// 2026-10-01: the locations bound through each account, so the disconnect dialog can name them (they are
+		// deleted on disconnect). Every bound location of this user, in any organization.
+		const bindings = await UserGBP.find({ user_id: ctx.userId, is_active: true }).select({ location_id: 1, google_sub: 1 }).lean();
+		const named = bindings.length
+			? await Location.find({ _id: { $in: bindings.map((b) => b.location_id) }, is_active: true }).select({ name: 1 }).lean()
+			: [];
+		const nameOf = new Map(named.map((l) => [String(l._id), l.name]));
 		return {
 			limit: MAX_GOOGLE_ACCOUNTS,
 			connections: list.map((c) => {
@@ -77,6 +84,9 @@ export const createPicksService = (deps: PicksDeps = {}) => {
 					status: c.status,
 					picked: own.filter((p) => !p.location_id).length,
 					bound: own.filter((p) => p.location_id).length,
+					locations: bindings
+						.filter((b) => b.google_sub === c.googleSub && nameOf.has(String(b.location_id)))
+						.map((b) => ({ location_id: String(b.location_id), name: nameOf.get(String(b.location_id)) as string })),
 				};
 			}),
 		};

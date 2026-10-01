@@ -69,6 +69,8 @@ const { mapLocation } = require('../../src/clients/gbpClient');
 const onboardingRoute = require('../../src/routes/v1/common/onboarding.route').default;
 const placesRoute = require('../../src/routes/v1/common/places.route').default;
 const rankingRoute = require('../../src/routes/v1/common/ranking.route').default;
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+const locationRoute = require('../../src/routes/v1/common/location.route').default;
 const gbpRoute = require('../../src/routes/v1/common/gbpPostSchedular.route').default;
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 
@@ -78,6 +80,7 @@ app.use(getQueryParams(queryTypesArr));
 app.use('/api/v1/onboarding', onboardingRoute);
 app.use('/api/v1/places', placesRoute);
 app.use('/api/v1/locations', rankingRoute);
+app.use('/api/v1/locations', locationRoute);
 app.use('/api/v1/gbp', gbpRoute);
 app.use(apiErrorHandler);
 
@@ -238,5 +241,19 @@ describe('onboarding flow over HTTP', () => {
 		expect(res.body.data).toEqual({ lat: 45.96, lng: -66.64, center_source: 'manual', center_label: 'Fredericton, NB', api_calls: 2 });
 		expect(fake.searchCalls).toBe(1);
 		expect(await PlacesUsage.findOne({ user_id: user._id }).lean()).toMatchObject({ calls: 2 });
+		// 2026-10-01: { query } or { place_id, session? }, never both; a session needs a place_id.
+		for (const body of [{ query: 'Tampa', place_id: 'ChIJtampaCity000000001' }, { session: 'b7f3c1d2-9a4e' }, { place_id: 'ChIJtampaCity000000001', session: 'not ok!' }]) {
+			expect((await request(app).put(`/api/v1/locations/${mine._id}/center`).set(auth(token)).send(body)).status).toBe(400);
+		}
+		// The location header says where rankings are measured from.
+		const header = (await request(app).get(`/api/v1/locations/${mine._id}`).set(auth(token))).body.data;
+		expect(header.center).toEqual({ source: 'manual', label: 'Fredericton, NB', lat: 45.96, lng: -66.64 });
+	});
+
+	it('GET /places/autocomplete validates q and the session token (2026-10-01)', async () => {
+		const { token } = await createUser('ac@test.dev');
+		expect((await request(app).get('/api/v1/places/autocomplete?q=tam').set(auth(token))).status).toBe(400);
+		expect((await request(app).get('/api/v1/places/autocomplete?q=tam&session=bad%20token').set(auth(token))).status).toBe(400);
+		expect((await request(app).get('/api/v1/places/autocomplete?q=&session=b7f3c1d2-9a4e').set(auth(token))).status).toBe(400);
 	});
 });

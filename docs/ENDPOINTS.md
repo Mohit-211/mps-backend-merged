@@ -54,7 +54,7 @@
 
 **402 `subscription_required`** answers these when the organization is read-only (trial over without a subscription, a failed payment past its 7-day grace, an overdue manual invoice past grace). The body is `{ reason, billing: { state, trial_ends_at } }`; an admin suspension gives **403** `{ reason: "organization_suspended" }` instead (13c: 402 is only for payment situations).
 - `POST /locations`, `POST /gbp/picks/:pickId/bind` (new location; 2026-10-01), `POST /onboarding/complete`, `PUT /locations/:id/center`
-- `GET /places/search`, `GET /locations/:id/competitor-suggestions`
+- `GET /places/search`, `GET /places/autocomplete` (2026-10-01), `GET /locations/:id/competitor-suggestions`
 - `PUT /locations/:id/tracking`, `POST /locations/:id/rank-runs`, `POST /locations/:id/refresh`
 - `POST /reports`, `POST /reports/:id/email`, `POST /report-schedules`, `PATCH /report-schedules/:id`
 
@@ -69,9 +69,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-10-01)
 
-**232 endpoints:** 231 live, 1 dev-only.
-- **By origin:** 197 rebuilt or new, 35 legacy.
-- **By auth:** 104 user, 92 platform admin (each with a permission), 36 none.
+**233 endpoints:** 232 live, 1 dev-only.
+- **By origin:** 198 rebuilt or new, 35 legacy.
+- **By auth:** 105 user, 92 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -132,7 +132,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 |---|---|---|---|---|---|
 | GET | `/api/v1/locations` | user + org | The locations table: search, filter (client, status), sort, pagination; status, rank, GBP score, reviews per row; `pending_gbp`: the user's picked Business Profile locations not bound yet (2026-10-01) | legacy, rebuilt 8 | live |
 | POST | `/api/v1/locations` | user + org (owner/member) | Add a location from a Places search result `{ place_id, client_id? }` (1 Place Details call; plan limit; one place per organization). No manual entry | legacy, rebuilt 8 | live |
-| GET | `/api/v1/locations/:locationId` | user + owner | Location header (was unauthenticated) | legacy, rebuilt 8 | live |
+| GET | `/api/v1/locations/:locationId` | user + owner | Location header (was unauthenticated); 2026-10-01: `center { source, label, lat, lng }`, `gbp_disconnected_at` | legacy, rebuilt 8 | live |
 | GET | `/api/v1/locations/:locationId/overview` | user + owner | Header + the latest summary of every module (`available: false` sections when there's no data yet) | 8 | live |
 | PATCH | `/api/v1/locations/:locationId` | user + owner (write) | Edit `name`, `timezone`, `client_id` | 8 | live |
 | DELETE | `/api/v1/locations/:locationId` | user + owner (write) | Soft delete: jobs cancelled, GBP unbound, history kept, plan slot freed | legacy, rebuilt 8 | live |
@@ -220,15 +220,15 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 |---|---|---|---|---|---|
 | GET | `/api/v1/gbp/connect/url` | user | Google consent URL (redirect fallback flow) | 6, moved 13b | live |
 | GET | `/api/v1/gbp/connect/callback` | none (one-time `state`) | Google OAuth callback (redirect flow): stores encrypted tokens, then redirects the browser to `FRONTEND_URL/gbp/connect/callback?status=success\|denied\|error&message=…` (JSON when `FRONTEND_URL` is empty) | 6, moved 13b, redirect 2026-09-30 | live |
-| POST | `/api/v1/gbp/disconnect` | user | Disconnect one Google account (`google_sub`): revoke it, unbind its locations (they stay, without GBP), remove its picks, jobs and tokens | 6, moved 13b, picks 2026-10-01 | live |
+| POST | `/api/v1/gbp/disconnect` | user | Disconnect one Google account (`google_sub`): revoke it, **delete the locations bound through it** (soft delete, as `DELETE /locations/:id`; Mohit, 2026-10-01), remove its picks, jobs and tokens | 6, moved 13b, changed 2026-10-01 | live |
 | GET | `/api/v1/gbp/connect/popup` | user | GIS popup config with a one-time state | 7a, moved 13b | live |
 | POST | `/api/v1/gbp/connect/code` | user | Exchange the popup code (`postmessage`), verify id_token | 7a, moved 13b | live |
-| GET | `/api/v1/gbp/connections` | user + org | The user's connected Google accounts (max 3) with their picked / bound counts | 2026-10-01 | live |
+| GET | `/api/v1/gbp/connections` | user + org | The user's connected Google accounts (max 3) with their picked / bound counts and bound `locations` (named in the disconnect warning) | 2026-10-01 | live |
 | GET | `/api/v1/gbp/connections/:googleSub/locations` | user + org | The connect modal: one account's Business Profile locations with `supported` / `picked` / `bound_location_id` (no Places calls) | 2026-10-01 | live |
 | PUT | `/api/v1/gbp/connections/:googleSub/picks` | user + org (owner/member) | Save the modal's selection for that account (`gbp_location_ids`); only picked locations show on the locations page | 2026-10-01 | live |
 | POST | `/api/v1/gbp/picks/:pickId/bind` | user + org (owner/member) | The Bind button: create (subscription-gated) or link the location from the profile and bind it; `client_id?` | 2026-10-01 | live |
 | DELETE | `/api/v1/gbp/picks/:pickId` | user + org (owner/member) | Remove an unbound pick from the locations page | 2026-10-01 | live |
-| POST | `/api/v1/gbp/unbind` | user | Unbind a Location (it stays, without GBP; its pick is removed; the Google connection stays) | 6, changed 2026-10-01 | live |
+| POST | `/api/v1/gbp/unbind` | user | Unbind a Location (it stays, status `gbp_disconnected` + `gbp_disconnected_at`; its pick is removed; the Google connection stays) | 6, changed 2026-10-01 | live |
 
 ### Onboarding
 
@@ -238,8 +238,9 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | POST | `/api/v1/onboarding/complete` | user + org (owner/member) | First rank run (+ GBP sync when bound) and the monthly refresh; no GBP needed since Phase 8 | 7a | live |
 | POST | `/api/v1/onboarding/skip` | user + org (owner/member) | Skip an organization step (`google`, `reporting_brand`) | 8 | live |
 | GET | `/api/v1/locations/:locationId/competitor-suggestions` | user + owner | Top 10 competitors across keywords (Places Enterprise, 24 h cache, daily cap) | 7a | live |
+| GET | `/api/v1/places/autocomplete` | user + org (owner/member) | City / region / ZIP suggestions for the setup center (Autocomplete (New), one session token per picker; rate-limited per user, not charged to the daily Places limit) | 2026-10-01 | live |
 | GET | `/api/v1/places/search` | user + org (owner/member) | Places search (Pro, 10 results, daily cap): a competitor search with `locationId`, or an add-location search without it (Phase 8, `country`) | 7a, changed 8 | live |
-| PUT | `/api/v1/locations/:locationId/center` | user + owner | Manual business center from a city or ZIP (service-area businesses; 1 IDs-only search + 1 Details `location`) | 7a | live |
+| PUT | `/api/v1/locations/:locationId/center` | user + owner | Manual business center: `{ query }` (1 IDs-only search + 1 Details `location`) or a picked suggestion `{ place_id, session? }` (1 Details Essentials call ending the session; 2026-10-01) | 7a, changed 2026-10-01 | live |
 
 ### Refresh and GBP sync
 
@@ -497,13 +498,13 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 | 10 | GET | `/gbp/connect/callback` | none (Google calls it) | `code`, `state`, `error` (from Google) | – | **302** to `FRONTEND_URL/gbp/connect/callback?status=success\|denied\|error&message=…`; without `FRONTEND_URL`: `{ connected: true, google_email, google_sub }` (400 on errors) |
 | 11 | GET | `/gbp/connect/popup` | user | – | – | **Popup flow** config for Google Identity Services: `{ client_id, scope, state, ux_mode: "popup", select_account: true }` |
 | 12 | POST | `/gbp/connect/code` | user | – | `{ code, state }` (from the popup callback) | `{ connected: true, google_email, google_sub }` |
-| 13 | POST | `/gbp/disconnect` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, picks_removed, google_email }` |
-| 14 | GET | `/gbp/connections` | user + org | – | – | `{ limit: 3, connections: [{ google_sub, google_email, status: active\|revoked, picked, bound }] }` |
+| 13 | POST | `/gbp/disconnect` | user | – | `{ google_sub? }` | **Disconnect one Google account:** `{ revoked, bindings_removed, picks_removed, google_email, locations_removed: [{ location_id, name }] }` (2026-10-01: those locations are soft-deleted) |
+| 14 | GET | `/gbp/connections` | user + org | – | – | `{ limit: 3, connections: [{ google_sub, google_email, status: active\|revoked, picked, bound, locations: [{ location_id, name }] }] }` |
 | 14a | GET | `/gbp/connections/:googleSub/locations` | user + org | `googleSub` | – | `{ google_sub, google_email, locations: [{ gbpAccountId, gbpLocationId, title, address, city, region_code, place_id, supported, picked, picked_by_other, pick_id, bound_location_id }], errors }`; **404** `google_account_not_connected` |
 | 14b | PUT | `/gbp/connections/:googleSub/picks` | user + org (owner/member) | `googleSub` | `{ gbp_location_ids: ["locations/…"] }` | as #14a + `{ picked, removed, kept_bound }`; **400** `unknown_location`, `unsupported_region`; **409** `picked_by_other` |
 | 15 | POST | `/gbp/picks/:pickId/bind` | user + org (owner/member) | `pickId` | `{ client_id? }` | `{ pick_id, location: { location_id, name, address, place_id, lat, lng }, created, center_needed, binding }`; **402** `subscription_required` / `location_payment_required` (+ `quote`), **403** `enterprise_required`, **409** `already_bound`, `place_id_mismatch` |
 | 15a | DELETE | `/gbp/picks/:pickId` | user + org (owner/member) | `pickId` | – | `{ removed, pick_id }`; **409** `already_bound` |
-| 16 | POST | `/gbp/unbind` | user | – | `{ location_id }` | `{ unbound, jobs_cancelled: { gbp_sync, scheduled_posts } }` |
+| 16 | POST | `/gbp/unbind` | user | – | `{ location_id }` | `{ unbound, jobs_cancelled: { gbp_sync, scheduled_posts } }`; the location stays with status `gbp_disconnected` (2026-10-01) |
 
 **Notes:**
 - **#9:** scopes `openid email business.manage`, with `prompt=select_account consent`.
@@ -521,8 +522,9 @@ All three read the latest `done` or `partial` run, or the run given by `runId`.
 | # | Method | Path | Auth | Path / query params | Body | Returns |
 |---|---|---|---|---|---|---|
 | 17 | GET | `/onboarding/state` | user | – | – | `{ gbp: { connected, connections: [{ google_sub, google_email, status }] }, locations: [{ location_id, name, onboarding: { step, started_at, completed_at } }] }` |
-| 19b | PUT | `/locations/:locationId/center` | user, owner | `locationId` | `{ query }` (city or ZIP, 2–100 chars) | `{ lat, lng, center_source: "manual", center_label, api_calls, onboarding_step? }` |
+| 19b | PUT | `/locations/:locationId/center` | user, owner | `locationId` | `{ query }` (city or ZIP, 2–100 chars) **or** `{ place_id, session? }` (a picked `/places/autocomplete` suggestion and its session token; 2026-10-01) | `{ lat, lng, center_source: "manual", center_label, api_calls, onboarding_step? }` |
 | 20 | GET | `/locations/:locationId/competitor-suggestions` | user, owner | `locationId`; query `refresh` (optional boolean) | – | `{ generated_at, cached, keywords_used, api_calls, suggestions: [{ place_id, name, address, rating, userRatingCount, best_position, keywords, already_selected }], attribution }` |
+| 158 | GET | `/places/autocomplete` | user + org (owner/member) | query `q` (1–100 chars), `session` (required: one token per picker, URL-safe, 8–36 chars, e.g. a UUID), `country` (US\|CA) or `locationId` (its country), else the organization's | – | `{ suggestions: [{ place_id, description, main_text, secondary_text, types }], attribution }`; 120 requests per user per hour (**429** `rate_limited`) |
 | 21 | GET | `/places/search` | user, owner (via `locationId`) | query `q` (required, 2–100 chars), `locationId` (required, 24-hex) | – | `{ results: [{ place_id, name, address }], api_calls, attribution }` |
 | 22 | POST | `/onboarding/complete` | user | – | `{ location_id }` | `{ completed, completed_at, rank_run: { run_id, status, existing }, gbp_sync: { sync_id, status, existing } \| { error }, refresh: { anchor_day, next_refresh_at } }` |
 
@@ -583,9 +585,9 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 36 | PATCH | `/organization` | user + org (owner) | `{ name?, country? }` | As #35 |
 | 37 | GET | `/organization/usage` | user + org | – | `{ plan: { id, name, kind }, billing: { state, read_only, trial_ends_at, current_period_end }, locations: { used, limit, max }, users: { used, limit }, tokens: { balance }, keywords: { used, limit: null }, clients, api_usage: { … } }` (13a; `api_usage` 12.5) |
 | 38 | GET | `/organization/members` | user + org (owner/member) | – | `[{ user_id, name, email, role, client_ids, status }]` |
-| 39 | GET | `/locations` | user + org | `search, client_id, status, sort, order, page, limit` | `{ locations: [row], page, limit, total }` |
+| 39 | GET | `/locations` | user + org | `search, client_id, status (active\|setup_required\|gbp_not_connected\|gbp_disconnected\|reconnect_required), sort, order, page, limit` | `{ locations: [row], page, limit, total, pending_gbp }`; rows have `gbp_disconnected_at` (2026-10-01) |
 | 40 | POST | `/locations` | user + org (owner/member) | `{ place_id, client_id? }` | **201** `{ location, api_calls }`; **409** `duplicate_place`; 13a: **402** `subscription_required` (trial allowance used / read-only), **402** `location_payment_required` `{ used, paid, quote }`, **403** `enterprise_required` `{ used, max }` |
-| 41 | GET | `/locations/:locationId` | user, owner | – | Location header |
+| 41 | GET | `/locations/:locationId` | user, owner | – | Location header; `center: { source: place\|manual, label, lat, lng } \| null` (where rankings are measured from), `gbp_disconnected_at` (2026-10-01) |
 | 42 | GET | `/locations/:locationId/overview` | user, owner | – | Header + `rankings, gbp, performance, reviews, competitors, refresh, empty_states` |
 | 43 | PATCH | `/locations/:locationId` | user, owner (write) | `{ name?, timezone?, client_id? }` | Header |
 | 44 | DELETE | `/locations/:locationId` | user, owner (write) | – | `{ deleted, gbp_unbound, jobs_cancelled, usage }` |
@@ -707,7 +709,7 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
-| 107 | GET | `/billing` | user + org | – | `{ state, read_only, trial_ends_at, grace_ends_at, currency, plan: { id, name, kind, max_locations, users_per_location }, prices: { current: { first_location, additional_location } \| null, upcoming }, subscription \| null, next_renewal: { date, quantity, amount, fixed } \| null, locations: { active, allowed, max }, users: { used, limit }, tokens: { balance, cost_per_refresh }, billing_details, online_payments }` |
+| 107 | GET | `/billing` | user + org | – | `{ state, read_only, trial_ends_at, grace_ends_at, currency, plan: { id, name, kind, max_locations, users_per_location }, prices: { current: { first_location, additional_location } \| null, upcoming }, subscription \| null, next_renewal: { date, quantity, amount, fixed } \| null, locations: { active, allowed, max }, users: { used, limit }, tokens: { balance, cost_per_refresh, monthly_grant, last_grant_at, next_grant_at (2026-10-01) }, billing_details, online_payments }` |
 | 108 | POST | `/billing/checkout` | user + org (owner) | `{ quantity? }` (1 to the plan's cap, at least the active locations; 13c) | **201** `{ subscription_id, approve_url, quantity, currency, monthly_amount, starts_at }`; **409** `price_not_set`, `already_subscribed`, `manual_billing`; **403** `enterprise_required` (quantity above the cap); **400** `quantity_below_active`; **503** `billing_not_configured` |
 | 109 | POST | `/billing/sync` | user + org (owner) | – | #107 |
 | 110 | POST | `/billing/cancel` | user + org (owner) | `{ reason? }` | #107; **409** `no_subscription`, `manual_billing` |

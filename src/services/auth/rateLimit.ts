@@ -35,6 +35,8 @@ export const LIMITS = {
 	adminForgotPerEmail: { name: 'admin-forgot:email', max: 3, windowSeconds: 3600 },
 	adminForgotPerIp: { name: 'admin-forgot:ip', max: 20, windowSeconds: 3600 },
 	adminResetPerIp: { name: 'admin-reset:ip', max: 20, windowSeconds: 900 },
+	// 2026-10-01: the setup-center picker's keystrokes (Autocomplete requests) per user.
+	placesAutocompletePerUser: { name: 'places-autocomplete:user', max: 120, windowSeconds: 3600 },
 } satisfies Record<string, Limit>;
 
 const keyOf = (limit: Limit, parts: string[]): string =>

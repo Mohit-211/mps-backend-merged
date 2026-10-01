@@ -111,6 +111,9 @@ export interface RankRunData {
 	region: 'us' | 'ca';
 	center: { lat: number; lng: number } | null;
 	center_source: 'location' | 'place_details' | null;
+	/** 2026-10-01: the center as shown (`place` = the business pin, `manual` = chosen at setup), frozen per run. */
+	center_kind?: 'place' | 'manual' | null;
+	center_label?: string | null;
 	config: {
 		grid_size: number;
 		spacing_km: number;
@@ -197,6 +200,8 @@ const rankRunSchema = new Schema<IRankRun>(
 		region: { type: String, enum: ['us', 'ca'], required: true },
 		center: { type: new Schema({ lat: Number, lng: Number }, { _id: false }), default: null },
 		center_source: { type: String, enum: ['location', 'place_details', null], default: null },
+		center_kind: { type: String, enum: ['place', 'manual', null], default: null },
+		center_label: { type: String, default: null },
 		config: {
 			grid_size: { type: Number, required: true },
 			spacing_km: { type: Number, required: true },

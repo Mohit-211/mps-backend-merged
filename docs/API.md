@@ -53,7 +53,7 @@ The demo data comes from an offline client, so it needs no API key.
 - **404** `{ "reason": "run_not_found" }` for an unknown `runId`; **409** `{ "reason": "run_not_finished", "status": "queued" | "running" | "failed" }` for a run that is not done or partial.
 - **404** `{ "reason": "keyword_not_in_run" }` for a `keyword` the run doesn't have; map-ranking: **404** `{ "reason": "point_not_in_run", "available": ["C", …] }`.
 
-**`RunMeta`** (the `run` field on page responses): `{ run_id, run_at, status, keywords_version, center: { lat, lng }, config: { grid_size, spacing_km, radius_km (17), tracker_offset_km, radius_m, store_place_names } }`. `radius_m` is the search bias around each point (5 km), not the grid radius.
+**`RunMeta`** (the `run` field on page responses): `{ run_id, run_at, status, keywords_version, center: { lat, lng, source, label }, config: { grid_size, spacing_km, radius_km (17), tracker_offset_km, radius_m, store_place_names } }`. `radius_m` is the search bias around each point (5 km), not the grid radius. `center.source` (2026-10-01, frozen with the run; `null` on older runs): `place` = the business's own Google Maps position, `label` its address; `manual` = a city / ZIP chosen at setup, `label` what was picked. Show e.g. "Measured around: your Google Maps pin, 100 Queen St E" or "Measured around: Tampa, FL (set during setup)".
 
 **Estimate** (`CallEstimate`, returned by several endpoints):
 - `idsOnly`: free Text Search IDs-only calls, as `{ min, max, maxWithRetries }`
@@ -591,7 +591,9 @@ For each keyword: a summary per target (average rank, found rate, top-3 rate, ch
       "keywords_version": 1,
       "center": {
         "lat": 43.6629,
-        "lng": -79.3347
+        "lng": -79.3347,
+        "source": "place",
+        "label": "100 Queen St E, Toronto, ON M5C 1S6, Canada"
       },
       "config": {
         "grid_size": 5,
@@ -1274,7 +1276,14 @@ Per user. Flow: connect a Google account (popup) → in the same modal list that
 {
   "limit": 3,
   "connections": [
-    { "google_sub": "100000000000000000001", "google_email": "owner@example.test", "status": "active", "picked": 2, "bound": 1 }
+    {
+      "google_sub": "100000000000000000001",
+      "google_email": "owner@example.test",
+      "status": "active",
+      "picked": 2,
+      "bound": 1,
+      "locations": [{ "location_id": "6abe7a513e25d4bbc0bcaeac", "name": "Example Plumbing Co" }]
+    }
   ]
 }
 ```
@@ -1282,6 +1291,7 @@ Per user. Flow: connect a Google account (popup) → in the same modal list that
 - Up to **3 Google accounts per user**. Connecting a 4th answers **409** `{ "reason": "google_account_limit", "limit": 3, "connected": ["…"] }` on `POST /gbp/connect/code` (the new grant is revoked at Google). Connecting an already connected account again just refreshes it.
 - `status: "revoked"`: Google refused the stored access; connect the same account again.
 - `picked` = picks not bound yet; `bound` = picks bound to a location.
+- `locations` (2026-10-01): the locations bound through this account. **Disconnecting deletes them**, so the disconnect dialog names them under the warning "All the data and locations related to this Google account will be removed if disconnected."
 
 #### `GET /api/v1/gbp/connections/:googleSub/locations`
 
@@ -1393,7 +1403,7 @@ Body: `{ "location_id" }`.
 { "unbound": true, "jobs_cancelled": { "gbp_sync": 0, "scheduled_posts": 1 } }
 ```
 
-- The location stays (rankings keep working, `gbp_connected: false`); its pick is removed. Pick the profile again in the connect modal and Bind to reconnect it (it links to the same location, no new slot).
+- The location stays (rankings keep working, `gbp_connected: false`) with **status `gbp_disconnected`** and `gbp_disconnected_at` (2026-10-01; a location that never had GBP is `gbp_not_connected`); its pick is removed. Pick the profile again in the connect modal and Bind to reconnect it (it links to the same location, no new slot).
 - The Google account stays connected (2026-10-01: disconnecting is explicit, `POST /gbp/disconnect`).
 - Cancelled scheduled posts are marked `REJECTED` with `last_error: "GBP location unbound"`.
 
@@ -1402,10 +1412,18 @@ Body: `{ "location_id" }`.
 Body: `{ "google_sub"?: "…" }`. It is required when several Google accounts are connected.
 
 ```json
-{ "revoked": true, "bindings_removed": 1, "picks_removed": 3, "google_email": "a@client.test" }
+{
+  "revoked": true,
+  "bindings_removed": 1,
+  "picks_removed": 3,
+  "google_email": "a@client.test",
+  "locations_removed": [{ "location_id": "6abe7a513e25d4bbc0bcaeac", "name": "Example Plumbing Co" }]
+}
 ```
 
-- Revokes that account at Google (best effort), unbinds **only that account's** locations (they stay, without GBP; their scheduled jobs are cancelled), removes its picks and deletes its tokens. Other connected accounts keep working.
+- **Deletes the locations bound through that account** (Mohit, 2026-10-01): each is soft-deleted exactly like `DELETE /locations/:id` (hidden, jobs cancelled, its location slot freed; history kept in the database). Show the warning first: "All the data and locations related to this Google account will be removed if disconnected.", naming `GET /gbp/connections` → `locations`.
+- Revokes that account at Google (best effort), removes its picks and deletes its tokens. Other connected accounts and their locations keep working.
+- Unbinding one location (`POST /gbp/unbind`) keeps that location instead (status `gbp_disconnected`).
 - `revoked: false` means Google could not be reached; the local cleanup still happened.
 - `is_gbp_connected` on the user stays true while another usable connection remains.
 
@@ -1466,11 +1484,30 @@ Body: `{ "code", "state" }` from the popup callback.
 
 ### `PUT /api/v1/locations/:locationId/center` (service-area businesses)
 
-Body: `{ "query": "Fredericton, NB" }`: a city or ZIP / postal code, 2–100 characters.
+Body, one of:
+- `{ "place_id": "ChIJ…", "session": "<the picker's session token>" }` (2026-10-01, **recommended**): a suggestion picked from `GET /places/autocomplete`. **1 Place Details call** (Essentials: `location`, `formattedAddress`) that also ends the autocomplete session; `center_label` is Google's address (e.g. "Tampa, FL, USA"). Counts **1** toward the daily Places limit.
+- `{ "query": "Fredericton, NB" }`: a city or ZIP / postal code typed freely, 2–100 characters (the original path, below).
 
 - It is resolved once with **1 Places Text Search (IDs-only, free SKU)** in the location's country (no location bias) and **1 Place Details call for `location` only**.
 - The result is saved as the location's lat/lng with `center_source: "manual"`. Rank runs and competitor suggestions use it. Old cached suggestions are dropped.
 - The 2 calls count against the daily Places limit.
+
+### `GET /api/v1/places/autocomplete?q=&session=&country=|locationId=` (2026-10-01)
+
+City / region / ZIP suggestions for the setup-center picker, from **Google Places Autocomplete (New)** limited to regions and postal codes (`(regions)`) in the country (the location's with `locationId`, else `country`, else the organization's).
+
+```json
+{
+  "suggestions": [
+    { "place_id": "ChIJ4dG5s4K3wogRY7SWr4kTX6c", "description": "Tampa, FL, USA", "main_text": "Tampa", "secondary_text": "FL, USA", "types": ["locality", "political", "geocode"] }
+  ],
+  "attribution": { "provider": "Google", "text": "Google Maps" }
+}
+```
+
+- **Session token:** create one per picker (e.g. `crypto.randomUUID()`), send it with every keystroke as `session`, and send the same token with the pick: `PUT /locations/:id/center { place_id, session }`. Google then bills the keystrokes and the pick as one session. Start a new token after a pick.
+- **Cost** (Google list prices, 2026-10-01): a session that ends with the pick costs the Place Details Essentials call (**$5 per 1,000**, i.e. $0.005) plus at most its first 12 autocomplete requests at **$2.83 per 1,000** (later ones in the session are free). A typical pick after 3–5 keystrokes is about **$0.013–0.019**; Google's monthly free allowance (10,000 per SKU) usually covers it. An abandoned session bills each keystroke at $2.83 per 1,000. Debounce typing (~250 ms) and start after 2–3 characters.
+- **Limits:** keystrokes don't count toward the daily Places limit (the pick counts 1); they are rate-limited to 120 per user per hour (**429** `rate_limited`). `q` 1–100 characters; `session` 8–36 URL-safe characters (**400** otherwise).
 
 ```json
 { "lat": 45.9635895, "lng": -66.6431151, "center_source": "manual", "center_label": "Fredericton, NB", "api_calls": 2, "onboarding_step": "center_set" }
@@ -1905,7 +1942,8 @@ Store **both** new tokens: the refresh token just used stops working (each refre
   "page": 1, "limit": 25, "total": 3 }
 ```
 
-- **`status`**, first match wins: `setup_required` (onboarding not completed, or no keywords), `reconnect_required` (GBP bound but its Google connection is revoked or gone), `gbp_not_connected`, `active`.
+- **`status`**, first match wins: `setup_required` (onboarding not completed, or no keywords), `reconnect_required` (GBP bound but its Google connection is revoked or gone), `gbp_disconnected` (2026-10-01: its GBP was unbound; `gbp_disconnected_at`), `gbp_not_connected` (never had GBP), `active`.
+- **`center`** (location header, 2026-10-01): `{ source: "place" | "manual", label, lat, lng }` or `null` before a center exists: where rankings are measured from (see RunMeta).
 - `rank`, `gbp` and `reviews` come from the latest rank run and GBP report (`null` before there is one). Without GBP, `reviews` shows the public Place Details rating.
 
 `POST /locations` `{ "place_id": "ChIJ…", "client_id"?: "…" }`: add a location from a `GET /places/search` result (no manual entry). One Place Details call (id, name, address with components, location, phone, website, category). US/CA only.
@@ -1921,7 +1959,7 @@ Store **both** new tokens: the refresh token just used stops working (each refre
 
 `GET /places/search?q=` without `locationId` is the add-location search (the organization's country, or `&country=US|CA`); each result carries `already_added` (a location id or `null`).
 
-`GET /locations/:locationId` → the header: `{ location_id, name, address, city, state, country, zip_code, phone, website, business_category, place_id, source, gbp_connected, status, client, lat, lng, timezone, onboarding, created_at }`.
+`GET /locations/:locationId` → the header: `{ location_id, name, address, city, state, country, zip_code, phone, website, business_category, place_id, source, gbp_connected, gbp_disconnected_at, status, client, lat, lng, center, timezone, onboarding, created_at }` (`center`, `gbp_disconnected_at`: 2026-10-01).
 
 `GET /locations/:locationId/overview` → the header plus the latest stored summaries:
 
@@ -2593,7 +2631,7 @@ One billing page. Money is in the organization's currency (US → USD, CA → CA
   "next_renewal": { "date": "2026-10-28T…", "quantity": 3, "amount": 87, "fixed": false },
   "locations": { "active": 3, "allowed": 3, "max": 20 },
   "users": { "used": 4, "limit": 9 },
-  "tokens": { "balance": 12, "cost_per_refresh": { "rankings": 1, "gbp": 1 } },
+  "tokens": { "balance": 12, "cost_per_refresh": { "rankings": 1, "gbp": 1 }, "monthly_grant": 10, "last_grant_at": "2026-09-01T03:00:00.000Z", "next_grant_at": "2026-10-01T03:00:00.000Z" },
   "billing_details": { "name": "Maple Leaf Inc.", "email": null, "address_line1": null, "address_line2": null, "city": "Toronto", "region": "ON", "postal_code": null, "country": "Canada" },
   "online_payments": true
 }
@@ -2640,6 +2678,8 @@ Removing a location refunds nothing; the slot stays paid and reusable until the 
 ### Tokens
 
 Manual refreshes cost tokens (`tokens.cost_per_refresh`); the monthly automatic refresh is free.
+
+**Monthly token grant (2026-10-01):** `tokens.monthly_grant` is the plan's grant per paid period (0 on the standard plan; custom plans can set one). It is added at each period start (`last_grant_at`); `next_grant_at` is the current period end while the subscription is active (else `null`). The token bar can show e.g. "9 of 10 this month" from the balance and `monthly_grant`.
 - `GET /api/v1/billing/token-packs` → `{ currency, packs: [{ id, name, tokens, currency, list_price, price, expires_after_days }] }` (`price` includes a custom plan's pack price or discount).
 - `POST /api/v1/billing/coupon/validate { pack_id, coupon_code }` → `{ pack_id, currency, price, discount, total }`.
 - `POST /api/v1/billing/tokens/checkout { pack_id, coupon_code? }` → **201** `{ order_id, provider_order_id, approve_url, amount, currency, fulfilled: false }`. A 100% coupon fulfils at once (**200**, `fulfilled: true`).

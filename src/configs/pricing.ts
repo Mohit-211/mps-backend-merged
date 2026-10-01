@@ -26,6 +26,7 @@ export const DEFAULT_PRICING: Pricing = {
 		'places.details.pro': 17,
 		'places.details.enterprise': 20,
 		'places.details.enterprise_atmosphere': 25,
+		'places.autocomplete': 2.83,
 	},
 	free_per_month: {
 		...zero,
@@ -35,6 +36,7 @@ export const DEFAULT_PRICING: Pricing = {
 		'places.text.enterprise': 1_000,
 		'places.details.enterprise': 1_000,
 		'places.details.enterprise_atmosphere': 1_000,
+		'places.autocomplete': 10_000,
 	},
 	source: 'defaults (src/configs/pricing.ts)',
 };
