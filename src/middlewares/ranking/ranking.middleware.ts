@@ -75,16 +75,34 @@ export const validateEstimateQuery = catchAsync(async (req, res, next) => {
 	next();
 });
 
+// Phase 17: keyword groups (POST needs both fields, PATCH at least one).
+const groupFields = {
+	name: Joi.string().trim().min(1).max(60),
+	keywords: Joi.array().items(Joi.string().max(200)).min(1).max(100),
+};
+const groupCreateSchema = Joi.object({ name: groupFields.name.required(), keywords: groupFields.keywords.required() });
+const groupUpdateSchema = Joi.object(groupFields).min(1);
+
+export const validateGroupBody = catchAsync(async (req, res, next) => {
+	const schema = req.method === 'POST' ? groupCreateSchema : groupUpdateSchema;
+	const { value, error } = schema.validate(pick(req.body, ['name', 'keywords']));
+	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
+	res.locals.groupInput = value;
+	next();
+});
+
 const reportQuerySchema = Joi.object({
 	runId: Joi.string().hex().length(24),
 	keyword: Joi.string().trim().min(1).max(80),
 	resolveNames: Joi.boolean(),
 	// Phase 12.5 (map-ranking): which tracker point's list; 'all' returns the five side by side.
 	point: Joi.string().trim().valid('C', 'N', 'S', 'E', 'W', 'c', 'n', 's', 'e', 'w', 'all'),
+	// Phase 17: a keyword group id (rank-tracker and grid).
+	group: Joi.string().hex().length(24),
 });
 
 export const validateReportQuery = catchAsync(async (req, res, next) => {
-	const { value, error } = reportQuerySchema.validate(pick(req.query, ['runId', 'keyword', 'resolveNames', 'point']));
+	const { value, error } = reportQuerySchema.validate(pick(req.query, ['runId', 'keyword', 'resolveNames', 'point', 'group']));
 	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
 	res.locals.reportQuery = value;
 	next();

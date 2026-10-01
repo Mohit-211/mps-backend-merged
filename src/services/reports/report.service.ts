@@ -39,6 +39,7 @@ import { buildCitationData } from './sections/citations';
 import { buildCompetitorData } from './sections/competitors';
 import { buildGbpAuditData } from './sections/gbpAudit';
 import { findReportRun, loadRankTrackerData } from './sections/rankTracker';
+import { withDefaults } from '../ranking/trackingSettings';
 import { reportStorage, ReportStorage } from './storage';
 import { PartUnavailable, SnapshotData } from './types';
 
@@ -313,7 +314,7 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 		let rankRunId: string | null = null;
 		for (const key of parts) {
 			if (key === 'rank_tracker') {
-				const loaded = runId ? await loadRankTrackerData(location._id as Types.ObjectId, runId, sectionsFor(key)) : null;
+				const loaded = runId ? await loadRankTrackerData(location._id as Types.ObjectId, runId, sectionsFor(key), withDefaults(location.tracking).keyword_groups) : null;
 				data.rank_tracker = loaded ? loaded.data : off('no_rank_run');
 				if (loaded) rankRunId = loaded.run_id;
 			} else if (key === 'citation') {

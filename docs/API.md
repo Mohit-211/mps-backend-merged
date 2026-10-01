@@ -571,6 +571,8 @@ Run history, newest first, with each run's overall average per target. The defau
 
 For each keyword: a summary per target (average rank, found rate, top-3 rate, change) and the 5 sample points. The points are the center `C` plus `N`, `S`, `E` and `W` at `tracker_offset_km`. The response also has `overall` per target and `trend`: the overall average of `self` over the last 12 done or partial runs, oldest first.
 
+**Keyword groups (Phase 17):** `?group=<group_id>` limits `keywords` to that group (`group: { group_id, name }` in the response, `null` without a filter; **404** `group_not_found`). `groups` always lists every group with its summary for this run; see [Keyword groups](#keyword-groups-phase-17). `GET /grid` takes the same `?group=`.
+
 ```json
 {
   "success": true,
@@ -1109,6 +1111,41 @@ The heatmap: `size × size` points in row-major order. Row 0 is the northernmost
   }
 }
 ```
+
+---
+
+## Keyword groups (Phase 17)
+
+Named sets of a location's tracked keywords (e.g. "Emergency", "Water heaters") for filtering the Rank Tracker and grid pages and for group summaries. A keyword can be in several groups or none. Up to 20 groups per location; groups are free (no tokens, no Google calls) and don't change `keywords_version`. Removing a keyword from tracking (`PUT /tracking`) removes it from its groups. Owner and member can edit; a client user can read.
+
+| Call | Body | Answer |
+|---|---|---|
+| `GET /locations/:locationId/keyword-groups` | | `{ groups: [{ group_id, name, keywords }], limit: 20 }` (`keywords` in the tracked spelling) |
+| `POST /locations/:locationId/keyword-groups` | `{ name (1–60), keywords: ["…"] }` (at least 1, all tracked; case and spacing ignored) | **201** `{ group_id, name, keywords }` |
+| `PATCH /locations/:locationId/keyword-groups/:groupId` | `{ name?, keywords? }` (at least one; `keywords` replaces the list) | the group |
+| `DELETE /locations/:locationId/keyword-groups/:groupId` | | `{ deleted: true, group_id }` |
+
+**Errors:** **400** `{ reason: "unknown_keyword", keywords: ["…"] }` (not tracked), **400** `{ reason: "too_many_groups", limit: 20 }`, **409** `group_name_taken` (names are unique per location, ignoring case), **404** `group_not_found`.
+
+**Group summaries** on `GET /rank-tracker` (`groups[]`), per target:
+
+```json
+{
+  "group_id": "6abe37102faf69393e391b12",
+  "name": "Emergency",
+  "keywords": ["Emergency Plumber", "24 Hour Plumber"],
+  "keywords_in_run": 2,
+  "summary": {
+    "self": { "avgRank": 6.4, "foundRate": 0.9, "top3Rate": 0.4, "change": 1.5, "comparable_keywords": 2 },
+    "competitor_1": { "avgRank": 9, "foundRate": 1, "top3Rate": 0.2, "change": -0.5, "comparable_keywords": 2 }
+  }
+}
+```
+
+- `avgRank`, `foundRate`, `top3Rate`: the means over the group's keywords that this run measured (`keywords` / `keywords_in_run`; a keyword added since the run isn't in it).
+- `change`: the mean of those keywords' numeric changes (positive = improved); `comparable_keywords` says how many had one (`entered_top_60` / `dropped_out_of_top_60` and new keywords have none). `null` when none.
+- `GET /tracking` returns the stored groups as `tracking.keyword_groups: [{ _id, name, keywords }]` with **normalised** keywords; use `GET /keyword-groups` for display.
+- Rank Tracker reports have a `keyword_groups` section (a table: group, keywords, average rank, top-3, change for the client), frozen at generation.
 
 ---
 
@@ -2012,7 +2049,7 @@ A report freezes stored data (the rank run, the GBP report, the profile snapshot
 
 | Type | Sections |
 |---|---|
-| `rank_tracker` | `summary`, `keywords`, `history` (last 12 runs), `grid` (heatmap per keyword), `movers` |
+| `rank_tracker` | `summary`, `keywords`, `history` (last 12 runs), `grid` (heatmap per keyword), `movers`, `map_ranking` (12.5), `keyword_groups` (17: only when the location has groups) |
 | `gbp_audit` | `score`, `checks` (with top fixes), `performance` (`range` 28d/90d/12m), `keywords`, `profile` (with name/phone/website consistency), `verification`, `pending_edits`, `reviews_media_posts` (needs v4) |
 | `competitor_analysis` | `public_scores`, `table`, `ranks`, `insights` |
 | `citation` (Phase 16) | `score` (Citation Health, coverage, counts), `table` (every listing: directory, type, status, NAP issues, last checked), `nap_issues` (listed as vs should be), `changes` (the report's `range`) |

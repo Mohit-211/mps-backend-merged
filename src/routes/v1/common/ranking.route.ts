@@ -1,7 +1,7 @@
 import express from 'express';
 import * as rankingController from '../../../controllers/ranking/ranking.controller';
 import { userAuthMiddleware } from '../../../middlewares';
-import { loadOwnedLocation, validateEstimateQuery, validateReportQuery, validateTrackingUpdate } from '../../../middlewares/ranking/ranking.middleware';
+import { loadOwnedLocation, validateEstimateQuery, validateGroupBody, validateReportQuery, validateTrackingUpdate } from '../../../middlewares/ranking/ranking.middleware';
 import * as onboardingController from '../../../controllers/onboarding/onboarding.controller';
 import { validateCenter, validateSuggestionsQuery } from '../../../middlewares/onboarding/onboarding.middleware';
 import * as refreshController from '../../../controllers/refresh/refresh.controller';
@@ -19,6 +19,11 @@ router.get('/:locationId/tracking', owned, rankingController.getTrackingSettings
 // Phase 17: what a grid / keyword count would need (calls, duration, cap) before saving it; no Google calls.
 router.get('/:locationId/tracking/estimate', [...owned, validateEstimateQuery], rankingController.getTrackingEstimate);
 router.put('/:locationId/tracking', [...owned, requireBilling, validateTrackingUpdate], rankingController.updateTrackingSettings);
+// Phase 17: keyword groups (filters and summaries on rank-tracker and grid; free, so no billing gate).
+router.get('/:locationId/keyword-groups', owned, rankingController.listKeywordGroups);
+router.post('/:locationId/keyword-groups', [...owned, validateGroupBody], rankingController.createKeywordGroup);
+router.patch('/:locationId/keyword-groups/:groupId', [...owned, validateGroupBody], rankingController.updateKeywordGroup);
+router.delete('/:locationId/keyword-groups/:groupId', owned, rankingController.deleteKeywordGroup);
 router.post('/:locationId/rank-runs', [...owned, requireBilling], rankingController.createRankRun);
 router.get('/:locationId/rank-runs', owned, rankingController.listRankRuns);
 router.get('/:locationId/rank-runs/:runId', owned, rankingController.getRankRun);

@@ -6,6 +6,7 @@ import { requestReportSafely } from '../../services/gbp/report.service';
 import { gridView, mapRankingView, rankTrackerView } from '../../services/ranking/rankReports.service';
 import { EstimateQuery, estimateTracking, getTracking, updateTracking } from '../../services/ranking/tracking.service';
 import { TrackingUpdate, withDefaults } from '../../services/ranking/trackingSettings';
+import { createGroup, deleteGroup, listGroups, updateGroup } from '../../services/ranking/keywordGroups';
 import { catchAsync, responseWrapper } from '../../utils';
 
 // Ranking endpoints (CLAUDE.md §9.4). loadOwnedLocation has already checked ownership.
@@ -15,11 +16,31 @@ interface ReportQuery {
 	keyword?: string;
 	resolveNames?: boolean;
 	point?: string;
+	group?: string;
 }
 
 const location = (res: { locals: Record<string, unknown> }): ILocation => res.locals.location as ILocation;
 const locationId = (res: { locals: Record<string, unknown> }): string => String(location(res)._id);
 const reportQuery = (res: { locals: Record<string, unknown> }): ReportQuery => (res.locals.reportQuery ?? {}) as ReportQuery;
+
+const groupOptions = (res: { locals: Record<string, unknown> }) => ({
+	groups: withDefaults(location(res).tracking).keyword_groups,
+	groupId: reportQuery(res).group,
+});
+
+export const listKeywordGroups = catchAsync(async (req, res) => responseWrapper(res, listGroups(location(res))));
+
+export const createKeywordGroup = catchAsync(async (req, res) =>
+	responseWrapper(res, await createGroup(location(res), res.locals.groupInput as { name: string; keywords: string[] }), 'Keyword group created.', httpStatus.CREATED),
+);
+
+export const updateKeywordGroup = catchAsync(async (req, res) =>
+	responseWrapper(res, await updateGroup(location(res), req.params.groupId, res.locals.groupInput as { name?: string; keywords?: string[] }), 'Keyword group saved.'),
+);
+
+export const deleteKeywordGroup = catchAsync(async (req, res) =>
+	responseWrapper(res, await deleteGroup(location(res), req.params.groupId), 'Keyword group deleted.'),
+);
 
 export const getTrackingSettings = catchAsync(async (req, res) => responseWrapper(res, getTracking(location(res))));
 
@@ -75,12 +96,12 @@ export const listRankRuns = catchAsync(async (req, res) => {
 });
 
 export const getRankTracker = catchAsync(async (req, res) =>
-	responseWrapper(res, await rankTrackerView(locationId(res), reportQuery(res).runId)),
+	responseWrapper(res, await rankTrackerView(locationId(res), reportQuery(res).runId, groupOptions(res))),
 );
 
 export const getGrid = catchAsync(async (req, res) => {
 	const q = reportQuery(res);
-	return responseWrapper(res, await gridView(locationId(res), q.keyword, q.runId));
+	return responseWrapper(res, await gridView(locationId(res), q.keyword, q.runId, groupOptions(res)));
 });
 
 export const getMapRanking = catchAsync(async (req, res) => {

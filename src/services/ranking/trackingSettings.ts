@@ -39,6 +39,7 @@ export const defaultTracking = (): ILocationTracking => ({
 	// Phase 17 (Mohit, 2026-10-01): 7×7 reaching 8 km (~5 mi) from the business.
 	grid: { size: DEFAULT_GRID_SIZE, spacing_km: spacingFromRadius(DEFAULT_GRID_SIZE, DEFAULT_RADIUS_KM), radius_km: DEFAULT_RADIUS_KM },
 	frequency: 'auto_monthly',
+	keyword_groups: [],
 	next_run_at: null,
 	last_run_at: null,
 	last_error: null,
@@ -61,6 +62,7 @@ export const withDefaults = (tracking?: Partial<ILocationTracking> | null): ILoc
 			}
 			: base.grid,
 		frequency: tracking.frequency ?? base.frequency,
+		keyword_groups: (tracking.keyword_groups ?? []).map((g) => ({ _id: g._id, name: g.name, keywords: [...(g.keywords ?? [])] })),
 		next_run_at: tracking.next_run_at ?? null,
 		last_run_at: tracking.last_run_at ?? null,
 		last_error: tracking.last_error ?? null,
@@ -166,6 +168,9 @@ export const applyTrackingUpdate = (
 			tracking.keywords_updated_at = now;
 		}
 		tracking.keywords = keywords; // spelling/order updates are kept even without a version bump
+		// Phase 17: a keyword no longer tracked leaves its groups.
+		const kept = new Set(keywords.map((k) => k.normalized));
+		tracking.keyword_groups = tracking.keyword_groups.map((g) => ({ ...g, keywords: g.keywords.filter((n) => kept.has(n)) }));
 	}
 
 	if (update.competitors !== undefined) {

@@ -6,6 +6,8 @@ import { LeanRankRun, RankCellDoc, RankRun } from '../../models/rankRun.model';
 import { RankCell, bucket, displayRank, normaliseKeyword, radiusFromSpacing } from '../../ranking';
 import { ApiError, apiErrorWithData } from '../../utils';
 import { resolveNames } from './resolveNames';
+import { ILocationKeywordGroup } from '../../models/location.model';
+import { findGroup, summariseGroup } from './keywordGroups';
 import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
 
 // Read-only views for the three ranking pages (CLAUDE.md §9.4). Everything comes from stored
@@ -63,8 +65,23 @@ const pickKeyword = <T extends { keyword: string }>(sections: T[], keyword?: str
 	return found;
 };
 
-export const rankTrackerView = async (locationId: Types.ObjectId | string, runId?: string) => {
+/** Phase 17: the location's keyword groups and an optional ?group= filter. */
+export interface GroupOptions {
+	groups?: ILocationKeywordGroup[];
+	groupId?: string;
+}
+
+const inGroup = <T extends { keyword: string }>(sections: T[], group: ILocationKeywordGroup | null): T[] => {
+	if (!group) return sections;
+	const wanted = new Set(group.keywords);
+	return sections.filter((s) => wanted.has(normaliseKeyword(s.keyword)));
+};
+
+export const rankTrackerView = async (locationId: Types.ObjectId | string, runId?: string, options: GroupOptions = {}) => {
+	const groups = options.groups ?? [];
+	const group = findGroup(groups, options.groupId);
 	const run = await resolveViewRun(locationId, runId);
+	const keys = run.targets.map((t) => t.key);
 	const trendRuns = await RankRun.find({ location_id: locationId, status: { $in: VIEWABLE }, run_at: { $lte: run.run_at } })
 		.sort({ run_at: -1 })
 		.limit(TREND_RUNS)
@@ -73,12 +90,20 @@ export const rankTrackerView = async (locationId: Types.ObjectId | string, runId
 	return {
 		run: runMeta(run),
 		targets: run.targets,
-		keywords: run.tracker.map((section) => ({
+		group: group ? { group_id: String(group._id), name: group.name } : null,
+		keywords: inGroup(run.tracker, group).map((section) => ({
 			keyword: section.keyword,
 			summary: section.summary,
 			cells: section.cells.map((c) => ({ point: c.point, byTarget: byTargetView(c.byTarget) })),
 		})),
 		overall: run.overall,
+		// Phase 17: every group's summary for this run (means over its keywords the run measured).
+		groups: groups.map((g) => ({
+			group_id: String(g._id),
+			name: g.name,
+			keywords: run.tracker.filter((t) => g.keywords.includes(normaliseKeyword(t.keyword))).map((t) => t.keyword),
+			...summariseGroup(run.tracker, g.keywords, keys),
+		})),
 		trend: trendRuns
 			.reverse()
 			.map((r) => ({
@@ -90,7 +115,8 @@ export const rankTrackerView = async (locationId: Types.ObjectId | string, runId
 	};
 };
 
-export const gridView = async (locationId: Types.ObjectId | string, keyword?: string, runId?: string) => {
+export const gridView = async (locationId: Types.ObjectId | string, keyword?: string, runId?: string, options: GroupOptions = {}) => {
+	const group = findGroup(options.groups ?? [], options.groupId);
 	const run = await resolveViewRun(locationId, runId);
 	return {
 		run: runMeta(run),
@@ -100,7 +126,8 @@ export const gridView = async (locationId: Types.ObjectId | string, keyword?: st
 			spacing_km: run.config.spacing_km,
 			radius_km: run.config.radius_km ?? radiusFromSpacing(run.config.grid_size, run.config.spacing_km),
 		},
-		keywords: pickKeyword(run.grid, keyword).map((section) => ({
+		group: group ? { group_id: String(group._id), name: group.name } : null,
+		keywords: pickKeyword(inGroup(run.grid, group), keyword).map((section) => ({
 			keyword: section.keyword,
 			summary: section.summary,
 			points: section.points.map((p) => ({ row: p.row, col: p.col, lat: p.lat, lng: p.lng, byTarget: byTargetView(p.byTarget) })),

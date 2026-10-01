@@ -18,7 +18,7 @@ import { Block, GbpAuditData, RankTrackerData } from '../../../src/services/repo
 
 const BRAND: FrozenBranding = { name: 'Acme Agency', primary_color: '#1d4ed8', secondary_color: '#0f766e', footer_text: 'Acme footer', contact_text: 'hello@acme.test', hide_mypageseo: true, logo: null };
 const LOCATION = { name: 'Café Montréal Plombier', address: '1 Rue Principale', city: 'Montréal', state: 'QC', country: 'Canada', client_name: 'Maple Group' };
-const ALL_RT = ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking'];
+const ALL_RT = ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking', 'keyword_groups'];
 
 const cell = (rank: number | null, status: 'ok' | 'not_found' | 'error' = rank === null ? 'not_found' : 'ok') => ({ rank, status });
 const run = (): RunForReport =>
@@ -65,6 +65,21 @@ describe('rank tracker data and blocks', () => {
 		const table = blocks.find((b) => b.kind === 'table') as Extract<Block, { kind: 'table' }>;
 		expect(table.rows[2]).toEqual(['water heater', '60+', '0%', '0%', 'Dropped out of top 60']);
 		expect(table.rows[0][4]).toBe('▲ 3.0');
+	});
+
+	it('Phase 17: keyword_groups summarises each group (means over its keywords, change on the numeric ones)', () => {
+		const groups = [
+			{ name: 'Core', keywords: ['plumber', 'drain cleaning'] },
+			{ name: 'Heating', keywords: ['water heater', 'boiler', 'not in run'] },
+		];
+		const d = buildRankTrackerData(run(), [], ['keyword_groups'], groups);
+		expect(d.keyword_groups).toEqual([
+			{ name: 'Core', keywords: ['plumber', 'drain cleaning'], avg_rank: 8.2, top3_rate: 0.4, found_rate: 0.8, change: -0.7, comparable_keywords: 2 },
+			{ name: 'Heating', keywords: ['water heater', 'boiler'], avg_rank: 45.5, top3_rate: 0, found_rate: 0.1, change: null, comparable_keywords: 0 },
+		]);
+		const table = rankTrackerBlocks(d).find((b) => b.kind === 'table') as Extract<Block, { kind: 'table' }>;
+		expect(table.rows[0]).toEqual(['Core', '2', '8.2', '40%', '-0.7']);
+		expect(buildRankTrackerData(run(), [], ['keyword_groups']).keyword_groups).toBeUndefined();
 	});
 });
 

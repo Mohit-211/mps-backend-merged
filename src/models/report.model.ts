@@ -9,7 +9,7 @@ export type ReportType = (typeof REPORT_TYPES)[number];
 
 /** The sections each type can contain (the default is all of them). A full report's sections are report types. */
 export const REPORT_SECTIONS = {
-	rank_tracker: ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking'],
+	rank_tracker: ['summary', 'keywords', 'history', 'grid', 'movers', 'map_ranking', 'keyword_groups'],
 	gbp_audit: ['score', 'checks', 'performance', 'keywords', 'profile', 'verification', 'pending_edits', 'reviews_media_posts'],
 	competitor_analysis: ['public_scores', 'table', 'ranks', 'insights', 'reviews'],
 	// Phase 16: the Citation Report (and the Citations part of the Full report).

@@ -46,6 +46,13 @@ export interface ILocationGbpReport {
   force_competitors_at: Date | null;
 }
 
+/** Phase 17: a named set of the location's tracked keywords (normalised), for filters and group summaries. */
+export interface ILocationKeywordGroup {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  keywords: string[];
+}
+
 /** Ranking settings for one location (CLAUDE.md §9.1). One fixed keyword set, versioned. */
 export interface ILocationTracking {
   keywords: { text: string; normalized: string }[];
@@ -55,6 +62,8 @@ export interface ILocationTracking {
   /** Phase 17: radius_km = center to edge; spacing_km = between neighbouring points (one is derived from the other). */
   grid: { size: number; spacing_km: number; radius_km?: number };
   frequency: TrackingFrequency;
+  /** Phase 17 (max 20). */
+  keyword_groups: ILocationKeywordGroup[];
   /** @deprecated since 7b (ignored): refresh.next_refresh_at schedules the location. */
   next_run_at: Date | null;
   last_run_at: Date | null;
@@ -200,6 +209,11 @@ const trackingSchema = new Schema<ILocationTracking>(
       radius_km: { type: Number, min: 0.5, max: 15 },
     },
     frequency: { type: String, enum: TRACKING_FREQUENCIES, default: 'auto_monthly' },
+    keyword_groups: {
+      // _id explicit: implicit subdocuments here inherit the tracking schema's _id: false.
+      type: [{ _id: { type: Schema.Types.ObjectId, required: true }, name: { type: String, required: true }, keywords: { type: [String], default: [] } }],
+      default: [],
+    },
     next_run_at: { type: Date, default: null },
     last_run_at: { type: Date, default: null },
     last_error: { type: String, default: null },

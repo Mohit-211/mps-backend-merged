@@ -75,6 +75,9 @@ describe('auth and ownership', () => {
 			['get', '/rank-tracker'],
 			['get', '/grid'],
 			['get', '/map-ranking'],
+			['get', '/keyword-groups'],
+			['post', '/keyword-groups'],
+			['get', '/tracking/estimate'],
 		] as const) {
 			const res = await request(app)[method](base(path)).set(auth(otherToken)).send({ keywords: ['plumber'] });
 			expect({ path, status: res.status }).toEqual({ path, status: 404 });
@@ -322,6 +325,71 @@ describe('rank runs and reports', () => {
 	it('validates report query parameters', async () => {
 		const res = await request(app).get(base('/grid?runId=123')).set(auth(ownerToken));
 		expect(res.status).toBe(400);
+	});
+});
+
+describe('keyword groups (Phase 17)', () => {
+	let groupId: string;
+
+	it('POST creates a group of tracked keywords; GET lists it with the tracked spelling', async () => {
+		const res = await request(app).post(base('/keyword-groups')).set(auth(ownerToken)).send({ name: ' Emergency  work ', keywords: ['emergency PLUMBER'] });
+		expect(res.status).toBe(201);
+		expect(res.body.data).toEqual({ group_id: expect.any(String), name: 'Emergency work', keywords: ['Emergency Plumber'] });
+		groupId = res.body.data.group_id;
+		const list = await request(app).get(base('/keyword-groups')).set(auth(ownerToken));
+		expect(list.body.data).toEqual({ groups: [res.body.data], limit: 20 });
+	});
+
+	it('refuses untracked keywords, a taken name, and an unknown group', async () => {
+		const unknown = await request(app).post(base('/keyword-groups')).set(auth(ownerToken)).send({ name: 'Heaters', keywords: ['water heater repair'] });
+		expect(unknown.status).toBe(400);
+		expect(unknown.body.data).toEqual({ reason: 'unknown_keyword', keywords: ['water heater repair'] });
+		const taken = await request(app).post(base('/keyword-groups')).set(auth(ownerToken)).send({ name: 'EMERGENCY WORK', keywords: ['drain cleaning'] });
+		expect(taken.status).toBe(409);
+		expect(taken.body.data.reason).toBe('group_name_taken');
+		const missing = await request(app).patch(base(`/keyword-groups/${new Types.ObjectId()}`)).set(auth(ownerToken)).send({ name: 'x' });
+		expect(missing.status).toBe(404);
+		expect(missing.body.data.reason).toBe('group_not_found');
+		expect((await request(app).post(base('/keyword-groups')).set(auth(ownerToken)).send({ name: 'No keywords' })).status).toBe(400);
+	});
+
+	it('rank-tracker returns group summaries and filters with ?group=; grid filters too', async () => {
+		const all = await request(app).get(base('/rank-tracker')).set(auth(ownerToken));
+		expect(all.body.data.group).toBeNull();
+		expect(all.body.data.groups).toEqual([
+			{
+				group_id: groupId,
+				name: 'Emergency work',
+				keywords: ['Emergency Plumber'],
+				keywords_in_run: 1,
+				summary: expect.objectContaining({ self: expect.objectContaining({ avgRank: expect.any(Number), comparable_keywords: expect.any(Number) }) }),
+			},
+		]);
+		const filtered = await request(app).get(base(`/rank-tracker?group=${groupId}`)).set(auth(ownerToken));
+		expect(filtered.body.data.group).toEqual({ group_id: groupId, name: 'Emergency work' });
+		expect(filtered.body.data.keywords.map((k: { keyword: string }) => k.keyword)).toEqual(['Emergency Plumber']);
+		const grid = await request(app).get(base(`/grid?group=${groupId}`)).set(auth(ownerToken));
+		expect(grid.body.data.keywords.map((k: { keyword: string }) => k.keyword)).toEqual(['Emergency Plumber']);
+		const bad = await request(app).get(base(`/rank-tracker?group=${new Types.ObjectId()}`)).set(auth(ownerToken));
+		expect(bad.status).toBe(404);
+		expect(bad.body.data.reason).toBe('group_not_found');
+	});
+
+	it('PATCH renames and changes keywords; removing a keyword from tracking removes it from its groups', async () => {
+		const patched = await request(app).patch(base(`/keyword-groups/${groupId}`)).set(auth(ownerToken)).send({ name: 'Urgent', keywords: ['Emergency Plumber', 'Drain Cleaning'] });
+		expect(patched.status).toBe(200);
+		expect(patched.body.data).toEqual({ group_id: groupId, name: 'Urgent', keywords: ['Emergency Plumber', 'Drain Cleaning'] });
+		const before = (await request(app).get(base('/tracking')).set(auth(ownerToken))).body.data.tracking.keywords.map((k: { text: string }) => k.text);
+		await request(app).put(base('/tracking')).set(auth(ownerToken)).send({ keywords: ['Emergency Plumber'] });
+		const list = await request(app).get(base('/keyword-groups')).set(auth(ownerToken));
+		expect(list.body.data.groups[0].keywords).toEqual(['Emergency Plumber']);
+		await request(app).put(base('/tracking')).set(auth(ownerToken)).send({ keywords: before });
+	});
+
+	it('DELETE removes the group', async () => {
+		const res = await request(app).delete(base(`/keyword-groups/${groupId}`)).set(auth(ownerToken));
+		expect(res.body.data).toEqual({ deleted: true, group_id: groupId });
+		expect((await request(app).get(base('/keyword-groups')).set(auth(ownerToken))).body.data.groups).toEqual([]);
 	});
 });
 
