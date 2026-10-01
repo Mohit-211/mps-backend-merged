@@ -91,6 +91,19 @@ export const validateGroupBody = catchAsync(async (req, res, next) => {
 	next();
 });
 
+// Phase 17: one keyword's history across runs.
+const historyQuerySchema = Joi.object({
+	keyword: Joi.string().trim().min(1).max(200).required(),
+	limit: Joi.number().integer().min(1).max(24).default(12),
+});
+
+export const validateHistoryQuery = catchAsync(async (req, res, next) => {
+	const { value, error } = historyQuerySchema.validate(pick(req.query, ['keyword', 'limit']));
+	if (error) return responseWrapper(res, '', error.message, httpStatus.BAD_REQUEST);
+	res.locals.historyQuery = value;
+	next();
+});
+
 const reportQuerySchema = Joi.object({
 	runId: Joi.string().hex().length(24),
 	keyword: Joi.string().trim().min(1).max(80),

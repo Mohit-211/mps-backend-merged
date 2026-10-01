@@ -7,6 +7,7 @@ import { gridView, mapRankingView, rankTrackerView } from '../../services/rankin
 import { EstimateQuery, estimateTracking, getTracking, updateTracking } from '../../services/ranking/tracking.service';
 import { TrackingUpdate, withDefaults } from '../../services/ranking/trackingSettings';
 import { createGroup, deleteGroup, listGroups, updateGroup } from '../../services/ranking/keywordGroups';
+import { keywordHistory } from '../../services/ranking/keywordHistory';
 import { catchAsync, responseWrapper } from '../../utils';
 
 // Ranking endpoints (CLAUDE.md §9.4). loadOwnedLocation has already checked ownership.
@@ -41,6 +42,11 @@ export const updateKeywordGroup = catchAsync(async (req, res) =>
 export const deleteKeywordGroup = catchAsync(async (req, res) =>
 	responseWrapper(res, await deleteGroup(location(res), req.params.groupId), 'Keyword group deleted.'),
 );
+
+export const getKeywordHistory = catchAsync(async (req, res) => {
+	const q = res.locals.historyQuery as { keyword: string; limit: number };
+	return responseWrapper(res, await keywordHistory(location(res), q.keyword, q.limit));
+});
 
 export const getTrackingSettings = catchAsync(async (req, res) => responseWrapper(res, getTracking(location(res))));
 

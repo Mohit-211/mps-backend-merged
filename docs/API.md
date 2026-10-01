@@ -1149,6 +1149,52 @@ Named sets of a location's tracked keywords (e.g. "Emergency", "Water heaters") 
 
 ---
 
+## Keyword history (Phase 17)
+
+### `GET /keyword-history?keyword=&limit=`
+
+One tracked keyword across the location's finished runs, oldest first, for the per-keyword chart. `limit` 1–24 (default 12). Runs that didn't measure the keyword (before it was added) are skipped. Each run lists its `targets`, because a competitor slot (`competitor_1`) can hold another business in an older run: match competitors across runs by `place_id`.
+
+```json
+{
+  "success": true,
+  "status": 200,
+  "message": "Completed Successfully.",
+  "data": {
+    "keyword": "Emergency Plumber",
+    "runs": [
+      {
+        "run_id": "6ab6dc8a10f657b7c9476cff",
+        "run_at": "2026-09-01T03:00:00.000Z",
+        "status": "done",
+        "keywords_version": 1,
+        "targets": [{ "key": "self", "place_id": "ChIJdemoMapleLeafPlumbing01" }, { "key": "competitor_1", "place_id": "ChIJdemoQueenWestPlumbing02" }],
+        "summary": {
+          "self": { "avgRank": 8.2, "foundRate": 1, "top3Rate": 0.2, "change": null, "changeLabel": null },
+          "competitor_1": { "avgRank": 5, "foundRate": 1, "top3Rate": 0.4, "change": null, "changeLabel": null }
+        }
+      },
+      {
+        "run_id": "6abe37102faf69393e391b40",
+        "run_at": "2026-10-01T03:00:00.000Z",
+        "status": "done",
+        "keywords_version": 2,
+        "targets": [{ "key": "self", "place_id": "ChIJdemoMapleLeafPlumbing01" }, { "key": "competitor_1", "place_id": "ChIJdemoQueenWestPlumbing02" }],
+        "summary": {
+          "self": { "avgRank": 5.4, "foundRate": 1, "top3Rate": 0.6, "change": 2.8, "changeLabel": "improved" },
+          "competitor_1": { "avgRank": 5.2, "foundRate": 1, "top3Rate": 0.4, "change": -0.2, "changeLabel": "declined" }
+        }
+      }
+    ]
+  }
+}
+```
+
+- **404** `{ "reason": "keyword_not_tracked" }` for a keyword the location doesn't track now.
+- **Overall history for every target** (the client and each competitor): `GET /rank-runs` (each run's `overall[target]`), or `trend` on `GET /rank-tracker` (the client only, last 12 runs).
+
+---
+
 ## Auth errors
 
 **401** without a token:

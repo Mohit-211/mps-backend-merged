@@ -78,6 +78,7 @@ describe('auth and ownership', () => {
 			['get', '/keyword-groups'],
 			['post', '/keyword-groups'],
 			['get', '/tracking/estimate'],
+			['get', '/keyword-history?keyword=plumber'],
 		] as const) {
 			const res = await request(app)[method](base(path)).set(auth(otherToken)).send({ keywords: ['plumber'] });
 			expect({ path, status: res.status }).toEqual({ path, status: 404 });
@@ -390,6 +391,29 @@ describe('keyword groups (Phase 17)', () => {
 		const res = await request(app).delete(base(`/keyword-groups/${groupId}`)).set(auth(ownerToken));
 		expect(res.body.data).toEqual({ deleted: true, group_id: groupId });
 		expect((await request(app).get(base('/keyword-groups')).set(auth(ownerToken))).body.data.groups).toEqual([]);
+	});
+});
+
+describe('keyword history (Phase 17)', () => {
+	it('lists one keyword across the finished runs, oldest first, with targets per run', async () => {
+		const res = await request(app).get(base('/keyword-history?keyword=EMERGENCY%20plumber')).set(auth(ownerToken));
+		expect(res.status).toBe(200);
+		expect(res.body.data.keyword).toBe('Emergency Plumber');
+		const runs = res.body.data.runs as { run_id: string; run_at: string; targets: unknown[]; summary: Record<string, { avgRank: number }> }[];
+		const finished = await RankRun.countDocuments({ location_id: locationId, status: { $in: ['done', 'partial'] } });
+		expect(runs).toHaveLength(finished);
+		expect(runs.map((r) => r.run_at)).toEqual([...runs.map((r) => r.run_at)].sort());
+		expect(runs[0]).toMatchObject({ run_id: expect.any(String), status: expect.any(String), targets: expect.any(Array), summary: { self: { avgRank: 4 } } });
+		const one = await request(app).get(base('/keyword-history?keyword=emergency%20plumber&limit=1')).set(auth(ownerToken));
+		expect(one.body.data.runs).toHaveLength(1);
+		expect(one.body.data.runs[0].run_id).toBe(runs[runs.length - 1].run_id);
+	});
+
+	it('404 keyword_not_tracked for a keyword that is not tracked; 400 without a keyword', async () => {
+		const res = await request(app).get(base('/keyword-history?keyword=roofing')).set(auth(ownerToken));
+		expect(res.status).toBe(404);
+		expect(res.body.data).toEqual({ reason: 'keyword_not_tracked' });
+		expect((await request(app).get(base('/keyword-history')).set(auth(ownerToken))).status).toBe(400);
 	});
 });
 

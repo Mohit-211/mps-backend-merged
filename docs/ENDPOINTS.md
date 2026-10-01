@@ -69,9 +69,9 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-10-01)
 
-**231 endpoints:** 230 live, 1 dev-only.
-- **By origin:** 196 rebuilt or new, 35 legacy.
-- **By auth:** 103 user, 92 platform admin (each with a permission), 36 none.
+**232 endpoints:** 231 live, 1 dev-only.
+- **By origin:** 197 rebuilt or new, 35 legacy.
+- **By auth:** 104 user, 92 platform admin (each with a permission), 36 none.
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -210,6 +210,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/locations/:locationId/rank-runs` | user + owner | Run history (paginated) | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-runs/:runId` | user + owner | Run status, API calls, errors | 5 | live |
 | GET | `/api/v1/locations/:locationId/rank-tracker` | user + owner | Rank Tracker page (`?runId=`; 17: `?group=`, `groups` summaries) | 5, changed 17 | live |
+| GET | `/api/v1/locations/:locationId/keyword-history` | user + owner | One keyword across the finished runs, for its chart (`?keyword=&limit=`) | 17 | live |
 | GET | `/api/v1/locations/:locationId/grid` | user + owner | Local Search Grid page (`?keyword=&runId=`; 17: `?group=`, `grid.radius_km`) | 5, changed 17 | live |
 | GET | `/api/v1/locations/:locationId/map-ranking` | user + owner | Local Map Ranking page (`?keyword=&runId=&resolveNames=&point=C\|N\|S\|E\|W\|all`; 12.5: lists at the 5 tracker points; 17: map pins `address`, `lat`, `lng`) | 5, changed 12.5, 17 | live |
 
@@ -458,8 +459,9 @@ The `#` numbers are used across the docs. Paths below are relative to `/api/v1`.
 | 154 | POST | `/locations/:locationId/keyword-groups` | user, owner (write) | `locationId` | – | `{ name: 1–60, keywords: string[] (≥ 1, tracked) }` | **201** `{ group_id, name, keywords }`; **400** `unknown_keyword` (+ `keywords`), `too_many_groups`; **409** `group_name_taken` |
 | 155 | PATCH | `/locations/:locationId/keyword-groups/:groupId` | user, owner (write) | `locationId`, `groupId` | – | `{ name?, keywords? }` (at least one) | the group; **404** `group_not_found`; as #154 |
 | 156 | DELETE | `/locations/:locationId/keyword-groups/:groupId` | user, owner (write) | `locationId`, `groupId` | – | – | `{ deleted: true, group_id }`; **404** `group_not_found` |
+| 157 | GET | `/locations/:locationId/keyword-history` | user, owner | `locationId` | `keyword` (required, any case), `limit` (1–24, default 12) | – | `{ keyword, runs: [{ run_id, run_at, status, keywords_version, targets, summary: { [target]: { avgRank, foundRate, top3Rate, change, changeLabel } } }] }`, oldest first; runs without the keyword are skipped; **404** `keyword_not_tracked` |
 | 3 | POST | `/locations/:locationId/rank-runs` | user, owner | `locationId` | – | – | **202** `{ run_id, status, existing, estimate, dev_capped }`; **402** `insufficient_tokens` (13a) |
-| 4 | GET | `/locations/:locationId/rank-runs` | user, owner | `locationId` | `page` (default 1), `limit` (default 15, max 100) | – | Run history: `{ runs, page, limit, total }` |
+| 4 | GET | `/locations/:locationId/rank-runs` | user, owner | `locationId` | `page` (default 1), `limit` (default 15, max 100) | – | Run history: `{ runs: [{ run_id, run_at, status, trigger, keywords_version, overall, targets (17) }], page, limit, total }` |
 | 5 | GET | `/locations/:locationId/rank-runs/:runId` | user, owner | `locationId`, `runId` | – | – | Run status, timings, `api_calls`, estimate (12.5: + `samples`, `mapPoints`), `config` (`samples`, `sample_spacing_sec`, `map_points`), `expected_duration_ms`, `errors_count`, `failure_reason` |
 
 **Body fields for #2** (all optional; send at least one):

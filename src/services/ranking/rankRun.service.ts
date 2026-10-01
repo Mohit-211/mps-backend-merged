@@ -169,7 +169,7 @@ export const listRuns = async (locationId: Types.ObjectId | string, page: number
 			.sort({ run_at: -1 })
 			.skip((page - 1) * limit)
 			.limit(limit)
-			.select({ status: 1, run_at: 1, keywords_version: 1, overall: 1, trigger: 1 })
+			.select({ status: 1, run_at: 1, keywords_version: 1, overall: 1, trigger: 1, targets: 1 })
 			.lean(),
 		RankRun.countDocuments(filter),
 	]);
@@ -181,6 +181,8 @@ export const listRuns = async (locationId: Types.ObjectId | string, page: number
 			trigger: r.trigger,
 			keywords_version: r.keywords_version,
 			overall: r.overall ?? {},
+			// Phase 17: which business each target key was in this run (competitor history matches by place_id).
+			targets: r.targets ?? [],
 		})),
 		page,
 		limit,
