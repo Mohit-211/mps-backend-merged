@@ -27,6 +27,14 @@ export interface SearchTextIdsParams extends SearchTextParams {
 	maxPages?: number;
 }
 
+/** Phase 19: the names search can page (each page is a Pro call) and stop once a place shows up. */
+export interface SearchTextWithNamesParams extends SearchTextParams {
+	/** 1–3 pages of 20 results; defaults to 1. */
+	maxPages?: number;
+	/** Stop paging after the page where any of these place IDs appears (as id or movedPlaceId). */
+	stopWhenFound?: string[];
+}
+
 export interface PlaceIdEntry {
 	id: string;
 	/** Set when this listing has permanently moved to another place ID. */

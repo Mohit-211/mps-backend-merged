@@ -32,6 +32,7 @@ import {
 	SearchTextIdsParams,
 	SearchTextIdsResult,
 	SearchTextParams,
+	SearchTextWithNamesParams,
 	SearchTextWithNamesResult,
 } from './types/places';
 import { AsyncLimiter, createMongoLimiter } from './placesRateLimiter';
@@ -312,37 +313,55 @@ export const createPlacesClient = (options: PlacesClientOptions = {}) => {
 		return { places, pagesFetched, apiCalls, stoppedEarly: false };
 	};
 
-	/** Text Search with displayName (Pro SKU). Exactly one page (top 20). Map Ranking only. */
-	const searchTextWithNames = async (params: SearchTextParams): Promise<SearchTextWithNamesResult> => {
+	/**
+	 * Text Search with displayName (Pro SKU; every page is billed). One page (top 20) by default, which is
+	 * what Map Ranking uses. Phase 19's sales audit asks for up to 2 pages and stops once its business shows up.
+	 */
+	const searchTextWithNames = async (params: SearchTextWithNamesParams): Promise<SearchTextWithNamesResult> => {
 		const apiKey = requireKey();
 		assertSearchParams(params);
-		try {
-			const { data, attempts } = await send<RawSearchTextResponse>(
-				'pro',
-				'searchTextWithNames page=1',
-				{ method: 'POST', url: `${BASE_URL}/places:searchText`, data: searchBody(params) },
-				WITH_NAMES_FIELD_MASK,
-				apiKey,
-			);
-			const places: NamedPlaceEntry[] = [];
-			for (const raw of data.places ?? []) {
-				const entry = toEntry(raw);
-				if (entry) {
-					places.push({
-						...entry,
-						name: raw.displayName?.text ?? null,
-						address: raw.formattedAddress ?? null,
-						lat: Number.isFinite(raw.location?.latitude) ? (raw.location?.latitude as number) : null,
-						lng: Number.isFinite(raw.location?.longitude) ? (raw.location?.longitude as number) : null,
-					});
-				}
-			}
-			return { places, apiCalls: attempts };
-		} catch (err) {
-			if (!(err instanceof HttpRequestError)) throw err;
-			const error = err;
-			throw new PlacesApiError(error, error.attempts);
+		const maxPages = params.maxPages ?? 1;
+		if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > MAX_PAGES) {
+			throw new Error(`maxPages must be 1-${MAX_PAGES}`);
 		}
+		const targets = new Set((params.stopWhenFound ?? []).map((id) => normalisePlaceId(id) as string));
+		const places: NamedPlaceEntry[] = [];
+		let apiCalls = 0;
+		let pagesFetched = 0;
+		let pageToken: string | undefined;
+		do {
+			let response: { data: RawSearchTextResponse; attempts: number };
+			try {
+				response = await send<RawSearchTextResponse>(
+					'pro',
+					`searchTextWithNames page=${pagesFetched + 1}`,
+					{ method: 'POST', url: `${BASE_URL}/places:searchText`, data: searchBody(params, pageToken) },
+					WITH_NAMES_FIELD_MASK,
+					apiKey,
+				);
+			} catch (err) {
+				if (!(err instanceof HttpRequestError)) throw err;
+				throw new PlacesApiError(err, apiCalls + err.attempts);
+			}
+			apiCalls += response.attempts;
+			pagesFetched += 1;
+			let found = false;
+			for (const raw of response.data.places ?? []) {
+				const entry = toEntry(raw);
+				if (!entry) continue;
+				if (targets.has(entry.id) || (entry.movedPlaceId && targets.has(entry.movedPlaceId))) found = true;
+				places.push({
+					...entry,
+					name: raw.displayName?.text ?? null,
+					address: raw.formattedAddress ?? null,
+					lat: Number.isFinite(raw.location?.latitude) ? (raw.location?.latitude as number) : null,
+					lng: Number.isFinite(raw.location?.longitude) ? (raw.location?.longitude as number) : null,
+				});
+			}
+			if (found) break;
+			pageToken = response.data.nextPageToken;
+		} while (pageToken && pagesFetched < maxPages);
+		return { places, apiCalls };
 	};
 
 	/** Competitor suggestions: one page (20) with names, addresses, rating and review count (Enterprise SKU). */
