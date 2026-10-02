@@ -1362,3 +1362,23 @@ Merge and push (Mohit runs them):
 git checkout master && git merge --no-ff claude/dashboard-fields -m "Merge: dashboard location filter, 15/30/60-day period picker, change fields, agency report counts"
 git push origin master claude/dashboard-fields
 ```
+
+## Phase 19: Sales audit, staff dashboard (2026-10-02)
+
+Branch `claude/phase-19-sales-audit` from `master`. Requested by Mohit: sales staff show a free audit in a meeting, a mini version of the ranking + GBP system. Decisions (Mohit, 2026-10-02): staff are admins with a role (no separate account system); fixed 7×7 grid within 5 km; the top 3 others also get the quick score; km only for now; built before 14 and 9. Spec CLAUDE.md §12k, plan `docs/plans/phase-19-sales-audit.md`.
+
+- **Role:** `audits.run` for super admin, admin and the new role key `sales` (`SALES_ROLE_ID`, default 8 = "Sales Representative" in `dumps/roles.json`, so `seed:reference-data` already creates it). `GET /admin/roles` lists 4 roles; `POST /admin/admins` accepts role 8.
+- **Endpoints** `/staff/audits*` (#172–#177): autocomplete, list open, start, view (poll), PDF, close. Endpoints 246 → 252.
+- **Job** `sales-audit`: 7×7 IDs-only grid (1 sample, 2 pages → ranks to 30), the named list at the business (Pro, page 2 only when the business isn't on page 1) for who ranks higher and the center rank, Place Details for the top 3 others; `done` with `warnings` (`some_points_failed`, `names_unavailable`, `some_competitors_unavailable`) or `failed` (`search_failed`, `places_not_configured`, `enqueue_failed`, `timed_out`, `internal_error`).
+- **Model** `SalesAudit` (`sales_audits`): owner-only, TTL on `expires_at` (24 h), `created_at` from the service clock.
+- **PDF:** one document, both parts (`src/services/salesAudit/document.ts`) on the Reports center renderer; checked visually (2 pages: ranking + heatmap + who ranks higher, then the quick score, the top-3 comparison and actions).
+- **Shared edits (small):** engine `maxPages`; `searchTextWithNames` `maxPages` + `stopWhenFound` (default unchanged: 1 page); `ApiUsage.purpose` (unique index now `organization_id, location_id, purpose, month, sku`: run `db:sync-indexes` on existing databases); `currentUsage()` adds `purpose` only when set; heatmap block `max_rank`; `ReportDocument.type` accepts `sales_audit`.
+- **Docs:** ENDPOINTS (catalogue, details, permission list, summary), API.md "Sales audit (Phase 19)", FRONTEND_BACKEND_MAP "Staff dashboard", OPERATIONS "Sales audit" + deploy checklist (role 8, job list), STATUS (row, done, open item 20), CLAUDE.md (roadmap, §12k, §3); the dashboard-fields rows corrected to merged (`ea71de9`).
+- **Checks:** build 0 errors, lint 40 (baseline), **1,016 tests / 110 suites** pass (34 new), `check:endpoints` passes, the admin guard matrix now also checks the sales role on every admin route. API calls consumed: **none** (fake Places client only).
+
+Merge and push (Mohit runs them):
+
+```
+git checkout master && git merge --no-ff claude/phase-19-sales-audit -m "Merge: Phase 19 sales audit (staff dashboard)"
+git push origin master claude/phase-19-sales-audit
+```

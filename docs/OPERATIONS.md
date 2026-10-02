@@ -201,6 +201,16 @@ Prices: `src/configs/pricing.ts` (USD per 1,000, Google list prices for the Plac
 4. **Billing export** to BigQuery (optional), to compare Google's invoice with `npm run cost:report`.
 5. **Monthly:** run `npm run cost:report -- --month=<last month>` and compare with the invoice.
 
+## Sales audit (Phase 19)
+
+The staff dashboard's free audit (CLAUDE.md §12k, API.md "Sales audit (Phase 19)").
+
+- **Staff accounts:** an admin with the role **Sales Representative** (`role_id` 8, `SALES_ROLE_ID`), created by a super admin with `POST /admin/admins { name, email, role_id: 8 }` (a set-password link is emailed). That role has only `audits.run`: every other admin route answers 403. Super admins and admins can run audits too.
+- **Settings:** `STAFF_AUDIT_DAILY_LIMIT` (20 audits per staff member per 24 h), `STAFF_AUDIT_TTL_HOURS` (24: an audit not closed is deleted by MongoDB's TTL monitor, which runs about once a minute). Places settings as for ranking (`GOOGLE_PLACE_API_KEY`, `PLACES_MAX_QPS`); audits share the cluster-wide Places rate with rank runs, so an audit during a big monthly refresh takes longer.
+- **Job:** `sales-audit` (concurrency 4 per process, lock 10 min). An audit not finished 10 minutes after it started shows `failed` / `timed_out`.
+- **Cost per audit** (list prices): 4 Place Details, Enterprise + Atmosphere (the business + the top 3; $0.10), 1–2 Text Search Pro (the named list at the business; $0.032 each), about 98 IDs-only searches (free). **≈ $0.13–0.17**; 20 audits a day ≈ $3.40. The ledger counts them as purpose `sales_audit`; `npm run cost:report` lists them as "(sales audits)".
+- **Duration:** 49 points × 2 pages at `PLACES_MAX_QPS=8` ≈ 15–25 s.
+
 ## Tests
 
 ```sh
@@ -503,15 +513,15 @@ certbot --nginx -d api.mypageseo.com     # certificate + HTTP→HTTPS redirect, 
 3. **Install and build:** `npm ci` (the setup scripts run with ts-node, a dev dependency, so don't use `--omit=dev`), then `npm run build`.
 4. **`npm run setup:fresh -- --confirm`**. On the empty database it runs, in order (each step idempotent, so re-running is safe):
    1. `db:sync-indexes`: every model's indexes
-   2. `seed:reference-data`: roles (super admin 1, admin 2, editor 4, as in `SUP_ADM_ROLE_ID` / `ADM_ROLE_ID` / `EDTR_ROLE_ID`), countries, states, cities, languages, time zones, business categories from `dumps/`
+   2. `seed:reference-data`: roles (super admin 1, admin 2, editor 4, sales representative 8, as in `SUP_ADM_ROLE_ID` / `ADM_ROLE_ID` / `EDTR_ROLE_ID` / `SALES_ROLE_ID`), countries, states, cities, languages, time zones, business categories from `dumps/`
    3. `billing:setup-plan`: the standard billing plan, without prices
    4. `seed:citation-directories`: the starter directory master list
    5. `admin:create-super`: the first super admin. **A generated password is printed once: store it.**
 
    It refuses (exit 3) when the database already has organizations; `--force` overrides that. Each step also exists on its own (`npm run <step> -- --confirm`).
 5. **PayPal:** `npm run billing:paypal-setup -- --confirm` and the webhook (section "PayPal setup"); put the printed ids and `PAYPAL_WEBHOOK_ID` in `.env`.
-6. **Start:** `pm2 start ecosystem.config.json`, then `pm2 save && pm2 startup` (section "Production start (pm2)"), from the repo root. Check the log for `Agenda jobs defined: …` (`post-to-gbp, rank-run, gbp-sync, gbp-report, monthly-refresh, report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders`) and the `Recurring job scheduled: …` lines.
-7. **After start, in the admin panel:** sign in as the super admin; set the prices, token packs and token costs (billing admin); review the citation directory list; create the other admins.
+6. **Start:** `pm2 start ecosystem.config.json`, then `pm2 save && pm2 startup` (section "Production start (pm2)"), from the repo root. Check the log for `Agenda jobs defined: …` (`post-to-gbp, rank-run, gbp-sync, gbp-report, monthly-refresh, report-generate, report-email, report-schedule-dispatch, report-retention, unverified-cleanup, billing-renewals, billing-reminders, sales-audit`) and the `Recurring job scheduled: …` lines.
+7. **After start, in the admin panel:** sign in as the super admin; set the prices, token packs and token costs (billing admin); review the citation directory list; create the other admins, and the sales staff with role 8 (section "Sales audit").
 8. Do the Google Cloud checklist (section "Ranking quality") before the first monthly refresh.
 
 **Later releases:** `npm ci && npm run build`, then `npm run db:sync-indexes -- --confirm` (new or changed indexes), then restart. The standard plan, reference data and citation seed are idempotent and can be re-run.

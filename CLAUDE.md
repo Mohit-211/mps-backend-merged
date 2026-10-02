@@ -40,7 +40,8 @@ Every phase in order. **Updated at the end of every phase; `docs/STATUS.md` must
 | – | **AI GBP posts**: AI text + images, publishing schedules, optional approval, calendar (needs GBP v4; extends 9). Groundwork: `docs/plans/upcoming-features.md` §A | planned, spec pending | – | – |
 | – | **AI visibility**: presence in AI assistants' answers (ChatGPT, Gemini, Perplexity, Claude) over time, score, competitor comparison. §B | planned, spec pending | – | – |
 | **18** | **Reputation: review management + shared OpenAI layer** (2026-10-02): reviews refresh (button + monthly), deterministic flags, AI reply drafts for 4–5 stars, explicit send, AI analysis, appeal drafts (manual submission: Google has no report API), review stats on the dashboard, insights. AI spends MyPageSEO tokens. Auto-reply later. Spec §12j; plan `docs/plans/phase-18-reviews.md` | done (merged `4da3f87`, pushed) | `claude/phase-18-reviews` | – |
-| – | **Follow-ups 2026-10-01/02**: setup-center picker + disconnect deletes locations (`83af868`), GBP Score v2 without ranking data (`99b19f7`), attribute names + v4 granted (`6230c80`), reputation report + verification history (`456d052`), dashboard location filter + 15/30/60-day picker + change fields | done; dashboard fields built, awaiting merge | `claude/dashboard-fields` | – |
+| – | **Follow-ups 2026-10-01/02**: setup-center picker + disconnect deletes locations (`83af868`), GBP Score v2 without ranking data (`99b19f7`), attribute names + v4 granted (`6230c80`), reputation report + verification history (`456d052`), dashboard location filter + 15/30/60-day picker + change fields (`ea71de9`) | done (merged, pushed) | `claude/dashboard-fields` | – |
+| **19** | **Sales audit (staff dashboard)** (2026-10-02, before 14 and 9; no dependency on either): staff (new `sales` admin role, permission `audits.run`) look up any US/CA business, audit one keyword on a fixed 7×7 grid within 5 km (ranks to 30, public Places data only), who ranks higher, the quick Public Score vs the top 3, one PDF; no history (deleted on close or after 24 h). Spec §12k; plan `docs/plans/phase-19-sales-audit.md` | built, awaiting merge | `claude/phase-19-sales-audit` | – |
 | – | **White-label hosting**: agency-branded reports on a separate generic domain, no MyPageSEO branding. §D | planned, spec pending | – | – |
 | 9b | Cleanup (ARCHITECTURE.md, final docs pass; Swagger was removed in 13b) | ongoing | – | – |
 
@@ -148,7 +149,7 @@ If an in-scope change *requires* touching an out-of-scope file (e.g. a shared ut
 - `npm run check:endpoints` (`tests/docs/endpoints.test.ts`, part of `npm test`) loads the Express app, lists every registered route and compares it with the ENDPOINTS.md catalogue. It fails on a route missing from the doc, a doc row with no route, or a detail row (`#`) missing from the catalogue. Dev-only routes are mounted only when `NODE_ENV=development`.
 
 ### Phase gates
-Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 → 16 done. 13 (13a, 13b, 13c), 17 and 18 done and pushed, with their follow-ups (2026-10-02; base branch is now `master`). **Next: 14** Production readiness (M5 launch-ready) or **9** GBP posting (v4 granted), Mohit's choice; then 15 and the upcoming features; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
+Phase order (revised by Mohit, 2026-09-27): see the **Phase roadmap** table at the top. Done: 1 → 1.5 → 1.6 → 3 → 4 → 5 → 5.5 → 6 → 7a → 9a → 7b → 7c (M3) → 8 → 11 (M4). 12 → 12.5 → 10 → 8.1 → 16 done. 13 (13a, 13b, 13c), 17 and 18 done and pushed, with their follow-ups (2026-10-02; base branch is now `master`). **19** (sales audit) built 2026-10-02, awaiting merge. **Next: 14** Production readiness (M5 launch-ready) or **9** GBP posting (v4 granted), Mohit's choice; then 15 and the upcoming features; 9b is ongoing. There is no Phase 2: security was deferred and moved to Phase 10 (decision by Mohit, 2026-09-25).
 
 **Standing rule (Mohit, 2026-09-27):** every new phase gets its spec section in this file **before** work on it starts, and the Phase roadmap table is updated at the end of every phase. `docs/STATUS.md` and the roadmap table must never disagree.
 
@@ -206,6 +207,7 @@ Use plan mode before each phase: show the plan and the list of files to create/m
 - **End-to-end flows (13b):** `tests/flows/flows.test.ts` walks the Business, Agency, client_user and limits flows; the call sequences for the frontend are `docs/FLOWS.md`.
 - **Citations (Phase 16):** `src/citations/` (pure: matching, Citation Health, `scoring.config.ts`), `src/services/citations/`, models `Directory`, `DirectoryCategory`, `LocationCitation`, `CitationStatusLog`. Admin routes at `/admin/citations/*` (`citations.view` / `citations.manage`); customer routes at `/locations/:id/citations[/changes]` (read-only); report type `citation`. Starter data: `npm run seed:citation-directories` (`src/scripts/data/`). The legacy citation module and `serpapi` are gone; `LegacyLocationCitation` was removed with the credits in 13a.
 - **Billing (Phase 13a):** pure layer `src/billing/` (constants, pricing, entitlement); `src/clients/paypalClient.ts`; `src/services/billing/` (entitlement, plans, slots, subscriptions, orders, coupons, tokens + refreshTokens, invoices + invoicePdf, webhook, renewals, reminders, billingEmails, account, admin, audit, and since 13b `providers/`: the payment-provider interface with PayPal as its only implementation); models `BillingPlan`, `Subscription`, `Invoice`, `PaymentOrder`, `TokenLedger`, `TokenPack`, `Coupon`, `BillingEvent`, `AuditLog`, `Counter`; gates `requireBilling` / `requireFeature` (`src/middlewares/billing/`); routes `/billing`, `/pricing`, `/admin/billing/*`, webhook `/subscription/paypal/webhook`; jobs `billing-renewals`, `billing-reminders`; scripts `billing:setup-plan`, `billing:paypal-setup`.
+- **Sales audit (Phase 19):** pure `src/salesAudit/compute.ts` (`AUDIT` constants, capping at 30, summary, who ranks higher, quick score + checklist); `src/services/salesAudit/` (`salesAudit.service`, `executor`, `document` (the PDF)); model `SalesAudit` (`sales_audits`, TTL on `expires_at`); job `sales-audit`; routes `/staff/audits*` (`src/routes/v1/admin/salesAudit.route.ts`, `adminOnly('audits.run')`); role key `sales` (`SALES_ROLE_ID`, default 8). Usage ledger rows carry `purpose: 'sales_audit'`.
 - **Tooling:** the editor uses the workspace TypeScript 5.9.3 (`.vscode/settings.json`, committed), not VS Code's bundled 6.0. `npm run lint` covers `src`, `tests` and `index.ts`; the baseline is **40** legacy errors, all in legacy GBP posting (169 before Phase 16, 137 before 13a, 82 before 13b), and rebuilt code must stay at 0.
 - GBP posting (legacy, kept until Phase 8): `services/common/gbpPostSchedular.service.ts` + `jobs/postToGbp.ts` (v4 localPosts + agenda). Its token comes from `gbpClient` through the binding's connection.
 
@@ -996,6 +998,29 @@ Branch `claude/phase-18-reviews` from `master`. Plan approved by Mohit: **`docs/
 - **Billing:** `BillingPlan.ai_token_costs` (`AI_TOKEN_COST_DEFAULTS`: reply drafts 1 / 10, analysis 1 / 10, appeal 1, insights 2), entitlement `tokens.ai_costs`, `GET /billing` → `tokens.ai_costs`.
 - **Reviews:** pure `src/reviews/{flags,eligibility}.ts`; `src/services/reviews/{store,stats,prompts,reviews.service}.ts`; `GbpReview` gains fingerprint, flags, flag_level, reply_state, draft, analysis, appeal, report_status; `Location.reviews_refreshed_at`, `summary.reputation`; `ReviewInsight` (`review_insights`). `gbpClient.listReviewsSince / updateReply / deleteReply`. The monthly `gbp-sync` uses the same store.
 - **API:** 13 routes under `/locations/:id/reviews` (#159–#171); dashboard `reviews` block + actions `reviews:attention`, `reviews:suspicious`.
+
+**Gate.**
+
+## 12k. PHASE 19 — Sales audit (staff dashboard) (2026-10-02)
+
+Branch `claude/phase-19-sales-audit` from `master`. Requested by Mohit: sales staff show a free audit in a meeting. A mini version of the ranking + GBP system: **no GBP connect, one keyword at a time, public Places data only, no history.** Plan: **`docs/plans/phase-19-sales-audit.md`**. Offline only (fake Places client); the first real audit is Mohit's.
+
+**Decisions (Mohit, 2026-10-02):**
+- Staff are **platform admins with a new role** (no separate staff account system): the existing "Sales Representative" role (`role_id` 8, `SALES_ROLE_ID`) gets the one permission `audits.run`; super admin and admin have it too. Staff sign in through `/admin/auth/login` (the frontend shows it on its own staff login page).
+- **Fixed grid:** 7×7 within 5 km; ranks **to 30** (2 pages of 20; deeper is "30+"); **one sample** per point (a meeting can't wait 2 minutes; the main product keeps 3).
+- **Competitor scores:** the top 3 other businesses at the business location get the quick score too.
+- **Units:** km everywhere for now (Canada first); miles later.
+- **Order:** built before 14 and 9 (no dependency on either).
+
+**Spec:**
+1. **Search:** Places Autocomplete (US/CA, businesses only), session token ended by the Place Details call of step 2.
+2. **Start** `POST /staff/audits { place_id, session?, keyword }`: 1 Place Details call (public facts + location + country; US/CA only), the audit is stored (`SalesAudit`, owner = the staff member) and the `sales-audit` job queued. Limit `STAFF_AUDIT_DAILY_LIMIT` (20) per staff member per 24 h.
+3. **Job:** IDs-only grid search (`maxPages: 2`, engine option added); the named search at the business (Pro, page 2 only when the business isn't on page 1; the client paging option added): who ranks higher, and the business's own rank there (it replaces the grid's center cell); Place Details for the top 3 others; summary (`center_rank`, `avg_rank` with 30+ = 31, `found_rate`, `top3_rate`). Google calls go to the usage ledger as `purpose: 'sales_audit'`.
+4. **View / poll** `GET /staff/audits/:id`; a run stuck 10 minutes is `failed` (`timed_out`).
+5. **PDF** `GET /staff/audits/:id/pdf`: one document, both parts (ranking + heatmap + who ranks higher; quick score + checklist + top-3 comparison + up to 5 actions), MyPageSEO branding, the Reports center renderer (heatmap legend cut at 30); rendered on request, never stored.
+6. **Close** `DELETE /staff/audits/:id` deletes it; a TTL index deletes any audit after `STAFF_AUDIT_TTL_HOURS` (24). Audits are in MongoDB (not memory) because pm2 runs several processes.
+
+**As built (2026-10-02):** code map in §3 "Sales audit"; endpoints #172–#177 (ENDPOINTS.md, API.md "Sales audit (Phase 19)"). Small shared edits: `rankingEngine` `maxPages`, `searchTextWithNames` `maxPages` + `stopWhenFound`, `ApiUsage.purpose` (unique index now includes it), heatmap block `max_rank`, `ReportDocument.type` accepts `sales_audit`.
 
 **Gate.**
 
