@@ -9,6 +9,7 @@ import { MONTHLY_REFRESH_INTERVAL, defineMonthlyRefreshJob } from './monthlyRefr
 import { REPORT_RETENTION_INTERVAL, defineReportJobs } from './reports.job';
 import { UNVERIFIED_CLEANUP_INTERVAL, defineUnverifiedCleanupJob } from './unverifiedCleanup.job';
 import { BILLING_REMINDERS_INTERVAL, BILLING_RENEWALS_INTERVAL, defineBillingJobs } from './billing.job';
+import { defineSalesAuditJob } from './salesAudit.job';
 
 // The single job registry. src/server.ts calls defineAllJobs() before startAgenda(), then
 // scheduleRecurringJobs() once agenda is running.
@@ -23,6 +24,7 @@ export const defineAllJobs = (agenda: Agenda): string[] => {
 	defineReportJobs(agenda);
 	defineUnverifiedCleanupJob(agenda);
 	defineBillingJobs(agenda);
+	defineSalesAuditJob(agenda);
 	const names = Object.keys((agenda as unknown as { _definitions: Record<string, unknown> })._definitions);
 	logger.info(`Agenda jobs defined: ${names.join(', ')}`);
 	return names;

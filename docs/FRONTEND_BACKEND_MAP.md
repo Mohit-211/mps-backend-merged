@@ -188,6 +188,20 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 | Admin accounts | `/admin/admins*`, `GET /admin/roles`, `GET /admin/auth/me`, `POST /admin/auth/change-password` | **available (13b)** |
 | Citations, billing | `/admin/citations/*`, `/admin/billing/*` | **available (16, 13a)** |
 
+## Staff dashboard: sales audit (Phase 19)
+
+Platform staff only (an admin session with `audits.run`: the Sales Representative role, super admin, admin). A separate staff login page calling `POST /admin/auth/login`. Shapes: API.md "Sales audit (Phase 19)".
+
+| Screen | Backend | Status |
+|---|---|---|
+| Staff login | `POST /admin/auth/login`, `GET /admin/auth/me` (`permissions` includes `audits.run`) | **available** |
+| New audit (business search + keyword) | `GET /staff/audits/places/autocomplete`, `POST /staff/audits` | **available (19)** |
+| Audit result (progress, KPIs, 7×7 heatmap to 30, who ranks higher, quick score + checklist, top-3 comparison) | `GET /staff/audits/:auditId` (poll) | **available (19)** |
+| Export PDF (both parts) | `GET /staff/audits/:auditId/pdf` | **available (19)** |
+| Close audit | `DELETE /staff/audits/:auditId` | **available (19)** |
+| Open audits (after a reload) | `GET /staff/audits` | **available (19)** |
+| Audit history, saved audits, miles | – | **not supported** (no history by design; km only for now) |
+
 ## Not supported (don't build these)
 
 | PDF mentions | Why |

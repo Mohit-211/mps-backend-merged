@@ -27,7 +27,7 @@ const guarded = doc.catalogue
 	.map((e) => ({ ...e, permission: /admin \(`?([a-z.]+)`?\)/.exec(e.auth)?.[1] as AdminPermission | undefined }))
 	.filter((e): e is typeof e & { permission: AdminPermission } => Boolean(e.permission));
 
-const ROLE_OF = { superAdmin: config.roles.superAdmin, admin: config.roles.admin, editor: config.roles.editor } as const;
+const ROLE_OF = { superAdmin: config.roles.superAdmin, admin: config.roles.admin, editor: config.roles.editor, sales: config.roles.sales } as const;
 const DUMMY_ID = '0123456789abcdef01234567';
 const concrete = (p: string) => p.replace(/:[A-Za-z_]+/g, DUMMY_ID);
 const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -37,7 +37,7 @@ const send = (method: string, url: string, token?: string) => {
 };
 
 let db: { stop: () => Promise<void> };
-const tokens: Record<keyof typeof ROLE_OF, string> = { superAdmin: '', admin: '', editor: '' };
+const tokens: Record<keyof typeof ROLE_OF, string> = { superAdmin: '', admin: '', editor: '', sales: '' };
 let userToken = '';
 beforeAll(async () => {
 	db = await startTestDb();
@@ -54,7 +54,7 @@ afterAll(async () => db.stop());
 describe('admin guards from ENDPOINTS.md', () => {
 	it('covers every admin-only group (sanity)', () => {
 		expect(guarded.length).toBeGreaterThanOrEqual(45);
-		expect(new Set(guarded.map((g) => g.permission))).toEqual(new Set(['admins.manage', 'platform.read', 'platform.write', 'content.manage', 'citations.view', 'citations.manage', 'billing.read', 'billing.manage', 'support.read', 'support.manage']));
+		expect(new Set(guarded.map((g) => g.permission))).toEqual(new Set(['admins.manage', 'platform.read', 'platform.write', 'content.manage', 'citations.view', 'citations.manage', 'billing.read', 'billing.manage', 'support.read', 'support.manage', 'audits.run']));
 	});
 
 	it.each(guarded.map((g) => [`${g.method} ${g.path}`, g] as const))('%s', async (_name, g) => {

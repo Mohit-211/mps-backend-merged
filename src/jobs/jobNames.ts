@@ -21,6 +21,8 @@ export const JOB_NAMES = {
 	BILLING_RENEWALS: 'billing-renewals',
 	/** Phase 13a: daily, trial-ending and overdue-invoice reminders. */
 	BILLING_REMINDERS: 'billing-reminders',
+	/** Phase 19: runs one sales audit (staff dashboard). */
+	SALES_AUDIT: 'sales-audit',
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];
