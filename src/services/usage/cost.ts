@@ -51,6 +51,8 @@ export const organizationApiUsage = async (organizationId: Id, now: Date = new D
 export interface CostReportRow {
 	organization_id: string | null;
 	location_id: string | null;
+	/** Phase 19: 'sales_audit' for staff audits; null = customer work. */
+	purpose: string | null;
 	by_sku: Record<string, number>;
 	cost_usd: number;
 }
@@ -59,14 +61,14 @@ export interface CostReportRow {
 export const costReport = async (month: string, opts: { organizationId?: Id; pricing?: Pricing } = {}) => {
 	const pricing = opts.pricing ?? DEFAULT_PRICING;
 	const match: Record<string, unknown> = { month, ...(opts.organizationId ? { organization_id: new Types.ObjectId(String(opts.organizationId)) } : {}) };
-	const rows = await ApiUsage.aggregate<{ _id: { o: Types.ObjectId | null; l: Types.ObjectId | null }; skus: { sku: string; count: number }[] }>([
+	const rows = await ApiUsage.aggregate<{ _id: { o: Types.ObjectId | null; l: Types.ObjectId | null; p: string | null }; skus: { sku: string; count: number }[] }>([
 		{ $match: match },
-		{ $group: { _id: { o: '$organization_id', l: '$location_id', sku: '$sku' }, count: { $sum: '$count' } } },
-		{ $group: { _id: { o: '$_id.o', l: '$_id.l' }, skus: { $push: { sku: '$_id.sku', count: '$count' } } } },
+		{ $group: { _id: { o: '$organization_id', l: '$location_id', p: { $ifNull: ['$purpose', null] }, sku: '$sku' }, count: { $sum: '$count' } } },
+		{ $group: { _id: { o: '$_id.o', l: '$_id.l', p: '$_id.p' }, skus: { $push: { sku: '$_id.sku', count: '$count' } } } },
 	]);
 	const out: CostReportRow[] = rows.map((r) => {
 		const bySku = Object.fromEntries(r.skus.sort((a, b) => a.sku.localeCompare(b.sku)).map((s) => [s.sku, s.count]));
-		return { organization_id: r._id.o ? String(r._id.o) : null, location_id: r._id.l ? String(r._id.l) : null, by_sku: bySku, cost_usd: costOf(bySku, pricing) };
+		return { organization_id: r._id.o ? String(r._id.o) : null, location_id: r._id.l ? String(r._id.l) : null, purpose: r._id.p ?? null, by_sku: bySku, cost_usd: costOf(bySku, pricing) };
 	});
 	out.sort((a, b) => b.cost_usd - a.cost_usd || String(a.organization_id).localeCompare(String(b.organization_id)) || String(a.location_id).localeCompare(String(b.location_id)));
 	const totals: Record<string, number> = {};

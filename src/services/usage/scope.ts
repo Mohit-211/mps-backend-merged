@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { NextFunction, Request, Response } from 'express';
 import mongoose, { Types } from 'mongoose';
 import logger from '../../configs/logger';
-import { ApiUsage } from '../../models/apiUsage.model';
+import { ApiUsage, UsagePurpose } from '../../models/apiUsage.model';
 import { UsageSku } from './skus';
 
 // Usage attribution (Phase 12.5). The Places and GBP clients call recordUsage(sku) for every HTTP
@@ -15,6 +15,8 @@ type Id = Types.ObjectId | string;
 export interface UsageContext {
 	organization_id: Id | null;
 	location_id: Id | null;
+	/** Phase 19: platform work with no customer (e.g. 'sales_audit'); absent / null = customer work. */
+	purpose?: UsagePurpose | null;
 }
 
 interface Scope extends UsageContext {
@@ -32,10 +34,11 @@ const write = async (ctx: UsageContext, counts: Map<UsageSku, number>, now: Date
 	const month = monthOf(now);
 	const organization_id = toId(ctx.organization_id);
 	const location_id = toId(ctx.location_id);
+	const purpose = ctx.purpose ?? null;
 	await ApiUsage.bulkWrite(
 		[...counts.entries()].map(([sku, n]) => ({
 			updateOne: {
-				filter: { organization_id, location_id, month, sku },
+				filter: { organization_id, location_id, purpose, month, sku },
 				update: { $inc: { count: n }, $set: { updated_at: now } },
 				upsert: true,
 			},
@@ -79,7 +82,7 @@ export const withUsage = async <T>(ctx: UsageContext, fn: () => Promise<T>): Pro
 /** The current scope (tests, and nested services that refine the location). */
 export const currentUsage = (): UsageContext | null => {
 	const s = storage.getStore();
-	return s ? { organization_id: s.organization_id, location_id: s.location_id } : null;
+	return s ? { organization_id: s.organization_id, location_id: s.location_id, ...(s.purpose ? { purpose: s.purpose } : {}) } : null;
 };
 
 /** Fills in the current scope's organization / location (called by the access helpers once they know them). */
