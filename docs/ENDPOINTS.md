@@ -160,7 +160,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| GET | `/api/v1/dashboard` | user + org | Business or Agency dashboard from stored summaries (visibility, GBP Score, reviews, movement, key competitor, actions; agency: portfolio, statuses, declines, GBP issues, table) | 11 | live |
+| GET | `/api/v1/dashboard` | user + org | Business or Agency dashboard from stored data (visibility, GBP Score, GBP performance by `range`, reviews, movement, key competitor, actions; agency: portfolio, statuses, declines, GBP issues, reports, table); `location_id` narrows it to one location | 11 | live |
 
 ### Reports center
 
@@ -620,7 +620,7 @@ Every location, client and report belongs to an organization; roles `owner`, `me
 | 51 | DELETE | `/clients/:clientId/locations/:locationId` | user + org (agency, owner/member) | – | `{ unassigned, client_id, location_id }` |
 | 52 | POST | `/onboarding/skip` | user + org (owner/member) | `{ step: google\|reporting_brand }` | As #17 |
 
-| 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order` | Business: `{ type, locations_count, visibility, gbp, reviews, citations (16), movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio (+ avg_citation_score), citations (16), status_counts, declines, gbp_issues, recommended_actions, table (rows + citations) }` |
+| 53 | GET | `/dashboard` | user + org | `page, limit, sort (name\|client\|rank\|rank_change\|gbp_score), order`, `location_id` (2026-10-02; 404 `location_not_found`), `range (15d\|30d\|60d`, default 30d; 2026-10-02) | Business: `{ type, locations_count, visibility, gbp, reviews, citations (16), movement, key_competitor, recommended_actions, refresh, status_counts, locations }`; Agency: `{ type, clients_count, locations_count, portfolio (+ avg_citation_score), citations (16), status_counts, declines, gbp_issues, recommended_actions, table (rows + citations) }`. 2026-10-02 both: `range`, `selected_location`, `performance`, `visibility.top3_rate_change`, `citations.score_change`, `reviews.rating_change` + `new_in_range`; agency also `reviews`, `reports { ready, scheduled, failed }`, `portfolio.avg_top3_rate_change`, rows `city` + `visibility.top3_rate_change`; business `locations[].city` |
 | 54 | POST | `/organization/invitations` | user + org (owner) | `{ email, role: member\|client_user, client_ids? }` | **201** `{ invitation_id, email, role, client_ids, status, expires_at, email_sent }`; **409** `already_member`; 13a: **403** `user_limit_reached` `{ used, limit }` (users = 3 per paid location, pooled; pending invitations count) |
 | 55 | GET | `/organization/invitations` | user + org (owner) | `status?` | `[{ invitation_id, email, role, client_ids, status, expires_at, invited_by, created_at }]` |
 | 56 | DELETE | `/organization/invitations/:invitationId` | user + org (owner) | – | `{ revoked, invitation_id }` |

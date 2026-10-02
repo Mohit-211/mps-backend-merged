@@ -1,13 +1,13 @@
 # Project summary: the MyPageSEO backend rebuild
 
-_Snapshot updated 2026-09-29 at the end of Phase 13b (built on `claude/phase-13b-admin`, awaiting merge; 13a merged and pushed). First written at the planned pause earlier that day. Read this first when you circle back, then [STATUS.md](STATUS.md) for the live state and [CLAUDE.md](../CLAUDE.md) for the rules. Update this file whenever a phase finishes or the picture changes._
+_Snapshot updated **2026-10-02** for a session handover: everything through Phase 18 and its follow-ups is merged into `master` and pushed (`456d052`); the dashboard fields are on `claude/dashboard-fields`, awaiting merge. Work branches now start from `master` (`claude/rebuild` is history). Read this first when you circle back, then [STATUS.md](STATUS.md) for the live state and [CLAUDE.md](../CLAUDE.md) for the rules. Update this file whenever a phase finishes or the picture changes._
 
 ## 1. Where to start when you come back
 
 1. **This file:** the big picture, what works, what doesn't, and what's left.
 2. **[STATUS.md](STATUS.md):** the phase table, open items for Mohit, what's blocked on Google, the Maps ToS risk register, and the next step.
 3. **[CLAUDE.md](../CLAUDE.md):** the rules (scope, git, safety, quality gates) and every phase spec with "as built" notes.
-4. **[plans/](plans/):** plans. [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md) is built (13a + 13b). [plans/upcoming-features.md](plans/upcoming-features.md) is the groundwork for four features whose specs are pending (AI GBP posts, AI visibility, review management, white-label hosting).
+4. **[plans/](plans/):** plans. Built: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md), [plans/phase-17-ranking-extras.md](plans/phase-17-ranking-extras.md), [plans/phase-18-reviews.md](plans/phase-18-reviews.md). [plans/upcoming-features.md](plans/upcoming-features.md) is the groundwork for the features whose specs are pending (AI GBP posts, AI visibility, white-label hosting; review management became Phase 18).
 5. **[PROGRESS.md](PROGRESS.md):** the detailed history, commit by commit.
 
 **Reference docs:**
@@ -22,10 +22,10 @@ _Snapshot updated 2026-09-29 at the end of Phase 13b (built on `claude/phase-13b
 
 **Quick check after a break** (all offline, no Google calls):
 ```sh
-git checkout claude/rebuild && git pull
+git checkout master && git pull
 npm ci
 npm run build          # expect 0 TypeScript errors
-npm test               # expect 99 suites, 903 tests, all passing (includes check:endpoints and the flow tests)
+npm test               # expect 107 suites, 982 tests, all passing (includes check:endpoints and the flow tests)
 npm run lint           # expect 40 errors, all in legacy GBP posting (0 in rebuilt code and tests)
 npm run seed:demo-orgs # demo Business + Agency organizations, reports, dashboards (local mps_rebuild only)
 npm run dev            # then GET /api/healthcheck → 200; stop all three processes (cross-env, nodemon, ts-node) afterwards
@@ -33,19 +33,19 @@ npm run dev            # then GET /api/healthcheck → 200; stop all three proce
 
 In VS Code, use the workspace TypeScript: run "TypeScript: Select TypeScript Version" → "Use Workspace Version". See [OPERATIONS.md](OPERATIONS.md), "Lint and editor setup".
 
-## 2. Numbers at this snapshot (2026-09-29)
+## 2. Numbers at this snapshot (2026-10-02)
 
 | Item | Value |
 |---|---|
-| Branch | `claude/rebuild` (everything through Phase 13a merged and pushed); Phase 13b on `claude/phase-13b-admin` awaiting merge; `main` untouched at `62240ac` |
-| Commits since `main` | 193 (including 13b) |
-| Source | ~37,100 lines of TypeScript in `src/` (384 files; 13b removed ~5,900 net), 54 model files |
-| Tests | 99 suites, **903 tests**, offline (no API key, no network; one in-memory MongoDB per run; Google and PayPal faked) |
+| Branch | `master` (everything through Phase 18 and its follow-ups merged and pushed, `456d052`); `claude/dashboard-fields` awaiting merge; `main` untouched at `62240ac` |
+| Commits since `main` | 240 (including the dashboard fields) |
+| Source | ~41,000 lines of TypeScript in `src/` (411 files), 57 model files |
+| Tests | 107 suites, **982 tests**, offline (no API key, no network; one in-memory MongoDB per run; Google and PayPal faked) |
 | Build | 0 TypeScript errors (TypeScript 5.9.3) |
 | Lint | 40 errors, **all in legacy GBP posting** (Phase 9); 0 in the rebuilt code and tests |
-| Endpoints | **225**: 224 live, 1 dev-only, 0 deprecated; 190 rebuilt or new, 35 legacy (reference data, blog, FAQ, contact form, GBP posting, health checks); auth: 97 user, 92 admin, 36 none |
+| Endpoints | **246**: 245 live, 1 dev-only, 0 deprecated (ENDPOINTS.md has the split by origin and auth) |
 | Background jobs | 12: `post-to-gbp`, `rank-run`, `gbp-sync`, `gbp-report`, `monthly-refresh`, `report-generate`, `report-email`, `report-schedule-dispatch`, `report-retention`, `unverified-cleanup`, `billing-renewals`, `billing-reminders` |
-| Live Google calls so far | Places: Phase 5.5 validation (106 IDs-only, 7 Pro, 3 Details) and the variance test (at least 180 IDs-only, 0 Pro). GBP: 1 OAuth exchange + 1 `accounts.list` (429, quota 0). PayPal: none yet |
+| Live calls so far | Places: Phase 5.5 validation (106 IDs-only, 7 Pro, 3 Details), the variance test (at least 180 IDs-only), the setup-center picker check (LIVE_TEST.md). GBP: since access was approved (2026-10-01) and v4 (2026-10-02), Mohit uses the deployed backend with the real frontend on real data. OpenAI: none (no key yet). PayPal: none yet |
 
 ## 3. What the product is
 
@@ -77,10 +77,19 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 | 8.1 | Email verification by link (24 h), login blocked until verified, resend, hourly cleanup of unverified signups, `migrate:email-verified`; legacy register removed | `604f8d6` |
 | 16 | Citations: directory master list (CSV), category groups, per-location lists with suggestions and NAP checks, admin work queue, customer dashboard, Citation Health, Citation Report; legacy citation module and `serpapi` retired | `daff461` |
 | 13a | Billing: first + (n − 1) × additional location pricing with dated prices (USD / CAD), 20-location cap, 7-day trial then read-only, prorated location slots, tokens for manual refreshes (with refunds), PayPal subscriptions (price override, renewal snapshot 11 days ahead) and one-time orders, numbered PDF invoices, manual (invoice) billing, billing admin with audit log; Square, credits and the guest checkout retired | `2c77a8a` |
-| 13b | Legacy removal (65 routes; no deprecated routes; fresh database with `setup:fresh`, no migrations); `/auth` sessions and account; Google connect under `/gbp`; password reset by link for users and admins (no OTP); one email switch (`EMAIL_TRANSPORT`); the payment-provider interface; flaky tests fixed; end-to-end flow tests + FLOWS.md; admin panel (overview, users, organizations, admin accounts) + support tickets | awaiting merge |
+| 13b | Legacy removal (65 routes; no deprecated routes; fresh database with `setup:fresh`, no migrations); `/auth` sessions and account; Google connect under `/gbp`; password reset by link for users and admins (no OTP); one email switch (`EMAIL_TRANSPORT`); the payment-provider interface; flaky tests fixed; end-to-end flow tests + FLOWS.md; admin panel (overview, users, organizations, admin accounts) + support tickets | `411b7c2` |
+| 13c | Suspended organizations → 403; checkout with a location quantity | `093b127` |
+| (2026-10-01) | Google connect → pick → bind (up to 3 accounts per user), error reasons, clients as an optional grouping | `d8eb400`, `85ef65d` |
+| 17 | Ranking extras: grids 3×3–13×13 by radius (default 7×7 at 8 km), estimate endpoint, Map Ranking pins, change across keyword edits, keyword groups, keyword history, competitor names (max 5), report run dates | `5bde3c0` |
+| (2026-10-01) | Setup-center picker (Places Autocomplete, real calls), `center { source, label }`, disconnect deletes the account's locations, unbind → `gbp_disconnected`, monthly token grant on `/billing` | `83af868` |
+| (2026-10-02) | GBP Score v2 (no ranking data; performance pillar), Public Score profile-only, `profile` section, check states | `99b19f7` |
+| (2026-10-02) | GBP v4 granted and on in production; attribute display names | `6230c80` |
+| 18 | Reputation: review refresh, deterministic flags, AI reply drafts (4–5 stars), send / delete replies, AI analysis, appeal drafts, insights, dashboard reviews; the shared OpenAI layer (budget cap, token spend + refund, ledger) | `4da3f87` |
+| (2026-10-02) | Reputation report type, deleted locations + live rows in the report list, verification history | `456d052` |
+| (2026-10-02) | Dashboard: `?location_id=`, `?range=15d\|30d\|60d` (GBP performance, rating change), top-3 / citation score changes, agency report counts | awaiting merge (`claude/dashboard-fields`) |
 | (hygiene) | Editor TypeScript pinned to the workspace version, explicit tsconfig defaults, lint script covering every file, test lint fixes | `c35e378`, `bec6772`, `f8c7447` |
 
-**Also on `claude/rebuild` between phases:**
+**Also between phases (before 13b, on `claude/rebuild`):**
 - Phase 16 joined M5.
 - Frontend notes were written: token refresh, admin sign-in and permissions, CORS.
 - DataForSEO was removed completely.
@@ -102,24 +111,28 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 - **Citations (Phase 16):** admin CRUD + CSV round trip, suggestions (country / region / category group), NAP mismatch guard, bulk, history, the three queues, customer view (no admin names or notes), dashboard blocks, the Citation Report and the Full report part, the starter seed (50 directories) and demo lists. Also checked on the dev server with a temporary admin.
 - **Security:** every admin-only route gives 401 / 403 correctly (a test driven by ENDPOINTS.md); traversal, operator keys, oversize bodies and bad tokens are all refused.
 
+- **Reviews and AI (Phase 18), with Google and OpenAI faked:** incremental refresh, flags, drafts (eligibility, batching, cache, token spend and refund, daily cap), send / delete, analysis, appeals, insights, the reputation report.
+
 **Verified live** (real Google calls, on Mohit's go):
 - **Places ranking:** the Fredericton validation. Ranks were close to Mohit's manual Maps checks (informal pass).
 - **Variance test** (2026-09-27): 0 s gave 90 % identical ranks (max spread 2); 60 s gave 80 % identical (max spread 5). That decided 3 samples 60 s apart.
 - **GBP popup connect** for `mohit@mypageseo.com`: tokens stored encrypted, id_token verified.
+- **Since 2026-10-01/02:** GBP access and v4 approved; Mohit tests the deployed backend with the real frontend (connect, pick, bind, sync, report, setup-center picker).
 
 ## 6. What doesn't work yet, or isn't verified
 
 | Area | State | Why / what unblocks it |
 |---|---|---|
-| **GBP data (sync, private report sections, GBP Score on real data)** | Built, **never run live** | Google: Business Profile API quota is 0 for project `1010247538246`. Resume at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13` when Mohit says "GBP access approved". |
-| **GBP reviews, media, posts (v4)** | Built behind `GBP_V4_ENABLED=false` | Google v4 access. Then flip the flag; no code change. |
+| **GBP verification status** | Empty in the report | Enable the **My Business Verifications API** in Cloud project 1010247538246, then refresh (STATUS open item 18). |
+| **AI features (Phase 18)** | Built, **never run live** | `OPENAI_API_KEY` in the server `.env` (STATUS open item 17); until then 503 `ai_not_configured`. |
+| **Review auto-reply** | Not built (decided: later) | A spec when Mohit wants it. |
 | **Real customers connecting Google** | Blocked | OAuth app verification (`business.manage` is a sensitive scope). |
 | **GBP Score / Public Score thresholds** | Starting values, uncalibrated | Needs real GBP data (the calibration steps are in PROGRESS.md, 7c). |
 | **Ranking accuracy in a big market** | Only one small market checked (informal) | The Dallas test + a formal `calibrate:score` (pre-launch, Mohit triggers). |
-| **Citations** | **Merged (Phase 16), offline only.** The starter directory list has placeholder authority values; the real list is the admin team's work. The legacy module is gone. | Merge + deploy (`db:sync-indexes`, `seed:citation-directories`); the admin team curates the list and starts checking listings. |
+| **Citations** | Merged (Phase 16). The starter directory list has placeholder authority values; the real list is the admin team's work. | The admin team curates the list and starts checking listings. |
 | **Billing / plans** | **Merged (13a), offline only**: PayPal is faked in every test; no sandbox run yet. No prices are set (checkout answers 409 `price_not_set`). | Deploy (`setup:fresh`); Mohit sets prices, packs and token costs; PayPal sandbox credentials → `billing:paypal-setup` + webhook → the sandbox test. |
-| **Admin panel / support** | **Built (13b), offline only.** | Merge; the admin panel frontend. |
-| **GBP posting** | Legacy flow (`gbpPostSchedular`, `post-to-gbp` job) using v4; not rebuilt | Phase 9, needs v4 access. |
+| **Admin panel / support** | Merged (13b). | The admin panel frontend. |
+| **GBP posting** | Legacy flow (`gbpPostSchedular`, `post-to-gbp` job) using v4; not rebuilt | Phase 9 (v4 is granted; ready to plan). |
 | **Legacy routes** | None deprecated. Still legacy code: reference data, blog, FAQ, contact form (kept by decision) and GBP posting (Phase 9) | STATUS.md "What remains legacy". |
 | **Production** | Never deployed from the rebuild | Phase 14 (fresh server, backups, nginx, pm2, monitoring) + the deploy checklist in OPERATIONS.md. |
 | **Docs debt** | `ARCHITECTURE.md` not written (Swagger removed in 13b) | 9b. ENDPOINTS.md + API.md are current and are the reference until then. |
@@ -128,24 +141,25 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 
 ## 7. What's left (roadmap)
 
-**M5 = launch-ready** = 12 ✔ + 12.5 ✔ + 10 ✔ + 8.1 ✔ + 16 ✔ + **13** (13a ✔, 13b built) + **14**, plus the pre-launch live validation and the Google approvals.
+**M5 = launch-ready** = 12 ✔ + 12.5 ✔ + 10 ✔ + 8.1 ✔ + 16 ✔ + 13 ✔ + **14**, plus the pre-launch live validation and the Google approvals.
 
 | Next phases | Scope | State |
 |---|---|---|
-| **13b** | Legacy removal, `/auth`, password links, email switch, flows, admin panel + support (CLAUDE.md §12h) | **Built, awaiting merge** |
-| **14 Production readiness** | Fresh server (Mongo, backups, nginx, pm2, log rotation, monitoring, alerts), deploy-checklist dry run with `setup:fresh`, Maps ToS decision | **Next** (plan mode) |
-| AI GBP posts · AI visibility · Review management · White-label hosting | Groundwork: [plans/upcoming-features.md](plans/upcoming-features.md) | Planned, spec pending |
-| 9 GBP reviews & posting | Rebuild posting on `gbpClient`, AI review replies | Blocked on v4 |
+| Dashboard fields | Location filter, period picker, change fields | **Built, awaiting merge** |
+| **14 Production readiness** | Fresh server (Mongo, backups, nginx, pm2, log rotation, monitoring, alerts), deploy-checklist dry run with `setup:fresh`, Maps ToS decision | **Next candidate** (plan mode) |
+| **9 GBP posting** | Rebuild posting on `gbpClient` (CLAUDE.md §12a); the review half was Phase 18 | **Next candidate** (v4 granted) |
+| AI GBP posts · AI visibility · Review auto-reply · White-label hosting | Groundwork: [plans/upcoming-features.md](plans/upcoming-features.md); AI features reuse the Phase 18 OpenAI layer | Planned, spec pending |
 | 15 Notifications & automations | – | Planned |
-| 17 Ranking extras | Keyword groups, larger grids | Planned |
 | 9b Cleanup | ARCHITECTURE.md, final docs pass, TypeScript 7 move | Ongoing |
 
-**Before starting any phase:** the spec goes in CLAUDE.md, then plan mode and Mohit's approval, then a branch `claude/phase-<n>-<slug>` from `claude/rebuild`. At the end: docs, the merge command, and the push command. Mohit runs them unless he asks otherwise.
+**Before starting any phase:** the spec goes in CLAUDE.md, then plan mode and Mohit's approval, then a branch `claude/phase-<n>-<slug>` from `master`. At the end: docs, the merge command, and the push command. Mohit runs them unless he asks otherwise.
 
 ## 8. Pending on Mohit's side
 
 Also in STATUS.md, "Open items":
-- **Google:** GBP API access request, v4 access, OAuth app verification; Authorised JavaScript origins on the OAuth client.
+- **Google:** OAuth app verification (GBP access and v4 are approved); enable the My Business Verifications API; Authorised JavaScript origins on the OAuth client.
+- **OpenAI:** `OPENAI_API_KEY` in the server `.env` + a budget limit in the OpenAI dashboard; the first live AI check when you say so.
+- **Housekeeping:** delete the untracked `docs/backend/` folder.
 - **Cost / quota:** check `src/configs/pricing.ts` against Google's price list; confirm the Places quota is at least 600 requests/minute; budget alerts.
 - **Live validation:** the Dallas test + a formal `calibrate:score`.
 - **Billing:** prices (first / additional location per currency), token packs and token costs in the billing admin; PayPal sandbox credentials, `billing:paypal-setup`, the webhook, then the sandbox test; invoice seller details (`BILLING_SELLER_*`).
@@ -156,7 +170,7 @@ Also in STATUS.md, "Open items":
   - a fresh database: `npm run setup:fresh -- --confirm` (nothing is migrated from the old system)
   - the PayPal / billing variables; remove `SQUARE_*`
 - **Frontend:** build against FRONTEND_BACKEND_MAP.md (its "Notes for the frontend team") and FLOWS.md (the call sequences); the `/verify-email` and `/reset-password` pages are in API.md.
-- **Decide:** the checkout quantity (STATUS open item 15); specs for the four upcoming features.
+- **Decide:** the next phase (14 or 9); specs for the upcoming features.
 
 ## 9. Architecture at a glance
 
@@ -164,11 +178,12 @@ Also in STATUS.md, "Open items":
 - **Rebuilt code:**
   - `src/ranking/`: the engine, pure
   - `src/gbp/`: sync executor, mappers, scoring, report
-  - `src/clients/`: Places, GBP, HTTP, the Places rate limiter
+  - `src/clients/`: Places, GBP, OpenAI (Phase 18), HTTP, the Places rate limiter
+  - `src/reviews/`: review flags and draft eligibility, pure (Phase 18)
   - `src/services/`:
     - `ranking`, `refresh`, `gbp`, `onboarding`, `locations`, `org`, `clients`
     - `dashboard`, `team`, `reports`, `usage`
-    - `auth` (`emailVerification`, `links`, `session.service`), `admin` (`adminToken`, `adminAuth`, `users`, `organizations`, `overview`), `support`, `setup` (fresh database), `citations` (Phase 16), `billing` (Phase 13a; `providers/` since 13b)
+    - `auth` (`emailVerification`, `links`, `session.service`), `admin` (`adminToken`, `adminAuth`, `users`, `organizations`, `overview`), `support`, `setup` (fresh database), `citations` (Phase 16), `billing` (Phase 13a; `providers/` since 13b), `ai` (the shared OpenAI service), `reviews` (Phase 18)
     - `common/email.service.ts`: every email through `deliver()` and `EMAIL_TRANSPORT`
   - `src/citations/`: citation matching and Citation Health, pure (`scoring.config.ts`)
   - `src/billing/`: pricing and entitlement, pure; `src/clients/paypalClient.ts`
@@ -190,4 +205,6 @@ The full dated list is in STATUS.md "Key decisions". The ones that shape the fut
 - **Citations:** manual and admin-managed; no external citation APIs.
 - **Billing:** first + (n − 1) × additional location, 20-location cap (enterprise above), prices dated and applied at each organization's next renewal, tokens for manual refreshes, PayPal price override patched 11 days before renewal, no tax, coupons on token packs only.
 - **Fresh database, delete don't deprecate (2026-09-28):** no data is migrated from the old system (`setup:fresh`); anything the rebuilt product doesn't use is deleted, not deprecated.
+- **GBP report without ranking data (2026-10-02):** GBP Score v2 (completeness, activity, reviews, performance); the Public Score is profile-only.
+- **AI (2026-10-02):** only on an explicit user action, paid in MyPageSEO tokens, refunded on failure, with a server-wide daily $ cap; `gpt-5-nano`; reply drafts only for 4–5 stars; never AI in the background.
 - **Links, not codes (2026-09-29):** email verification and password resets are one-time links; no OTP anywhere. One email switch (`EMAIL_TRANSPORT`).

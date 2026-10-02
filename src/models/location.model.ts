@@ -102,6 +102,8 @@ export interface ILocationSummary {
   review_count: number | null;
   /** Phase 11 (dashboards), written after each rank run / report: */
   top3_rate?: number | null;
+  /** Top-3 rate change vs the previous run, on the shared keywords (2026-10-02; +0.10 = 10 points better). */
+  top3_rate_change?: number | null;
   rank_trend?: { run_at: Date; overall_avg_rank: number | null }[];
   movement?: LocationMovement | null;
   declines?: { keyword: string; change: number | null; label: string }[];
@@ -119,6 +121,8 @@ export interface ILocationSummary {
   citation_counts?: Record<string, number> | null;
   citation_total?: number | null;
   citation_checked_at?: Date | null;
+  /** Citation Health change at the last score change (2026-10-02); kept while the score stays the same. */
+  citation_score_change?: number | null;
   /** Phase 18 (reviews), written after each review refresh / sync / reply action: */
   reputation?: ReputationSummary | null;
 }
@@ -343,6 +347,7 @@ const locationSchema = new Schema<ILocation>(
           rating: { type: Number, default: null },
           review_count: { type: Number, default: null },
           top3_rate: { type: Number, default: null },
+          top3_rate_change: { type: Number, default: null },
           rank_trend: { type: Schema.Types.Mixed, default: [] },
           movement: { type: Schema.Types.Mixed, default: null },
           declines: { type: Schema.Types.Mixed, default: [] },
@@ -358,6 +363,7 @@ const locationSchema = new Schema<ILocation>(
           citation_counts: { type: Schema.Types.Mixed, default: null },
           citation_total: { type: Number, default: null },
           citation_checked_at: { type: Date, default: null },
+          citation_score_change: { type: Number, default: null },
           reputation: { type: Schema.Types.Mixed, default: null },
         },
         { _id: false },

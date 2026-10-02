@@ -1,4 +1,4 @@
-import { RunForSummary, competitorNameFrom, reportSummaryFields, runSummaryFields } from '../../../src/services/locations/summary';
+import { RunForSummary, competitorNameFrom, reportSummaryFields, runSummaryFields, top3RateChange } from '../../../src/services/locations/summary';
 
 const cell = (avgRank: number | null, changeLabel: string | null, change: number | null = null, top3Rate: number | null = 0.2) => ({ avgRank, top3Rate, change, changeLabel });
 
@@ -52,6 +52,21 @@ describe('runSummaryFields', () => {
 		const leading = { ...latest, overall: { ...latest.overall, self: { overallAvgRank: 2, change: 0 } } };
 		expect(runSummaryFields(leading, [leading]).key_competitor).toMatchObject({ ahead: false, self_avg_rank: 2 });
 		expect(runSummaryFields({ ...latest, targets: [{ key: 'self', place_id: 'SELF' }] }, [latest]).key_competitor).toBeNull();
+	});
+
+	it('top-3 rate change vs the previous run, on the keywords both runs have (2026-10-02)', () => {
+		const previous = run(29, {
+			tracker: [
+				{ keyword: 'A', summary: { self: cell(5, null, null, 0.2) } },
+				{ keyword: 'b', summary: { self: cell(12, null, null, 0.2) } },
+				{ keyword: 'gone', summary: { self: cell(1, null, null, 1) } },
+			],
+		});
+		// a: 0.6 vs 0.2, b: 0 vs 0.2 → mean 0.3 vs 0.2; 'gone' and the new keywords are ignored.
+		expect(top3RateChange(latest, previous)).toBe(0.1);
+		expect(runSummaryFields(latest, recent, previous).top3_rate_change).toBe(0.1);
+		expect(runSummaryFields(latest, recent).top3_rate_change).toBeNull();
+		expect(top3RateChange(latest, run(29, { tracker: [{ keyword: 'z', summary: { self: cell(5, null) } }] }))).toBeNull();
 	});
 });
 

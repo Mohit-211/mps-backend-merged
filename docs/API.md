@@ -2080,9 +2080,29 @@ A business organization gets **403** `{ "reason": "agency_only" }`. A `client_us
 
 Examples come from `npm run seed:demo-orgs` (offline demo data), trimmed.
 
-### `GET /api/v1/dashboard[?page=&limit=&sort=name|client|rank|rank_change|gbp_score&order=asc|desc]`
+### `GET /api/v1/dashboard[?page=&limit=&sort=name|client|rank|rank_change|gbp_score&order=asc|desc&location_id=&range=15d|30d|60d]`
 
-The shape follows the organization type. **It reads only the stored per-location summaries** (`Location.summary`, written after every rank run and GBP report), plus location statuses and client names. No rank-run or report documents are read, and nothing calls Google. A `client_user` gets the agency shape for its assigned clients only.
+The shape follows the organization type. **It reads only stored data**: the per-location summaries (`Location.summary`, written after every rank run and GBP report), location statuses and client names, and since 2026-10-02 the stored daily GBP metrics, reviews and report counts for the period blocks. No rank-run or report documents are read, and nothing calls Google. A `client_user` gets the agency shape for its assigned clients only.
+
+**Location filter and period picker (2026-10-02).** `?location_id=` narrows every block to one location of the organization (404 `location_not_found` otherwise); `locations` still lists all of them for the picker, and `selected_location` echoes the choice (`null` = all). `?range=15d|30d|60d` (default `30d`) drives two blocks, both computed from stored data (`GbpMetricDaily`, `GbpReview`), so they change only after a refresh:
+
+```json
+{ "range": "30d",
+  "selected_location": { "location_id": "6ab…a18", "name": "MyPageSEO Fredericton", "city": "Fredericton" },
+  "performance": { "available": true, "range": "30d", "days": 30, "latest_date": "2026-09-28",
+    "current":  { "impressions": 1840, "maps": 1210, "search": 630, "actions": 96, "calls": 22, "website_clicks": 51, "direction_requests": 23, "actions_per_1000_impressions": 52.2 },
+    "previous": { "impressions": 1600, "maps": 1050, "search": 550, "actions": 88, "calls": 20, "website_clicks": 45, "direction_requests": 23, "actions_per_1000_impressions": 55 },
+    "change":   { "impressions": 0.15, "maps": 0.152, "search": 0.145, "actions": 0.091, "calls": 0.1, "website_clicks": 0.133, "direction_requests": 0, "actions_per_1000_impressions": -0.051 },
+    "coverage": { "current": { "days_with_data": 30, "days": 30 }, "previous": { "days_with_data": 30, "days": 30 } } },
+  "visibility": { "avg_rank": 8.4, "change": 2.1, "top3_rate": 0.4, "top3_rate_change": 0.1, "trend": [] },
+  "reviews": { "available": true, "rating": 4.6, "rating_change": -0.05, "new_in_range": 4, "count": 41 },
+  "citations": { "available": true, "score": 72, "score_change": 5 } }
+```
+
+- Each location's window ends at its latest day with data (Google lags a few days); `change` is a fraction (0.15 = +15 %) and `null` when either window has under the minimum day coverage or the base is 0. Without a bound GBP: `{ "available": false, "reason": "gbp_not_connected", "range": "30d" }`; bound but no data yet: `reason: "no_data"`.
+- `reviews.rating_change`: the average rating of all stored reviews now minus the average of the reviews that existed at the start of the range (2 decimals; `null` without earlier reviews). Only in the review-management shape (v4).
+- `visibility.top3_rate_change`: vs the previous run, on the keywords both runs have (+0.1 = 10 points more top-3 positions). `citations.score_change`: the last movement of the Citation Health score, kept while the score stays the same.
+- **Agency** adds the same `range`, `selected_location`, `performance` and `reviews` blocks, plus `reports: { "ready": 12, "scheduled": 3, "failed": 1 }` (ready / failed: not archived, for the visible locations; scheduled: active schedules), `portfolio.avg_top3_rate_change`, and `table.rows[].city` + `visibility.top3_rate_change`.
 
 **Business:**
 

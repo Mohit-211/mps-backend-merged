@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { citationHealth, CitationHealth, HealthEntry } from '../../citations/health';
-import { Directory, IDirectory, ILocationCitation, Location, LocationCitation } from '../../models';
+import { Directory, IDirectory, ILocation, ILocationCitation, Location, LocationCitation } from '../../models';
 
 // Citation Health of one location (Phase 16), from its active entries, and the Location.summary fields
 // the dashboards and the locations list read. Written after every citation change (write path).
@@ -21,6 +21,11 @@ export const loadHealthEntries = async (locationId: Id): Promise<{ entries: ILoc
 export const updateCitationSummary = async (locationId: Id): Promise<CitationHealth> => {
 	const { entries, health } = await loadHealthEntries(locationId);
 	const checked = entries.map((e) => e.last_checked_at).filter((d): d is Date => Boolean(d));
+	// The change is set when the score moves and kept while it stays the same, so the dashboard shows the last movement.
+	const before = await Location.findById(locationId).select({ 'summary.citation_score': 1, 'summary.citation_score_change': 1 }).lean<Pick<ILocation, 'summary'>>();
+	const old = before?.summary?.citation_score ?? null;
+	const change =
+		typeof health.score !== 'number' || typeof old !== 'number' ? null : health.score !== old ? health.score - old : (before?.summary?.citation_score_change ?? null);
 	await Location.updateOne(
 		{ _id: locationId },
 		{
@@ -31,6 +36,7 @@ export const updateCitationSummary = async (locationId: Id): Promise<CitationHea
 				'summary.citation_counts': entries.length ? health.counts : null,
 				'summary.citation_total': entries.length,
 				'summary.citation_checked_at': checked.length ? new Date(Math.max(...checked.map((d) => d.getTime()))) : null,
+				'summary.citation_score_change': change,
 			},
 		},
 	);
