@@ -25,3 +25,7 @@ export const BUCKET_LABELS: Record<RankBucket, string> = {
 	not_found: '60+',
 	error: 'Search failed',
 };
+
+/** The legend for a heatmap measured to maxRank (Phase 19's sales audit: 30). */
+export const bucketLabels = (maxRank = 60): Record<RankBucket, string> =>
+	maxRank === 60 ? BUCKET_LABELS : { ...BUCKET_LABELS, invisible: `21–${maxRank}`, not_found: `${maxRank}+` };

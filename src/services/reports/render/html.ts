@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { Block, ReportDocument } from '../types';
-import { BUCKET_COLORS, BUCKET_LABELS, MUTED, TEXT, TONE_COLORS } from './theme';
+import { BUCKET_COLORS, MUTED, TEXT, TONE_COLORS, bucketLabels } from './theme';
 
 // Reports center (Phase 12): renders a ReportDocument to a standalone HTML page (the public share
 // view) and to a short email summary. No scripts, no external resources: styles are inline, charts
@@ -59,8 +59,8 @@ const heatmapSvg = (b: Extract<Block, { kind: 'heatmap' }>): string => {
 	return `<svg viewBox="0 0 ${size} ${size}" width="${Math.min(size, 320)}" role="img" aria-label="${e(b.title)}">${cells}</svg>`;
 };
 
-const legend = (): string =>
-	`<div class="legend">${Object.entries(BUCKET_LABELS)
+const legend = (maxRank?: number): string =>
+	`<div class="legend">${Object.entries(bucketLabels(maxRank))
 		.map(([k, label]) => `<span><i style="background:${BUCKET_COLORS[k as keyof typeof BUCKET_COLORS]}"></i>${e(label)}</span>`)
 		.join('')}</div>`;
 
@@ -89,7 +89,7 @@ export const blocksHtml = (blocks: Block[], primary: string): string =>
 				case 'line_chart':
 					return `<figure><figcaption>${e(b.title)}</figcaption>${lineChartSvg(b, primary)}</figure>`;
 				case 'heatmap':
-					return `<figure><figcaption>${e(b.title)}</figcaption>${heatmapSvg(b)}${legend()}</figure>`;
+					return `<figure><figcaption>${e(b.title)}</figcaption>${heatmapSvg(b)}${legend(b.max_rank)}</figure>`;
 				case 'list':
 					return `<ul>${b.items.map((i) => `<li>${e(i)}</li>`).join('')}</ul>`;
 				case 'unavailable':
