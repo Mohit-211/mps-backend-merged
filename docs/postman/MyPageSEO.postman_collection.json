@@ -1997,7 +1997,7 @@
 								"reports"
 							]
 						},
-						"description": "Create a report (Rank Tracker, GBP Audit, Competitor Analysis, Full); generated in the report-generate job\n\n**Auth:** user + org (owner/member) · **Phase:** 12 · **Status:** live",
+						"description": "Create a report (Rank Tracker, GBP Audit, Competitor Analysis, Citation, Reputation (2026-10-02), Full); generated in the report-generate job\n\n**Auth:** user + org (owner/member) · **Phase:** 12 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -2086,7 +2086,7 @@
 								}
 							]
 						},
-						"description": "Report library: filters, pagination (a client_user sees its clients' reports)\n\n**Auth:** user + org · **Phase:** 12 · **Status:** live",
+						"description": "Report library: filters, pagination (a client_user sees its clients' reports); 2026-10-02: deleted locations marked, include_deleted, live rows\n\n**Auth:** user + org · **Phase:** 12, changed 2026-10-02 · **Status:** live",
 						"auth": {
 							"type": "bearer",
 							"bearer": [

@@ -116,7 +116,7 @@ export interface GbpAuditData {
 		description_length: number;
 		nap: { field: 'name' | 'phone' | 'website'; location: string | null; profile: string | null; match: boolean | null }[];
 	}>;
-	verification?: Part<{ verified: boolean; state: string | null }>;
+	verification?: Part<{ verified: boolean; state: string | null; verified_at?: Date | null; method?: string | null; guidance?: string | null }>;
 	pending_edits?: Part<{ has_pending: boolean; fields: string[] }>;
 	reviews_media_posts?: {
 		reviews: Part<{ average_rating: number | null; total: number; new_90d: number; reply_rate_90d: number | null; median_reply_hours: number | null; unreplied: number }>;
@@ -162,11 +162,24 @@ export interface CitationReportData {
 	changes?: { at: Date; directory: string; action: string; from: string | null; to: string | null }[];
 }
 
+// ---- Reputation (2026-10-02) ----
+
+export interface ReputationReportData {
+	available: true;
+	as_of: Date;
+	summary?: { average_rating: number | null; total: number; new_this_month: number; positive: number; negative: number; reply_rate: number | null; awaiting_attention: number; flagged: number };
+	distribution?: { stars: number; count: number }[];
+	needs_attention?: { rating: number | null; date: Date | null; excerpt: string | null; flags: string[]; flag_level: string }[];
+	replies_sent?: { this_month: number; last_90_days: number; recent: { rating: number | null; review: string | null; reply: string | null; date: Date | null }[] };
+	insights?: Part<{ available: true; generated_at: Date; themes: { theme: string; mentions: number; sentiment: string }[]; praise: string[]; complaints: string[]; observations: string[] }>;
+}
+
 export interface SnapshotData {
 	rank_tracker?: Part<RankTrackerData>;
 	gbp_audit?: Part<GbpAuditData>;
 	competitor_analysis?: Part<CompetitorData>;
 	citation?: Part<CitationReportData>;
+	reputation?: Part<ReputationReportData>;
 }
 
 // ---- Document model ----

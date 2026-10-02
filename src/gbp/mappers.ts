@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import {
 	GoogleDate,
+	RawVerificationsPage,
 	RawAttributeMetadataPage,
 	RawAttributes,
 	RawDailyMetricsResponse,
@@ -185,6 +186,12 @@ export const mapGoogleUpdated = (raw: RawGoogleUpdated): NonNullable<IGbpProfile
 };
 
 /** Verification: the one action Google asks for next (if any), and whether the owner has control. */
+/** 2026-10-02: the newest attempt and the last completed verification from the verification history. */
+export const mapVerificationHistory = (items: NonNullable<RawVerificationsPage['verifications']>) => {
+	const dated = items.map((v) => ({ method: v.method ?? null, state: v.state ?? null, create_time: toDate(v.createTime) })).sort((a, b) => (b.create_time?.getTime() ?? 0) - (a.create_time?.getTime() ?? 0));
+	return { latest: dated[0] ?? null, verified_at: dated.find((v) => v.state === 'COMPLETED')?.create_time ?? null };
+};
+
 export const mapVerification = (raw: RawVoiceOfMerchantState): NonNullable<IGbpProfileSnapshot['verification']> => {
 	const state = raw.verify
 		? raw.verify.hasPendingVerification

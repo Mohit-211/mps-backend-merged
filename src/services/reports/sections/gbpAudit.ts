@@ -145,6 +145,10 @@ export const buildGbpAuditData = (
 		data.verification = pass(report.verification, (v: Extract<GbpReportData['verification'], { available: true }>) => ({
 			verified: v.has_voice_of_merchant,
 			state: v.state,
+			// 2026-10-02: from Google's verification history.
+			verified_at: v.verified_at ?? null,
+			method: v.latest?.method ?? null,
+			guidance: v.guidance ?? null,
 		}));
 	}
 	if (want('pending_edits')) {

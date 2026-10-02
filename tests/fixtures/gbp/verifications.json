@@ -1,0 +1,6 @@
+{
+  "verifications": [
+    { "name": "locations/200000000000000000001/verifications/v2", "method": "PHONE_CALL", "state": "COMPLETED", "createTime": "2025-03-14T15:00:00Z" },
+    { "name": "locations/200000000000000000001/verifications/v1", "method": "ADDRESS", "state": "FAILED", "createTime": "2025-03-01T10:00:00Z" }
+  ]
+}

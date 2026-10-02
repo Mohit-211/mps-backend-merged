@@ -1627,9 +1627,12 @@ Body: `{ "types"?: ["rankings", "gbp"] }`. By default: rankings, plus gbp when t
   "next_refresh_at": "2026-10-26T09:00:00.000Z", "last_auto_refresh_at": null,
   "rankings": { "next_allowed_at": "2026-09-27T13:00:00.000Z", "active_run": { "run_id": "66f6…", "status": "running" } },
   "gbp": { "next_allowed_at": null, "active_sync": null, "last_synced_at": "2026-09-26T09:02:11.000Z" },
+  "reviews": { "synced_with_gbp": true, "in_progress": false, "last_refreshed_at": "2026-10-02T12:00:00.000Z", "next_allowed_at": null, "last_synced_at": "2026-09-26T09:02:11.000Z" },
   "report": { "pending": true, "scheduled_for": "2026-09-26T13:04:00.000Z", "last_generated_at": "2026-08-26T09:07:40.000Z" },
   "tokens": { "cost": { "rankings": 1, "gbp": 1 }, "balance": 12 } }
 ```
+
+`reviews` (2026-10-02; `null` without GBP): reviews are stored by every GBP sync (`in_progress` while one runs) and by the Refresh Reviews button (`last_refreshed_at`, `next_allowed_at`). Nothing else about reviews or AI runs in the background.
 
 - `next_allowed_at: null` means the type can be refreshed now.
 - `tokens` (Phase 13a): the token cost per manual refresh type and the organization's balance.
@@ -1761,7 +1764,9 @@ Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
   "media": { "available": true, "owner_count": 14, "customer_count": 22, "latest_owner_upload": "2026-08-16T17:25:36.539Z", "owner_uploads_per_month": { "2026-08": 3 } },
   "posts": { "available": true, "total": 9, "last_post_at": "2026-09-14T17:25:36.539Z", "last_30_days": 2, "last_90_days": 5, "per_month": { "2026-09": 2 } },
   "pending_google_edits": { "available": true, "has_pending": true, "diff_fields": ["regularHours"], "pending_fields": ["regularHours"] },
-  "verification": { "available": true, "has_voice_of_merchant": true, "has_business_authority": true, "state": "VERIFIED" },
+  "verification": { "available": true, "verified": true, "has_voice_of_merchant": true, "has_business_authority": true, "state": "verified", "guidance": null,
+                    "latest": { "method": "PHONE_CALL", "state": "COMPLETED", "create_time": "2025-03-14T15:00:00.000Z" }, "verified_at": "2025-03-14T15:00:00.000Z",
+                    "checked_at": "2026-09-26T17:21:36.539Z", "stale": false, "error": null },
   "competitors": {
     "available": true, "generated_at": "2026-09-26T17:25:36.832Z", "warning": null,
     "rows": [
@@ -1791,6 +1796,8 @@ Examples below come from `npm run seed:demo-orgs` (offline demo data), trimmed.
   "generation": { "pending": false, "scheduled_for": null, "last_generated_at": "2026-09-26T17:25:36.832Z" }
 }
 ```
+
+**Verification (2026-10-02):** `verified` is Google's "Voice of Merchant" (the owner controls the profile). `state` is `verified`, `verification_required`, `verification_pending`, `waiting_for_voice_of_merchant`, `ownership_conflict` or `comply_with_guidelines` (then `guidance` says what Google wants). `latest` / `verified_at` come from Google's verification history. When the last sync couldn't read verification, the previous result is shown with `stale: true` and `error`; with no previous result the section is `{ available: false, reason: "sync_failed", message }` (e.g. the My Business Verifications API is not enabled for the Cloud project).
 
 **Sections that can't be shown** are `{ "available": false, "reason": "…" }`:
 
@@ -2189,6 +2196,7 @@ A report freezes stored data (the rank run, the GBP report, the profile snapshot
 | `gbp_audit` | `score`, `checks` (with top fixes), `performance` (`range` 28d/90d/12m), `keywords`, `profile` (with name/phone/website consistency), `verification`, `pending_edits`, `reviews_media_posts` (needs v4). **2026-10-02:** no ranking data; `score` has `version`, `counts` and a `state` + `counts` per pillar; `checks` have `state` and `why_it_matters`; `performance` has every metric (Maps / Search, mobile / desktop, calls, website clicks, directions, conversations and bookings when not 0) with its previous-period and last-year change, `by_surface`, `by_device`, and calls / website clicks / directions per day (the PDF draws a chart for each). |
 | `competitor_analysis` | `public_scores`, `table`, `insights`, `reviews` (12.5). The `ranks` section was removed on 2026-10-02 (no ranking data outside the Rank Tracker report). |
 | `citation` (Phase 16) | `score` (Citation Health, coverage, counts), `table` (every listing: directory, type, status, NAP issues, last checked), `nap_issues` (listed as vs should be), `changes` (the report's `range`) |
+| `reputation` (2026-10-02) | `summary` (average, totals, new this month, 4-5 / 1-3, reply rate, awaiting attention, flagged), `distribution` (reviews per star), `needs_attention` (up to 10 unreplied low or flagged reviews with their indicators), `replies_sent` (this month, 90 days, the 5 latest), `insights` (the stored review insights, if generated). Stored data only: generating it never calls Google or OpenAI. **400** `no_reviews` without stored reviews. Also the fifth part of `full`. |
 | `full` | the report types it combines: `rank_tracker`, `gbp_audit`, `competitor_analysis`, `citation` (Phase 16) |
 
 A part that can't be shown is `{ available: false, reason }` in `snapshot.data` and an `unavailable` block in the document: `gbp_not_connected`, `v4_access_pending` ("Not available yet: this needs Google My Business v4 access"), `not_synced_yet`, `no_rank_run`, `no_gbp_report`. **Never sample data.**
@@ -2216,14 +2224,20 @@ A part that can't be shown is `{ available: false, reason }` in `snapshot.data` 
 - **400** `{ reason }`: `invalid_section` (with `allowed`), `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_data`. **404** for a location outside the organization. **403** `read_only` for a client_user.
 - Poll `GET /reports/:id` until `status` is `ready` (or `failed` with `failure_reason`).
 
-### `GET /api/v1/reports[?location_id=&client_id=&type=&status=&page=&limit=]`
+### `GET /api/v1/reports[?location_id=&client_id=&type=&status=&include_deleted=&page=&limit=]`
 
 `status`: `queued | generating | ready | failed | expired | archived` (archived reports are listed only with `status=archived`).
 
+**2026-10-02 (Mohit's decisions):**
+- **Deleted locations:** their reports stay in the list with the real name and `location.deleted: true` (label them "Deleted location"); `include_deleted=false` hides them. PDFs and share links keep working.
+- **Live rows:** `live` lists the stored, always-current pages per visible location: `type: "gbp_report"` (the GBP report, regenerated after every sync and rank run) and `type: "review_insights"` (when insights were generated). They have no PDF and no status: open the in-app page from `link`. Only on page 1 without a `status` filter; `type=gbp_audit` keeps only `gbp_report` rows, `type=reputation` only `review_insights`, other types none. Nothing is generated automatically: a PDF is made with `POST /reports`.
+
 ```json
 { "reports": [ { "report_id": "…", "type": "full", "status": "ready", "trigger": "manual",
-                 "location": { "location_id": "…", "name": "Danforth Drain Pros" }, "client": { "client_id": "…", "name": "Danforth Services" },
+                 "location": { "location_id": "…", "name": "Danforth Drain Pros", "deleted": false }, "client": { "client_id": "…", "name": "Danforth Services" },
                  "range": "28d", "run_id": "…", "run_at": "2026-09-01T03:00:00.000Z", "pdf": { "bytes": 36594, "pages": 5 }, "created_at": "…", "generated_at": "…", "expires_at": "2028-09-27T05:41:18.424Z", "archived_at": null } ],
+  "live": [ { "kind": "live", "type": "gbp_report", "location": { "location_id": "…", "name": "Danforth Drain Pros", "deleted": false }, "client_id": "…",
+              "generated_at": "2026-10-02T03:04:00.000Z", "link": { "page": "gbp_report", "location_id": "…" } } ],
   "page": 1, "limit": 20, "total": 1 }
 ```
 

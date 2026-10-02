@@ -146,8 +146,8 @@ describe('POST /reports + generation', () => {
 		const full = (await request(app).get(`/api/v1/reports/${fullId}`).set(auth(unbound.token))).body.data;
 		expect(full.snapshot.data.gbp_audit).toEqual({ available: false, reason: 'gbp_not_connected' });
 		expect(full.snapshot.data.competitor_analysis.available).toBe(true);
-		// Phase 16: the Full report has a fourth part, Citations (here: none tracked yet).
-		expect(full.document.blocks.filter((b: { kind: string }) => b.kind === 'heading' && (b as unknown as { level: number }).level === 1)).toHaveLength(4);
+		// Phase 16: Citations (here: none tracked yet); 2026-10-02: Reputation, the fifth part.
+		expect(full.document.blocks.filter((b: { kind: string }) => b.kind === 'heading' && (b as unknown as { level: number }).level === 1)).toHaveLength(5);
 		expect(full.snapshot.data.citation).toEqual({ available: false, reason: 'no_citations_yet' });
 	});
 
@@ -177,6 +177,44 @@ describe('POST /reports + generation', () => {
 		await Location.collection.deleteOne({ _id: new Types.ObjectId(id) });
 		expect(await reportService.generate(res.body.data.report_id)).toEqual({ status: 'failed' });
 		expect(await Report.findById(res.body.data.report_id).lean()).toMatchObject({ status: 'failed', active: false, failure_reason: 'location not found', pdf: null });
+	});
+});
+
+describe('2026-10-02: reputation report, deleted locations, live rows', () => {
+	it('a reputation report is built from stored reviews and insights only', async () => {
+		const { token, id } = await setup({ bound: true });
+		const reportId = await createAndGenerate(token, { location_id: id, type: 'reputation' });
+		const doc = (await request(app).get(`/api/v1/reports/${reportId}`).set(auth(token))).body.data;
+		expect(doc.snapshot.data.reputation).toMatchObject({
+			available: true,
+			summary: { total: expect.any(Number), reply_rate: expect.any(Number) },
+			distribution: [{ stars: 5 }, { stars: 4 }, { stars: 3 }, { stars: 2 }, { stars: 1 }],
+			needs_attention: expect.any(Array),
+			replies_sent: { this_month: expect.any(Number) },
+			insights: { available: false, reason: 'no_insights' },
+		});
+		expect(doc.document.title).toBe('Reputation Report');
+		const unbound = await setup({});
+		const res = await request(app).post('/api/v1/reports').set(auth(unbound.token)).send({ location_id: unbound.id, type: 'reputation' });
+		expect(res.status).toBe(400);
+		expect(res.body.data.reason).toBe('no_reviews');
+	});
+
+	it('reports of a deleted location keep its name, marked deleted; include_deleted=false hides them', async () => {
+		const { token, id, location } = await setup({ bound: true });
+		await createAndGenerate(token, { location_id: id, type: 'gbp_audit' });
+		await Location.updateOne({ _id: location._id }, { $set: { is_active: false, deleted_at: new Date() } });
+		const list = await request(app).get('/api/v1/reports').set(auth(token));
+		expect(list.body.data.reports[0].location).toEqual({ location_id: id, name: location.name, deleted: true });
+		expect((await request(app).get('/api/v1/reports?include_deleted=false').set(auth(token))).body.data.reports).toEqual([]);
+	});
+
+	it('the list adds live rows for the stored GBP report (no PDF)', async () => {
+		const { token, id } = await setup({ bound: true });
+		const res = await request(app).get('/api/v1/reports').set(auth(token));
+		expect(res.body.data.live).toEqual([expect.objectContaining({ kind: 'live', type: 'gbp_report', location: { location_id: id, name: expect.any(String), deleted: false }, link: { page: 'gbp_report', location_id: id } })]);
+		expect((await request(app).get('/api/v1/reports?type=rank_tracker').set(auth(token))).body.data.live).toEqual([]);
+		expect((await request(app).get('/api/v1/reports?page=2').set(auth(token))).body.data.live).toEqual([]);
 	});
 });
 

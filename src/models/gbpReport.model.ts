@@ -14,11 +14,13 @@ import type { GbpScoreResult } from '../gbp/score/gbpScore';
 export const REPORT_TRIGGERS = ['gbp_sync', 'rank_run', 'competitors_changed', 'manual_refresh', 'unbind', 'seed'] as const;
 export type ReportTrigger = (typeof REPORT_TRIGGERS)[number];
 
-export type UnavailableReason = 'gbp_not_connected' | 'v4_access_pending' | 'not_synced_yet' | 'no_data' | 'places_not_configured' | 'no_place_id';
+export type UnavailableReason = 'gbp_not_connected' | 'v4_access_pending' | 'not_synced_yet' | 'no_data' | 'places_not_configured' | 'no_place_id' | 'sync_failed';
 
 export interface Unavailable {
 	available: false;
 	reason: UnavailableReason;
+	/** 2026-10-02: for sync_failed, what Google said (e.g. the API is not enabled for the project). */
+	message?: string | null;
 }
 
 export interface MediaSection {
@@ -72,7 +74,25 @@ export interface GbpReportData {
 	media: MediaSection | Unavailable;
 	posts: PostsSection | Unavailable;
 	pending_google_edits: { available: true; has_pending: boolean; diff_fields: string[]; pending_fields: string[] } | Unavailable;
-	verification: { available: true; has_voice_of_merchant: boolean; has_business_authority: boolean; state: string | null } | Unavailable;
+	verification:
+		| {
+				available: true;
+				/** True when Google says the owner has control of the profile (Voice of Merchant). */
+				verified: boolean;
+				has_voice_of_merchant: boolean;
+				has_business_authority: boolean;
+				state: string | null;
+				/** What Google asks the owner to do (from complyWithGuidelines), if anything. */
+				guidance: string | null;
+				/** 2026-10-02: the newest verification attempt and the last completed one. */
+				latest: { method: string | null; state: string | null; create_time: Date | null } | null;
+				verified_at: Date | null;
+				checked_at: Date | null;
+				/** The last sync couldn't read verification; this is the previous result. */
+				stale: boolean;
+				error: string | null;
+		  }
+		| Unavailable;
 	sync: { last_synced_at: Date | null; last_status: string | null; types: Record<string, { status: string; message: string | null }> } | Unavailable;
 	competitors: CompetitorsSection | Unavailable;
 	api_calls: { places_details: number };

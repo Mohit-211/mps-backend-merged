@@ -150,6 +150,12 @@ export interface RawVoiceOfMerchantState {
 	complyWithGuidelines?: { recommendationReason?: string };
 }
 
+/** GET /v1/locations/L/verifications (2026-10-02): the location's verification history. */
+export interface RawVerificationsPage {
+	verifications?: { name?: string; method?: string; state?: string; createTime?: string }[];
+	nextPageToken?: string;
+}
+
 export interface RawReview {
 	name?: string;
 	reviewer?: { displayName?: string; isAnonymous?: boolean };

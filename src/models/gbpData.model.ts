@@ -95,7 +95,18 @@ export interface IGbpProfileSnapshot extends Document {
 	/** display_name, group and value_labels (Google's English names) since 2026-10-02; null when the names couldn't be read. */
 	attributes: { name: string; value_type: string | null; values: unknown[]; display_name?: string | null; group?: string | null; value_labels?: string[] | null }[] | null;
 	pending_google_edits: { has_pending: boolean; diff_fields: string[]; pending_fields: string[] } | null;
-	verification: { has_voice_of_merchant: boolean; has_business_authority: boolean; state: string | null; guidance: string | null } | null;
+	verification: {
+		has_voice_of_merchant: boolean;
+		has_business_authority: boolean;
+		state: string | null;
+		guidance: string | null;
+		/** 2026-10-02: the newest verification attempt and when the profile was last verified (COMPLETED). */
+		latest?: { method: string | null; state: string | null; create_time: Date | null } | null;
+		verified_at?: Date | null;
+		checked_at?: Date | null;
+		/** Copied from the previous snapshot because this sync couldn't read verification. */
+		stale?: boolean;
+	} | null;
 	media: {
 		owner_count: number;
 		customer_count: number;

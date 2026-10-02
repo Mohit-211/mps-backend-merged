@@ -13,7 +13,9 @@ Endpoint shapes are in [API.md](API.md#gbp-connection-phase-6) and [API.md](API.
 1. **Enable APIs** (APIs & Services → Library):
    - My Business Account Management API
    - My Business Business Information API
-   - For Phase 7 (not needed yet): Business Profile Performance API, My Business Verifications API, Google My Business API
+   - **Business Profile Performance API** (metrics and search keywords)
+   - **My Business Verifications API** (the verified status in the GBP report; without it verification shows `sync_failed`, 2026-10-02)
+   - **Google My Business API** (v4: reviews, replies, photos, posts; access granted 2026-10-02)
 2. **OAuth consent screen:**
    - User type **External**, publishing status **Testing**.
    - Add the Google account that manages MyPageSEO's profile as a **test user**.

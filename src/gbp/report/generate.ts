@@ -201,11 +201,20 @@ const privateSections = async (location: ILocation, now: Date, v4: boolean) => {
 			verification: snapshot?.verification
 				? {
 						available: true as const,
+						verified: snapshot.verification.has_voice_of_merchant,
 						has_voice_of_merchant: snapshot.verification.has_voice_of_merchant,
 						has_business_authority: snapshot.verification.has_business_authority,
 						state: snapshot.verification.state,
+						guidance: snapshot.verification.guidance ?? null,
+						latest: snapshot.verification.latest ?? null,
+						verified_at: snapshot.verification.verified_at ?? null,
+						checked_at: snapshot.verification.checked_at ?? null,
+						stale: snapshot.verification.stale === true,
+						error: lastSync?.types?.verification?.status === 'error' ? (lastSync.types.verification.message ?? null) : null,
 					}
-				: notSynced,
+				: lastSync?.types?.verification?.status === 'error'
+					? { available: false as const, reason: 'sync_failed' as const, message: lastSync.types.verification.message ?? null }
+					: notSynced,
 			sync: lastSync
 				? {
 						last_synced_at: location.gbp_sync?.last_synced_at ?? null,
