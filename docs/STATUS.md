@@ -1,6 +1,8 @@
 # Status: where we are
 
-_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: 2026-10-01. Phase 13 is done (13a `2c77a8a`, 13b `411b7c2`, 13c `093b127`), as are the GBP connect → pick → bind change (`d8eb400`) and the error reasons (`85ef65d`); all on `master`. **Phase 17 (ranking extras)**, pulled forward for the real ranking pages, is built on `claude/phase-17-ranking-extras`, awaiting merge. Next: **Phase 14 (production readiness)** in plan mode._
+_Rewritten at the end of every phase. History is in [PROGRESS.md](PROGRESS.md); findings are in [AUDIT.md](AUDIT.md). Last updated: **2026-10-02**._
+
+_**Handover (2026-10-02), read this first in a new session.** Everything up to Phase 18 is merged into `master` and pushed (latest `456d052`): Phases 1–13c, 16, 17 (`5bde3c0`) and 18 (`4da3f87`), plus the follow-ups setup-center picker / disconnect deletes locations (`83af868`), GBP Score v2 without ranking data (`99b19f7`), attribute display names + v4 granted (`6230c80`) and the reputation report / verification history (`456d052`). **Awaiting merge:** `claude/dashboard-fields` (dashboard `?location_id=`, `?range=15d|30d|60d`, change fields; merge command in PROGRESS.md "Dashboard fields"). Work branches start from `master` (`claude/rebuild` is history). **Next:** Phase 14 (production readiness) in plan mode, or Phase 9 (GBP posting, v4 now granted), Mohit's choice. Open actions for Mohit: "Open items" 17–19 below (OpenAI key, Verifications API, stray `docs/backend/`)._
 
 ## Product goal
 
@@ -38,21 +40,28 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 | **13** | **Billing & plans** (13a billing, then 13b legacy removal, `/auth` account endpoints, provider interface, admin panel + support; CLAUDE.md §12h; plan: [plans/phase-13-billing-admin.md](plans/phase-13-billing-admin.md)) | done (13a, 13b, 13c) | `claude/phase-13a-billing`, `claude/phase-13b-admin`, `claude/phase-13c-followups` | 13a `2c77a8a`, 13b `411b7c2`, 13c `093b127` | M5 (pushed) |
 | 14 | Production readiness | planned | – | – | M5 |
 | – | **M5 Launch-ready** (12 + 12.5 + 10 + 8.1 + 16 + 13 + 14 + pre-launch live validation + Google approvals). Phase 16 joined M5 on 2026-09-27: the Citation Report is one of the four mandatory reports, and the admin team needs time to build the directory list. | – | – | – | M5 |
-| 9 | GBP reviews & posting (incl. AI review replies) | planned (v4 access granted 2026-10-02) | – | – | – |
+| 9 | GBP posting (the review half was built in Phase 18) | planned (v4 access granted 2026-10-02) | – | – | – |
 | 15 | Notifications & automations | planned | – | – | – |
-| 18 | Reputation: review management + shared OpenAI layer (CLAUDE.md §12j; plan [plans/phase-18-reviews.md](plans/phase-18-reviews.md)) | **built, awaiting merge** | `claude/phase-18-reviews` | – | – |
-| 17 | Ranking extras (pulled forward 2026-10-01): grids 3–13 by radius, map pins, change across keyword edits, keyword groups, keyword history, competitor names (max 5), report run dates. CLAUDE.md §12i; plan [plans/phase-17-ranking-extras.md](plans/phase-17-ranking-extras.md) | done (merged `5bde3c0`, pushed) | `claude/phase-17-ranking-extras` | – | – |
-| – | AI GBP posts (needs GBP v4) · AI visibility · Review management (needs GBP v4) · White-label hosting: groundwork in [plans/upcoming-features.md](plans/upcoming-features.md) | planned, spec pending | – | – | – |
+| 18 | Reputation: review management + shared OpenAI layer (CLAUDE.md §12j; plan [plans/phase-18-reviews.md](plans/phase-18-reviews.md)) | done | `claude/phase-18-reviews` | yes (`4da3f87`, pushed) | – |
+| – | Follow-ups 2026-10-01/02: setup-center picker + disconnect deletes locations (`83af868`), GBP Score v2 (`99b19f7`), attribute names (`6230c80`), reputation report + verification history (`456d052`), dashboard fields (`claude/dashboard-fields`) | done; dashboard fields awaiting merge | see PROGRESS.md | yes, except dashboard fields | – |
+| 17 | Ranking extras (pulled forward 2026-10-01): grids 3–13 by radius, map pins, change across keyword edits, keyword groups, keyword history, competitor names (max 5), report run dates. CLAUDE.md §12i; plan [plans/phase-17-ranking-extras.md](plans/phase-17-ranking-extras.md) | done | `claude/phase-17-ranking-extras` | yes (`5bde3c0`, pushed) | – |
+| – | AI GBP posts (needs GBP v4) · AI visibility · Review auto-reply (later; review management itself is Phase 18) · White-label hosting: groundwork in [plans/upcoming-features.md](plans/upcoming-features.md) | planned, spec pending | – | – | – |
 | 9b | Cleanup | ongoing | – | – | – |
 
-**Live test with MyPageSEO:** paused. The connect passed; the rest is blocked on Google (GBP API access), see "Blocked on Google".
+**Live use:** GBP API access (2026-10-01) and v4 (2026-10-02) are approved; Mohit tests the deployed backend with the real frontend (localhost:3000) on real data. The formal pre-launch validation is still pending (below).
 
 `main` is untouched (`62240ac`). There is no Phase 2; security moved to Phase 10.
 
 ## Done so far
 
-- **Phase 17 (2026-10-01, awaiting merge):** grids 3×3 to 13×13 set by radius (0.5–15 km; default 7×7 at 8 km), Rank Tracker / Map Ranking points at radius ÷ 2, `RANK_MAX_CALLS_PER_RUN` 40,000 and `GET /tracking/estimate`; Map Ranking pins (`address`, `lat`, `lng`; same Pro price); changes kept across keyword edits on the shared keywords (`comparable_keywords`; CHANGELOG `change_across_keyword_edits`); keyword groups (CRUD, `?group=`, summaries, report section); `GET /keyword-history`; competitor names / addresses / positions (max 5) and names on run targets; `run_at` on report rows. Endpoints 226 → 232. Details: PROGRESS.md "Phase 17".
-- **Phase 13b (2026-09-28/29, awaiting merge):** everything legacy the rebuilt product doesn't use is deleted (endpoints 250 → 225: 65 removed, 40 added; no deprecated routes; no data migrations: the launch uses a fresh database with `npm run setup:fresh`); `/auth` sessions and account (refresh rotation, logout, change password, me, deactivate); the Google connect under `/gbp/connect/*`; password reset by link for users and admins (no OTP anywhere) and new admins set their password by link; one email switch (`EMAIL_TRANSPORT`); the payment-provider interface; flaky tests fixed (4/10 failing runs → green); end-to-end flow tests + [FLOWS.md](FLOWS.md); the admin panel backend (overview, users, organizations, admin accounts) and support tickets; the upcoming-features groundwork. Lint 82 → 40 (all in legacy GBP posting). Details: PROGRESS.md "Phase 13b".
+- **Dashboard fields (2026-10-02, awaiting merge on `claude/dashboard-fields`):** `?location_id=` (per-location detail panels), `?range=15d|30d|60d` (GBP performance and the rating change from stored data), `top3_rate_change`, `citations.score_change`, agency `reports { ready, scheduled, failed }` and `city`. PROGRESS.md "Dashboard fields".
+- **Reports list + verification (2026-10-02, `456d052`):** reports of deleted locations stay listed (`location.deleted`), `live` rows for the stored GBP report and review insights (no automatic PDFs), new report type `reputation` (also in `full`), verification history from Google's Verifications API (`verified`, `verified_at`, `latest`, stale on a failed read, `sync_failed` otherwise).
+- **Phase 18, Reputation (2026-10-02, `4da3f87`):** review management (13 routes, #159–#171): incremental Refresh Reviews (once / 15 min), deterministic flags ("suspicious indicators"), AI reply drafts for 4–5 stars, user-written replies for any rating, send / delete replies through v4, AI analysis, AI appeal drafts (submitted by hand; Google has no report API), insights, dashboard `reviews` block; the shared OpenAI layer (`openaiClient`, `aiService.runAiTask`: key check, server-wide daily $ cap, MyPageSEO token spend + refund, `AiCall` ledger); model `gpt-5-nano`. **No live OpenAI call yet** (no key).
+- **GBP v4 + attribute names (2026-10-02, `6230c80`):** v4 granted and on in production; attribute `display_name`, `group`, `value_labels`.
+- **GBP Score v2 (2026-10-02, `99b19f7`):** no ranking data in the GBP Score, Public Score or the GBP / competitor reports; pillars completeness 25, activity 20, reviews 25, performance 30; check and pillar `state`, `why_it_matters`; `profile` section; `score_history[].version` (CHANGELOG `gbp_score_v2`, `public_score_v2`).
+- **Setup-center picker, disconnect (2026-10-01, `83af868`):** `GET /places/autocomplete` + `PUT /locations/:id/center { place_id, session }` (real calls), `center { source, label }`; disconnecting a Google account soft-deletes its locations, unbinding marks `gbp_disconnected`; the monthly token grant on `GET /billing`.
+- **Phase 17 (2026-10-01, merged `5bde3c0`):** grids 3×3 to 13×13 set by radius (0.5–15 km; default 7×7 at 8 km), Rank Tracker / Map Ranking points at radius ÷ 2, `RANK_MAX_CALLS_PER_RUN` 40,000 and `GET /tracking/estimate`; Map Ranking pins (`address`, `lat`, `lng`; same Pro price); changes kept across keyword edits on the shared keywords (`comparable_keywords`; CHANGELOG `change_across_keyword_edits`); keyword groups (CRUD, `?group=`, summaries, report section); `GET /keyword-history`; competitor names / addresses / positions (max 5) and names on run targets; `run_at` on report rows. Endpoints 226 → 232. Details: PROGRESS.md "Phase 17".
+- **Phase 13b (2026-09-28/29, merged `411b7c2`):** everything legacy the rebuilt product doesn't use is deleted (endpoints 250 → 225: 65 removed, 40 added; no deprecated routes; no data migrations: the launch uses a fresh database with `npm run setup:fresh`); `/auth` sessions and account (refresh rotation, logout, change password, me, deactivate); the Google connect under `/gbp/connect/*`; password reset by link for users and admins (no OTP anywhere) and new admins set their password by link; one email switch (`EMAIL_TRANSPORT`); the payment-provider interface; flaky tests fixed (4/10 failing runs → green); end-to-end flow tests + [FLOWS.md](FLOWS.md); the admin panel backend (overview, users, organizations, admin accounts) and support tickets; the upcoming-features groundwork. Lint 82 → 40 (all in legacy GBP posting). Details: PROGRESS.md "Phase 13b".
 - **Audit and hygiene:** 29 security and 25 correctness findings with status (AUDIT.md), all routes listed (ROUTES.md), LF everywhere, 0 TypeScript errors, `.env` loaded from `ENV_FILE` or `./.env`.
 - **Local setup:** a separate local database, `mps_rebuild` (Homebrew MongoDB 7.0). Background jobs work (C25): agenda has its own connection, the registry is `src/jobs/index.ts`, and new jobs use `defineJob` (IDs-only data).
 - **Places API (New) client:** IDs-only search with a field-mask guard, `stopWhenFound`, `movedPlaceId`, a names search, Place Details, timeout and retry, and call counts.
@@ -143,8 +152,8 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
   - **Invoices:** our own numbered PDFs, emailed; manual (invoice) billing with overdue → read-only after grace.
   - **Billing admin** (`/admin/billing`, 30 routes, `billing.read` / `billing.manage`): prices with dates, custom plans, manual subscriptions and comps, trials, tokens, subscriptions, invoices, packs, coupons, legacy links, audit log.
   - **Retired:** the guest checkout, legacy plans / coupons / payment lists, Square, credits (15 routes, 5 models, the `square` package). `migrate:billing` links the legacy PayPal subscriptions.
-- **Tests:** 878 pass (94 suites) with no API key and no network. Lint: 82 errors, all legacy (0 in rebuilt code and tests). Build: 0 errors.
-- **Endpoints:** 250 (235 live, 14 deprecated, 1 dev-only), all in [ENDPOINTS.md](ENDPOINTS.md).
+- **Tests:** 982 pass (107 suites) with no API key and no network (2026-10-02, dashboard-fields branch). Lint: 40 errors, all in legacy GBP posting (0 in rebuilt code and tests). Build: 0 errors.
+- **Endpoints:** 246 (245 live, 1 dev-only), all in [ENDPOINTS.md](ENDPOINTS.md) (2026-10-02).
 
 ## Key decisions
 
@@ -226,6 +235,9 @@ This table matches the **Phase roadmap** in [CLAUDE.md](../CLAUDE.md) (same phas
 12. **Citation directory authority values:** the 50 seeded directories (`seed:citation-directories`) carry **placeholder** authority numbers; the admin team replaces them before launch.
 15. ~~Checkout quantity~~: **done in 13c** (Mohit, 2026-09-29): `POST /billing/checkout { quantity }`.
 16. **Google Cloud + `.env` after 13b:** the GBP redirect-fallback URI moved to `…/api/v1/gbp/connect/callback`: update `GOOGLE_GBP_REDIRECT_URI` in `.env` and the authorised redirect URI in Google Cloud (the popup flow is unaffected). New settings: `ADMIN_FRONTEND_URL`, `SUPPORT_EMAIL`, `EMAIL_TRANSPORT` (OPERATIONS.md).
+17. **OpenAI (Phase 18, 2026-10-02):** add `OPENAI_API_KEY` to the server `.env` (and set a monthly budget limit in the OpenAI dashboard; `AI_DAILY_BUDGET_USD`, default 5, is our own cap). Until then every AI action answers 503 `ai_not_configured`. Optional first live check when you say so: 2 reply drafts + 1 analysis on the live-test location (< $0.01). Never send a real Google reply without your OK. OPERATIONS.md "AI (OpenAI) and review management".
+18. **Enable the My Business Verifications API** in Cloud project 1010247538246, then refresh a location's GBP data: verification was empty because of it (2026-10-02 decision above).
+19. **Delete the stray untracked `docs/backend/` folder** (copies of docs, not part of the repo).
 
 ## Blocked on Google
 
@@ -294,11 +306,14 @@ Required for M5; not part of Phase 12.5's build:
 
 ## Next up
 
-1. **Merge and push Phase 17** (commands in PROGRESS.md "Phase 17"); the first real large-grid run (e.g. 7×7 at 8 km) is Mohit's.
-2. **Phase 14 (production readiness)** in plan mode: fresh server (MongoDB, backups, nginx, pm2, log rotation, error monitoring, alerts), the deploy-checklist dry run with `setup:fresh`, Maps ToS decisions. Before launch: prices (open item 11), the PayPal sandbox test (open item 13), the redirect URI change (open item 16).
-3. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`.
-4. **When Mohit says "GBP access approved":** resume the live test at `npm run gbp:preflight -- 6ab76e2c99cf66c2cc414a13`, then pick and bind (`PUT /gbp/connections/:googleSub/picks`, `POST /gbp/picks/:pickId/bind`), first sync (`POST /locations/6ab76e2c99cf66c2cc414a18/refresh {"types":["gbp"]}`), `GET …/gbp/sync`, the report (GBP_CONNECT.md §6) and the **scoring calibration** (PROGRESS.md, 7c). The connection is saved; no reconnect needed.
-5. **Upcoming features** (AI GBP posts, AI visibility, review management, white-label hosting): specs pending from Mohit; groundwork in [plans/upcoming-features.md](plans/upcoming-features.md).
+1. **Merge and push `claude/dashboard-fields`** (commands in PROGRESS.md "Dashboard fields"), then hand the frontend note over.
+2. **Mohit's open actions:** OpenAI key (open item 17), the Verifications API (18), `docs/backend/` (19); prices (11), PayPal sandbox (13), the redirect URI change (16).
+3. **Choose the next phase** (each starts with a CLAUDE.md spec section and plan mode):
+   - **Phase 14, production readiness:** fresh server (MongoDB, backups, nginx, pm2, log rotation, error monitoring, alerts), the deploy-checklist dry run with `setup:fresh`, Maps ToS decisions.
+   - **Phase 9, GBP posting** (v4 granted): rebuild the legacy posting on `gbpClient` (CLAUDE.md §12a); removes the last 40 lint errors.
+   - Later: review auto-reply (Phase 18 follow-up), Phase 15 notifications, AI GBP posts, AI visibility, white-label hosting ([plans/upcoming-features.md](plans/upcoming-features.md); specs pending).
+4. **Pre-launch live validation** (Mohit triggers it): the Dallas test and a formal `calibrate:score`; the GBP scoring calibration on real synced data (PROGRESS.md, 7c).
+5. **OAuth app verification** with Google before real customers connect.
 
 **Frontend:** build against [FRONTEND_BACKEND_MAP.md](FRONTEND_BACKEND_MAP.md) and [FLOWS.md](FLOWS.md). Screens marked "not supported" must not be built.
 
