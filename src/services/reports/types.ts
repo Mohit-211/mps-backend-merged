@@ -192,7 +192,8 @@ export type Block =
 	| { kind: 'kpis'; items: { label: string; value: string; sub?: string | null; tone?: Tone }[] }
 	| { kind: 'table'; columns: { label: string; align?: 'left' | 'right'; weight?: number }[]; rows: string[][]; highlight?: number[] }
 	| { kind: 'line_chart'; title: string; points: { label: string; value: number | null }[]; lower_is_better: boolean }
-	| { kind: 'heatmap'; title: string; size: number; cells: { row: number; col: number; text: string; bucket: RankBucket }[] }
+	/** max_rank (Phase 19's sales audit: 30) changes the legend's deepest bands; default 60. */
+	| { kind: 'heatmap'; title: string; size: number; cells: { row: number; col: number; text: string; bucket: RankBucket }[]; max_rank?: number }
 	| { kind: 'list'; items: string[] }
 	| { kind: 'unavailable'; title: string; message: string }
 	/** Quoted text with an attribution line (Google reviews: author name, linked in HTML). */
@@ -201,7 +202,8 @@ export type Block =
 
 export interface ReportDocument {
 	title: string;
-	type: ReportType;
+	/** Phase 19: 'sales_audit' is rendered only (never stored as a Report). */
+	type: ReportType | 'sales_audit';
 	location: SnapshotLocation;
 	generated_at: Date;
 	/** e.g. "Rank run of 1 Sep 2026" or "Last 28 days". */

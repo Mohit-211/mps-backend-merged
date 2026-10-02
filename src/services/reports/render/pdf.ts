@@ -2,7 +2,7 @@ import path from 'path';
 import PDFDocument from 'pdfkit';
 import { DateTime } from 'luxon';
 import { Block, ReportDocument } from '../types';
-import { BUCKET_COLORS, BUCKET_LABELS, MUTED, TEXT, TONE_COLORS } from './theme';
+import { BUCKET_COLORS, MUTED, TEXT, TONE_COLORS, bucketLabels } from './theme';
 
 // Reports center (Phase 12): renders a ReportDocument to PDF with PDFKit (pure Node, no browser).
 // Charts and the grid heatmap are drawn as vectors. DejaVu Sans is embedded so accented and other
@@ -249,7 +249,7 @@ export const renderPdf = (report: ReportDocument, opts: RenderOptions = {}): Pro
 			doc.y = top + titleH + gridH + 6;
 			let x = MARGIN;
 			doc.font('R').fontSize(7);
-			for (const [key, label] of Object.entries(BUCKET_LABELS)) {
+			for (const [key, label] of Object.entries(bucketLabels(row[0].max_rank))) {
 				doc.rect(x, doc.y + 1, 7, 7).fill(BUCKET_COLORS[key as keyof typeof BUCKET_COLORS]);
 				doc.fillColor(MUTED);
 				write(label, x + 10, doc.y, { lineBreak: false });

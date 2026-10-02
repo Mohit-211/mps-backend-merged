@@ -6,5 +6,6 @@ Approved plans that are **not built yet** live here, so they survive outside a c
 |---|---|---|---|
 | [phase-13-billing-admin.md](phase-13-billing-admin.md) | 13 Billing & plans (13a) + admin panel (13b) | Mohit, 2026-09-27; 13a revised 2026-09-28 | **13a built** on `claude/phase-13a-billing` (awaiting merge); 13b next |
 | [phase-16-citations.md](phase-16-citations.md) | 16 Citations (manual, admin-managed tracking) | Mohit, 2026-09-27 | **Built** on `claude/phase-16-citations`, awaiting merge (2026-09-27) |
+| [phase-19-sales-audit.md](phase-19-sales-audit.md) | 19 Sales audit (staff dashboard) | Mohit, 2026-10-02 | **Built** on `claude/phase-19-sales-audit`, awaiting merge (2026-10-02) |
 
 Earlier phases (1–12.5, 10, 8.1) were planned and built in one go; their approved plans are recorded as the "as built" / "approved plan" notes in [CLAUDE.md](../../CLAUDE.md) and in [PROGRESS.md](../PROGRESS.md).

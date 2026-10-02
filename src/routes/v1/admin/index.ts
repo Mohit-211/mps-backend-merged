@@ -4,6 +4,7 @@ import adminBillingRoute from './billing.route';
 import adminRolesRoute from './roles.route';
 import adminPanelRoute from './adminPanel.route';
 import adminAccountsRoute from './admins.route';
+import salesAuditRoute from './salesAudit.route';
 
 
 const adminRoutes = [
@@ -30,6 +31,11 @@ const adminRoutes = [
 		// Phase 13b: the admin roles and their permissions (read-only).
 		path: '/admin/roles',
 		route: adminRolesRoute,
+	},
+	{
+		// Phase 19: the sales audit (staff dashboard; audits.run).
+		path: '/staff/audits',
+		route: salesAuditRoute,
 	},
 	{
 		// Phase 13b: admin panel (overview, users, organizations, support tickets).

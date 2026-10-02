@@ -233,6 +233,34 @@ describe('placesClient.searchTextWithNames', () => {
 	});
 });
 
+describe('placesClient.searchTextWithNames paging (Phase 19)', () => {
+	it('stops on the page where the place shows up', async () => {
+		const { client, fake } = clientWith([{ status: 200, fixture: 'searchText_names_p1' }]);
+		const result = await client.searchTextWithNames({ ...baseParams, maxPages: 2, stopWhenFound: [placeIds.target] });
+		expect(fake.requests).toHaveLength(1);
+		expect(result).toMatchObject({ apiCalls: 1 });
+		expect(result.places).toHaveLength(20);
+	});
+
+	it('fetches page 2 with the page token when the place is not on page 1', async () => {
+		const { client, fake } = clientWith([
+			{ status: 200, fixture: 'searchText_names_p1' },
+			{ status: 200, fixture: 'searchText_names_p1' },
+		]);
+		const result = await client.searchTextWithNames({ ...baseParams, maxPages: 2, stopWhenFound: ['ChIJnotInTheResults000000'] });
+		expect(fake.requests).toHaveLength(2);
+		expect((fake.requests[1].data as { pageToken?: string }).pageToken).toBe('AUacShh1-names-page2');
+		expect(fake.requests[1].headers['X-Goog-FieldMask']).toBe(WITH_NAMES_FIELD_MASK);
+		expect(result).toMatchObject({ apiCalls: 2 });
+		expect(result.places).toHaveLength(40);
+	});
+
+	it('rejects a bad page count', async () => {
+		const { client } = clientWith([]);
+		await expect(client.searchTextWithNames({ ...baseParams, maxPages: 4 })).rejects.toThrow('maxPages');
+	});
+});
+
 describe('placesClient.autocomplete (2026-10-01)', () => {
 	it('POSTs places:autocomplete with the region, types and session token on its own mask, and maps predictions', async () => {
 		const { client, fake } = clientWith([

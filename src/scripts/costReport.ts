@@ -41,7 +41,7 @@ const main = async (): Promise<number> => {
 		out(`Google API usage ${month} (prices: ${report.pricing_source}; USD at list price)`);
 		out();
 		for (const r of report.rows) {
-			const who = `${r.organization_id ? orgNames.get(r.organization_id) ?? r.organization_id : '(unattributed)'} / ${r.location_id ? locNames.get(r.location_id) ?? r.location_id : '(organization level)'}`;
+			const who = r.purpose === 'sales_audit' ? '(sales audits)' : `${r.organization_id ? orgNames.get(r.organization_id) ?? r.organization_id : '(unattributed)'} / ${r.location_id ? locNames.get(r.location_id) ?? r.location_id : '(organization level)'}`;
 			out(`${`$${r.cost_usd.toFixed(2)}`.padStart(9)}  ${who}`);
 			for (const [sku, n] of Object.entries(r.by_sku)) out(`           ${sku.padEnd(40)} ${String(n).padStart(8)}`);
 		}

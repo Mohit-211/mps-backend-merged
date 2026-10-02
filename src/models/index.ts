@@ -75,3 +75,6 @@ export * from "./supportTicket.model";
 export * from "./gbpPick.model";
 export * from "./aiCall.model";
 export * from "./reviewInsight.model";
+
+// Sales audit (Phase 19)
+export * from "./salesAudit.model";

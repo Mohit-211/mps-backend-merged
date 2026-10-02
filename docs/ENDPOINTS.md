@@ -23,7 +23,7 @@
 **Postman:** `docs/postman/MyPageSEO.postman_collection.json` + `MyPageSEO.local.postman_environment.json`, generated from this catalogue by `npm run postman:generate` (rerun after changing the catalogue).
 
 **Auth:**
-- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin), `support.read` and `support.manage` (Phase 13b; super admin, admin, editor). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
+- `admin` (Phase 10): header `Authorization: Bearer <admin session token>` from `POST /admin/auth/login` (HS256, `ADMIN_JWT_SECRET`, 12 h). `admin (\`<permission>\`)` also needs that permission: `admins.manage` (super admin), `platform.read` / `platform.write` (super admin, admin), `content.manage` (super admin, admin, editor), `citations.view` and `citations.manage` (Phase 16; super admin, admin, editor), `billing.read` and `billing.manage` (Phase 13a; super admin, admin), `support.read` and `support.manage` (Phase 13b; super admin, admin, editor), `audits.run` (Phase 19; super admin, admin, sales representative). No token or an invalid one → **401**; a missing permission → **403** `{ reason: "forbidden", permission }`.
 - `user`: header `Authorization: Bearer <access token>`. A missing or invalid token gives **401**.
 - `owner` (location routes, Phase 8): the caller must be an active member of the location's **organization** (a `client_user` only for its clients' locations). Otherwise **404**; a malformed id gives **400**. Writes (anything but GET) need the role owner or member: a `client_user` gets **403** `{ reason: "read_only" }`.
 - `org`: the route acts in the current organization: the `X-Organization-Id` header (one of the caller's organizations, else **403** `not_a_member`), otherwise the user's default organization. A user without an organization gets **403** `{ reason: "no_organization" }`.
@@ -69,9 +69,11 @@ Reads, billing, support and GBP connect / bind stay open.
 
 ## Summary (2026-10-02)
 
-**246 endpoints:** 245 live, 1 dev-only.
-- **By origin:** 211 rebuilt or new, 35 legacy.
-- **By auth:** 118 user, 92 platform admin (each with a permission), 36 none.
+**252 endpoints:** 251 live, 1 dev-only.
+- **By origin:** 217 rebuilt or new, 35 legacy.
+- **By auth:** 118 user, 98 platform admin (each with a permission), 36 none.
+
+**Phase 19 (sales audit):** 6 `/staff/audits` routes (#172–#177) for the staff dashboard, permission `audits.run` (the sales representative role, plus super admin and admin).
 
 This block is recounted with every commit that changes the catalogue.
 
@@ -105,7 +107,7 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 | GET | `/api/v1/admin/admins/:adminId` | admin (`admins.manage`) | One admin | 13b | live |
 | PATCH | `/api/v1/admin/admins/:adminId` | admin (`admins.manage`) | Name, email, role, `is_active` (deactivate; admins are never deleted). Not your own role or activity; the last super admin stays | 13b | live |
 | POST | `/api/v1/admin/admins/:adminId/password-link` | admin (`admins.manage`) | Email a new set-password link (no password yet) or reset link; older links stop working | 13b | live |
-| GET | `/api/v1/admin/roles` | admin (`admins.manage`) | The admin roles (super admin, admin, editor) with the permissions each grants; read-only (roles are fixed in `adminPermissions.ts`) | 13b | live |
+| GET | `/api/v1/admin/roles` | admin (`admins.manage`) | The admin roles (super admin, admin, editor, sales representative) with the permissions each grants; read-only (roles are fixed in `adminPermissions.ts`) | 13b | live |
 
 ### Auth (rebuilt app)
 
@@ -410,6 +412,19 @@ Every organization role may open and follow tickets; a client_user sees only its
 | GET | `/api/v1/support/tickets/:ticketId` | user + org | A ticket with its thread (team replies shown as "MyPageSEO team"; internal notes never shown) | 13b | live |
 | POST | `/api/v1/support/tickets/:ticketId/messages` | user + org | Reply (reopens a resolved ticket; a closed one: 409 `ticket_closed`) | 13b | live |
 | POST | `/api/v1/support/tickets/:ticketId/close` | user + org | Close the ticket | 13b | live |
+
+### Sales audit (Phase 19)
+
+The staff dashboard's free audit: one business, one keyword, public data only (Places API). Staff = admins with `audits.run`; every audit is visible only to the staff member who started it and is deleted on close (or after `STAFF_AUDIT_TTL_HOURS`). Shapes: [API.md](API.md#sales-audit-phase-19).
+
+| Method | Path | Auth | Purpose | Phase | Status |
+|---|---|---|---|---|---|
+| GET | `/api/v1/staff/audits/places/autocomplete` | admin (`audits.run`) | Business suggestions (US / CA) for the search box, `?input=&session=` | 19 | live |
+| GET | `/api/v1/staff/audits` | admin (`audits.run`) | The caller's open audits (without results) | 19 | live |
+| POST | `/api/v1/staff/audits` | admin (`audits.run`) | Start an audit `{ place_id, session?, keyword }` (1 Place Details call, then a background job) | 19 | live |
+| GET | `/api/v1/staff/audits/:auditId` | admin (`audits.run`) | Status and result (poll until `done` / `failed`) | 19 | live |
+| GET | `/api/v1/staff/audits/:auditId/pdf` | admin (`audits.run`) | One PDF: ranking + heatmap, then the quick GBP score (rendered on request, not stored) | 19 | live |
+| DELETE | `/api/v1/staff/audits/:auditId` | admin (`audits.run`) | Close the audit (deletes it) | 19 | live |
 
 ### Reference data
 
@@ -794,6 +809,17 @@ Money is in the organization's currency (US → USD, CA → CAD). Errors carry `
 | 169 | DELETE | `/locations/:locationId/reviews/:reviewId/reply` | user, owner (write) | – | `{ deleted, review_id }`; **400** `no_reply` |
 | 170 | POST | `/locations/:locationId/reviews/:reviewId/appeal-draft` | user, owner (write) | `{ regenerate? }` | `{ review, appeal: { text, policy_reason, generated_at, stale }, report_url, tokens_spent }`; **400** `not_eligible`; errors as #162 |
 | 171 | PATCH | `/locations/:locationId/reviews/:reviewId/report-status` | user, owner (write) | `{ status: not_reported\|reported\|appeal_submitted\|removed\|kept }` | review |
+
+### Sales audit (Phase 19)
+
+| # | Method | Path | Auth | Input | Returns |
+|---|---|---|---|---|---|
+| 172 | GET | `/staff/audits/places/autocomplete` | admin (`audits.run`) | query `input` (2–120), `session` (8–36 of `A-Za-z0-9_-`) | `{ suggestions: [{ place_id, description, main_text, secondary_text, types }], attribution }` (businesses only); **429** `rate_limited` (120 / h per staff member); **503** `places_not_configured`; **502** `places_error` |
+| 173 | GET | `/staff/audits` | admin (`audits.run`) | – | `{ audits: [audit without result] }` (newest first, max 50) |
+| 174 | POST | `/staff/audits` | admin (`audits.run`) | `{ place_id, session?, keyword: 2–80 }` | **201** audit (`status: queued`); **400** `unsupported_country` (US / CA only), `no_location`; **429** `daily_limit_reached` (`STAFF_AUDIT_DAILY_LIMIT` per 24 h, `limit`, `retry_after_seconds`); **503** / **502** as #172 |
+| 175 | GET | `/staff/audits/:auditId` | admin (`audits.run`) | – | audit = `{ id, status: queued\|running\|done\|failed, keyword, business: { place_id, name, address, lat, lng, country, region, rating, user_rating_count, category, website, phone, has_hours, photo_count, score: { score, grade, parts, flag }, checklist }, grid: { size: 7, radius_km: 5, spacing_km }, result: { cells: [{ row, col, lat, lng, rank, status }], summary: { center_rank, center_status, avg_rank, found_rate, top3_rate, points, failed_points }, higher: [{ rank, name, address, is_self }] \| null, competitors: [{ rank, name, address, facts, score, checklist }] } \| null, warnings, failure_reason, api_calls, created_at, finished_at, expires_at, attribution }`; **404** `audit_not_found` |
+| 176 | GET | `/staff/audits/:auditId/pdf` | admin (`audits.run`) | – | `application/pdf` (attachment `audit-<business>-<date>.pdf`); **409** `audit_not_ready`; **404** `audit_not_found` |
+| 177 | DELETE | `/staff/audits/:auditId` | admin (`audits.run`) | – | `{ deleted: true, id }`; **404** `audit_not_found` |
 
 ## Removed endpoints
 

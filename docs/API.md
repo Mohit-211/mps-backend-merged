@@ -3009,3 +3009,68 @@ Sends monthly counts per rating and at most 60 recent review texts cut to 300 ch
 **Token costs** are set per plan by MyPageSEO admins (`PATCH /admin/billing/plans/:planId { ai_token_costs }`) and shown in `GET /billing` → `tokens.ai_costs` and in the reviews summary. Defaults: reply drafts 1 per started batch of 10 reviews, analysis 1 per started 10, appeal draft 1, insights 2. Reused results cost nothing.
 
 **Dashboard (Phase 18):** `GET /dashboard` → `reviews` adds `new_this_month`, `positive`, `negative`, `awaiting_attention`, `flagged`, `suspicious`, `drafts_pending`, `replies_sent_this_month`, `last_review_at` and `needs_attention: [{ location_id, name, awaiting_attention, suspicious }]` once reviews are stored; agency table rows get `reviews: { rating, total, awaiting_attention, suspicious }`; recommended actions `reviews:attention` and `reviews:suspicious`.
+
+## Sales audit (Phase 19)
+
+The staff dashboard's free audit, shown by sales staff in a meeting: one business, one keyword, **public data only** (Places API; no GBP connection). Staff are platform admins with `audits.run`: the **Sales Representative** role (`role_id` 8, created with `POST /admin/admins`), plus super admin and admin. Staff sign in with `POST /admin/auth/login` (the frontend can show that on its own staff login page). Every audit is visible only to the staff member who started it. **No history:** `DELETE` removes the audit, and one left open is deleted after `STAFF_AUDIT_TTL_HOURS` (24).
+
+**What one audit measures:**
+- **Heatmap:** the keyword searched from a fixed **7×7 grid within 5 km** of the business (49 points, spacing 1.667 km), one sample per point, ranks **to 30** (deeper is `not_found`, shown "30+"). Row 0 is the north edge, col 0 the west edge; the business is the center cell `(3, 3)`.
+- **Summary:** `center_rank` (the rank at the business), `avg_rank` (over the points that didn't fail, 30+ counted as 31), `found_rate` (share of points in the top 30), `top3_rate`.
+- **Who ranks higher:** the named list at the business: every business above it, or all 30 when it isn't in the top 30. The center cell uses this same list, so the two always agree.
+- **Quick GBP score:** the Public Score (rating, review count, category, hours, website, phone, Google's description) with a checklist (`good | partial | missing`, plus photos, informational), for the business and the **top 3 other businesses** at its location.
+
+**Flow:**
+
+```
+GET    /api/v1/staff/audits/places/autocomplete?input=maple%20leaf&session=<uuid>   (per keystroke, debounced)
+POST   /api/v1/staff/audits { place_id, session, keyword }                          → 201, status "queued"
+GET    /api/v1/staff/audits/:auditId                                                 poll every 2–3 s until "done" / "failed" (about 15–30 s)
+GET    /api/v1/staff/audits/:auditId/pdf                                             one PDF with both parts
+DELETE /api/v1/staff/audits/:auditId                                                 "close" (deletes it)
+```
+
+Use one random session token (8–36 of `A-Za-z0-9_-`, e.g. a UUID) per search box and pass it to `POST /staff/audits`: the Place Details call ends the Autocomplete session, so the keystrokes are free. `GET /staff/audits` lists the caller's open audits (without results), so a reloaded page can find its audit again.
+
+**`POST /staff/audits`** `{ "place_id": "ChIJneho2koPp0wRIbUtaCCIReA", "session": "3f0c2a8e-…", "keyword": "digital marketing agency" }` → **201**, the audit (as below) with `status: "queued"`, `result: null`. Errors: **400** `unsupported_country` (US and Canada only), `no_location`; **429** `daily_limit_reached` `{ limit, retry_after_seconds }` (`STAFF_AUDIT_DAILY_LIMIT` per staff member per 24 h, default 20); **503** `places_not_configured`; **502** `places_error`.
+
+**`GET /staff/audits/:auditId`** (done):
+
+```json
+{
+  "id": "6ac0…",
+  "status": "done",
+  "keyword": "digital marketing agency",
+  "business": {
+    "place_id": "ChIJneho2koPp0wRIbUtaCCIReA", "name": "MyPageSEO", "address": "…, Fredericton, NB E3B 1B1, Canada",
+    "lat": 45.96, "lng": -66.64, "country": "CA", "region": "ca",
+    "rating": 4.9, "user_rating_count": 41, "category": "Marketing agency", "has_hours": true,
+    "website": "https://mypageseo.com", "phone": "(506) 555-0100", "has_editorial_summary": false, "photo_count": 10, "business_status": "OPERATIONAL",
+    "score": { "score": 86, "grade": "A", "flag": null, "parts": [{ "id": "rating", "points": 25, "max": 25, "available": true }, "…"] },
+    "checklist": [{ "id": "rating", "label": "Star rating", "state": "good", "detail": "4.9 stars" }, "…", { "id": "photos", "label": "Photos", "state": "good", "detail": "10+ photos" }]
+  },
+  "grid": { "size": 7, "radius_km": 5, "spacing_km": 1.667 },
+  "result": {
+    "cells": [{ "row": 0, "col": 0, "lat": 46.005, "lng": -66.704, "rank": 12, "status": "ok" }, "… 49 cells"],
+    "summary": { "center_rank": 4, "center_status": "ok", "avg_rank": 14.2, "found_rate": 0.86, "top3_rate": 0.12, "points": 49, "failed_points": 0 },
+    "higher": [{ "rank": 1, "name": "…", "address": "…", "is_self": false }, "…"],
+    "competitors": [{ "rank": 1, "name": "…", "address": "…", "facts": { "rating": 4.8, "user_rating_count": 212, "…": "…" }, "score": { "score": 100, "grade": "A", "…": "…" }, "checklist": ["…"] }]
+  },
+  "warnings": [],
+  "failure_reason": null,
+  "api_calls": { "ids_only": 98, "pro": 1, "details": 4 },
+  "created_at": "2026-10-02T15:00:00.000Z", "finished_at": "2026-10-02T15:00:21.000Z", "expires_at": "2026-10-03T15:00:00.000Z",
+  "attribution": { "provider": "Google", "text": "Google Maps" }
+}
+```
+
+- `status`: `queued | running | done | failed`. `failure_reason`: `search_failed` (every grid search failed), `places_not_configured`, `enqueue_failed`, `timed_out` (still not finished after 10 minutes), `internal_error`.
+- `warnings` (the audit is still `done`): `some_points_failed` (those cells have `status: "error"`, shown "–", left out of the averages), `names_unavailable` (`higher: null`, `competitors: []`; the center cell keeps the grid rank), `some_competitors_unavailable` (that row has `facts`/`score` null).
+- A competitor's `facts` / `score` / `checklist` have the same shape as the business's.
+- Show `attribution.text` ("Google Maps") under business names and ratings, as on the other pages.
+
+**`GET /staff/audits/:auditId/pdf`:** `application/pdf`, `Content-Disposition: attachment; filename="audit-<business>-<YYYY-MM-DD>.pdf"`. MyPageSEO branding; usually 2 pages: the ranking part (KPIs, heatmap, who ranks higher), then the quick score (KPIs, checklist, the comparison with the top 3, up to 5 "what to work on first" actions). **409** `audit_not_ready` before `done`.
+
+**`DELETE /staff/audits/:auditId`** → `{ "deleted": true, "id": "6ac0…" }`. **404** `audit_not_found` for an unknown, closed, expired or another staff member's audit (every route).
+
+**Cost per audit** (list prices): 1 Place Details for the business + 3 for the top 3 (Enterprise + Atmosphere, about $0.10 together), 1 names search (Pro, $0.032; a second when the business isn't in the top 20), and about 98 IDs-only searches (free). About **$0.13–0.17** per audit. Counted in the usage ledger as purpose `sales_audit` (`npm run cost:report` shows "(sales audits)").

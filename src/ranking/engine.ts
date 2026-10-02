@@ -36,6 +36,8 @@ export interface RankingEngineOptions {
 	samples?: number;
 	sampleSpacingMs?: number;
 	now?: () => number;
+	/** Pages of 20 results per search (1–3; default 3 = full depth). Phase 19's sales audit uses 2 (rank ≤ 30). */
+	maxPages?: number;
 }
 
 export interface PointSample {
@@ -130,6 +132,8 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 	const sleep = options.sleep ?? defaultSleep;
 	const random = options.random ?? Math.random;
 	const radiusM = options.radiusM ?? config.ranking.searchRadiusM;
+	const maxPages = options.maxPages ?? 3;
+	if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 3) throw new Error('maxPages must be 1-3');
 	const targets = [...options.targets];
 	const runInPool = createPool(concurrency);
 	const cache = new Map<string, Promise<PlaceIdEntry[] | null>>();
@@ -149,7 +153,7 @@ export const createRankingEngine = (options: RankingEngineOptions) => {
 					regionCode: options.region,
 					center: { latitude: point.lat, longitude: point.lng },
 					radiusM,
-					maxPages: 3,
+					maxPages,
 				});
 				stats.apiCalls.ids_only += result.apiCalls;
 				return result.places;

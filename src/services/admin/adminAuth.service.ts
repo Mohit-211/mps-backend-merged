@@ -21,7 +21,7 @@ import { signAdminToken } from './adminToken';
 // - Admins are deactivated, never deleted (audit entries keep their author); every account change is audit-logged.
 
 type Id = Types.ObjectId | string;
-const ROLE_KEYS = ['superAdmin', 'admin', 'editor'] as const;
+const ROLE_KEYS = ['superAdmin', 'admin', 'editor', 'sales'] as const;
 
 const invalidCredentials = () => new ApiError(httpStatus.BAD_REQUEST, 'Invalid email or password.');
 const notFound = () => new ApiError(httpStatus.NOT_FOUND, 'Admin not found.');
@@ -58,7 +58,7 @@ const view = async (admin: IAdmin): Promise<AdminView> => ({
 const sessionFor = (admin: Pick<IAdmin, '_id' | 'role_id' | 'token_version'>) =>
 	signAdminToken({ sub: String(admin._id), role_id: admin.role_id as number, tv: admin.token_version ?? 0 });
 
-/** One of the fixed admin roles (super admin, admin, editor) that exists and is active. */
+/** One of the fixed admin roles (super admin, admin, editor, sales) that exists and is active. */
 const assertAssignableRole = async (roleId: number): Promise<void> => {
 	const fixed = ROLE_KEYS.map((k) => config.roles[k]);
 	if (!fixed.includes(roleId) || !(await Role.exists({ role_id: roleId, is_active: true }))) {
