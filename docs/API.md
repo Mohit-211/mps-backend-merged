@@ -2424,6 +2424,8 @@ POST /api/v1/admin/auth/login
 Authorization: Bearer eyJ…
 ```
 
+- **Sign-in errors** (`POST /admin/auth/login`): every credential failure is the same **400** "Invalid email or password." with no `reason`: wrong email or password, a deactivated admin, an admin whose password isn't set yet (set-password link pending), or a deactivated role. That's deliberate (no account enumeration), so show one "wrong email or password" message for any 400. A malformed body (missing email / password) is also 400, with a validation message. **429** `rate_limited` `{ retry_after_seconds }` after 10 attempts per email + IP in 15 minutes. Never 401 or 403.
+- **`GET /admin/auth/me`** returns the admin object itself (the same object as `admin` in the sign-in response, **not** wrapped): `{ id, name, email, role_id, role_name, permissions, is_active, password_set, last_login_at, created_at }`. A missing, invalid, expired or revoked token (e.g. after deactivation) → **401**.
 - **Token:** HS256, signed with `ADMIN_JWT_SECRET`, audience `mps-admin`, valid 12 hours. User tokens never work on admin routes, and the reverse.
 - **Passwords by link (13b, no OTP):** the admin panel has one page, `ADMIN_FRONTEND_URL/reset-password?token=…`, which posts `POST /admin/auth/reset-password { token, password, confirm_password }` (errors as for users: `link_invalid`, `link_expired`, `passwords_do_not_match`). Two links lead there:
   - **Forgot password:** `POST /admin/auth/forgot-password { email }` → `{ reset: "sent_if_account_exists" }` (same answer for any email); the link is valid 60 minutes.
@@ -2441,6 +2443,9 @@ Authorization: Bearer eyJ…
 | `content.manage` | super admin, admin, editor |
 | `citations.view` (Phase 16) | super admin, admin, editor |
 | `citations.manage` (Phase 16) | super admin, admin, editor |
+| `billing.read`, `billing.manage` (Phase 13a) | super admin, admin |
+| `support.read`, `support.manage` (Phase 13b) | super admin, admin, editor |
+| `audits.run` (Phase 19) | super admin, admin, sales representative |
 
 - **Errors:** no or invalid token → **401**; a missing permission → **403**: `{ "reason": "forbidden", "permission": "platform.read" }`. Rate limits → **429** `rate_limited`.
 
