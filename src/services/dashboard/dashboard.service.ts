@@ -4,6 +4,9 @@ import { LocationStatus, statusesFor } from '../locations/status';
 import { OrgContext } from '../org/context';
 import { clientScope, locationScope } from '../org/access';
 import { RecommendedAction, recommendedActions } from './actions';
+import { DashboardRange, DEFAULT_DASHBOARD_RANGE, performanceBlock, ratingChange, reportCounts } from './periods';
+import { apiErrorWithData } from '../../utils';
+import httpStatus from 'http-status';
 
 // GET /dashboard (Phase 11, roadmap PDF §6). Business or Agency shape by organization type; a
 // client_user gets the agency shape limited to its clients. Reads only the stored per-location
@@ -18,6 +21,10 @@ export interface DashboardQuery {
 	limit?: number;
 	sort?: DashboardSort;
 	order?: 'asc' | 'desc';
+	/** 2026-10-02: narrows every block to one location (the business detail panels). */
+	location_id?: string;
+	/** 2026-10-02: the period picker for GBP performance and the rating change (stored data only). */
+	range?: DashboardRange;
 }
 
 type Summary = Partial<ILocationSummary>;
@@ -25,6 +32,7 @@ type Summary = Partial<ILocationSummary>;
 interface Item {
 	location_id: string;
 	name: string;
+	city: string | null;
 	client: { client_id: string; name: string } | null;
 	status: LocationStatus;
 	gbp_connected: boolean;
@@ -43,7 +51,7 @@ const STATUS_KEYS: LocationStatus[] = ['active', 'setup_required', 'gbp_not_conn
 
 const loadItems = async (ctx: OrgContext): Promise<Item[]> => {
 	const locations = await Location.find(locationScope(ctx))
-		.select({ name: 1, client_id: 1, summary: 1, onboarding: 1, 'tracking.keywords': 1, refresh: 1, 'gbp_sync.last_synced_at': 1, gbp_connected: 1 })
+		.select({ name: 1, city: 1, client_id: 1, summary: 1, onboarding: 1, 'tracking.keywords': 1, refresh: 1, 'gbp_sync.last_synced_at': 1, gbp_connected: 1 })
 		.sort({ name: 1 })
 		.lean<ILocation[]>();
 	const statuses = await statusesFor(locations);
@@ -55,6 +63,7 @@ const loadItems = async (ctx: OrgContext): Promise<Item[]> => {
 		return {
 			location_id: String(l._id),
 			name: l.name,
+			city: l.city || null,
 			client: l.client_id && clientName.has(String(l.client_id)) ? { client_id: String(l.client_id), name: clientName.get(String(l.client_id)) as string } : null,
 			status: statuses.get(String(l._id)) as LocationStatus,
 			gbp_connected: Boolean(l.gbp_connected),
@@ -84,7 +93,7 @@ const gbpBlock = (items: Item[]) => {
 	};
 };
 
-const reviewsBlock = (items: Item[]) => {
+const reviewsBlock = (items: Item[], period: { rating_change: number | null; new_in_range: number }) => {
 	const withReviews = items.filter((i) => i.summary.reviews_available);
 	const publicRated = items.filter((i) => typeof i.summary.rating === 'number');
 	const count = (list: Item[]) => list.reduce((s, i) => s + (i.summary.review_count ?? 0), 0);
@@ -103,6 +112,9 @@ const reviewsBlock = (items: Item[]) => {
 		return {
 			available: true as const,
 			rating: weightedAvg,
+			/** The rating now minus the rating at the start of the range (stored reviews). */
+			rating_change: period.rating_change,
+			new_in_range: period.new_in_range,
 			count: total,
 			unreplied: sum('unreplied'),
 			new_this_month: sum('new_this_month'),
@@ -167,6 +179,8 @@ const visibilityOf = (items: Item[]) => ({
 	avg_rank: mean(items.map((i) => i.summary.overall_avg_rank)),
 	change: mean(items.map((i) => i.summary.overall_change)),
 	top3_rate: mean(items.map((i) => i.summary.top3_rate), 2),
+	/** vs the previous run, on the shared keywords (+0.10 = 10 points more top-3 positions). */
+	top3_rate_change: mean(items.map((i) => i.summary.top3_rate_change), 2),
 });
 
 /** Phase 16: Citation Health across the locations (from Location.summary). */
@@ -180,6 +194,8 @@ const citationsBlock = (items: Item[]) => {
 		available: true as const,
 		score,
 		grade: scored.length === 1 ? (scored[0].summary.citation_grade ?? gradeFor(score)) : gradeFor(score),
+		/** The last movement of the score (kept while the score stays the same). */
+		score_change: mean(scored.map((i) => i.summary.citation_score_change)),
 		coverage: mean(listed.map((i) => i.summary.citation_coverage), 2),
 		listings: listed.reduce((s, i) => s + (i.summary.citation_total ?? 0), 0),
 		live_correct: sum('live_correct'),
@@ -198,21 +214,33 @@ const refreshOf = (items: Item[]) => {
 	};
 };
 
-const businessDashboard = (items: Item[]) => ({
+interface PeriodData {
+	range: DashboardRange;
+	performance: Awaited<ReturnType<typeof performanceBlock>>;
+	rating: Awaited<ReturnType<typeof ratingChange>>;
+}
+
+const businessDashboard = (all: Item[], items: Item[], selected: Item | null, period: PeriodData) => ({
 	type: 'business' as const,
-	locations_count: items.length,
+	range: period.range,
+	/** The location the blocks are narrowed to (?location_id=), or null for all. */
+	selected_location: selected ? { location_id: selected.location_id, name: selected.name, city: selected.city } : null,
+	locations_count: all.length,
 	visibility: { ...visibilityOf(items), trend: trendOf(items) },
 	gbp: gbpBlock(items),
-	reviews: reviewsBlock(items),
+	performance: period.performance,
+	reviews: reviewsBlock(items, period.rating),
 	citations: citationsBlock(items),
 	movement: movementOf(items),
 	key_competitor: keyCompetitorOf(items),
 	recommended_actions: actionsFor(items),
 	refresh: refreshOf(items),
 	status_counts: statusCounts(items),
-	locations: items.map((i) => ({
+	/** Always every location (for the location picker). */
+	locations: all.map((i) => ({
 		location_id: i.location_id,
 		name: i.name,
+		city: i.city,
 		status: i.status,
 		avg_rank: i.summary.overall_avg_rank ?? null,
 		change: i.summary.overall_change ?? null,
@@ -255,9 +283,15 @@ const tableOf = (items: Item[], query: DashboardQuery) => {
 		rows: sorted.slice((page - 1) * limit, page * limit).map((i) => ({
 			location_id: i.location_id,
 			name: i.name,
+			city: i.city,
 			client: i.client,
 			status: i.status,
-			visibility: { avg_rank: i.summary.overall_avg_rank ?? null, change: i.summary.overall_change ?? null, top3_rate: i.summary.top3_rate ?? null },
+			visibility: {
+				avg_rank: i.summary.overall_avg_rank ?? null,
+				change: i.summary.overall_change ?? null,
+				top3_rate: i.summary.top3_rate ?? null,
+				top3_rate_change: i.summary.top3_rate_change ?? null,
+			},
 			gbp: typeof i.summary.gbp_score === 'number' ? { score: i.summary.gbp_score, grade: i.summary.gbp_grade ?? null, change: i.summary.gbp_score_change ?? null } : null,
 			citations: typeof i.summary.citation_score === 'number' ? { score: i.summary.citation_score, grade: i.summary.citation_grade ?? null, nap_wrong: i.summary.citation_counts?.nap_wrong ?? 0 } : null,
 			// Phase 18
@@ -273,7 +307,14 @@ const tableOf = (items: Item[], query: DashboardQuery) => {
 
 const MAX_LISTED = 10;
 
-const agencyDashboard = (items: Item[], clientsCount: number, query: DashboardQuery) => {
+const agencyDashboard = (
+	items: Item[],
+	selected: Item | null,
+	clientsCount: number,
+	query: DashboardQuery,
+	period: PeriodData,
+	reports: Awaited<ReturnType<typeof reportCounts>>,
+) => {
 	const declines = items
 		.filter((i) => (i.summary.overall_change ?? 0) < 0 || (i.summary.movement?.dropped_out_of_top_60 ?? 0) > 0)
 		.map((i) => ({
@@ -302,17 +343,23 @@ const agencyDashboard = (items: Item[], clientsCount: number, query: DashboardQu
 	const scored = items.filter((i) => typeof i.summary.gbp_score === 'number');
 	return {
 		type: 'agency' as const,
+		range: period.range,
+		selected_location: selected ? { location_id: selected.location_id, name: selected.name, city: selected.city } : null,
 		clients_count: clientsCount,
 		locations_count: items.length,
 		portfolio: {
 			avg_rank: mean(items.map((i) => i.summary.overall_avg_rank)),
 			avg_rank_change: mean(items.map((i) => i.summary.overall_change)),
 			avg_top3_rate: mean(items.map((i) => i.summary.top3_rate), 2),
+			avg_top3_rate_change: mean(items.map((i) => i.summary.top3_rate_change), 2),
 			avg_gbp_score: mean(scored.map((i) => i.summary.gbp_score)),
 			avg_gbp_score_change: mean(scored.map((i) => i.summary.gbp_score_change)),
 			avg_citation_score: mean(items.filter((i) => typeof i.summary.citation_score === 'number').map((i) => i.summary.citation_score)),
 		},
 		citations: citationsBlock(items),
+		performance: period.performance,
+		reviews: reviewsBlock(items, period.rating),
+		reports,
 		status_counts: statusCounts(items),
 		declines,
 		gbp_issues: gbpIssues,
@@ -322,8 +369,18 @@ const agencyDashboard = (items: Item[], clientsCount: number, query: DashboardQu
 };
 
 export const getDashboard = async (ctx: OrgContext, query: DashboardQuery = {}) => {
-	const items = await loadItems(ctx);
-	if (ctx.organization.type !== 'agency') return businessDashboard(items);
-	const clientsCount = await Client.countDocuments(clientScope(ctx));
-	return agencyDashboard(items, clientsCount, query);
+	const all = await loadItems(ctx);
+	let selected: Item | null = null;
+	if (query.location_id) {
+		selected = all.find((i) => i.location_id === query.location_id) ?? null;
+		if (!selected) throw apiErrorWithData(httpStatus.NOT_FOUND, 'Location not found.', { reason: 'location_not_found' });
+	}
+	const items = selected ? [selected] : all;
+	const ids = items.map((i) => i.location_id);
+	const range = query.range ?? DEFAULT_DASHBOARD_RANGE;
+	const [performance, rating] = await Promise.all([performanceBlock(ids, items.some((i) => i.gbp_connected), range), ratingChange(ids, range)]);
+	const period: PeriodData = { range, performance, rating };
+	if (ctx.organization.type !== 'agency') return businessDashboard(all, items, selected, period);
+	const [clientsCount, reports] = await Promise.all([Client.countDocuments(clientScope(ctx)), reportCounts(ctx, ids)]);
+	return agencyDashboard(items, selected, clientsCount, query, period, reports);
 };

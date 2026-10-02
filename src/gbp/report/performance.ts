@@ -210,6 +210,28 @@ export const performanceRange = (byDate: Map<string, MetricRow[]>, latest: strin
 	};
 };
 
+/** Any window of `days` ending at `latest` and the window before it (the dashboard's 15d / 30d / 60d picker, 2026-10-02). */
+export const performanceWindow = (byDate: Map<string, MetricRow[]>, latest: string, days: number): { current: Period; previous: Period } => {
+	const end = day(latest);
+	const start = end.minus({ days: days - 1 });
+	return { current: period(byDate, start, end), previous: period(byDate, start.minus({ days }), start.minus({ days: 1 })) };
+};
+
+/** Totals of several periods (several locations), with summed coverage. */
+export const sumPeriods = (periods: Period[]): Pick<Period, 'totals' | 'coverage'> => {
+	const totals = emptyTotals();
+	const coverage: Coverage = { days_with_data: 0, days: 0 };
+	for (const p of periods) {
+		for (const key of Object.keys(totals) as (keyof PeriodTotals)[]) totals[key] += p.totals[key];
+		coverage.days_with_data += p.coverage.days_with_data;
+		coverage.days += p.coverage.days;
+	}
+	return { totals, coverage };
+};
+
+/** Actions per 1,000 impressions (1 decimal), null without impressions. */
+export const actionsPer1000 = (totals: PeriodTotals): number | null => per1000(totals);
+
 /** The performance section for every range, or null when there is no data at all. */
 export const performanceSection = (rows: MetricRow[]): PerformanceSection | null => {
 	if (rows.length === 0) return null;

@@ -1341,3 +1341,24 @@ Branch `claude/phase-18-reviews` from `master` (`6230c80`). Spec CLAUDE.md §12j
 git checkout master && git merge --no-ff claude/phase-18-reviews -m "Merge Phase 18: Reputation (review management) + shared OpenAI layer"
 git push origin master claude/phase-18-reviews
 ```
+
+## Dashboard fields: location filter, period picker, change fields (2026-10-02)
+
+Branch `claude/dashboard-fields` from `master`. Requested by the frontend for the dashboard design; decisions by Mohit (2026-10-02): the business detail panels are **per location** (`?location_id=`), and the period picker is **15d / 30d / 60d**, computed from stored data, so the numbers move only after a refresh. No Google or OpenAI calls; no new endpoint.
+
+- **`GET /dashboard?location_id=&range=15d|30d|60d`** (`src/services/dashboard/{dashboard.service,periods}.ts`, `src/middlewares/dashboard/dashboard.middleware.ts`):
+  - `location_id` narrows every block to one location (404 `location_not_found` for another organization's or an unknown location); `locations` keeps the full list for the picker; `selected_location` echoes it. Works for both shapes.
+  - `performance` (both shapes): impressions (maps / search), actions, calls, website clicks, directions, actions per 1,000, with the previous window and the fractional change, from `GbpMetricDaily`; each location's window ends at its latest day with data; `change` is null below the minimum day coverage. `gbp_not_connected` / `no_data` otherwise. New pure helpers `performanceWindow`, `sumPeriods`, `actionsPer1000` in `src/gbp/report/performance.ts`.
+  - `reviews.rating_change` + `new_in_range` from `GbpReview` (the average now minus the average of the reviews that existed at the start of the range).
+- **Change fields:** `visibility.top3_rate_change` (`Location.summary.top3_rate_change`, written by `updateSummaryFromRuns`: vs the previous run on the shared keywords, `top3RateChange` in `src/services/locations/summary.ts`); `citations.score_change` (`summary.citation_score_change`, written by `updateCitationSummary`: the last movement of the score, kept while it stays the same).
+- **Agency:** `reports { ready, scheduled, failed }` (not archived, visible locations; active schedules), `portfolio.avg_top3_rate_change`, rows `city` + `visibility.top3_rate_change`, plus the `performance` and `reviews` blocks. Business `locations[].city`.
+- **Existing data:** `top3_rate_change` appears after the next rank run (or `npm run summaries:rebuild`); `citation_score_change` after the next score movement.
+- **Docs:** ENDPOINTS #53, API.md "Dashboard and team", FRONTEND_BACKEND_MAP "Dashboard".
+- **Checks:** build 0 errors, lint 40 (baseline), **982 tests / 107 suites** pass, `check:endpoints` passes; endpoints unchanged at 246. API calls consumed: none.
+
+Merge and push (Mohit runs them):
+
+```
+git checkout master && git merge --no-ff claude/dashboard-fields -m "Merge: dashboard location filter, 15/30/60-day period picker, change fields, agency report counts"
+git push origin master claude/dashboard-fields
+```

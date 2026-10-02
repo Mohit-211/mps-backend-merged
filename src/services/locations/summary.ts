@@ -39,9 +39,28 @@ export interface RunForSummary {
 
 const emptyMovement = (): LocationMovement => ({ improved: 0, declined: 0, unchanged: 0, entered_top_60: 0, dropped_out_of_top_60: 0, not_comparable: 0 });
 
-/** The rank-derived summary fields (pure). `recent` is newest first and includes `latest`. */
-export const runSummaryFields = (latest: RunForSummary, recent: RunForSummary[]): Partial<ILocationSummary> => {
-	const selfRows = (latest.tracker ?? []).map((t) => ({ keyword: t.keyword, s: t.summary?.self })).filter((r): r is { keyword: string; s: SummaryCell } => Boolean(r.s));
+const selfRowsOf = (run: RunForSummary) =>
+	(run.tracker ?? []).map((t) => ({ keyword: t.keyword, s: t.summary?.self })).filter((r): r is { keyword: string; s: SummaryCell } => Boolean(r.s));
+
+const meanOf = (values: number[], decimals: number): number | null => (values.length ? round(values.reduce((s, v) => s + v, 0) / values.length, decimals) : null);
+
+/** Top-3 rate change vs the previous run over the keywords both runs have (as the overall rank change, Phase 17). */
+export const top3RateChange = (latest: RunForSummary, previous: RunForSummary | null | undefined): number | null => {
+	if (!previous) return null;
+	const norm = (k: string) => k.trim().toLowerCase();
+	const before = new Map(selfRowsOf(previous).map((r) => [norm(r.keyword), r.s.top3Rate]));
+	const pairs = selfRowsOf(latest)
+		.map((r) => [r.s.top3Rate, before.get(norm(r.keyword))] as const)
+		.filter((p): p is readonly [number, number] => typeof p[0] === 'number' && typeof p[1] === 'number');
+	if (!pairs.length) return null;
+	const now = meanOf(pairs.map((p) => p[0]), 4) as number;
+	const then = meanOf(pairs.map((p) => p[1]), 4) as number;
+	return round(now - then, 2);
+};
+
+/** The rank-derived summary fields (pure). `recent` is newest first and includes `latest`; `previous` is the run before it. */
+export const runSummaryFields = (latest: RunForSummary, recent: RunForSummary[], previous?: RunForSummary | null): Partial<ILocationSummary> => {
+	const selfRows = selfRowsOf(latest);
 	const top3 = selfRows.map((r) => r.s.top3Rate).filter((v): v is number => typeof v === 'number');
 
 	const movement = emptyMovement();
@@ -73,7 +92,8 @@ export const runSummaryFields = (latest: RunForSummary, recent: RunForSummary[])
 		overall_avg_rank: selfAvg,
 		overall_change: latest.overall?.self?.change ?? null,
 		last_run_at: latest.finished_at ?? latest.run_at,
-		top3_rate: top3.length ? round(top3.reduce((s, v) => s + v, 0) / top3.length, 2) : null,
+		top3_rate: meanOf(top3, 2),
+		top3_rate_change: top3RateChange(latest, previous),
 		rank_trend: recent
 			.slice(0, TREND_RUNS)
 			.reverse()
@@ -95,10 +115,13 @@ export const updateSummaryFromRuns = async (locationId: Id): Promise<void> => {
 		.lean<RunForSummary[]>();
 	if (!recent.length) return;
 	// Only the latest run's tracker summaries, targets and map-list names are needed (not the cells or grid).
-	const latest = await RankRun.findById((recent[0] as unknown as { _id: Types.ObjectId })._id)
+	const idOf = (r: RunForSummary) => (r as unknown as { _id: Types.ObjectId })._id;
+	const latest = await RankRun.findById(idOf(recent[0]))
 		.select({ overall: 1, finished_at: 1, run_at: 1, targets: 1, 'tracker.keyword': 1, 'tracker.summary': 1, 'mapList.results.place_id': 1, 'mapList.results.name': 1 })
 		.lean<RunForSummary>();
-	await setSummary(locationId, runSummaryFields(latest ?? recent[0], recent));
+	// The previous run's keyword summaries, for the top-3 rate change.
+	const previous = recent[1] ? await RankRun.findById(idOf(recent[1])).select({ run_at: 1, 'tracker.keyword': 1, 'tracker.summary': 1 }).lean<RunForSummary>() : null;
+	await setSummary(locationId, runSummaryFields(latest ?? recent[0], recent, previous));
 };
 
 // ---- From the GBP report ----

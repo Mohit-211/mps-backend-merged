@@ -3,7 +3,8 @@ import request from 'supertest';
 import { Types } from 'mongoose';
 import { tokenTypes } from '../../src/configs/constantTypes';
 import { queryTypesArr } from '../../src/configs/constantTypes';
-import { Client, GbpReport, Location, RankRun, UserAuth, UserGBP } from '../../src/models';
+import { Client, Directory, GbpMetricDaily, GbpReport, GbpReview, Location, LocationCitation, RankRun, Report, ReportSchedule, UserAuth, UserGBP } from '../../src/models';
+import { updateCitationSummary } from '../../src/services/citations/summary';
 import { apiErrorHandler, getQueryParams } from '../../src/utils';
 import { addMember, clearDb, createLocation, createUser, ensureOrg, keywordsOf, startTestDb } from '../helpers/mongoose';
 
@@ -173,5 +174,125 @@ describe('GET /dashboard: agency', () => {
 		const mine = (await request(app).get('/api/v1/dashboard').set(auth(cuToken))).body.data;
 		expect(mine).toMatchObject({ type: 'agency', clients_count: 1, locations_count: 1, table: { rows: [{ name: 'Other' }] } });
 		expect(String(other._id)).toBe(mine.table.rows[0].location_id);
+	});
+});
+
+describe('GET /dashboard: location filter, period picker and change fields (2026-10-02)', () => {
+	const isoDaysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+	const daily = (locationId: Types.ObjectId, fromDaysAgo: number, toDaysAgo: number, metric: string, value: number) =>
+		Array.from({ length: fromDaysAgo - toDaysAgo + 1 }, (_, k) => ({ location_id: locationId, date: isoDaysAgo(toDaysAgo + k), metric, value }));
+
+	it('business: ?location_id= narrows the blocks, ?range= drives performance and the rating change, change fields come from the summary', async () => {
+		const { user, token } = await createUser('p@test.dev');
+		const uid = user._id as Types.ObjectId;
+		const a = await createLocation(uid, { name: 'A', place_id: 'ChIJpa0000000000000000001', tracking: done });
+		const b = await createLocation(uid, { name: 'B', place_id: 'ChIJpb0000000000000000001', tracking: done });
+		await Location.updateOne(
+			{ _id: a._id },
+			{
+				$set: {
+					gbp_connected: true,
+					city: 'Fredericton',
+					summary: summary({
+						top3_rate: 0.4,
+						top3_rate_change: 0.1,
+						citation_score: 70,
+						citation_score_change: 5,
+						reputation: { total: 3, average_rating: 3.7, new_this_month: 1, positive: 2, negative: 1, unreplied: 1, awaiting_attention: 1, flagged: 0, suspicious: 0, drafts_pending: 0, replies_sent_this_month: 0, last_review_at: null, updated_at: new Date() },
+					}),
+				},
+			},
+		);
+		await Location.updateOne({ _id: b._id }, { $set: { summary: summary({ top3_rate: 0, top3_rate_change: -0.3 }) } });
+		// Latest data 3 days ago: the last 15 days at 10 impressions a day, the 15 before at 5; 1 call a day throughout.
+		const aid = a._id as Types.ObjectId;
+		await GbpMetricDaily.insertMany([
+			...daily(aid, 17, 3, 'BUSINESS_IMPRESSIONS_MOBILE_MAPS', 10),
+			...daily(aid, 32, 18, 'BUSINESS_IMPRESSIONS_MOBILE_MAPS', 5),
+			...daily(aid, 32, 3, 'CALL_CLICKS', 1),
+		]);
+		const review = (rating: number, daysAgo: number, n: number) =>
+			GbpReview.create({ location_id: aid, review_name: `r${n}`, rating, comment: 'x', reviewer: { display_name: 'R', is_anonymous: false }, create_time: new Date(Date.now() - daysAgo * 86_400_000), synced_at: new Date() });
+		await review(5, 90, 1);
+		await review(5, 80, 2);
+		await review(1, 5, 3);
+
+		const all = (await request(app).get('/api/v1/dashboard').set(auth(token))).body.data;
+		expect(all).toMatchObject({ range: '30d', selected_location: null, locations_count: 2, visibility: { top3_rate: 0.2, top3_rate_change: -0.1 } });
+		expect(all.locations).toEqual([expect.objectContaining({ name: 'A', city: 'Fredericton' }), expect.objectContaining({ name: 'B' })]);
+
+		const res = await request(app).get(`/api/v1/dashboard?location_id=${String(aid)}&range=15d`).set(auth(token));
+		expect(res.status).toBe(200);
+		const d = res.body.data;
+		expect(d).toMatchObject({
+			range: '15d',
+			selected_location: { location_id: String(aid), name: 'A', city: 'Fredericton' },
+			locations_count: 2,
+			visibility: { top3_rate: 0.4, top3_rate_change: 0.1 },
+			citations: { available: true, score: 70, score_change: 5 },
+			reviews: { available: true, rating: 3.7, rating_change: -1.33, new_in_range: 1 },
+			performance: {
+				available: true,
+				range: '15d',
+				days: 15,
+				latest_date: isoDaysAgo(3),
+				current: { impressions: 150, maps: 150, calls: 15, actions: 15 },
+				previous: { impressions: 75, calls: 15 },
+				change: { impressions: 1, calls: 0 },
+			},
+		});
+		expect(d.locations).toHaveLength(2); // the picker keeps every location
+
+		// B has no GBP: performance is unavailable; an unknown or foreign location is 404; a bad range is 400.
+		const bOnly = (await request(app).get(`/api/v1/dashboard?location_id=${String(b._id)}`).set(auth(token))).body.data;
+		expect(bOnly.performance).toEqual({ available: false, reason: 'gbp_not_connected', range: '30d' });
+		const { user: other } = await createUser('o@test.dev');
+		const foreign = await createLocation(other._id as Types.ObjectId, { place_id: 'ChIJpc0000000000000000001' });
+		const nf = await request(app).get(`/api/v1/dashboard?location_id=${String(foreign._id)}`).set(auth(token));
+		expect(nf.status).toBe(404);
+		expect(nf.body.data).toMatchObject({ reason: 'location_not_found' });
+		expect((await request(app).get('/api/v1/dashboard?range=28d').set(auth(token))).status).toBe(400);
+		expect((await request(app).get('/api/v1/dashboard?location_id=nope').set(auth(token))).status).toBe(400);
+	});
+
+	it('agency: report counts, city and top-3 change on the rows, portfolio top-3 change', async () => {
+		const { user, token } = await createUser('ag@test.dev');
+		const org = await ensureOrg(user._id, 'agency');
+		const uid = user._id as Types.ObjectId;
+		const loc = await createLocation(uid, { name: 'Shop', place_id: 'ChIJag0000000000000000001', tracking: done });
+		await Location.updateOne({ _id: loc._id }, { $set: { city: 'Dallas', summary: summary({ top3_rate_change: 0.25 }) } });
+		const report = (status: string, type: string, archived = false) =>
+			Report.create({ organization_id: org._id, location_id: loc._id, type, status, active: false, created_by: uid, archived_at: archived ? new Date() : null });
+		await report('ready', 'rank_tracker');
+		await report('ready', 'gbp_audit');
+		await report('ready', 'citation', true);
+		await report('failed', 'competitor_analysis');
+		await ReportSchedule.create({ organization_id: org._id, scope: 'location', location_id: loc._id, type: 'rank_tracker', created_by: uid });
+		await ReportSchedule.create({ organization_id: org._id, scope: 'location', location_id: loc._id, type: 'gbp_audit', status: 'paused', created_by: uid });
+
+		const d = (await request(app).get('/api/v1/dashboard').set(auth(token))).body.data;
+		expect(d).toMatchObject({ type: 'agency', range: '30d', reports: { ready: 2, scheduled: 1, failed: 1 }, portfolio: { avg_top3_rate_change: 0.25 } });
+		expect(d.table.rows[0]).toMatchObject({ name: 'Shop', city: 'Dallas', visibility: { top3_rate_change: 0.25 } });
+		expect(d.performance).toEqual({ available: false, reason: 'gbp_not_connected', range: '30d' });
+	});
+});
+
+describe('Citation score change (2026-10-02)', () => {
+	it('set when the score moves, kept while it stays the same', async () => {
+		const { user } = await createUser('c@test.dev');
+		const loc = await createLocation(user._id as Types.ObjectId, { place_id: 'ChIJcs0000000000000000001' });
+		const dir = await Directory.create({ name: 'Yelp', url: 'https://www.yelp.com/', domain: 'yelp.com', type: 'general', countries: ['US', 'CA'] });
+		const entry = await LocationCitation.create({ organization_id: loc.organization_id, location_id: loc._id, directory_id: dir._id, status: 'not_found' });
+		const read = async () => (await Location.findById(loc._id).lean())?.summary;
+		await updateCitationSummary(loc._id as Types.ObjectId);
+		const first = await read();
+		expect(first?.citation_score_change ?? null).toBeNull();
+		await LocationCitation.updateOne({ _id: entry._id }, { $set: { status: 'live_correct' } });
+		await updateCitationSummary(loc._id as Types.ObjectId);
+		const second = await read();
+		expect(second?.citation_score_change).toBe((second?.citation_score as number) - (first?.citation_score as number));
+		expect(second?.citation_score_change).toBeGreaterThan(0);
+		await updateCitationSummary(loc._id as Types.ObjectId);
+		expect((await read())?.citation_score_change).toBe(second?.citation_score_change);
 	});
 });
