@@ -4,7 +4,7 @@ import { Document, Model, Schema, Types, model } from 'mongoose';
 // is rendered once from it, so a report never changes after generation. Files live in the private
 // REPORTS_STORAGE_DIR; they are deleted after REPORT_RETENTION_MONTHS (status `expired`).
 
-export const REPORT_TYPES = ['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation', 'full'] as const;
+export const REPORT_TYPES = ['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation', 'reputation', 'full'] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
 
 /** The sections each type can contain (the default is all of them). A full report's sections are report types. */
@@ -14,7 +14,9 @@ export const REPORT_SECTIONS = {
 	competitor_analysis: ['public_scores', 'table', 'insights', 'reviews'],
 	// Phase 16: the Citation Report (and the Citations part of the Full report).
 	citation: ['score', 'table', 'nap_issues', 'changes'],
-	full: ['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation'],
+	// 2026-10-02: the Reputation Report (reviews; stored data only, never AI at generation).
+	reputation: ['summary', 'distribution', 'needs_attention', 'replies_sent', 'insights'],
+	full: ['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation', 'reputation'],
 } as const satisfies Record<ReportType, readonly string[]>;
 
 export type ReportSection<T extends ReportType> = (typeof REPORT_SECTIONS)[T][number];

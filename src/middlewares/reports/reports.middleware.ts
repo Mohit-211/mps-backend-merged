@@ -37,11 +37,13 @@ export const validateReportList = validate(
 		client_id: objectId,
 		type: Joi.string().valid(...REPORT_TYPES),
 		status: Joi.string().valid(...REPORT_STATUSES, 'archived'),
+		// 2026-10-02: false hides reports of deleted locations (default: shown, marked location.deleted).
+		include_deleted: Joi.boolean(),
 		page: Joi.number().integer().min(1),
 		limit: Joi.number().integer().min(1).max(100),
 	}),
 	'query',
-	['location_id', 'client_id', 'type', 'status', 'page', 'limit'],
+	['location_id', 'client_id', 'type', 'status', 'include_deleted', 'page', 'limit'],
 	'reportQuery',
 );
 

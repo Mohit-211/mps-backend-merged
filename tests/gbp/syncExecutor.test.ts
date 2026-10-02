@@ -10,6 +10,7 @@ import {
 	RawMediaPage,
 	RawReviewsPage,
 	RawSearchKeywordsPage,
+	RawVerificationsPage,
 	RawVoiceOfMerchantState,
 } from '../../src/clients/types/gbp';
 import { executeGbpSync } from '../../src/gbp/sync.executor';
@@ -83,6 +84,7 @@ const fakeClient = (fail: Fail = {}) => {
 			count('verification');
 			return maybe('verification', loadGbpFixture<RawVoiceOfMerchantState>('voice_of_merchant'));
 		},
+		listVerifications: async () => loadGbpFixture<RawVerificationsPage>('verifications').verifications ?? [],
 		listReviews: async () => {
 			count('reviews');
 			const items = [
@@ -170,7 +172,8 @@ describe('gbp-sync executor', () => {
 		expect(snapshot).toMatchObject({
 			profile: { title: 'Example Plumbing Co', primary_category: 'Plumber', service_items: 2 },
 			pending_google_edits: { has_pending: true, diff_fields: ['title'] },
-			verification: { has_voice_of_merchant: true, state: 'verified' },
+			// 2026-10-02: + Google's verification history (latest attempt, last completed).
+			verification: { has_voice_of_merchant: true, state: 'verified', latest: { method: 'PHONE_CALL', state: 'COMPLETED' }, verified_at: new Date('2025-03-14T15:00:00Z'), checked_at: NOW },
 			media: null,
 			posts: null,
 			reviews_summary: null,
@@ -226,6 +229,16 @@ describe('gbp-sync executor', () => {
 		expect(result?.types.keywords).toMatchObject({ status: 'error' });
 		expect(result?.types.performance.status).toBe('ok');
 		expect(result?.types.profile.status).toBe('ok');
+	});
+
+	it('2026-10-02: a failed verification read keeps the last known state (stale) and records the error', async () => {
+		const { user, location } = await boundLocation();
+		await executeGbpSync(await queue(location, user._id), { client: fakeClient().client, v4Enabled: false, settings, now: () => NOW });
+		const failing = fakeClient({ verification: new GbpApiError('GBP verifications.voiceOfMerchant failed: API disabled', { status: 403 }, 1) });
+		const result = await executeGbpSync(await queue(location, user._id), { client: failing.client, v4Enabled: false, settings, now: () => NOW });
+		expect(result?.types.verification).toMatchObject({ status: 'error' });
+		const latest = await GbpProfileSnapshot.findOne({ location_id: location._id, is_latest: true }).lean();
+		expect(latest?.verification).toMatchObject({ has_voice_of_merchant: true, state: 'verified', stale: true });
 	});
 
 	it('a connection-wide failure stops further calls and marks the rest as errors', async () => {

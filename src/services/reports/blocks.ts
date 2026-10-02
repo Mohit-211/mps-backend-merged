@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { FrozenBranding, ReportType, SnapshotLocation } from '../../models';
 import { bucket, displayRank } from '../../ranking/rankCell';
 import { GOOGLE_ATTRIBUTION } from '../../constants/attribution';
-import { AuditPerformanceTotals, Block, CitationReportData, CompetitorData, GbpAuditData, Part, RankTrackerData, ReportDocument, SnapshotData, Tone, isAvailable } from './types';
+import { AuditPerformanceTotals, Block, CitationReportData, CompetitorData, GbpAuditData, Part, RankTrackerData, ReportDocument, ReputationReportData, SnapshotData, Tone, isAvailable } from './types';
 
 // Reports center (Phase 12): turns frozen snapshot data into the document model (typed blocks). Pure.
 // The PDF renderer, the HTML share page, the in-app viewer (GET /reports/:id) and the email summary
@@ -13,10 +13,14 @@ export const TYPE_TITLES: Record<ReportType, string> = {
 	gbp_audit: 'Google Business Profile Audit',
 	competitor_analysis: 'Competitor Analysis',
 	citation: 'Citation Report',
+	reputation: 'Reputation Report',
 	full: 'Local SEO Report',
 };
 
 const UNAVAILABLE_TEXT: Record<string, string> = {
+	no_reviews: 'No Google reviews are stored for this location yet.',
+	sync_failed: 'Google did not return this data on the last sync.',
+	no_insights: 'No review insights yet: generate them on the Reviews page.',
 	gbp_not_connected: 'The Google Business Profile is not connected for this location.',
 	v4_access_pending: 'Not available yet: this needs Google My Business v4 access.',
 	not_synced_yet: 'No Google Business Profile data has been synced yet.',
@@ -282,7 +286,13 @@ export const gbpAuditBlocks = (d: GbpAuditData): Block[] => {
 	);
 	out.push(
 		...partBlocks('Verification', d.verification, (v) => [
-			{ kind: 'paragraph', text: v.verified ? 'The profile is verified.' : `The profile is not verified${v.state ? ` (${v.state})` : ''}.` },
+			{
+				kind: 'paragraph',
+				text: v.verified
+					? `The profile is verified${v.verified_at ? ` (since ${fmtDate(v.verified_at)}${v.method ? `, by ${v.method.toLowerCase().replace(/_/g, ' ')}` : ''})` : ''}.`
+					: `The profile is not verified${v.state ? ` (${v.state.replace(/_/g, ' ')})` : ''}.`,
+			},
+			...(v.guidance ? [{ kind: 'paragraph' as const, text: `Google asks: ${v.guidance}`, muted: true }] : []),
 		]),
 	);
 	out.push(
@@ -455,7 +465,66 @@ export const citationBlocks = (d: CitationReportData): Block[] => {
 
 // ---- Document ----
 
-const PART_TITLES = { rank_tracker: 'Rankings', gbp_audit: 'Google Business Profile', competitor_analysis: 'Competitors', citation: 'Citations' } as const;
+const PART_TITLES = { rank_tracker: 'Rankings', gbp_audit: 'Google Business Profile', competitor_analysis: 'Competitors', citation: 'Citations', reputation: 'Reputation' } as const;
+
+const STARS = (n: number | null): string => (n === null ? '-' : `${n}★`);
+
+/** The Reputation Report (2026-10-02): stored reviews and insights only. */
+export const reputationBlocks = (d: ReputationReportData): Block[] => {
+	const out: Block[] = [];
+	if (d.summary) {
+		const s = d.summary;
+		out.push({ kind: 'heading', level: 2, text: 'Reviews at a glance' });
+		out.push({
+			kind: 'kpis',
+			items: [
+				{ label: 'Average rating', value: s.average_rating === null ? '-' : `${fmtNum(s.average_rating, 1)} ★`, sub: `${fmtNum(s.total)} reviews` },
+				{ label: 'New this month', value: fmtNum(s.new_this_month) },
+				{ label: 'Reply rate', value: fmtPct(s.reply_rate) },
+				{ label: 'Need attention', value: fmtNum(s.awaiting_attention), sub: s.flagged ? `${fmtNum(s.flagged)} flagged` : null, tone: s.awaiting_attention ? 'bad' : 'good' },
+			],
+		});
+	}
+	if (d.distribution) {
+		const total = d.distribution.reduce((a, r) => a + r.count, 0);
+		out.push({ kind: 'heading', level: 2, text: 'Rating distribution' });
+		out.push({ kind: 'table', columns: [{ label: 'Rating', weight: 1 }, { label: 'Reviews', align: 'right' }, { label: 'Share', align: 'right' }], rows: d.distribution.map((r) => [STARS(r.stars), fmtNum(r.count), fmtPct(total ? r.count / total : null)]) });
+	}
+	if (d.needs_attention) {
+		out.push({ kind: 'heading', level: 2, text: 'Reviews that need attention' });
+		out.push(
+			d.needs_attention.length
+				? {
+						kind: 'table',
+						columns: [{ label: 'Rating', weight: 0.8 }, { label: 'Date', weight: 1.2 }, { label: 'Review', weight: 5 }, { label: 'Indicators', weight: 2.5 }],
+						rows: d.needs_attention.map((r) => [STARS(r.rating), r.date ? fmtDate(r.date) : '-', r.excerpt ?? '(no text)', r.flags.join(', ') || '-']),
+					}
+				: { kind: 'paragraph', text: 'Every low rating and flagged review has a reply.', muted: true },
+		);
+		out.push({ kind: 'paragraph', text: 'Indicators are signs worth a look, not proof that a review is fake.', muted: true });
+	}
+	if (d.replies_sent) {
+		const r = d.replies_sent;
+		out.push({ kind: 'heading', level: 2, text: 'Replies' });
+		out.push({ kind: 'paragraph', text: `${fmtNum(r.this_month)} replies sent this month, ${fmtNum(r.last_90_days)} in the last 90 days.` });
+		if (r.recent.length) {
+			out.push({ kind: 'table', columns: [{ label: 'Rating', weight: 0.8 }, { label: 'Review', weight: 4 }, { label: 'Reply', weight: 4 }], rows: r.recent.map((x) => [STARS(x.rating), x.review ?? '(no text)', x.reply ?? '-']) });
+		}
+	}
+	if (d.insights) {
+		out.push({ kind: 'heading', level: 2, text: 'What customers say' });
+		if (!isAvailable(d.insights)) out.push(unavailable('What customers say', d.insights as { reason: string }));
+		else {
+			const i = d.insights;
+			out.push({ kind: 'paragraph', text: `Summary generated on ${fmtDate(i.generated_at)}.`, muted: true });
+			if (i.themes.length) out.push({ kind: 'table', columns: [{ label: 'Theme', weight: 3 }, { label: 'Mentions', align: 'right' }, { label: 'Tone', weight: 1.2 }], rows: i.themes.map((t) => [t.theme, fmtNum(t.mentions), t.sentiment]) });
+			if (i.praise.length) out.push({ kind: 'heading', level: 2, text: 'Praise' }, { kind: 'list', items: i.praise });
+			if (i.complaints.length) out.push({ kind: 'heading', level: 2, text: 'Recurring complaints' }, { kind: 'list', items: i.complaints });
+			if (i.observations.length) out.push({ kind: 'heading', level: 2, text: 'Observations' }, { kind: 'list', items: i.observations });
+		}
+	}
+	return out;
+};
 
 const partOf = (key: keyof SnapshotData, part: SnapshotData[keyof SnapshotData]): Block[] => {
 	if (!part) return [];
@@ -463,6 +532,7 @@ const partOf = (key: keyof SnapshotData, part: SnapshotData[keyof SnapshotData])
 	if (key === 'rank_tracker') return rankTrackerBlocks(part as RankTrackerData);
 	if (key === 'gbp_audit') return gbpAuditBlocks(part as GbpAuditData);
 	if (key === 'citation') return citationBlocks(part as CitationReportData);
+	if (key === 'reputation') return reputationBlocks(part as ReputationReportData);
 	return competitorBlocks(part as CompetitorData);
 };
 
@@ -476,6 +546,10 @@ const periodOf = (type: ReportType, data: SnapshotData): string | null => {
 		const c = data.citation && isAvailable(data.citation) ? data.citation : null;
 		return c ? `Citations as of ${fmtDate(c.as_of)}` : null;
 	}
+	if (type === 'reputation') {
+		const r = data.reputation && isAvailable(data.reputation) ? data.reputation : null;
+		return r ? `Reviews as of ${fmtDate(r.as_of)}` : null;
+	}
 	if (type === 'full') return [rt ? `Rank run of ${fmtDate(rt.run.finished_at ?? rt.run.run_at)}` : null, range].filter(Boolean).join(' · ') || null;
 	return null;
 };
@@ -485,7 +559,7 @@ export const buildDocument = (input: { type: ReportType; location: SnapshotLocat
 	let blocks: Block[];
 	if (type === 'full') {
 		blocks = [];
-		for (const key of ['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation'] as const) {
+		for (const key of ['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation', 'reputation'] as const) {
 			const part = data[key];
 			if (!part) continue;
 			// A part that is only an "unavailable" note doesn't start a new page.

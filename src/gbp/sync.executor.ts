@@ -43,6 +43,7 @@ import {
 	mapProfile,
 	mapReview,
 	mapVerification,
+	mapVerificationHistory,
 } from './mappers';
 import { WindowSettings, dailyWindow, keywordMonths, toIsoDate, toIsoMonth } from './windows';
 import { refundFailedRefresh } from '../services/billing/refreshTokens';
@@ -59,6 +60,7 @@ type SyncClient = Pick<
 	| 'getLocationFull'
 	| 'getAttributes'
 	| 'getAttributeMetadata'
+	| 'listVerifications'
 	| 'getGoogleUpdated'
 	| 'getVoiceOfMerchantState'
 	| 'listReviews'
@@ -231,7 +233,14 @@ export const executeGbpSync = async (syncId: string, deps: SyncExecutorDeps = {}
 		});
 
 		await run('verification', async () => {
-			snapshot.verification = mapVerification(await client.getVoiceOfMerchantState(conn, locationName));
+			const verification = mapVerification(await client.getVoiceOfMerchantState(conn, locationName));
+			// 2026-10-02: the verification history adds "verified on" and the latest attempt; optional.
+			try {
+				Object.assign(verification, mapVerificationHistory(await client.listVerifications(conn, locationName)));
+			} catch (err) {
+				logger.warn(`gbp-sync ${syncId}: verification history unavailable: ${explainGbpError(err)}`);
+			}
+			snapshot.verification = { ...verification, checked_at: now() };
 			return { rows: 1, range: null };
 		});
 
@@ -262,6 +271,11 @@ export const executeGbpSync = async (syncId: string, deps: SyncExecutorDeps = {}
 
 		// One dated snapshot per sync (history kept); the newest is flagged is_latest.
 		if (Object.keys(snapshot).length > 0) {
+			// 2026-10-02: a failed verification read keeps the last known state (marked stale) instead of losing it.
+			if (!snapshot.verification) {
+				const prev = await GbpProfileSnapshot.findOne({ location_id: locationId, is_latest: true, verification: { $ne: null } }).select({ verification: 1 }).lean();
+				if (prev?.verification) snapshot.verification = { ...prev.verification, stale: true };
+			}
 			await GbpProfileSnapshot.updateMany({ location_id: locationId, is_latest: true }, { $set: { is_latest: false } });
 			await GbpProfileSnapshot.create({
 				location_id: locationId,

@@ -134,7 +134,7 @@ The full per-route list is in [ENDPOINTS.md](ENDPOINTS.md) (auth column `admin (
 
 | Screen | Backend | Status |
 |---|---|---|
-| Report library | `GET /reports` (filters `location_id`, `client_id`, `type`, `status` incl. `archived`; paged) | **available (12)**. A client_user sees its clients' reports only. |
+| Report library | `GET /reports` (filters `location_id`, `client_id`, `type`, `status` incl. `archived`, `include_deleted`; paged) | **available (12)**. A client_user sees its clients' reports only. **2026-10-02:** reports of deleted locations stay, `location.deleted: true`; `live` rows for the stored GBP report and review insights (open the in-app page, no PDF); report type `reputation` (also part of `full`). No automatic PDFs. |
 | Create report | `POST /reports { location_id, type, sections?, run_id?, range? }` → poll `GET /reports/:id` until `ready` | **available (12)**: Rank Tracker, GBP Audit, Competitor Analysis, Full. Generated in a job (usually a second or two). |
 | Report viewer | `GET /reports/:id` → `document.blocks` (heading, paragraph, kpis, table, line_chart, heatmap, list, unavailable) and `snapshot.data` | **available (12)**. The blocks are exactly what the PDF shows; render them in the app. GBP v4 sections show "Not available yet", never sample data. |
 | Download / email / archive | `GET /reports/:id/pdf`, `POST /reports/:id/email { recipients, message? }`, `DELETE /reports/:id` | **available (12)**. Emails above 10 MB carry a 30-day link instead of the attachment. |

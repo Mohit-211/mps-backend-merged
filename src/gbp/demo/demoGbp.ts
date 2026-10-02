@@ -1,6 +1,8 @@
 import { Types } from 'mongoose';
 import { DAILY_METRICS } from '../../clients/gbpClient';
 import { PlaceDetails, PlaceDetailsResult } from '../../clients/types/places';
+import { recomputeFlags } from '../../services/reviews/store';
+import { updateReviewSummary } from '../../services/reviews/stats';
 import { GBP_SYNC_TYPES, GbpKeywordMonthly, GbpMetricDaily, GbpProfileSnapshot, GbpReview, GbpSync, Location, UserGBP } from '../../models';
 import { DEMO_PLACE_IDS } from '../../ranking/demo/demoPlaces';
 
@@ -313,6 +315,10 @@ export const writeDemoGbpData = async (
 	if (options.verified === false) snapshot.verification = { has_voice_of_merchant: false, has_business_authority: false, state: 'UNVERIFIED', guidance: null };
 	await GbpProfileSnapshot.create(snapshot);
 	await GbpReview.insertMany(demoReviews(locationId, now).map((r) => ({ ...r, review_name: `${r.review_name}-${String(locationId)}` })));
+	// Phase 18: the same derived fields the real store sets (reply state, fingerprints and flags, stats).
+	await GbpReview.updateMany({ location_id: locationId, reply: { $ne: null } }, { $set: { reply_state: 'sent' } });
+	await recomputeFlags(locationId);
+	await updateReviewSummary(locationId, now);
 	await Location.updateOne(
 		{ _id: locationId },
 		{

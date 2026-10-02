@@ -75,6 +75,8 @@ describe('generateGbpReport', () => {
 		expect(r.media).toEqual({ available: false, reason: 'v4_access_pending' });
 		expect(r.gbp_score).toMatchObject({ available: true, partial: true, excluded_pillars: ['activity', 'reviews'] });
 		expect(r.pending_google_edits).toMatchObject({ available: true, has_pending: true });
+		// 2026-10-02: verification with the verified flag and the newer fields (null without history).
+		expect(r.verification).toMatchObject({ available: true, verified: true, stale: false, error: null, latest: null, verified_at: null });
 		expect(r.sync).toMatchObject({ last_status: 'done' });
 		if (!r.competitors.available) throw new Error('competitors missing');
 		expect(r.competitors.rows.map((row) => [row.source, row.place_id])).toEqual([

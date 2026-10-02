@@ -11,6 +11,7 @@ import {
 	Client,
 	GbpProfileSnapshot,
 	GbpReport,
+	GbpReview,
 	IGbpProfileSnapshot,
 	IGbpReport,
 	ILocation,
@@ -25,10 +26,11 @@ import {
 	ReportSnapshot,
 	ReportStatus,
 	ReportType,
+	ReviewInsight,
 	UserGBP,
 } from '../../models';
 import { ApiError, apiErrorWithData } from '../../utils';
-import { findAccessibleLocation } from '../org/access';
+import { findAccessibleLocation, locationScope } from '../org/access';
 import { OrgContext } from '../org/context';
 import { brandingService } from './branding.service';
 import { buildDocument } from './blocks';
@@ -36,6 +38,7 @@ import { renderPdf } from './render/pdf';
 import { buildCitationData } from './sections/citations';
 import { buildCompetitorData } from './sections/competitors';
 import { buildGbpAuditData } from './sections/gbpAudit';
+import { buildReputationData } from './sections/reputation';
 import { findReportRun, loadRankTrackerData } from './sections/rankTracker';
 import { withDefaults } from '../ranking/trackingSettings';
 import { reportStorage, ReportStorage } from './storage';
@@ -141,6 +144,10 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 				throw apiErrorWithData(httpStatus.BAD_REQUEST, 'This location has no rankings, GBP report or citations yet.', { reason: 'no_data' });
 			}
 		}
+		// 2026-10-02: a Reputation Report needs stored reviews.
+		if (type === 'reputation' && !(await GbpReview.exists({ location_id: location._id }))) {
+			throw apiErrorWithData(httpStatus.BAD_REQUEST, 'No Google reviews are stored for this location yet.', { reason: 'no_reviews' });
+		}
 		// Phase 16: a Citation Report needs a citation list.
 		if (type === 'citation' && !(await LocationCitation.exists({ location_id: location._id, active: true }))) {
 			throw apiErrorWithData(httpStatus.BAD_REQUEST, 'No citations are tracked for this location yet.', { reason: 'no_citations_yet' });
@@ -148,14 +155,15 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 		return run;
 	};
 
-	const viewOf = (r: IReport, names: { location?: string | null; client?: string | null } = {}) => ({
+	const viewOf = (r: IReport, names: { location?: string | null; client?: string | null; deleted?: boolean } = {}) => ({
 		report_id: String(r._id),
 		type: r.type,
 		sections: r.sections,
 		status: r.status,
 		trigger: r.trigger,
 		schedule_id: r.schedule_id ? String(r.schedule_id) : null,
-		location: { location_id: String(r.location_id), name: names.location ?? null },
+		// 2026-10-02: a deleted location keeps its name; `deleted` lets the list label it.
+		location: { location_id: String(r.location_id), name: names.location ?? null, deleted: names.deleted === true },
 		client: r.client_id ? { client_id: String(r.client_id), name: names.client ?? null } : null,
 		range: r.params?.range ?? '28d',
 		run_id: r.params?.run_id ? String(r.params.run_id) : null,
@@ -225,18 +233,65 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 
 	const namesFor = async (reports: Pick<IReport, 'location_id' | 'client_id'>[]) => {
 		const [locations, clients] = await Promise.all([
-			Location.find({ _id: { $in: reports.map((r) => r.location_id) } }).select({ name: 1 }).lean(),
+			// aggregate, not find: the soft-delete query filter would hide deleted locations (2026-10-02).
+			Location.aggregate<{ _id: Types.ObjectId; name: string; deleted_at: Date | null; is_active: boolean }>([
+				{ $match: { _id: { $in: reports.map((r) => r.location_id) } } },
+				{ $project: { name: 1, deleted_at: 1, is_active: 1 } },
+			]),
 			Client.find({ _id: { $in: reports.map((r) => r.client_id).filter(Boolean) } }).select({ company_name: 1 }).lean(),
 		]);
 		return {
-			location: new Map(locations.map((l) => [String(l._id), l.name as string])),
+			location: new Map(locations.map((l) => [String(l._id), l.name])),
+			deleted: new Set(locations.filter((l) => l.deleted_at || l.is_active === false).map((l) => String(l._id))),
 			client: new Map(clients.map((c) => [String(c._id), c.company_name as string])),
 		};
 	};
 
+	const namesOf = (names: Awaited<ReturnType<typeof namesFor>>, r: Pick<IReport, 'location_id' | 'client_id'>) => ({
+		location: names.location.get(String(r.location_id)),
+		deleted: names.deleted.has(String(r.location_id)),
+		client: r.client_id ? names.client.get(String(r.client_id)) : null,
+	});
+
+	/**
+	 * 2026-10-02: the stored GBP report and review insights of each visible location, as "live" rows that link to
+	 * their in-app pages (no PDF; they update with every refresh / regeneration).
+	 */
+	const liveRows = async (ctx: OrgContext, query: { location_id?: string; client_id?: string; type?: ReportType }) => {
+		const wantGbp = !query.type || query.type === 'gbp_audit';
+		const wantReviews = !query.type || query.type === 'reputation';
+		if (!wantGbp && !wantReviews) return [];
+		const filter: Record<string, unknown> = { ...locationScope(ctx) };
+		if (query.location_id) filter._id = new Types.ObjectId(query.location_id);
+		if (query.client_id) filter.client_id = new Types.ObjectId(query.client_id);
+		const locations = await Location.find(filter).select({ name: 1, client_id: 1 }).lean<Pick<ILocation, '_id' | 'name' | 'client_id'>[]>();
+		if (!locations.length) return [];
+		const ids = locations.map((l) => l._id);
+		const [gbp, insights] = await Promise.all([
+			wantGbp ? GbpReport.find({ location_id: { $in: ids } }).select({ location_id: 1, generated_at: 1 }).lean() : [],
+			wantReviews ? ReviewInsight.find({ location_id: { $in: ids } }).select({ location_id: 1, generated_at: 1 }).lean() : [],
+		]);
+		const byId = new Map(locations.map((l) => [String(l._id), l]));
+		const row = (kind: 'gbp_report' | 'review_insights', locationId: unknown, generatedAt: Date) => {
+			const l = byId.get(String(locationId));
+			return {
+				kind: 'live' as const,
+				type: kind,
+				location: { location_id: String(locationId), name: l?.name ?? null, deleted: false },
+				client_id: l?.client_id ? String(l.client_id) : null,
+				generated_at: generatedAt,
+				/** The in-app page to open (no PDF). */
+				link: { page: kind === 'gbp_report' ? 'gbp_report' : 'review_insights', location_id: String(locationId) },
+			};
+		};
+		return [...gbp.map((g) => row('gbp_report', g.location_id, g.generated_at)), ...insights.map((i) => row('review_insights', i.location_id, i.generated_at))].sort(
+			(a, b) => new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime(),
+		);
+	};
+
 	const list = async (
 		ctx: OrgContext,
-		query: { location_id?: string; client_id?: string; type?: ReportType; status?: ReportStatus | 'archived'; page?: number; limit?: number },
+		query: { location_id?: string; client_id?: string; type?: ReportType; status?: ReportStatus | 'archived'; include_deleted?: boolean; page?: number; limit?: number },
 	) => {
 		const page = query.page ?? 1;
 		const limit = query.limit ?? 20;
@@ -249,13 +304,20 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 			filter.archived_at = null;
 			if (query.status) filter.status = query.status;
 		}
+		if (query.include_deleted === false) {
+			const deleted = await Location.aggregate<{ _id: Types.ObjectId }>([{ $match: { organization_id: ctx.organization._id, $or: [{ deleted_at: { $ne: null } }, { is_active: false }] } }, { $project: { _id: 1 } }]);
+			if (deleted.length) filter.location_id = query.location_id ? filter.location_id : { $nin: deleted.map((d) => d._id) };
+		}
 		const [rows, total] = await Promise.all([
 			Report.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean<IReport[]>(),
 			Report.countDocuments(filter),
 		]);
 		const names = await namesFor(rows);
+		// Live rows have no status: only on the first page of an unfiltered-by-status list.
+		const live = page === 1 && !query.status ? await liveRows(ctx, query) : [];
 		return {
-			reports: rows.map((r) => viewOf(r, { location: names.location.get(String(r.location_id)), client: r.client_id ? names.client.get(String(r.client_id)) : null })),
+			reports: rows.map((r) => viewOf(r, namesOf(names, r))),
+			live,
 			page,
 			limit,
 			total,
@@ -269,7 +331,7 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 		const report = await load(ctx, reportId);
 		const snapshot = report.status === 'ready' ? await ReportSnapshot.findOne({ report_id: report._id }).lean<IReportSnapshot>() : null;
 		const names = await namesFor([report]);
-		const view = viewOf(report, { location: names.location.get(String(report.location_id)), client: report.client_id ? names.client.get(String(report.client_id)) : null });
+		const view = viewOf(report, namesOf(names, report));
 		if (!snapshot) return { report: view, snapshot: null, document: null };
 		const doc = documentOf(report, snapshot);
 		// The logo bytes are served separately (GET /organization/branding/logo); not repeated here.
@@ -288,7 +350,7 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 		}
 		const data = await storage.read(storage.pdfPath(String(report.organization_id), String(report._id)));
 		if (!data) throw apiErrorWithData(httpStatus.CONFLICT, 'The report file is missing.', { reason: 'file_missing' });
-		const location = await Location.findById(report.location_id).select({ name: 1 }).lean<Pick<ILocation, 'name'>>();
+		const [location] = await Location.aggregate<{ name: string }>([{ $match: { _id: report.location_id } }, { $project: { name: 1 } }]);
 		return { data, filename: pdfFilename(location?.name ?? 'report', report.type, report.generated_at ?? report.created_at) };
 	};
 
@@ -303,7 +365,7 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 	// ---- generation (report-generate job) ----
 
 	const buildData = async (report: IReport, location: ILocation): Promise<{ data: SnapshotData; sources: IReportSnapshot['sources'] }> => {
-		const parts: ('rank_tracker' | 'gbp_audit' | 'competitor_analysis' | 'citation')[] = report.type === 'full' ? (report.sections as never[]) : [report.type as never];
+		const parts: ('rank_tracker' | 'gbp_audit' | 'competitor_analysis' | 'citation' | 'reputation')[] = report.type === 'full' ? (report.sections as never[]) : [report.type as never];
 		const sectionsFor = (key: (typeof parts)[number]) => (report.type === 'full' ? [...REPORT_SECTIONS[key]] : report.sections);
 		const [gbp, bound] = await Promise.all([
 			GbpReport.findOne({ location_id: location._id }).lean<IGbpReport>(),
@@ -319,6 +381,8 @@ export const createReportService = (deps: ReportServiceDeps = {}) => {
 				if (loaded) rankRunId = loaded.run_id;
 			} else if (key === 'citation') {
 				data.citation = await buildCitationData(location, report.params?.range ?? '28d', sectionsFor(key), now());
+			} else if (key === 'reputation') {
+				data.reputation = bound ? await buildReputationData(location._id as Types.ObjectId, sectionsFor(key), now()) : off('gbp_not_connected');
 			} else if (key === 'gbp_audit') {
 				if (!bound) data.gbp_audit = off('gbp_not_connected');
 				else if (!gbp) data.gbp_audit = off('no_gbp_report');

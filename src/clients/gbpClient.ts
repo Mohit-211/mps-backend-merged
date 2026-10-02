@@ -33,6 +33,7 @@ import {
 	RawReview,
 	RawReviewsPage,
 	RawSearchKeywordsPage,
+	RawVerificationsPage,
 	RawVoiceOfMerchantState,
 	RawAccount,
 	RawAccountsPage,
@@ -563,6 +564,12 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 			withQuery(`${BUSINESS_INFORMATION_URL}/${locationName}:getGoogleUpdated`, { readMask: PROFILE_READ_MASK }),
 		);
 
+	/** 2026-10-02: the verification history (method, state, when), newest first as Google returns it. */
+	const listVerifications = async (conn: ConnectionRef, locationName: string): Promise<NonNullable<RawVerificationsPage['verifications']>> => {
+		const data = await authedGet<RawVerificationsPage>(conn, 'verifications.list', withQuery(`${VERIFICATIONS_URL}/${locationName}/verifications`, { pageSize: '100' }));
+		return data.verifications ?? [];
+	};
+
 	const getVoiceOfMerchantState = async (conn: ConnectionRef, locationName: string): Promise<RawVoiceOfMerchantState> =>
 		authedGet<RawVoiceOfMerchantState>(conn, 'verifications.voiceOfMerchant', `${VERIFICATIONS_URL}/${locationName}/VoiceOfMerchantState`);
 
@@ -667,6 +674,7 @@ export const createGbpClient = (options: GbpClientOptions = {}) => {
 		getAttributeMetadata,
 		getGoogleUpdated,
 		getVoiceOfMerchantState,
+		listVerifications,
 		listReviews,
 		listReviewsSince,
 		updateReply,

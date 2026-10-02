@@ -177,6 +177,11 @@ export interface RefreshState {
 	last_auto_refresh_at: Date | null;
 	rankings: { next_allowed_at: Date | null; active_run: { run_id: string; status: string } | null };
 	gbp: { next_allowed_at: Date | null; active_sync: { sync_id: string; status: string } | null; last_synced_at: Date | null } | null;
+	/**
+	 * 2026-10-02: reviews. They are stored by every GBP sync (v4) and by the Refresh Reviews button (synchronous,
+	 * once per REVIEWS_REFRESH_MIN_MINUTES). Nothing about reviews or AI runs in the background otherwise.
+	 */
+	reviews: { synced_with_gbp: boolean; in_progress: boolean; last_refreshed_at: Date | null; next_allowed_at: Date | null; last_synced_at: Date | null } | null;
 	/** 7c: the GBP report generation (pending after a run or sync finishes, debounced). */
 	report: ReportState;
 	/** Phase 13a: tokens per manual refresh type and the organization's balance. */
@@ -204,6 +209,19 @@ export const getRefreshState = async (location: ILocation, now: Date = new Date(
 					next_allowed_at: allowed('gbp'),
 					active_sync: sync ? { sync_id: String(sync._id), status: sync.status } : null,
 					last_synced_at: fresh.gbp_sync?.last_synced_at ?? null,
+				}
+			: null,
+		reviews: bound
+			? {
+					synced_with_gbp: config.gbp.v4Enabled,
+					// A running GBP sync is also fetching reviews (v4).
+					in_progress: Boolean(sync) && config.gbp.v4Enabled,
+					last_refreshed_at: fresh.reviews_refreshed_at ?? null,
+					next_allowed_at: (() => {
+						const at = fresh.reviews_refreshed_at ? new Date(fresh.reviews_refreshed_at.getTime() + config.reviews.refreshMinMinutes * 60_000) : null;
+						return at && at.getTime() > now.getTime() ? at : null;
+					})(),
+					last_synced_at: config.gbp.v4Enabled ? (fresh.gbp_sync?.last_synced_at ?? null) : null,
 				}
 			: null,
 		report: reportState(fresh, now),

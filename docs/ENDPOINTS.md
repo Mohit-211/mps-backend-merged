@@ -166,8 +166,8 @@ Paths are full paths. Auth: `none`, `user` (user access token), `user + org` (ac
 
 | Method | Path | Auth | Purpose | Phase | Status |
 |---|---|---|---|---|---|
-| POST | `/api/v1/reports` | user + org (owner/member) | Create a report (Rank Tracker, GBP Audit, Competitor Analysis, Full); generated in the `report-generate` job | 12 | live |
-| GET | `/api/v1/reports` | user + org | Report library: filters, pagination (a client_user sees its clients' reports) | 12 | live |
+| POST | `/api/v1/reports` | user + org (owner/member) | Create a report (Rank Tracker, GBP Audit, Competitor Analysis, Citation, Reputation (2026-10-02), Full); generated in the `report-generate` job | 12 | live |
+| GET | `/api/v1/reports` | user + org | Report library: filters, pagination (a client_user sees its clients' reports); 2026-10-02: deleted locations marked, `include_deleted`, `live` rows | 12, changed 2026-10-02 | live |
 | GET | `/api/v1/reports/:reportId` | user + org | One report: status, frozen snapshot and the document blocks | 12 | live |
 | GET | `/api/v1/reports/:reportId/pdf` | user + org | Download the PDF | 12 | live |
 | DELETE | `/api/v1/reports/:reportId` | user + org (owner/member) | Archive (hidden from the library; share links stop working) | 12 | live |
@@ -569,7 +569,7 @@ Every location refreshes **automatically once a month** (rankings, then the GBP 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
 | 25 | POST | `/locations/:locationId/refresh` | user, owner | body `{ types?: ["rankings","gbp"] }` (default: rankings, plus gbp when connected) | **202** `{ rankings: { run_id, status, existing, estimate, next_allowed_at } \| { skipped: 'rate_limited', next_allowed_at }, gbp: { sync_id, status, existing, estimated_calls, next_allowed_at } \| { skipped: 'gbp_not_connected' \| 'rate_limited', next_allowed_at } }`; **402** `{ reason: insufficient_tokens, balance, cost, costs_by_type }` (13a) |
-| 26 | GET | `/locations/:locationId/refresh` | user, owner | – | Button state: `{ frequency, gbp_connected, next_refresh_at, last_auto_refresh_at, rankings: { next_allowed_at, active_run }, gbp: { next_allowed_at, active_sync, last_synced_at } \| null, report: { pending, scheduled_for, last_generated_at }, tokens: { cost: { rankings, gbp }, balance } }` |
+| 26 | GET | `/locations/:locationId/refresh` | user, owner | – | Button state: `{ frequency, gbp_connected, next_refresh_at, last_auto_refresh_at, rankings: { next_allowed_at, active_run }, gbp: { next_allowed_at, active_sync, last_synced_at } \| null, report: { pending, scheduled_for, last_generated_at }, reviews: { synced_with_gbp, in_progress, last_refreshed_at, next_allowed_at, last_synced_at } \| null (2026-10-02), tokens: { cost: { rankings, gbp }, balance } }` |
 | 27 | GET | `/locations/:locationId/gbp/sync` | user, owner | query `syncId?` (24-hex) | `{ gbp_connected, sync: { sync_id, status, trigger, backfill, run_at, started_at, finished_at, duration_ms, types, api_calls, failure_reason } \| null, last_synced_at }` |
 
 **Notes:**
@@ -584,7 +584,7 @@ Generated in the `gbp-report` job about 2 minutes after a rank run or GBP sync f
 
 | # | Method | Path | Auth | Params | Returns |
 |---|---|---|---|---|---|
-| 28 | GET | `/locations/:locationId/gbp/report` | user, owner | query `range` (`28d` default, `90d`, `12m`) | `{ location_id, generated_at, trigger, gbp_connected, v4_enabled, range, gbp_score (2026-10-02: `version`, `counts`, pillars `completeness\|activity\|reviews\|performance` with `state` + `counts`, checks with `state` + `why_it_matters`), profile (2026-10-02), performance, keywords, reviews, media, posts, pending_google_edits, verification, competitors: { rows (12.5: + `photo_count`, `photos_capped`, `reviews`, `recent_review_at`; 2026-10-02: no `center_rank`), insights (no `rank_gap`), warning }, sync, score_history (+ `version`), api_calls, inputs, generation, attribution }` |
+| 28 | GET | `/locations/:locationId/gbp/report` | user, owner | query `range` (`28d` default, `90d`, `12m`) | `{ location_id, generated_at, trigger, gbp_connected, v4_enabled, range, gbp_score (2026-10-02: `version`, `counts`, pillars `completeness\|activity\|reviews\|performance` with `state` + `counts`, checks with `state` + `why_it_matters`), profile (2026-10-02), performance, keywords, reviews, media, posts, pending_google_edits, verification (2026-10-02: `verified`, `guidance`, `latest`, `verified_at`, `checked_at`, `stale`, `error`; unavailable reason `sync_failed` + `message`), competitors: { rows (12.5: + `photo_count`, `photos_capped`, `reviews`, `recent_review_at`; 2026-10-02: no `center_rank`), insights (no `rank_gap`), warning }, sync, score_history (+ `version`), api_calls, inputs, generation, attribution }` |
 
 **Notes:**
 - **#28:** **404** before the first report; **400** for another `range`. A section that can't be shown is `{ available: false, reason }`: `gbp_not_connected` (every private section of a location added via Places search; the competitor comparison still works), `v4_access_pending` (reviews, media, posts; the GBP Score then excludes those pillars with `partial: true`), `not_synced_yet`, `no_place_id`. Shapes and examples: [API.md](API.md#gbp-report-phase-7c).
@@ -645,8 +645,8 @@ A report freezes stored data (rank runs, the GBP report, the profile snapshot) a
 
 | # | Method | Path | Auth | Params / body | Returns |
 |---|---|---|---|---|---|
-| 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|citation (16)\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_citations_yet` (16), `no_data` |
-| 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), page, limit` | `{ reports: [view], page, limit, total }`; each view has `run_id` and `run_at` (17: the rank run's date) |
+| 61 | POST | `/reports` | user + org (owner/member) | `{ location_id, type: rank_tracker\|gbp_audit\|competitor_analysis\|citation (16)\|reputation (2026-10-02)\|full, sections?, run_id?, range?: 28d\|90d\|12m }` | **202** report view with `existing`; **400** `invalid_section`, `no_rank_run`, `gbp_not_connected`, `no_gbp_report`, `no_citations_yet`, `no_reviews` (reputation) (16), `no_data` |
+| 62 | GET | `/reports` | user + org | `location_id, client_id, type, status (queued\|generating\|ready\|failed\|expired\|archived), include_deleted (2026-10-02; default true), page, limit` | `{ reports: [view], live, page, limit, total }`; each view has `run_id` and `run_at` (17: the rank run's date) and `location: { location_id, name, deleted }` (2026-10-02: deleted locations keep their name); `live` (page 1 without a status filter): `[{ kind: 'live', type: gbp_report\|review_insights, location, client_id, generated_at, link: { page, location_id } }]` |
 | 63 | GET | `/reports/:reportId` | user + org | – | `{ report, snapshot: { location, data, sources } \| null, document: { title, period, generated_at, branding, blocks } \| null }` |
 | 64 | GET | `/reports/:reportId/pdf` | user + org | – | `application/pdf` attachment; **409** `not_ready` / `expired` |
 | 65 | DELETE | `/reports/:reportId` | user + org (owner/member) | – | `{ archived, report_id }` |

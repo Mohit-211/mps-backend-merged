@@ -88,14 +88,14 @@ describe('Citation Report', () => {
 
 		const { location } = await withCitations();
 		const full = await reports.createFor(location, { type: 'full' }, { trigger: 'manual', created_by: user._id as Types.ObjectId });
-		expect(full.sections).toEqual(['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation']);
+		expect(full.sections).toEqual(['rank_tracker', 'gbp_audit', 'competitor_analysis', 'citation', 'reputation']);
 		expect((await reports.generate(full.report_id)).status).toBe('ready');
 		const snapshot = await ReportSnapshot.findOne({ report_id: full.report_id }).lean();
 		const data = snapshot?.data as SnapshotData;
 		expect(data.citation).toMatchObject({ available: true });
 		expect(data.rank_tracker).toMatchObject({ available: false, reason: 'no_rank_run' });
 		const doc = reports.documentOf((await Report.findById(full.report_id).lean()) as never, snapshot as never);
-		expect(doc.blocks.filter((b) => b.kind === 'heading' && b.level === 1).map((b) => (b as { text: string }).text)).toEqual(['Rankings', 'Google Business Profile', 'Competitors', 'Citations']);
+		expect(doc.blocks.filter((b) => b.kind === 'heading' && b.level === 1).map((b) => (b as { text: string }).text)).toEqual(['Rankings', 'Google Business Profile', 'Competitors', 'Citations', 'Reputation']);
 	});
 
 	it('a monthly schedule of type citation creates one report per automatic refresh cycle', async () => {
