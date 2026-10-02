@@ -64,6 +64,9 @@ const envVarsSchema = Joi.object({
 	AI_DAILY_BUDGET_USD: Joi.number().min(0).default(5).description('Server-wide safety net: estimated OpenAI spend per UTC day; 0 = AI off'),
 	AI_MAX_REVIEWS_PER_REQUEST: Joi.number().integer().min(1).max(50).default(20),
 	REVIEWS_REFRESH_MIN_MINUTES: Joi.number().integer().min(1).max(1440).default(15),
+	// Phase 19: the sales audit (staff dashboard).
+	STAFF_AUDIT_DAILY_LIMIT: Joi.number().integer().min(1).max(500).default(20).description('Audits one staff member may start per 24 hours'),
+	STAFF_AUDIT_TTL_HOURS: Joi.number().integer().min(1).max(168).default(24).description('An audit not closed by then is deleted'),
 	GBP_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(18),
 	GBP_ROLLING_DAYS: Joi.number().integer().min(7).max(90).default(40),
 	GBP_KEYWORD_BACKFILL_MONTHS: Joi.number().integer().min(1).max(18).default(6),
@@ -136,6 +139,7 @@ const envVarsSchema = Joi.object({
 	ADM_ROLE_ID: Joi.number().description('Admin Role ID'),
 	EDTR_ROLE_ID: Joi.number().description('Editor Role ID'),
 	USR_ROLE_ID: Joi.number().description('User Role ID'),
+	SALES_ROLE_ID: Joi.number().default(8).description('Sales Representative Role ID (Phase 19)'),
 
 	SUPER_ADMIN_PASSWORD: Joi.string().allow('').default(''),
 	SUPER_ADMIN_EMAIL: Joi.string().allow('').default(''),
@@ -233,6 +237,14 @@ interface Config {
 		maxReviewsPerRequest: number;
 	};
 
+	/** Phase 19: the sales audit (staff dashboard). */
+	staffAudit: {
+		/** Audits one staff member may start per 24 hours. */
+		dailyLimit: number;
+		/** An audit not closed by then is deleted (MongoDB TTL). */
+		ttlHours: number;
+	};
+
 	reviews: {
 		/** Refresh Reviews button: minimum minutes between refreshes per location. */
 		refreshMinMinutes: number;
@@ -323,6 +335,7 @@ interface Config {
 		superAdmin: number;
 		admin: number;
 		editor: number;
+		sales: number;
 		user: number;
 	};
 
@@ -407,6 +420,11 @@ const config: Config = {
 		maxReviewsPerRequest: envVars.AI_MAX_REVIEWS_PER_REQUEST,
 	},
 
+	staffAudit: {
+		dailyLimit: envVars.STAFF_AUDIT_DAILY_LIMIT,
+		ttlHours: envVars.STAFF_AUDIT_TTL_HOURS,
+	},
+
 	reviews: {
 		refreshMinMinutes: envVars.REVIEWS_REFRESH_MIN_MINUTES,
 	},
@@ -482,6 +500,7 @@ const config: Config = {
 		superAdmin: envVars.SUP_ADM_ROLE_ID,
 		admin: envVars.ADM_ROLE_ID,
 		editor: envVars.EDTR_ROLE_ID,
+		sales: envVars.SALES_ROLE_ID,
 		user: envVars.USR_ROLE_ID,
 	},
 

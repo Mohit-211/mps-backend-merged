@@ -3,10 +3,10 @@ import { ADMIN_PERMISSIONS, PERMISSION_ROLES } from '../../configs/adminPermissi
 import { Role } from '../../models';
 import { catchAsync, responseWrapper } from '../../utils';
 
-// 13b: the admin roles, read-only (they are fixed: role ids 1 / 2 / 4 in src/configs/adminPermissions.ts).
+// 13b: the admin roles, read-only (they are fixed: role ids 1 / 2 / 4 / 8 in src/configs/adminPermissions.ts).
 // The admin panel uses it for the role picker when creating or editing an admin.
 
-const ROLE_KEYS = ['superAdmin', 'admin', 'editor'] as const;
+const ROLE_KEYS = ['superAdmin', 'admin', 'editor', 'sales'] as const;
 
 export const listRoles = catchAsync(async (req, res) => {
 	const stored = await Role.find({ role_id: { $in: ROLE_KEYS.map((k) => config.roles[k]) } }).select({ role_id: 1, name: 1, is_active: 1 }).lean<{ role_id: number; name: string; is_active: boolean }[]>();
