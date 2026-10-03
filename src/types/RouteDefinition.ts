@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* oxlint-disable typescript/no-explicit-any */
 import { Request, Response, NextFunction } from 'express';
 
 export interface RouteDefinition {

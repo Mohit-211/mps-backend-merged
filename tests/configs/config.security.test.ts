@@ -17,7 +17,7 @@ const loadConfig = (overrides: Record<string, string | undefined>): ConfigModule
 	try {
 		let loaded: ConfigModule['default'] | undefined;
 		jest.isolateModules(() => {
-			// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+			// oxlint-disable-next-line typescript/no-var-requires
 			loaded = require('../../src/configs/config').default;
 		});
 		return loaded as ConfigModule['default'];

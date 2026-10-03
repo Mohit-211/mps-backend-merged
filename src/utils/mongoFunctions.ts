@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* oxlint-disable typescript/no-explicit-any */
 import { Model } from 'mongoose';
 import httpStatus from 'http-status';
 import ApiError from './apiError';

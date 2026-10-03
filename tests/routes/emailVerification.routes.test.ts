@@ -28,9 +28,9 @@ jest.mock('../../src/services/common/email.service', () =>
 	),
 );
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const app: express.Express = require('../../src/app').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const HOUR = 3_600_000;
 const EMAIL = 'pat@signup.test';

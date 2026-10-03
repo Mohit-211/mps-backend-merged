@@ -9,7 +9,7 @@ import { BillingWebhookEvent, OrderNotApprovedError, PaymentProvider, ProviderOr
 // currency, the per-subscription price override, the 10-day price-change rule (renewalLeadDays), Orders
 // v2 capture quirks, webhook signature verification (Phase 10, AUDIT S4) and event parsing.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- raw PayPal webhook payloads, mapped immediately */
+/* oxlint-disable typescript/no-explicit-any -- raw PayPal webhook payloads, mapped immediately */
 type Raw = Record<string, any>;
 
 const BRAND = 'MyPageSEO';

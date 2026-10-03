@@ -8,9 +8,9 @@ import { clearDb, startTestDb } from '../helpers/mongoose';
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: jest.fn(), cancel: jest.fn() }), stopAgenda: jest.fn() }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const app: express.Express = require('../../src/app').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 let db: { stop: () => Promise<void> };
 beforeAll(async () => {

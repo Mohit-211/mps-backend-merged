@@ -41,7 +41,7 @@ jest.mock('../../src/services/gbp/idToken', () => ({
 	verifyGoogleIdToken: async () => ({ sub: '100000000000000000009', email: 'agency.google@example.test' }),
 }));
 const GBP_PROFILE = (): GbpLocation => {
-	// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+	// oxlint-disable-next-line typescript/no-var-requires
 	const { mapLocation } = require('../../src/clients/gbpClient');
 	return { ...(mapLocation(loadGbpFixture<RawLocation>('location')) as GbpLocation), name: 'locations/400000000000000000001', title: 'Dental Two', placeId: 'ChIJflowGbpDental000001' };
 };
@@ -120,9 +120,9 @@ const mockPaypal = {
 };
 jest.mock('../../src/clients/paypalClient', () => ({ ...jest.requireActual('../../src/clients/paypalClient'), paypalClient: () => mockPaypal }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const app: express.Express = require('../../src/app').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const api = (token?: string) => {
 	const auth = (r: request.Test) => (token ? r.set('Authorization', `Bearer ${token}`) : r);

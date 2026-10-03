@@ -12,7 +12,7 @@ import { addMember, clearDb, createLocation, createUser, ensureOrg, startTestDb 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: jest.fn(), cancel: jest.fn() }), stopAgenda: jest.fn() }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+// oxlint-disable-next-line typescript/no-var-requires
 const reviewsRoute = require('../../src/routes/v1/common/reviews.route').default;
 
 const app = express();

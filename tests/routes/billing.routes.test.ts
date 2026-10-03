@@ -32,9 +32,9 @@ const mockPaypal = {
 };
 jest.mock('../../src/clients/paypalClient', () => ({ ...jest.requireActual('../../src/clients/paypalClient'), paypalClient: () => mockPaypal }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const app: express.Express = require('../../src/app').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
 let db: { stop: () => Promise<void> };

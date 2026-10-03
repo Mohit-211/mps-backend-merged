@@ -17,11 +17,11 @@ jest.mock('../../src/services/common/email.service', () => ({
 	sendAdminPasswordLinkEmail: jest.fn(async (to: string, link: string, purpose: string) => sentLinks.push({ to, link, purpose }) > 0),
 }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const adminAuthRoute = require('../../src/routes/v1/admin/adminAuth.route').default;
 const adminsRoute = require('../../src/routes/v1/admin/admins.route').default;
 const adminBillingRoute = require('../../src/routes/v1/admin/billing.route').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const app = express();
 app.use(express.json());

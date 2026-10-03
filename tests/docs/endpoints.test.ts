@@ -8,10 +8,10 @@ import { ENDPOINT_STATUSES, DocEntry, RouteEntry, listRoutes, parseEndpointsDoc,
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const app: express.Express = require('../../src/app').default;
 const devConnectRoutes: express.Router = require('../../src/routes/dev/devConnect.route').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const DOC_PATH = path.resolve(__dirname, '../../docs/ENDPOINTS.md');
 const doc = parseEndpointsDoc(fs.readFileSync(DOC_PATH, 'utf8'));

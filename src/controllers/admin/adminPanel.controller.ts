@@ -13,7 +13,7 @@ const actor = (res: Response): AuditActor => {
 	const a = res.locals.admin as { id: string; name?: string | null };
 	return { id: a.id, name: a.name ?? null };
 };
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Joi-validated input
+// oxlint-disable-next-line typescript/no-explicit-any -- Joi-validated input
 const input = (res: Response): any => res.locals.input ?? {};
 const p = (req: { params: Record<string, string> }, k: string) => String(req.params[k]);
 

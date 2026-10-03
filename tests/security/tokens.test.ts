@@ -12,9 +12,9 @@ import { clearDb, createLocation, createUser, ensureOrg, startTestDb } from '../
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 jest.mock('../../src/services/common/email.service', () => new Proxy({}, { get: () => jest.fn(async () => true) }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const app: express.Express = require('../../src/app').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
 const me = (token: string) => request(app).get('/api/v1/dashboard').set(bearer(token));

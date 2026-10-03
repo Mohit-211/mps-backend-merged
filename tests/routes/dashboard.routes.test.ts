@@ -10,9 +10,9 @@ import { addMember, clearDb, createLocation, createUser, ensureOrg, keywordsOf, 
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const dashboardRoute = require('../../src/routes/v1/common/dashboard.route').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const app = express();
 app.use(express.json());

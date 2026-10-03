@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* oxlint-disable typescript/no-explicit-any */
 import httpStatus from 'http-status';
 import logger from '../../configs/logger';
 import { findLocationForUser } from '../org/access';

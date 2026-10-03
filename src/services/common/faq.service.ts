@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* oxlint-disable typescript/no-explicit-any */
 import httpStatus from 'http-status';
 import { Faq, IFaq } from '../../models';
 import { ApiError, isValidMongoObjectId, mongoFunctions } from '../../utils';

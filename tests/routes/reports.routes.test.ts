@@ -17,7 +17,7 @@ jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: sch
 const mailMock = jest.fn<Promise<boolean>, unknown[]>(async () => true);
 jest.mock('../../src/services/common/email.service', () => ({ sendReportEmail: (...args: unknown[]) => mailMock(...args) }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const reportsRoute = require('../../src/routes/v1/common/reports.route').default;
 const schedulesRoute = require('../../src/routes/v1/common/reportSchedules.route').default;
 const organizationRoute = require('../../src/routes/v1/common/organization.route').default;
@@ -26,7 +26,7 @@ const { reportService } = require('../../src/services/reports/report.service');
 const { scheduleService } = require('../../src/services/reports/schedule.service');
 const { requestScheduleDispatch, sendScheduledReport } = require('../../src/services/reports/dispatch');
 const { createReportEmailService } = require('../../src/services/reports/reportEmail.service');
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));

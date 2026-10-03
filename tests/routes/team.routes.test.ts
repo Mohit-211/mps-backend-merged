@@ -18,10 +18,10 @@ jest.mock('../../src/services/common/email.service', () => ({
 	sendInvitationEmail: jest.fn(async (to: string, link: string) => sent.push({ to, link }) > 0),
 }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const organizationRoute = require('../../src/routes/v1/common/organization.route').default;
 const authRoute = require('../../src/routes/v1/common/auth.route').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const app = express();
 app.use(express.json());

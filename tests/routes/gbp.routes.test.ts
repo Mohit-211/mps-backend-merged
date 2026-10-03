@@ -62,11 +62,11 @@ jest.mock('../../src/clients/gbpClient', () => {
 	};
 });
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const { mapAccount, mapLocation } = require('../../src/clients/gbpClient');
 const gbpRoute = require('../../src/routes/v1/common/gbpPostSchedular.route').default;
 const locationRoute = require('../../src/routes/v1/common/location.route').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const app = express();
 app.use(express.json());

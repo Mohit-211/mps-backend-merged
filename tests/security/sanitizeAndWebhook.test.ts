@@ -7,9 +7,9 @@ import { createPaypalProvider } from '../../src/services/billing/providers/paypa
 
 jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const app: express.Express = require('../../src/app').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 describe('request sanitiser (S6)', () => {
 	it('finds $ and dotted keys at any depth, and leaves ordinary values alone', () => {

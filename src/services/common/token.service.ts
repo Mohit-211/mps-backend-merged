@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* oxlint-disable typescript/no-explicit-any */
 import crypto from 'crypto';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { DateTime } from 'luxon';

@@ -13,7 +13,7 @@ import responseWrapper from './responseWrapper';
 // (Before: next(err) made Express log every error a second time, and 500s echoed the raw error.)
 
 // Express recognises an error handler by its 4 parameters, so `next` stays although it isn't called.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// oxlint-disable-next-line typescript/no-unused-vars
 const apiErrorHandler = (err: Error, req: Request, res: Response, next: NextFunction): void => {
 	if (res.headersSent) return;
 	if (err instanceof ApiError) {

@@ -226,11 +226,12 @@ TEST_LOGS=1 npm test   # show winston output while testing
 
 ```sh
 npm run lint        # oxlint over src/, tests/ and index.ts (every depth)
-npm run lint-fix    # the same with --fix
+npm run lint-fix    # the same with --fix (also removes unused disable directives)
 ```
 
 - **Linter: oxlint** (pinned `1.86.0`, config `.oxlintrc.json`; replaced ESLint 8 + typescript-eslint 7 on 2026-10-03). The config is the old ESLint set converted with `@oxlint/migrate`: ESLint recommended + typescript-eslint `strict` and `stylistic` (119 rules), Prettier still formats. Not carried over: `no-undef` (TypeScript checks it), `no-dupe-args` and `no-octal` (impossible in TS modules), and the Jest block (it targeted `*.spec.ts`, and there are none). `no-unused-vars` keeps `caughtErrors: "none"`, as ESLint 8 had. A full run takes about 0.5 s (ESLint: about 4 s).
-  - Existing `eslint-disable` comments keep working; oxlint reads them. New ones may use `oxlint-disable` too.
+  - Suppressions use oxlint's syntax: `// oxlint-disable-next-line typescript/no-explicit-any -- reason` (or a `/* oxlint-disable … */` file header). Rule names are oxlint's (`typescript/…`, plain names for core rules); diagnostics still print core rules as `eslint(rule)`, which is oxlint's name for that rule set.
+  - `npm run lint` fails on a disable directive that suppresses nothing (`--report-unused-disable-directives-severity=error`), so dead ones can't pile up.
   - Editor: the **Oxc** VS Code extension (`oxc.oxc-vscode`) instead of ESLint.
   - Type-aware rules (e.g. `no-floating-promises`) are not enabled; they would need oxlint's type-aware mode (`oxlint-tsgolint`).
 - **Lint baseline (2026-10-03): 40 errors, all in legacy GBP posting** (rebuilt in Phase 9); the rebuilt modules and all tests have **0**. History: 169 when first measured (2026-09-27), 137 after Phase 16, 82 after 13a, 40 after 13b.

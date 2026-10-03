@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/consistent-indexed-object-style */
+/* oxlint-disable typescript/consistent-indexed-object-style */
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import fs from 'fs';

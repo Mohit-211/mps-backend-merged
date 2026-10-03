@@ -33,7 +33,7 @@ jest.mock('../../src/clients/placesClient', () => {
 		placesClient: {
 			getPlaceDetails: async (placeId: string) => {
 				detailsCalls.push(placeId);
-				// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+				// oxlint-disable-next-line typescript/no-var-requires
 				const raw = require('../helpers/fakeTransport').loadPlacesFixture('placeDetails_add_location');
 				const details = {
 					id: placeId,
@@ -52,7 +52,7 @@ jest.mock('../../src/clients/placesClient', () => {
 	};
 });
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const routes: [string, express.Router][] = [
 	['/api/v1/auth', require('../../src/routes/v1/common/auth.route').default],
 	['/api/v1/organization', require('../../src/routes/v1/common/organization.route').default],
@@ -61,7 +61,7 @@ const routes: [string, express.Router][] = [
 	['/api/v1/locations', require('../../src/routes/v1/common/ranking.route').default],
 	['/api/v1/onboarding', require('../../src/routes/v1/common/onboarding.route').default],
 ];
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const app = express();
 app.use(express.json());

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* oxlint-disable typescript/no-explicit-any */
 // Assuming you are using express and multer together
 // npm install fluent-ffmpeg ffmpeg-static
 import { Request, Response, NextFunction } from 'express';

@@ -1,8 +1,4 @@
-/**
- * eslint-disable @typescript-eslint/no-explicit-any
- *
- * @format
- */
+/** @format */
 
 import httpStatus from "http-status";
 import { AdminPermission, permissionsFor } from "../../configs/adminPermissions";

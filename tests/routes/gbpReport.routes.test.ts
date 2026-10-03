@@ -13,9 +13,9 @@ jest.mock('../../src/configs/mongoConnection', () => ({ agenda: {} }));
 const scheduleMock = jest.fn(async () => ({}));
 jest.mock('../../src/configs/agenda', () => ({ getAgenda: () => ({ schedule: scheduleMock, cancel: jest.fn() }), stopAgenda: jest.fn() }));
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const rankingRoute = require('../../src/routes/v1/common/ranking.route').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const app = express();
 app.use(express.json());

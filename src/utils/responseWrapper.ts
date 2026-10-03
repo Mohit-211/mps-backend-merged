@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-inferrable-types */
+/* oxlint-disable typescript/no-explicit-any */
+/* oxlint-disable typescript/no-inferrable-types */
 import { Response } from 'express';
 
 interface ResponseWrapperInterface {

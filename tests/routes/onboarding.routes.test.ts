@@ -64,15 +64,15 @@ jest.mock('../../src/clients/placesClient', () => {
 	};
 });
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-disable typescript/no-var-requires */
 const { mapLocation } = require('../../src/clients/gbpClient');
 const onboardingRoute = require('../../src/routes/v1/common/onboarding.route').default;
 const placesRoute = require('../../src/routes/v1/common/places.route').default;
 const rankingRoute = require('../../src/routes/v1/common/ranking.route').default;
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+// oxlint-disable-next-line typescript/no-var-requires
 const locationRoute = require('../../src/routes/v1/common/location.route').default;
 const gbpRoute = require('../../src/routes/v1/common/gbpPostSchedular.route').default;
-/* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+/* oxlint-enable typescript/no-var-requires */
 
 const app = express();
 app.use(express.json());
