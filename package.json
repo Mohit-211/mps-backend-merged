@@ -8,8 +8,8 @@
     "dev": "cross-env NODE_ENV=development nodemon",
     "build": "tsc -p . && shx cp package.json ./build/package.json && shx cp package-lock.json ./build/package-lock.json",
     "config:check": "ts-node --transpile-only -e \"require('./src/configs/config'); console.log('config OK')\"",
-    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" index.ts",
-    "lint-fix": "eslint --fix \"src/**/*.ts\" \"tests/**/*.ts\" index.ts",
+    "lint": "oxlint src tests index.ts",
+    "lint-fix": "oxlint --fix src tests index.ts",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "setup:fresh": "ts-node --transpile-only src/scripts/setupFresh.ts",
     "seed:reference-data": "ts-node --transpile-only src/scripts/seedReferenceData.ts",
@@ -75,7 +75,6 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
@@ -88,19 +87,16 @@
     "@types/pdfkit": "^0.17.6",
     "@types/request-ip": "^0.0.41",
     "@types/supertest": "^7.2.1",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.1.2",
-    "eslint-plugin-jest": "^28.14.0",
     "jest": "^30.5.2",
     "mongodb-memory-server": "^11.3.0",
     "nodemon": "^3.1.14",
+    "oxlint": "1.86.0",
     "prettier": "^3.9.8",
     "shx": "^0.4.0",
     "supertest": "^7.3.0",
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^7.18.0"
+    "typescript": "^5.9.3"
   },
   "config": {
     "mongodbMemoryServer": {

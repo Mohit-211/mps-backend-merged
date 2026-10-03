@@ -44,7 +44,6 @@ temp/
 # ---- Tests and tooling caches ----
 coverage/
 .nyc_output/
-.eslintcache
 .jest-cache/
 
 # ---- Editors and OS ----
