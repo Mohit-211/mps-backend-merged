@@ -225,12 +225,17 @@ TEST_LOGS=1 npm test   # show winston output while testing
 ## Lint and editor setup
 
 ```sh
-npm run lint        # eslint over src/, tests/ and index.ts (every depth)
+npm run lint        # oxlint over src/, tests/ and index.ts (every depth)
+npm run lint-fix    # the same with --fix
 ```
 
-- **Lint baseline (2026-09-27, after Phase 16): 137 errors, all in legacy modules.** They are in payments / subscriptions / PayPal, white-label, legacy GBP posting (Phase 9), support, legacy user auth, admin operations and old models. The rebuilt modules and all tests have **0**. (It was 169 before Phase 16 deleted the old citation module.)
+- **Linter: oxlint** (pinned `1.86.0`, config `.oxlintrc.json`; replaced ESLint 8 + typescript-eslint 7 on 2026-10-03). The config is the old ESLint set converted with `@oxlint/migrate`: ESLint recommended + typescript-eslint `strict` and `stylistic` (119 rules), Prettier still formats. Not carried over: `no-undef` (TypeScript checks it), `no-dupe-args` and `no-octal` (impossible in TS modules), and the Jest block (it targeted `*.spec.ts`, and there are none). `no-unused-vars` keeps `caughtErrors: "none"`, as ESLint 8 had. A full run takes about 0.5 s (ESLint: about 4 s).
+  - Existing `eslint-disable` comments keep working; oxlint reads them. New ones may use `oxlint-disable` too.
+  - Editor: the **Oxc** VS Code extension (`oxc.oxc-vscode`) instead of ESLint.
+  - Type-aware rules (e.g. `no-floating-promises`) are not enabled; they would need oxlint's type-aware mode (`oxlint-tsgolint`).
+- **Lint baseline (2026-10-03): 40 errors, all in legacy GBP posting** (rebuilt in Phase 9); the rebuilt modules and all tests have **0**. History: 169 when first measured (2026-09-27), 137 after Phase 16, 82 after 13a, 40 after 13b.
   - Gate: files you touch add no new errors.
-  - Until 2026-09-27 the script was `eslint src/**/*.ts` with an unquoted glob. `sh` has no `**`, so it linted only files exactly one folder deep (159 of 365), and the old "32" baseline under-counted. The globs are quoted now, so ESLint expands them itself.
+  - Until 2026-09-27 the script was `eslint src/**/*.ts` with an unquoted glob. `sh` has no `**`, so it linted only files exactly one folder deep (159 of 365), and the old "32" baseline under-counted.
 - **Editor: use the project's TypeScript.** VS Code bundles TypeScript **6.0**, while the project builds with **5.9.3** (`node_modules/typescript`).
   - TS 6 changes defaults: `strict` is on, `rootDir` defaults to the tsconfig folder, and `moduleResolution: node` is deprecated. Under TS 6 the editor showed hundreds of red lines the build never had.
   - `.vscode/settings.json` (committed) sets `typescript.tsdk` to the workspace version. Accept the prompt once, or run **"TypeScript: Select TypeScript Version" → "Use Workspace Version"**.

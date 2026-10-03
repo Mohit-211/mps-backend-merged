@@ -136,7 +136,7 @@ The target screens are in [product/frontend-roadmap.pdf](product/frontend-roadma
 | **Legacy routes** | None deprecated. Still legacy code: reference data, blog, FAQ, contact form (kept by decision) and GBP posting (Phase 9) | STATUS.md "What remains legacy". |
 | **Production** | Never deployed from the rebuild | Phase 14 (fresh server, backups, nginx, pm2, monitoring) + the deploy checklist in OPERATIONS.md. |
 | **Docs debt** | `ARCHITECTURE.md` not written (Swagger removed in 13b) | 9b. ENDPOINTS.md + API.md are current and are the reference until then. |
-| **Tooling** | `moduleResolution: node` is removed in TypeScript 7; 40 legacy lint errors (GBP posting) | OPERATIONS.md "Lint and editor setup"; STATUS.md backlog. |
+| **Tooling** | `moduleResolution: node` is removed in TypeScript 7; 40 legacy lint errors (GBP posting; the linter is oxlint since 2026-10-03) | OPERATIONS.md "Lint and editor setup"; STATUS.md backlog. |
 | **Maps ToS** | Accepted risk: names, competitor data and reports store Places content (with attribution) | Revisit before launch (STATUS.md "Maps ToS: accepted risk"). |
 
 ## 7. What's left (roadmap)
