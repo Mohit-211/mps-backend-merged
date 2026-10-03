@@ -371,7 +371,8 @@ describe('rank-run: Phase 12.5 full lists, samples, map points, heartbeat', () =
 		expect(doc?.points.find((p) => p.point === 'N')?.result_count).toBe(33);
 		expect(run.tracker[0].cells[1].result_count).toBe(33);
 		// Dictionary encoding: 2 bytes per result, not a 27-character ID.
-		expect((c?.ids as unknown as { length?: number; buffer?: { length: number } })?.buffer?.length ?? (c?.ids as unknown as Buffer).length).toBe(120);
+		const stored = c?.ids as unknown as { length?: number; buffer?: { length: number } } | undefined;
+		expect(stored?.buffer?.length ?? stored?.length).toBe(120);
 	});
 
 	it('takes N samples per point (median, samples and spread stored) and records the config', async () => {

@@ -61,8 +61,7 @@ export const reviewStats = (
 	const recent = reviews.filter((r) => within(r.create_time, now, 90));
 	const replied = recent.filter((r) => r.reply !== null);
 	const replyHours = replied
-		.filter((r) => r.reply?.update_time && r.create_time)
-		.map((r) => ((r.reply?.update_time as Date).getTime() - (r.create_time as Date).getTime()) / 3_600_000)
+		.flatMap((r) => (r.reply?.update_time && r.create_time ? [(r.reply.update_time.getTime() - r.create_time.getTime()) / 3_600_000] : []))
 		.filter((h) => h >= 0);
 	const medianHours = median(replyHours);
 	return {
